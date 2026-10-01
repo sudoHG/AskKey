@@ -28,7 +28,7 @@ The codebase is being re-imported from a private legacy repository and restructu
 
 Never, unless an issue labeled `ready-for-human` is being done by the maintainer in person:
 
-- Read or write `~/Library/Application Support/AskKey` (the development namespace `~/Library/Application Support/AskKey Dev` and temporary directories are fine).
+- Read or write production data in `~/Library/Application Support/AskKey`. Development namespaces are fine: the `dev` subdirectory `~/Library/Application Support/AskKey/dev` (default for Debug builds and `swift test`), `~/Library/Application Support/AskKey Dev` (used by `make run`), and temporary directories.
 - Touch `/Applications/Ask Key.app`, or install anything into `/Applications`.
 - Read or write the production keychain service `com.sudohg.askkey.vault`. Development builds use `com.sudohg.askkey.vault.dev`.
 - Use real credentials in tests. Use synthetic values only.
@@ -59,6 +59,8 @@ Requirements: macOS 14+, full Xcode with a Swift 6 toolchain, at least 80 GiB fr
 swift build
 swift test
 ```
+
+Run tests exactly like CI: do not set `ASKKEY_DEBUG_RUN_DIRECTORY`, `ASKKEY_BROKER_SOCKET` or other `ASKKEY_*` variables unless an issue says so. Several tests rely on the default runtime path resolution.
 
 Run the development app only when an issue needs it; it uses the isolated `AskKey Dev` namespace. Never copy a development build to `/Applications/Ask Key.app`.
 
