@@ -38,6 +38,16 @@ gh issue list --repo sudoHG/AskKey --label ready-for-agent --state open
 8. **Push the task branch and open a PR** with `Closes #<number>` and the receipt below. Add `needs-review` to the PR.
 9. **Continue** with the next claimable issue until none remain.
 
+**Tasks that produce no repository change** (for example, recording evidence from the legacy code): skip steps 7–8. Post the receipt as an issue comment instead and add `needs-review` to the issue. The planner closes it.
+
+**Working in the legacy code**: a read-only reference clone of the archived repository is at `~/Coding/AskKey-workspace/legacy`, checked out at tag `legacy-final`. Create a detached worktree from it when a task needs to build or run legacy code:
+
+```bash
+git -C ~/Coding/AskKey-workspace/legacy worktree add --detach ~/Coding/AskKey-workspace/worktrees/legacy-<number> legacy-final
+```
+
+The `AGENTS.md` and other docs inside the legacy tree are outdated (they mention Multica, doctier and `.harness`). Ignore them; this repository's rules apply. Never fetch legacy history into this repository.
+
 After a PR is merged, remove its worktree: `git worktree remove ~/Coding/AskKey-workspace/worktrees/<number>`.
 
 ## Receipt (PR description)
