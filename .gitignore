@@ -1,0 +1,34 @@
+# Build
+.build/
+.swiftpm/
+DerivedData/
+.derivedData/
+*.o
+*.d
+*.profraw
+*.xcuserstate
+xcuserdata/
+__pycache__/
+.generated/
+
+# Generated E2E project and run output
+Tests/UI/*.xcodeproj/
+Tests/UI/output/
+
+# SQLite side files from fixtures
+*.db-shm
+*.db-wal
+
+# Local agent state
+.claude/
+.codex/
+.agents/
+
+# Process records belong in ~/Coding/AskKey-workspace, never in the repo
+evidence/
+receipts/
+reviews/
+*.xcresult/
+
+# macOS
+.DS_Store
