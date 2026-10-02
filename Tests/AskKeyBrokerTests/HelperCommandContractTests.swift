@@ -5,7 +5,6 @@ final class HelperCommandContractTests: XCTestCase {
     func testRemovedDirectCommandsFailClosedWithUsage() throws {
         for command in [
             ["catalog"],
-            ["multica-config"],
             ["write-request"],
             ["write-commit"],
             ["write-cancel"],

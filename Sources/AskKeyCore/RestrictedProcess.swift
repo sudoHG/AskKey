@@ -6,11 +6,10 @@ import Darwin
 #if DEBUG
 /// DEBUG-only onboarding observation. Not compiled into Release Core.
 /// `note` records when a check/apply task set `active`, or when an isolated
-/// page window is open. `multicaCLI` is Multica process start, not a socket.
+/// page window is open.
 public enum OnboardingBoundaryObserver {
     public enum Kind: String, Sendable {
         case cli
-        case multicaCLI
         case keychain
         case configWrite
         case cursorHelper
@@ -34,7 +33,7 @@ public enum OnboardingBoundaryObserver {
     }
 
     public static let emptySnapshot: [String: Int] = [
-        "cli": 0, "multicaCLI": 0, "keychain": 0, "configWrite": 0, "cursorHelper": 0
+        "cli": 0, "keychain": 0, "configWrite": 0, "cursorHelper": 0
     ]
 
     public final class Recorder: @unchecked Sendable {
@@ -55,7 +54,6 @@ public enum OnboardingBoundaryObserver {
             lock.withLock {
                 [
                     "cli": counts[.cli, default: 0],
-                    "multicaCLI": counts[.multicaCLI, default: 0],
                     "keychain": counts[.keychain, default: 0],
                     "configWrite": counts[.configWrite, default: 0],
                     "cursorHelper": counts[.cursorHelper, default: 0]

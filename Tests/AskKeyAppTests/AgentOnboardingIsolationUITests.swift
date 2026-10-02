@@ -69,19 +69,6 @@ private struct IsolatedOnboardingScenario {
     static let all: [IsolatedOnboardingScenario] = [
         .init(id: "01-first-visit", title: "首次进入，尚未检查", expanded: nil, sessions: [:]),
         .init(
-            id: "02-network-error",
-            title: "Multica 检查失败，错误留在该行",
-            expanded: .multica,
-            sessions: [
-                .multica: AgentClientOnboardingSession(
-                    lastKnownResult: nil,
-                    attempt: .init(phase: .needsAction, failure: .networkUnavailable, changeStatus: .notWritten, message: ""),
-                    operationID: nil,
-                    plan: nil
-                )
-            ]
-        ),
-        .init(
             id: "03-ready-to-confirm",
             title: "本机 Codex 待确认范围",
             expanded: .codex,
@@ -99,23 +86,16 @@ private struct IsolatedOnboardingScenario {
                         createdAt: Date(timeIntervalSince1970: 1_700_000_000),
                         targetIdentity: "Codex",
                         scopeSummary: "Add Ask Key for the current user of Codex. Other connections stay as they are. A backup is created first.",
-                        agentIDs: [],
-                        agentNames: [],
-                        workspaceID: nil,
-                        workspaceName: nil,
-                        serverID: nil,
-                        createsServer: false,
                         configurationPresent: false,
                         verifiesOnly: false,
-                        preconditionSummary: "If verification fails, Ask Key restores the original settings.",
-                        activeAgentFingerprint: ""
+                        preconditionSummary: "If verification fails, Ask Key restores the original settings."
                     )
                 )
             ]
         ),
         .init(
             id: "04-success",
-            title: "已验证连接 / 工作区已配置",
+            title: "已验证连接",
             expanded: nil,
             sessions: [
                 .codex: AgentClientOnboardingSession(
@@ -125,33 +105,6 @@ private struct IsolatedOnboardingScenario {
                         targetSummary: "Codex"
                     ),
                     attempt: .init(phase: .completed, failure: nil, changeStatus: .verifiedAndKept, message: ""),
-                    operationID: nil,
-                    plan: nil
-                ),
-                .multica: AgentClientOnboardingSession(
-                    lastKnownResult: AgentLastKnownResult(
-                        outcome: .workspaceConfigured,
-                        checkedAt: Date(timeIntervalSince1970: 1_700_000_000),
-                        targetSummary: "Studio"
-                    ),
-                    attempt: .init(phase: .completed, failure: nil, changeStatus: .notWritten, message: ""),
-                    operationID: nil,
-                    plan: nil
-                )
-            ]
-        ),
-        .init(
-            id: "05-remote-unknown",
-            title: "远程结果未知，停止重复配置",
-            expanded: .multica,
-            sessions: [
-                .multica: AgentClientOnboardingSession(
-                    lastKnownResult: AgentLastKnownResult(
-                        outcome: .configuredUnverified,
-                        checkedAt: Date(timeIntervalSince1970: 1_700_000_000),
-                        targetSummary: "ws-1"
-                    ),
-                    attempt: .init(phase: .recoveryRequired, failure: .remoteUnknown, changeStatus: .remoteUnknown, message: ""),
                     operationID: nil,
                     plan: nil
                 )

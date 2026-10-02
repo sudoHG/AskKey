@@ -56,85 +56,6 @@ final class AgentOnboardingEvidenceCloseTests: XCTestCase {
         XCTAssertEqual(session.attempt.failure, .verificationFailed)
     }
 
-    @MainActor
-    func testJournalRereadInNewProcessDoesNotNeedNetwork() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-e3-journal-\(UUID().uuidString)", isDirectory: true)
-        let recovery = root.appendingPathComponent(
-            "client-backups/multica-recovery",
-            isDirectory: true
-        )
-        defer { try? FileManager.default.removeItem(at: root) }
-        try FileManager.default.createDirectory(at: recovery, withIntermediateDirectories: true)
-        let record = MulticaRecoveryJournal.Record(
-            operationID: "op-e3",
-            workspaceID: "ws-e3",
-            serverName: "askkey",
-            agentIDs: ["agent-1"],
-            phase: "restore_failed",
-            createdServerID: "srv-keep",
-            assignedAgentIDs: []
-        )
-        try MulticaRecoveryJournal.write(record, to: recovery)
-        let file = recovery.appendingPathComponent("pending.json")
-        let output = root.appendingPathComponent("reread.txt")
-        let source = root.appendingPathComponent("reread.c")
-        try """
-        #include <stdio.h>
-        int main(int argc, char **argv) {
-            if (argc < 3) return 2;
-            FILE *in = fopen(argv[1], "r");
-            if (!in) return 3;
-            FILE *out = fopen(argv[2], "w");
-            if (!out) { fclose(in); return 4; }
-            char buf[4096];
-            size_t n;
-            while ((n = fread(buf, 1, sizeof buf, in)) > 0) fwrite(buf, 1, n, out);
-            fclose(in);
-            fclose(out);
-            return 0;
-        }
-        """.write(to: source, atomically: true, encoding: .utf8)
-        let binary = root.appendingPathComponent("reread")
-        let compile = Process()
-        compile.executableURL = URL(fileURLWithPath: "/usr/bin/cc")
-        compile.arguments = [source.path, "-o", binary.path]
-        try compile.run()
-        compile.waitUntilExit()
-        XCTAssertEqual(compile.terminationStatus, 0)
-        let run = Process()
-        run.executableURL = binary
-        run.arguments = [file.path, output.path]
-        try run.run()
-        run.waitUntilExit()
-        XCTAssertEqual(run.terminationStatus, 0)
-        let text = try String(contentsOf: output, encoding: .utf8)
-        XCTAssertTrue(text.contains("restore_failed"))
-        XCTAssertTrue(text.contains("srv-keep"))
-        let mutations = LockedMutationCount()
-        let coordinator = AgentOnboardingCoordinator(operations: AgentOnboardingOperations(
-            check: { _, _ in
-                mutations.add()
-                return AgentCheckReport(outcome: .notConfigured, targetSummary: "", plan: nil, failure: nil)
-            },
-            apply: { _, _, _ in
-                mutations.add()
-                return AgentApplyReport(
-                    outcome: .notConfigured,
-                    changeStatus: .notWritten,
-                    failure: .cancelled,
-                    targetSummary: ""
-                )
-            },
-            authenticate: { .cancelled }
-        ))
-        AgentOnboardingRuntime.adoptPendingRecovery(into: coordinator, supportDirectory: root)
-        XCTAssertEqual(mutations.value, 0)
-        let session = coordinator.session(for: .multica)
-        XCTAssertEqual(session.attempt.phase, .recoveryRequired)
-        XCTAssertEqual(session.attempt.changeStatus, .restoreFailed)
-        XCTAssertEqual(session.attempt.failure, .restoreFailed)
-    }
 }
 
 private final class CloseApplyGate: @unchecked Sendable {
@@ -208,15 +129,8 @@ private func closeSamplePlan(_ client: AgentClient) -> AgentOnboardingPlan {
         createdAt: Date(timeIntervalSince1970: 1),
         targetIdentity: client.rawValue,
         scopeSummary: "scope",
-        agentIDs: ["agent-1"],
-        agentNames: ["开发"],
-        workspaceID: client == .multica ? "ws-1" : nil,
-        workspaceName: client == .multica ? "Studio" : nil,
-        serverID: nil,
-        createsServer: client == .multica,
         configurationPresent: false,
         verifiesOnly: false,
-        preconditionSummary: "backup",
-        activeAgentFingerprint: client == .multica ? "agent-1" : ""
+        preconditionSummary: "backup"
     )
 }

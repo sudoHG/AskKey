@@ -39,9 +39,6 @@ enum AppRuntimeState {
         return E2EAppRuntime.makeViewModel()
 #endif
 #if DEBUG
-        if AgentOnboardingRestartProof.isRequested {
-            AgentOnboardingRestartProof.prepareObservation()
-        }
         if visualProofEnabled { return makeVisualProofViewModel() }
 #endif
         return VaultViewModel()
@@ -495,11 +492,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             setupWindowBehavior()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
 #if DEBUG
-                if AgentOnboardingRestartProof.isRequested {
-                    guard let self else { return }
-                    Task { await AgentOnboardingRestartProof.run(vault: self.vault) }
-                    return
-                }
                 if AgentOnboardingDebugSupport.isRequested {
                     guard let self else { return }
                     let window = self.managementWindow ?? NSApp.windows.first {

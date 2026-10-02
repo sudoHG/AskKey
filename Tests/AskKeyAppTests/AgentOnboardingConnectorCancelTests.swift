@@ -17,10 +17,6 @@ final class AgentOnboardingConnectorCancelTests: XCTestCase {
         try await runConnectorCancel(client: .grok, placeCursorConfig: false)
     }
 
-    func testMulticaCheckCancelGoesThroughDetachedConnectorNotAdapterOnly() async throws {
-        try await runConnectorCancel(client: .multica, placeCursorConfig: false)
-    }
-
     func testCancelBeforeConnectorCheckDoesNotSpawn() async throws {
         let env = try IsolatedCancelHome()
         defer { env.tearDown() }
@@ -81,7 +77,6 @@ final class AgentOnboardingConnectorCancelTests: XCTestCase {
         let errorMessage = await MainActor.run { viewModel.errorMessage }
         XCTAssertNotEqual(session.attempt.phase, .checking)
         XCTAssertNotEqual(session.attempt.failure, .timedOut)
-        XCTAssertNotEqual(session.attempt.failure, .networkUnavailable)
         XCTAssertNil(errorMessage)
         assertProcessGone(pid)
         assertProcessGone(child)
@@ -201,7 +196,7 @@ private struct IsolatedCancelHome {
             seconds: sleepSeconds,
             root: root
         )
-        for name in ["codex", "grok", "multica"] {
+        for name in ["codex", "grok"] {
             _ = try IsolatedCancelHome.writeSleepCLI(named: name, seconds: sleepSeconds, root: root)
         }
         cursorConfigBytes = try JSONSerialization.data(
@@ -268,7 +263,6 @@ private struct IsolatedCancelHome {
         case .codex: return CodexUserMCP.userConfigURL(home: root)
         case .cursor: return cursorConfigURL
         case .grok: return root.appendingPathComponent(".grok/config.toml")
-        case .multica: return CodexUserMCP.userConfigURL(home: root)
         }
     }
 

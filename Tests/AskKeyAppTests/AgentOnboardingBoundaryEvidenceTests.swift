@@ -25,7 +25,6 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
             try triggerIsolatedBoundaries()
         }
         XCTAssertGreaterThan(recorder.count(.cli), 0, "CLI seam must increment")
-        XCTAssertGreaterThan(recorder.count(.multicaCLI), 0, "Multica CLI spawn must increment")
         XCTAssertGreaterThan(recorder.count(.keychain), 0, "keychain intercept must increment")
         XCTAssertGreaterThan(recorder.count(.configWrite), 0, "config write seam must increment")
         XCTAssertGreaterThan(recorder.count(.cursorHelper), 0, "Cursor helper Process start must increment")
@@ -35,7 +34,6 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
         OnboardingBoundaryObserver.beginPageWindow()
         try triggerIsolatedBoundaries()
         XCTAssertGreaterThan(recorder.count(.cli), 0)
-        XCTAssertGreaterThan(recorder.count(.multicaCLI), 0)
         XCTAssertGreaterThan(recorder.count(.keychain), 0)
         XCTAssertGreaterThan(recorder.count(.configWrite), 0)
         XCTAssertGreaterThan(recorder.count(.cursorHelper), 0, "page window must see CursorUserMCPAdapter.probeMCP")
@@ -52,7 +50,6 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
             )
         )
         XCTAssertEqual(recorder.count(.cli), 0)
-        XCTAssertEqual(recorder.count(.multicaCLI), 0)
         XCTAssertEqual(recorder.count(.keychain), 0)
         XCTAssertEqual(recorder.count(.configWrite), 0)
         XCTAssertEqual(recorder.count(.cursorHelper), 0)
@@ -62,7 +59,6 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
         OnboardingBoundaryObserver.beginPageWindow()
         try triggerIsolatedBoundaries()
         XCTAssertGreaterThan(recorder.count(.cli), 0)
-        XCTAssertGreaterThan(recorder.count(.multicaCLI), 0)
         XCTAssertGreaterThan(recorder.count(.cursorHelper), 0)
         recorder.reset()
         XCTAssertTrue(OnboardingBoundaryObserver.isPageWindowActive)
@@ -94,7 +90,6 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
         }
         XCTAssertTrue(OnboardingBoundaryObserver.isPageWindowActive)
         XCTAssertEqual(recorder.count(.cli), 0)
-        XCTAssertEqual(recorder.count(.multicaCLI), 0)
         XCTAssertEqual(recorder.count(.keychain), 0)
         XCTAssertEqual(recorder.count(.configWrite), 0)
         XCTAssertEqual(recorder.count(.cursorHelper), 0)
@@ -136,7 +131,6 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
         XCTAssertGreaterThan(recorder.count(.cli), 0)
         await MainActor.run {
             XCTAssertNotEqual(coordinator.session(for: .codex).attempt.failure, .timedOut)
-            XCTAssertNotEqual(coordinator.session(for: .codex).attempt.failure, .networkUnavailable)
         }
     }
 
@@ -147,7 +141,7 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         let bin = home.appendingPathComponent(".local/bin", isDirectory: true)
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        for name in ["codex", "grok", "multica"] {
+        for name in ["codex", "grok"] {
             let url = bin.appendingPathComponent(name)
             let script = name == "codex"
                 ? "#!/bin/sh\necho '0.42.0'\nexit 0\n"
@@ -229,16 +223,9 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
                 createdAt: Date(timeIntervalSince1970: 1),
                 targetIdentity: client.rawValue,
                 scopeSummary: "scope",
-                agentIDs: [],
-                agentNames: [],
-                workspaceID: nil,
-                workspaceName: nil,
-                serverID: nil,
-                createsServer: false,
                 configurationPresent: false,
                 verifiesOnly: false,
-                preconditionSummary: "backup",
-                activeAgentFingerprint: ""
+                preconditionSummary: "backup"
             )
             XCTAssertThrowsError(try connector.apply(client, plan: plan)) { error in
                 XCTAssertEqual(error as? AgentOnboardingFailure, .planChanged)
@@ -270,15 +257,6 @@ final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
             exclusive: true,
             temporaryPrefix: ".askkey-e1-"
         )
-        let adapter = MulticaWorkspaceMCPAdapter(
-            helperURL: URL(fileURLWithPath: "/usr/bin/true"),
-            helperIsTrusted: { _ in true },
-            command: ProcessMulticaWorkspaceMCPCommand.make(
-                executable: URL(fileURLWithPath: "/usr/bin/true"),
-                addTimeout: 1
-            )
-        )
-        _ = try? adapter.checkStatus()
     }
 
     private func makeDirectory(_ label: String) throws -> URL {

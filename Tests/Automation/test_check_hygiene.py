@@ -94,6 +94,12 @@ struct Ordinary {}
         self.assertEqual(hygiene.violations(self.root), {
             "multica:docs/client.txt", "multica:Tests/client.txt"})
 
+    def test_feature_inventory_exempts_only_the_multica_check(self):
+        self.write("docs/features.md", "Multica /Users/synthetic\n")
+        self.write("docs/nested/features.md", "Multica\n")
+        self.assertEqual(hygiene.violations(self.root), {
+            "local-path:docs/features.md", "multica:docs/nested/features.md"})
+
     def test_only_tracked_files_are_checked(self):
         self.write("Sources/UntrackedFixture.swift", "#if DEBUG\nMultica /Users/synthetic\n", tracked=False)
         self.assertEqual(hygiene.violations(self.root), set())

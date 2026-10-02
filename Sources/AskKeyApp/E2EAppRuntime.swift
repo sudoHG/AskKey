@@ -131,15 +131,6 @@ enum E2EAppRuntime {
         let selectedScenario = scenario
         model.onboarding.operations = AgentOnboardingRuntime.boundOperations(
             runCheck: { client in
-                if selectedScenario == "multica-network-recovery", client == .multica {
-                    let executable = try makeMulticaRecoveryFixture(in: directory)
-                    return try MulticaWorkspaceMCPAdapter(
-                        helperURL: directory.appendingPathComponent("unused-helper"),
-                        command: ProcessMulticaWorkspaceMCPCommand.make(
-                            executable: executable
-                        )
-                    ).checkStatus()
-                }
                 if selectedScenario == "failure" { throw AgentOnboardingFailure.verificationFailed }
                 if selectedScenario == "cancel" {
                     try E2EProcessFixture.runSlowCommand(in: directory)
@@ -160,10 +151,9 @@ enum E2EAppRuntime {
                 let discovery: CredentialDiscoveryReadiness? = switch client {
                 case .codex: .enabled
                 case .cursor, .grok: .configured
-                case .multica: nil
                 }
                 return AgentCheckReport(
-                    outcome: client == .multica ? .workspaceConfigured : .verifiedConnected,
+                    outcome: .verifiedConnected,
                     targetSummary: client.rawValue, plan: nil, failure: nil,
                     discovery: discovery
                 )
@@ -172,35 +162,6 @@ enum E2EAppRuntime {
             authenticate: { .confirmed }
         )
         return model
-    }
-
-    // Sandboxed XCTest marks executables it creates as quarantined. Create this
-    // fixed, network-free fixture in the isolated test App instead; do not strip
-    // quarantine or weaken the host's security settings.
-    nonisolated private static func makeMulticaRecoveryFixture(in directory: URL) throws -> URL {
-        guard VaultConfiguration.debugRunDirectory == directory else {
-            throw DebugRunDirectoryError.invalidDirectory
-        }
-        let executable = directory.appendingPathComponent("multica")
-        try Data("""
-        #!/bin/sh
-        root="$(dirname "$0")"
-        if [ "$1 $2" = "workspace list" ]; then
-          echo attempt >> "$root/read-attempts.txt"
-          if [ ! -f "$root/first-request-failed" ]; then
-            touch "$root/first-request-failed"
-            echo 'Could not reach the Multica server. Check your network connection.' >&2
-            exit 2
-          fi
-          echo '[{"id":"test-workspace","name":"E2E"}]'
-        elif [ "$1 $2 $3" = "workspace mcp list" ]; then
-          echo '[{"id":"test-server","name":"askkey","transport":"stdio"}]'
-        else
-          exit 97
-        fi
-        """.utf8).write(to: executable)
-        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
-        return executable
     }
 
     private static var driver: E2EBrokerScenario?

@@ -2,53 +2,6 @@ import XCTest
 import Darwin
 
 final class AskKeyE2ETests: E2EBaseCase {
-    func testMulticaFirstNetworkFailureRecoversWithoutSecondClick() throws {
-        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "multica-network-recovery"
-        app.launch()
-        click("unlock-management")
-        click("sidebar-agent")
-        click("onboarding-review-multica")
-        click("onboarding-check-multica")
-        let result = app.descendants(matching: .any)["onboarding-completion-multica"].firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 10), "One click must recover from the transient route failure")
-        XCTAssertTrue(result.isHittable)
-        let attemptsURL = runDirectory.appendingPathComponent("read-attempts.txt")
-        // The fixture writes in the private runtime directory; the App mirrors
-        // its original bytes into the runner's control directory asynchronously.
-        let mirrored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            guard let contents = try? String(contentsOf: attemptsURL, encoding: .utf8) else { return false }
-            return contents.split(separator: "\n").count >= 2
-        }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [mirrored], timeout: 5), .completed,
-                       "The original fixture attempt ledger must reach the runner")
-        let attempts = try String(contentsOf: attemptsURL, encoding: .utf8)
-        XCTAssertEqual(attempts.split(separator: "\n").count, 2)
-        let failure = app.staticTexts.matching(NSPredicate(
-            format: "label CONTAINS %@ OR value CONTAINS %@", "暂时无法访问 Multica", "暂时无法访问 Multica"
-        )).firstMatch
-        XCTAssertFalse(failure.exists)
-    }
-
-    func testMulticaReviewDoesNotClaimFailureBeforeChecking() throws {
-        app.launch()
-        click("unlock-management")
-        click("sidebar-agent")
-        click("onboarding-review-multica")
-
-        XCTAssertTrue(app.buttons["onboarding-check-multica"].waitForExistence(timeout: 8))
-        let failure = app.staticTexts.matching(NSPredicate(
-            format: "label CONTAINS %@ OR value CONTAINS %@", "暂时无法访问 Multica", "暂时无法访问 Multica"
-        )).firstMatch
-        XCTAssertFalse(failure.exists, "Reviewing setup must not invent a failed network check")
-        let result = app.descendants(matching: .any)["onboarding-completion-multica"].firstMatch
-        XCTAssertFalse(result.exists)
-
-        click("onboarding-check-multica")
-        XCTAssertTrue(result.waitForExistence(timeout: 10))
-        XCTAssertFalse(failure.exists)
-        XCTAssertTrue(result.isHittable)
-    }
-
     func testEnglishCheckShowsCompletionAndDoesNotRunOnEntry() throws {
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = "en"
         app.launch()

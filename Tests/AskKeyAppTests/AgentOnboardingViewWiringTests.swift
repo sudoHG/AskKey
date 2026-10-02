@@ -14,7 +14,7 @@ final class AgentOnboardingViewWiringTests: XCTestCase {
         let spyLog = root.appendingPathComponent("cli-spy.log")
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        try installSpyCLI(at: bin.appendingPathComponent("multica"), log: spyLog)
+        try installSpyCLI(at: bin.appendingPathComponent("askkey"), log: spyLog)
 
         let vault = makeIsolatedVault()
         let probe = WiringProbe()
@@ -23,7 +23,8 @@ final class AgentOnboardingViewWiringTests: XCTestCase {
             return try AgentClientConnector(
                 home: root,
                 installationHome: root,
-                supportDirectory: root.appendingPathComponent("support", isDirectory: true)
+                supportDirectory: root.appendingPathComponent("support", isDirectory: true),
+                helperURL: bin.appendingPathComponent("askkey")
             ).preview(client)
         }
 
@@ -156,14 +157,14 @@ final class AgentOnboardingViewWiringTests: XCTestCase {
         pump()
 
         XCTAssertTrue(
-            DebugAccessibility.press(identifier: "onboarding-review-multica", in: host)
+            DebugAccessibility.press(identifier: "onboarding-review-cursor", in: host)
         )
         pump()
         XCTAssertEqual(probe.checkCount, 0)
-        XCTAssertEqual(vault.onboarding.expandedClient, .multica)
+        XCTAssertEqual(vault.onboarding.expandedClient, .cursor)
 
         XCTAssertTrue(
-            DebugAccessibility.press(identifier: "onboarding-check-multica", in: host)
+            DebugAccessibility.press(identifier: "onboarding-check-cursor", in: host)
         )
         await waitUntil { probe.checkCount >= 1 }
         XCTAssertEqual(probe.checkCount, 1)

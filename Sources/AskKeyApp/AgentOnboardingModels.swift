@@ -26,14 +26,12 @@ enum AgentChangeStatus: String, Equatable, Sendable {
     case verifiedAndKept
     case restored
     case restoreFailed
-    case remoteUnknown
 }
 
 enum AgentKnownOutcome: String, Equatable, Sendable {
     case notConfigured
     case configuredUnverified
     case verifiedConnected
-    case workspaceConfigured
     case existingConfigUnverified
 }
 
@@ -50,11 +48,6 @@ enum CredentialDiscoveryReadiness: Equatable, Sendable {
 
 enum AgentOnboardingFailure: Error, Equatable, Sendable {
     case cancelled
-    case networkUnavailable
-    case localNetworkBlocked
-    case notLoggedIn
-    case noWorkspace
-    case workspaceChoiceRequired
     case permissionDenied
     case unsupportedVersion
     case nameConflict
@@ -64,13 +57,10 @@ enum AgentOnboardingFailure: Error, Equatable, Sendable {
     case brokerUnavailable
     case verificationFailed
     case restoreFailed
-    case remoteUnknown
     case cliMissing
     case timedOut
     case communicationFailed
     case planChanged
-    case untrustedHelper
-    case cliNotConfigured
     case discoverySetupFailed
     case discoverySetupCancelled
 }
@@ -99,16 +89,9 @@ struct AgentOnboardingPlan: Equatable, Sendable {
     var createdAt: Date
     var targetIdentity: String
     var scopeSummary: String
-    var agentIDs: [String]
-    var agentNames: [String]
-    var workspaceID: String?
-    var workspaceName: String?
-    var serverID: String?
-    var createsServer: Bool
     var configurationPresent: Bool
     var verifiesOnly: Bool
     var preconditionSummary: String
-    var activeAgentFingerprint: String
     var codexHookPlan: CodexDiscoveryHookPlan? = nil
     var commandHookPlan: CommandDiscoveryHookPlan? = nil
 }
@@ -215,24 +198,6 @@ extension AgentOnboardingFailure {
             case .concurrentModification: return .planChanged
             case .rollbackFailed, .restoreConflict: return .restoreFailed
             case .backupFailed, .writeFailed: return .verificationFailed
-            }
-        }
-        if let error = error as? MulticaConnectionError {
-            switch error {
-            case .cliNotInstalled, .cliCouldNotStart: return .cliMissing
-            case .communicationFailed: return .communicationFailed
-            case .timedOut: return .timedOut
-            case .cliNotConfigured: return .cliNotConfigured
-            case .notLoggedIn: return .notLoggedIn
-            case .noWorkspace: return .noWorkspace
-            case .workspaceChoiceRequired: return .workspaceChoiceRequired
-            case .permissionDenied: return .permissionDenied
-            case .unsupportedServer: return .unsupportedVersion
-            case .untrustedHelper: return .untrustedHelper
-            case .verificationFailed: return .verificationFailed
-            case .rollbackFailed: return .restoreFailed
-            case .creationRecoveryRequired: return .remoteUnknown
-            case .commandFailed, .invalidResponse: return .communicationFailed
             }
         }
         if let error = error as? CodexUserMCPError {

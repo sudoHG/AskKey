@@ -179,37 +179,7 @@ final class AgentOnboardingLiveCancelTests: XCTestCase {
         }
         XCTAssertNotEqual(session.attempt.phase, .checking)
         XCTAssertNotEqual(session.attempt.failure, .timedOut)
-        XCTAssertNotEqual(session.attempt.failure, .networkUnavailable)
         _ = cancellationBox
-    }
-
-    func testMulticaRunnerCancelIsCancelledNotCommunicationFailed() throws {
-        let directory = try makeDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let pidFile = directory.appendingPathComponent("multica.pid")
-        let executable = try makeSleepExecutable(directory: directory, pidFile: pidFile)
-        let adapter = MulticaWorkspaceMCPAdapter(
-            helperURL: URL(fileURLWithPath: "/usr/bin/true"),
-            helperIsTrusted: { _ in true },
-            command: ProcessMulticaWorkspaceMCPCommand.make(executable: executable, addTimeout: 8)
-        )
-        let cancelled = LockedFlag()
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.08) {
-            cancelled.value = true
-        }
-        let started = Date()
-        XCTAssertThrowsError(
-            try RestrictedProcessCancellation.withValue({ cancelled.value }) {
-                try adapter.checkStatus()
-            }
-        ) { error in
-            XCTAssertEqual(error as? AgentOnboardingFailure, .cancelled)
-            XCTAssertFalse(error is MulticaConnectionError)
-        }
-        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
-        if let pid = try? pidFromFile(pidFile) {
-            assertProcessGone(pid)
-        }
     }
 
     private func runLiveCancel(explicitRequestCancel: Bool, unrelatedAlreadyExited: Bool = false) async throws {

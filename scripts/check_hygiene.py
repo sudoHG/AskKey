@@ -15,6 +15,7 @@ PATTERN_EXCEPTIONS = {
     "Tests/Automation/test_check_hygiene.py",
     BASELINE,
 }
+MULTICA_EXCEPTIONS = {"docs/features.md"}
 TEST_SUPPORT = re.compile(r"E2E|Fixture|Probe|RestartProof|DebugSupport|RealUIInput")
 DECLARATION = re.compile(r"\b(?:class|struct|enum|actor|protocol|typealias)\s+([A-Za-z_][A-Za-z_0-9]*)")
 DEBUG = re.compile(r"#if\s+DEBUG\b")
@@ -109,7 +110,7 @@ def violations(root):
         if name != "AGENTS.md":
             if text is not None and ("/Users/" in text or "/private/var/" in text):
                 entries.add(f"local-path:{name}")
-            if ((data is not None and b"multica" in data.lower())
+            if name not in MULTICA_EXCEPTIONS and ((data is not None and b"multica" in data.lower())
                     or (text is not None and "multica" in text.casefold())):
                 entries.add(f"multica:{name}")
     return entries

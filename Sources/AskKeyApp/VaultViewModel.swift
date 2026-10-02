@@ -423,16 +423,6 @@ final class VaultViewModel {
 
     func attachOnboardingRuntime() {
 #if DEBUG
-        if AgentOnboardingRestartProof.isRequested {
-            AgentOnboardingRestartProof.prepareObservation()
-            onboarding.operations = AgentOnboardingRestartProof.operations()
-            AgentOnboardingRuntime.adoptPendingRecovery(
-                into: onboarding,
-                supportDirectory: VaultConfiguration.daemonSocketURL.deletingLastPathComponent()
-            )
-            AgentOnboardingRestartProof.markAdoptedPendingRecovery()
-            return
-        }
         if let stub = AgentOnboardingDebugSupport.operationsIfRequested() {
             onboarding.operations = stub
             return
@@ -445,10 +435,6 @@ final class VaultViewModel {
             revalidateWriteSession: { [weak self] in
                 self?.hasManagementSession == true && self?.isLocked == false
             }
-        )
-        AgentOnboardingRuntime.adoptPendingRecovery(
-            into: onboarding,
-            supportDirectory: VaultConfiguration.daemonSocketURL.deletingLastPathComponent()
         )
     }
 

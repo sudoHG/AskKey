@@ -144,23 +144,12 @@ enum AgentOnboardingDebugSupport {
         OnboardingBoundaryObserver.probeRejectedKeychain()
         try OnboardingBoundaryObserver.probeIsolatedConfigWrite()
         try OnboardingBoundaryObserver.probeCursorHelperLaunch()
-        let adapter = MulticaWorkspaceMCPAdapter(
-            helperURL: URL(fileURLWithPath: "/usr/bin/true"),
-            helperIsTrusted: { _ in true },
-            command: ProcessMulticaWorkspaceMCPCommand.make(
-                executable: URL(fileURLWithPath: "/usr/bin/true"),
-                addTimeout: 1
-            )
-        )
-        _ = try? adapter.checkStatus()
     }
 
     enum StubScenario: String {
         case idle
-        case network
         case plan
         case success
-        case remoteUnknown = "remote-unknown"
         case restoreFailed = "restore-failed"
         case hang
 
@@ -182,7 +171,6 @@ final class OnboardingSideEffectCounters: @unchecked Sendable {
                 "check": check,
                 "apply": apply,
                 "cli": OnboardingBoundaryObserver.count(.cli),
-                "multicaCLI": OnboardingBoundaryObserver.count(.multicaCLI),
                 "keychain": OnboardingBoundaryObserver.count(.keychain),
                 "configWrite": OnboardingBoundaryObserver.count(.configWrite),
                 "cursorHelper": OnboardingBoundaryObserver.count(.cursorHelper)
@@ -216,14 +204,7 @@ final class OnboardingSideEffectCounters: @unchecked Sendable {
         scenario: AgentOnboardingDebugSupport.StubScenario
     ) -> AgentCheckReport {
         switch scenario {
-        case .network:
-            return AgentCheckReport(
-                outcome: .notConfigured,
-                targetSummary: client.rawValue,
-                plan: nil,
-                failure: .networkUnavailable
-            )
-        case .plan, .success, .remoteUnknown, .restoreFailed:
+        case .plan, .success, .restoreFailed:
             return AgentCheckReport(
                 outcome: .notConfigured,
                 targetSummary: client.rawValue,
@@ -249,21 +230,13 @@ final class OnboardingSideEffectCounters: @unchecked Sendable {
             let discovery: CredentialDiscoveryReadiness? = switch client {
             case .codex: .enabled
             case .cursor, .grok: .configured
-            case .multica: nil
             }
             return AgentApplyReport(
-                outcome: client == .multica ? .workspaceConfigured : .verifiedConnected,
+                outcome: .verifiedConnected,
                 changeStatus: .verifiedAndKept,
                 failure: nil,
                 targetSummary: client.rawValue,
                 discovery: discovery
-            )
-        case .remoteUnknown:
-            return AgentApplyReport(
-                outcome: .configuredUnverified,
-                changeStatus: .remoteUnknown,
-                failure: .remoteUnknown,
-                targetSummary: client.rawValue
             )
         case .restoreFailed:
             return AgentApplyReport(
@@ -287,19 +260,10 @@ final class OnboardingSideEffectCounters: @unchecked Sendable {
             client: client,
             createdAt: Date(timeIntervalSince1970: 1_700_000_000),
             targetIdentity: client.rawValue,
-            scopeSummary: client == .multica
-                ? "Workspace Studio · 2 agents"
-                : "Add Ask Key for the current user of \(client.rawValue).",
-            agentIDs: client == .multica ? ["agent-1", "agent-2"] : [],
-            agentNames: client == .multica ? ["Writer", "Reviewer"] : [],
-            workspaceID: client == .multica ? "ws-1" : nil,
-            workspaceName: client == .multica ? "Studio" : nil,
-            serverID: nil,
-            createsServer: client == .multica,
+            scopeSummary: "Add Ask Key for the current user of \(client.rawValue).",
             configurationPresent: false,
             verifiesOnly: false,
-            preconditionSummary: "If verification fails, Ask Key restores the original settings.",
-            activeAgentFingerprint: client == .multica ? "agent-1,agent-2" : ""
+            preconditionSummary: "If verification fails, Ask Key restores the original settings."
         )
     }
 }
@@ -373,17 +337,8 @@ enum AgentOnboardingDebugDriver {
             await runA01(window: window, view: view, vault: vault, directory: directory, record: record)
         case "first-visit":
             await enterAgentPage(window: window, vault: vault, record: record)
-            record("- expected: four clients show not checked; no check started")
-            record("- actual: check-phase idle, lastKnown=\(vault.onboarding.session(for: .multica).lastKnownResult?.outcome.rawValue ?? "nil")")
-            capture(view, to: directory.appendingPathComponent("shot.png"), record: record)
-        case "network-error":
-            await enterAgentPage(window: window, vault: vault, record: record)
-            await click("onboarding-review-multica", window: window, vault: vault, record: record)
-            record("- after review: expanded=\(String(describing: vault.onboarding.expandedClient))")
-            await click("onboarding-check-multica", window: window, vault: vault, record: record)
-            await pause(250)
-            record("- expected: Multica row shows temporary reach error; no global alert")
-            record("- actual: failure=\(String(describing: vault.onboarding.session(for: .multica).attempt.failure)) errorMessage=\(vault.errorMessage ?? "nil")")
+            record("- expected: three clients show not checked; no check started")
+            record("- actual: check-phase idle, lastKnown=\(vault.onboarding.session(for: .cursor).lastKnownResult?.outcome.rawValue ?? "nil")")
             capture(view, to: directory.appendingPathComponent("shot.png"), record: record)
         case "ready-to-confirm":
             await enterAgentPage(window: window, vault: vault, record: record)
@@ -402,16 +357,6 @@ enum AgentOnboardingDebugDriver {
             await pause(250)
             record("- expected: verified connection after confirm")
             record("- actual: outcome=\(vault.onboarding.session(for: .codex).lastKnownResult?.outcome.rawValue ?? "nil") change=\(vault.onboarding.session(for: .codex).attempt.changeStatus.rawValue)")
-            capture(view, to: directory.appendingPathComponent("shot.png"), record: record)
-        case "remote-unknown":
-            await enterAgentPage(window: window, vault: vault, record: record)
-            await click("onboarding-review-multica", window: window, vault: vault, record: record)
-            await click("onboarding-check-multica", window: window, vault: vault, record: record)
-            await pause(250)
-            await click("onboarding-confirm-multica", window: window, vault: vault, record: record)
-            await pause(250)
-            record("- expected: remote unknown, ordinary write blocked")
-            record("- actual: phase=\(vault.onboarding.session(for: .multica).attempt.phase.rawValue) failure=\(String(describing: vault.onboarding.session(for: .multica).attempt.failure))")
             capture(view, to: directory.appendingPathComponent("shot.png"), record: record)
         case "restore-failed":
             await enterAgentPage(window: window, vault: vault, record: record)
@@ -443,20 +388,20 @@ enum AgentOnboardingDebugDriver {
             await runFocusHandoffContrast(from: window, record: record)
         case "keyboard-cancel":
             await enterAgentPage(window: window, vault: vault, record: record)
-            await click("onboarding-review-multica", window: window, vault: vault, record: record)
+            await click("onboarding-review-cursor", window: window, vault: vault, record: record)
             await pause(150)
             record("- cancel-path: start check by keyboard only; no AX press on check or cancel")
             await activateByKeyboard(
-                identifier: "onboarding-check-multica",
+                identifier: "onboarding-check-cursor",
                 window: window,
                 vault: vault,
                 record: record
             )
             var appeared = false
             for _ in 0..<40 {
-                let session = vault.onboarding.session(for: .multica)
+                let session = vault.onboarding.session(for: .cursor)
                 if session.attempt.phase == .checking,
-                   RealUIInput.find(identifier: "onboarding-cancel-multica") != nil {
+                   RealUIInput.find(identifier: "onboarding-cancel-cursor") != nil {
                     appeared = true
                     break
                 }
@@ -464,18 +409,18 @@ enum AgentOnboardingDebugDriver {
             }
             let handoff = RealUIInput.observeFocus(
                 window: window,
-                targetIdentifier: "onboarding-cancel-multica"
+                targetIdentifier: "onboarding-cancel-cursor"
             )
-            record("- after keyboard-started check: appeared=\(appeared) phase=\(vault.onboarding.session(for: .multica).attempt.phase.rawValue) \(handoff.line(step: -1))")
+            record("- after keyboard-started check: appeared=\(appeared) phase=\(vault.onboarding.session(for: .cursor).attempt.phase.rawValue) \(handoff.line(step: -1))")
             record("- cancel-path: Tab then Space/Return only after AX focus; no press/Registry/forced-focus fallback")
             await activateByKeyboard(
-                identifier: "onboarding-cancel-multica",
+                identifier: "onboarding-cancel-cursor",
                 window: window,
                 vault: vault,
                 record: record
             )
             await pause(250)
-            record("- actual after keyboard cancel: phase=\(vault.onboarding.session(for: .multica).attempt.phase.rawValue) failure=\(String(describing: vault.onboarding.session(for: .multica).attempt.failure))")
+            record("- actual after keyboard cancel: phase=\(vault.onboarding.session(for: .cursor).attempt.phase.rawValue) failure=\(String(describing: vault.onboarding.session(for: .cursor).attempt.failure))")
             capture(view, to: directory.appendingPathComponent("shot.png"), record: record)
         default:
             record("- FAIL: unknown scenario \(scenario)")
@@ -489,7 +434,7 @@ enum AgentOnboardingDebugDriver {
         directory: URL,
         record: (String) -> Void
     ) async {
-        record("- A01: enter/exit Agent access 10 times, expand four clients, do not check")
+        record("- A01: enter/exit Agent access 10 times, expand three clients, do not check")
         record("- observe: page window stays open; zeros are not from turning the observer off")
         AgentOnboardingDebugSupport.installBoundaryRecorder()
         AgentOnboardingDebugSupport.boundaryRecorder.reset()
@@ -499,9 +444,9 @@ enum AgentOnboardingDebugDriver {
             let positive = AgentOnboardingDebugSupport.counters.snapshot
             record("- positive-control layer=View-outside page window, bypass boundOperations")
             record("- cursorHelper via CursorUserMCPAdapter.probeMCP Foundation Process, not a hand-written note")
-            record("- positive-control expected: cli/multicaCLI/keychain/configWrite/cursorHelper each > 0")
+            record("- positive-control expected: cli/keychain/configWrite/cursorHelper each > 0")
             record("- positive-control actual: \(positive)")
-            if (positive["cli"] ?? 0) == 0 || (positive["multicaCLI"] ?? 0) == 0
+            if (positive["cli"] ?? 0) == 0
                 || (positive["keychain"] ?? 0) == 0 || (positive["configWrite"] ?? 0) == 0
                 || (positive["cursorHelper"] ?? 0) == 0 {
                 record("- FAIL: positive-control apparatus did not increment all observed boundaries")
@@ -524,7 +469,7 @@ enum AgentOnboardingDebugDriver {
             await pause(150)
         }
         let counts = AgentOnboardingDebugSupport.counters.snapshot
-        record("- expected: check/apply/cli/multicaCLI/keychain/configWrite/cursorHelper all 0; observer still on")
+        record("- expected: check/apply/cli/keychain/configWrite/cursorHelper all 0; observer still on")
         record("- page-window-still-active=\(OnboardingBoundaryObserver.isPageWindowActive)")
         record("- actual: \(counts)")
         capture(view, to: directory.appendingPathComponent("shot.png"), record: record)
@@ -590,7 +535,7 @@ enum AgentOnboardingDebugDriver {
             return "apply=\(AgentOnboardingDebugSupport.counters.snapshot["apply"] ?? 0)"
         }
         if identifier.hasPrefix("onboarding-cancel-"), let vault {
-            let session = vault.onboarding.session(for: .multica)
+            let session = vault.onboarding.session(for: .cursor)
             return "phase=\(session.attempt.phase.rawValue) failure=\(String(describing: session.attempt.failure))"
         }
         return "unknown"
@@ -612,7 +557,7 @@ enum AgentOnboardingDebugDriver {
             return (AgentOnboardingDebugSupport.counters.snapshot["check"] ?? 0) > 0
         }
         if identifier.hasPrefix("onboarding-cancel-") {
-            let session = vault.onboarding.session(for: .multica)
+            let session = vault.onboarding.session(for: .cursor)
             return session.attempt.failure == nil
                 && (session.attempt.phase == .explanation || session.attempt.phase == .readyToConfirm)
         }
