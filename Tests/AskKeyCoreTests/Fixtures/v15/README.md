@@ -12,7 +12,8 @@ payload values or private notes.
 
 Tests copy the database into a temporary directory as `credentials-v2.db`,
 inject the key through `MemoryAppKeyStore`, and call `VaultBootstrap.openCurrent`.
-The fixed clock is Unix second 2000000000. Adoption changes only the migration
-table to `askkey-0001-baseline`; its row count becomes 1 instead of 14.
+The fixed clock is Unix second 2000000000. Adoption replaces the 14 identifiers
+with `askkey-0001-baseline`, then `askkey-0002-drop-legacy-tables` drops the five
+legacy tables, which hold only the `Default` seed here. No other row changes.
 `CurrentLibraryAdoptionTests` also decrypts synthetic payloads and verifies
 file digests. No real vault, system keychain or installed app is used.

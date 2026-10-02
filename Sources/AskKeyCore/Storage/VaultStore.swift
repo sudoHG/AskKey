@@ -108,15 +108,17 @@ final class VaultStore {
             }
         } else if exists {
             try db.read { database in
-                guard try CurrentLibrarySchema.opening(database) == .baseline else {
+                guard try CurrentLibrarySchema.opening(database) == opening else {
                     throw VaultBootstrapError.invalidState
                 }
                 if let authenticationKey { try Self.validateCredentialRows(database, key: authenticationKey) }
                 try validation(database)
             }
-        } else {
-            try migrate()
         }
+        // Pending migrations run only after the identity, schema and
+        // credential-authentication checks above: every migration for a new
+        // file, askkey-0002 for an adopted or baseline library, none otherwise.
+        if opening != .current { try migrate() }
     }
 
     init(readOnlyPath path: String) throws {

@@ -3,6 +3,8 @@ import GRDB
 
 enum CurrentLibrarySchema {
     static let baselineIdentifier = "askkey-0001-baseline"
+    static let dropLegacyTablesIdentifier = "askkey-0002-drop-legacy-tables"
+    static let currentIdentifiers = [baselineIdentifier, dropLegacyTablesIdentifier]
     static let legacyIdentifiers = [
         "v1", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
         "v12-remove-folder-associations", "v13-remove-project-path",
@@ -26,11 +28,16 @@ enum CurrentLibrarySchema {
     CREATE INDEX "agent_write_operations_request_id" ON "agent_write_operations"("request_id");
     """
 
+    /// Lokalite tables that no current code reads, children before parents.
+    /// Dropping a table also drops its indexes, including
+    /// `secret_values_unique_default_environment` and the SQLite autoindexes.
+    static let legacyTables = ["secret_values", "secrets", "environments", "projects", "activity_log"]
+
     static func migrator() -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration(baselineIdentifier) { db in
             try db.execute(sql: baselineSQL)
-            // Retain the Default seed required by the still-supported queries.
+            // The legacy Default seed; askkey-0002 drops it with the legacy tables.
             let projectID = UUID().uuidString
             let environmentID = UUID().uuidString
             let now = iso8601()
@@ -45,10 +52,55 @@ enum CurrentLibrarySchema {
             try db.execute(sql: "INSERT INTO config (key, value) VALUES ('active_project_id', ?)",
                            arguments: [projectID])
         }
+        // Immediate foreign-key checks: dropping children before parents
+        // needs no database-wide foreign_key_check, so legacy rows that are
+        // kept can never make this migration, and therefore opening, fail.
+        migrator.registerMigration(dropLegacyTablesIdentifier, foreignKeyChecks: .immediate) { db in
+            // Recheck the authoritative state inside the migration transaction.
+            guard try opening(db) == .baseline else { throw VaultBootstrapError.invalidState }
+            // When the legacy tables may hold user data, every table and row
+            // stays untouched; GRDB still records this migration as applied.
+            if try legacyTablesHoldNoUserData(db) { try dropLegacyTables(db) }
+        }
         return migrator
     }
 
-    enum Opening: Equatable { case baseline, legacyV15 }
+    /// True only when the legacy tables hold nothing beyond the Default seed
+    /// written by the legacy schema (and by the baseline): no secret, secret
+    /// value or activity row; at most one project, named `Default` with the
+    /// seed's active environment and icon; and at most that project's single
+    /// `Default` environment without a color. Anything else is kept.
+    static func legacyTablesHoldNoUserData(_ db: Database) throws -> Bool {
+        for table in ["secrets", "secret_values", "activity_log"] {
+            guard try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(table.quotedDatabaseIdentifier)") == 0 else {
+                return false
+            }
+        }
+        // Compare storage values exactly: a non-text value never matches.
+        func value(_ row: Row, _ column: String) -> DatabaseValue { row[column] }
+        let projects = try Row.fetchAll(db, sql: "SELECT id, name, active_environment, icon FROM projects")
+        let environments = try Row.fetchAll(db, sql: "SELECT project_id, name, color FROM environments")
+        guard let project = projects.first else { return environments.isEmpty }
+        guard projects.count == 1,
+              value(project, "name") == "Default".databaseValue,
+              value(project, "active_environment") == "Default".databaseValue,
+              value(project, "icon") == "folder".databaseValue else { return false }
+        guard let environment = environments.first else { return true }
+        return environments.count == 1
+            && value(environment, "project_id") == value(project, "id")
+            && value(environment, "name") == "Default".databaseValue
+            && value(environment, "color").isNull
+    }
+
+    static func dropLegacyTables(_ db: Database) throws {
+        for table in legacyTables {
+            try db.execute(sql: "DROP TABLE \(table.quotedDatabaseIdentifier)")
+        }
+    }
+
+    /// `.current` libraries are at both AskKey identifiers, with the legacy
+    /// tables either dropped or kept because they may hold user data.
+    enum Opening: Equatable { case baseline, legacyV15, current }
 
     static func opening(_ db: Database) throws -> Opening {
         guard try db.tableExists("grdb_migrations") else {
@@ -56,17 +108,29 @@ enum CurrentLibrarySchema {
         }
         let identifiers = try String.fetchAll(db, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid")
         let opening: Opening
-        if identifiers == [baselineIdentifier] { opening = .baseline }
-        else if identifiers == legacyIdentifiers { opening = .legacyV15 }
+        let acceptedSchemas: [Bool] // whether the legacy tables are dropped
+        if identifiers == [baselineIdentifier] { (opening, acceptedSchemas) = (.baseline, [false]) }
+        else if identifiers == legacyIdentifiers { (opening, acceptedSchemas) = (.legacyV15, [false]) }
+        else if identifiers == currentIdentifiers { (opening, acceptedSchemas) = (.current, [true, false]) }
         else { throw VaultBootstrapError.unsupportedMigrations }
 
-        let expected = try DatabaseQueue()
-        defer { try? expected.close() }
-        try migrator().migrate(expected)
-        guard try normalizedSchema(db) == expected.read({ try normalizedSchema($0) }) else {
+        let schema = try normalizedSchema(db)
+        guard try acceptedSchemas.contains(where: { try expectedSchema(legacyTablesDropped: $0) == schema }) else {
             throw VaultBootstrapError.schemaMismatch
         }
         return opening
+    }
+
+    /// Built directly rather than by running the full migrator, because
+    /// the drop migration itself calls `opening`.
+    private static func expectedSchema(legacyTablesDropped: Bool) throws -> [String] {
+        let expected = try DatabaseQueue()
+        defer { try? expected.close() }
+        try migrator().migrate(expected, upTo: baselineIdentifier)
+        return try expected.write { db in
+            if legacyTablesDropped { try dropLegacyTables(db) }
+            return try normalizedSchema(db)
+        }
     }
 
     static func adoptLegacyV15(_ db: Database, validation: (Database) throws -> Void = { _ in }) throws {
