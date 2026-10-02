@@ -14,7 +14,7 @@ The codebase is being re-imported from a private legacy repository and restructu
 
 - All work happens through GitHub Issues and pull requests. See [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md).
 - Structural tasks are **move-only**: no logic changes unless the issue explicitly asks for them. If you find a bug, open a new issue instead of fixing it in place.
-- Supported agent clients are Codex, Cursor and Grok CLI. Multica support has been removed; do not reintroduce it.
+- Supported agent clients are Codex, Cursor and Grok CLI. Multica support is being removed: the legacy Multica code arrives with the clean import (#6) and is deleted in Phase 3. Until then, keep it unchanged and do not add new Multica code.
 
 ## Roles
 
