@@ -755,10 +755,6 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
         mutate { timedAllowanceRevoked = handler }
     }
 
-    public func resetReadAuthenticationToDefaultEnabled() {
-        mutate { readAuthenticationEnabled = true }
-    }
-
     public func setReadAuthenticationEnabled(_ enabled: Bool) {
         mutate { readAuthenticationEnabled = enabled }
     }
