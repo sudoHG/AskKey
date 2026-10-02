@@ -80,7 +80,7 @@ Phase 3 issues remove whole capabilities. Unless the issue says otherwise:
 2. **Tests**: delete a test only if it exercises removed behavior exclusively. If a test mixes removed and kept behavior, delete only the removed assertions or setup. List every deleted test and every edited test in the receipt.
 3. **No collateral changes**: no refactoring, renaming, moving or reformatting beyond what the removal requires.
 4. **Strings**: remove `Localizable.xcstrings` entries that become unused (`scripts/sync-string-catalog.py` if it supports this; otherwise by hand, listed in the receipt).
-5. **Hygiene baseline**: regenerate with `python3 scripts/check_hygiene.py --write-baseline`. The baseline diff may only delete lines.
+5. **Hygiene baseline**: regenerate with `python3 scripts/check_hygiene.py --write-baseline`. The baseline may only shrink: delete entries, or lower a `debug` counter. Never add a path, a check or a higher count.
 6. **Standard acceptance** (in addition to the issue's own):
    ```bash
    swift build
