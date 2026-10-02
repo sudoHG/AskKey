@@ -337,9 +337,7 @@ struct CredentialManagementView: View {
     private let previewReadAuthenticationConfirmation: Bool
     private let previewEditorExpanded: Bool
     private let previewImportValues: [(name: String, value: String)]
-    private let previewSettingsRestoreGenerations: [ICloudBackupGeneration]
     private let previewSettingsErase: Bool
-    private let previewSettingsEraseICloud: Bool
     private let previewCredentialDeleteConfirmationID: String?
     private let previewAccessRecordClearConfirmation: Bool
 
@@ -365,9 +363,7 @@ struct CredentialManagementView: View {
         previewReadAuthenticationConfirmation = false
         previewEditorExpanded = false
         previewImportValues = []
-        previewSettingsRestoreGenerations = []
         previewSettingsErase = false
-        previewSettingsEraseICloud = false
         previewCredentialDeleteConfirmationID = nil
         previewAccessRecordClearConfirmation = false
         _selectedSection = selectedSection
@@ -385,9 +381,7 @@ struct CredentialManagementView: View {
         previewReadAuthenticationConfirmation: Bool = false,
         previewEditorExpanded: Bool = false,
         previewImportValues: [(name: String, value: String)] = [],
-        previewSettingsRestoreGenerations: [ICloudBackupGeneration] = [],
         previewSettingsErase: Bool = false,
-        previewSettingsEraseICloud: Bool = false,
         previewCredentialDeleteConfirmation: String? = nil,
         previewGroupDeleteConfirmation: String? = nil,
         previewAccessRecordClearConfirmation: Bool = false
@@ -397,9 +391,7 @@ struct CredentialManagementView: View {
         self.previewReadAuthenticationConfirmation = previewReadAuthenticationConfirmation
         self.previewEditorExpanded = previewEditorExpanded
         self.previewImportValues = previewImportValues
-        self.previewSettingsRestoreGenerations = previewSettingsRestoreGenerations
         self.previewSettingsErase = previewSettingsErase
-        self.previewSettingsEraseICloud = previewSettingsEraseICloud
         self.previewCredentialDeleteConfirmationID = previewCredentialDeleteConfirmation
         self.previewAccessRecordClearConfirmation = previewAccessRecordClearConfirmation
         _selectedSection = .constant(initialSection)
@@ -517,9 +509,7 @@ struct CredentialManagementView: View {
         case .settings:
             FrozenSettingsPage(
                 initialReadAuthenticationConfirmation: previewReadAuthenticationConfirmation,
-                initialRestoreGenerations: previewSettingsRestoreGenerations,
                 initialEraseConfirmation: previewSettingsErase,
-                initialEraseICloudBackup: previewSettingsEraseICloud,
                 initialAccessRecordClearConfirmation: previewAccessRecordClearConfirmation
             )
             .environment(vault)
@@ -1772,41 +1762,23 @@ struct FrozenSettingsPage: View {
     @State private var showingErase = false
     @State private var eraseWord = ""
     @State private var confirmingReadAuthenticationDisable = false
-    @State private var showingRecoveryKeyHelp = false
-    @State private var showingRestore = false
-    @State private var recoveryKey = ""
-    @State private var completedBackupDates: [Date] = []
-    @State private var recoverableGenerations: [ICloudBackupGeneration] = []
-    @State private var selectedGenerationID: String?
-    @State private var eraseICloudBackup = false
-    @State private var eraseRecoveryKey = ""
-    @State private var newlyCreatedRecoveryKey: String?
     @State private var settingsScrollTarget: String?
-    @State private var iCloudStatusKey: String?
     @State private var confirmingAccessRecordClear = false
 
     init(
         initialReadAuthenticationConfirmation: Bool = false,
-        initialRestoreGenerations: [ICloudBackupGeneration] = [],
         initialEraseConfirmation: Bool = false,
-        initialEraseICloudBackup: Bool = false,
         initialAccessRecordClearConfirmation: Bool = false
     ) {
         _confirmingReadAuthenticationDisable = State(
             initialValue: initialReadAuthenticationConfirmation
         )
-        _showingRestore = State(initialValue: !initialRestoreGenerations.isEmpty)
-        _recoveryKey = State(initialValue: initialRestoreGenerations.isEmpty ? "" : "•••• •••• ••••")
-        _recoverableGenerations = State(initialValue: initialRestoreGenerations)
-        _selectedGenerationID = State(initialValue: initialRestoreGenerations.first?.id)
         _showingErase = State(initialValue: initialEraseConfirmation)
         _eraseWord = State(initialValue: FrozenEraseConfirmationPresentation.proofInitialText)
-        _eraseICloudBackup = State(initialValue: initialEraseICloudBackup)
-        _eraseRecoveryKey = State(initialValue: "")
         _confirmingAccessRecordClear = State(initialValue: initialAccessRecordClearConfirmation)
         _settingsScrollTarget = State(initialValue: initialEraseConfirmation
             ? "settings-erase"
-            : (initialRestoreGenerations.isEmpty ? nil : "settings-icloud"))
+            : nil)
     }
 
     var body: some View {
@@ -1931,105 +1903,6 @@ struct FrozenSettingsPage: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Theme.amber.opacity(0.10), in: .rect(cornerRadius: 9))
                 }
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(appLocalized("Encrypted iCloud Backup")).font(.system(size: 13.5, weight: .semibold))
-                            Text(appLocalized("A separate recovery key encrypts backups; neither Apple nor Ask Key can read them."))
-                                .font(.system(size: 11.5)).foregroundStyle(Theme.textMuted)
-                        }
-                        Spacer()
-                        Toggle("", isOn: Binding(
-                            get: { vault.iCloudBackupEnabled },
-                            set: { enabled in
-                                if enabled {
-                                    Task {
-                                        if let key = await vault.createICloudBackupNamespace() {
-                                            newlyCreatedRecoveryKey = key
-                                            vault.refreshICloudBackupEnabled()
-                                        }
-                                    }
-                                } else {
-                                    vault.setICloudBackupEnabled(false)
-                                }
-                            }
-                        )).labelsHidden().toggleStyle(.switch).tint(Theme.mint)
-                    }
-                    if let newlyCreatedRecoveryKey {
-                        Text(appLocalized("Save this new recovery key now. Ask Key will not show it again after you close it."))
-                            .font(.system(size: 11.5, weight: .semibold))
-                        Text(newlyCreatedRecoveryKey)
-                            .font(.system(size: 11.5, design: .monospaced))
-                            .textSelection(.enabled)
-                            .padding(8)
-                            .background(Theme.neutral(0.05), in: .rect(cornerRadius: 7))
-                        Button(appLocalized("I Saved the Recovery Key — Start Backup")) {
-                            Task {
-                                if let generation = await vault.activateICloudBackupNamespace(
-                                    recoveryKey: newlyCreatedRecoveryKey
-                                ) {
-                                    completedBackupDates.insert(generation.createdAt, at: 0)
-                                    self.newlyCreatedRecoveryKey = nil
-                                    vault.refreshICloudBackupEnabled()
-                                    iCloudStatusKey = "Created the first encrypted backup."
-                                }
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.brand)
-                    }
-                    if let message = vault.iCloudBackupStatusMessage {
-                        Text(message)
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textMuted)
-                    }
-                    HStack(spacing: 8) {
-                        Button(FrozenSettingsContract.restoreBackupAction) {
-                            showingRestore.toggle()
-                        }
-                        if vault.iCloudBackupEnabled {
-                            Button(FrozenSettingsContract.immediateBackupAction) {
-                                if let generation = vault.backUpNow() {
-                                    completedBackupDates.insert(generation.createdAt, at: 0)
-                                    completedBackupDates = Array(completedBackupDates.prefix(2))
-                                    iCloudStatusKey = "Backup completed."
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Theme.brand)
-                            Button(FrozenSettingsContract.recoveryKeyAction) {
-                                showingRecoveryKeyHelp.toggle()
-                            }
-                        }
-                    }
-                    if vault.iCloudBackupEnabled {
-                        Text(recentBackupCopy)
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textMuted)
-                        if let iCloudStatusKey {
-                            Text(appLocalized(iCloudStatusKey))
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textMuted)
-                        }
-                        if showingRecoveryKeyHelp {
-                            Text(appLocalized("The recovery key appears only when created. Use the copy you saved."))
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textMuted)
-                        }
-                    }
-                    if showingRestore {
-                        ICloudBackupRecoveryPanel(
-                            recoveryKey: $recoveryKey,
-                            generations: $recoverableGenerations,
-                            selectedGenerationID: $selectedGenerationID
-                        )
-                    }
-                }
-                .padding(14)
-                .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
-                .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
-                .id("settings-icloud")
                 settingCard(appLocalized("Access Records"), appLocalizedFormat("Keeps 90 days of events, never credential contents; %lld records now.", vault.credentialAccessRecords.count)) {
                     if confirmingAccessRecordClear {
                         Button(FrozenDangerActions.recordsConfirmationTitle, role: .destructive) {
@@ -2093,39 +1966,21 @@ struct FrozenSettingsPage: View {
                             TextField(FrozenEraseConfirmationPresentation.placeholder, text: $eraseWord)
                                 .textFieldStyle(.roundedBorder)
                         }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Toggle(FrozenSettingsContract.eraseICloudOption, isOn: $eraseICloudBackup)
-                            Text(appLocalized("Leave unchecked to keep the cloud backup for recovery."))
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textMuted)
-                        }
-                        if eraseICloudBackup {
-                            SecureField(appLocalized("Paste Recovery Key to Delete iCloud Backup"), text: $eraseRecoveryKey)
-                            Text(FrozenSettingsContract.eraseCloudSequenceWarning)
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.red)
-                        }
                         HStack {
                             Spacer()
                             Button(appLocalized("Cancel")) {
                                 showingErase = false
                                 eraseWord = ""
-                                eraseICloudBackup = false
-                                eraseRecoveryKey = ""
                             }
                             Button(appLocalized("Authenticate and Erase"), role: .destructive) {
                                 Task {
                                     _ = await vault.eraseLocalLibrary(
-                                        confirmation: eraseWord,
-                                        deletingICloudWith: eraseICloudBackup
-                                            ? eraseRecoveryKey
-                                            : nil
+                                        confirmation: eraseWord
                                     )
                                 }
                             }
                             .disabled(
                                 !FrozenEraseConfirmationPresentation.accepts(eraseWord)
-                                    || (eraseICloudBackup && eraseRecoveryKey.isEmpty)
                             )
                         }
                     }
@@ -2139,23 +1994,8 @@ struct FrozenSettingsPage: View {
                 if vault.isVisualProof {
                     HStack {
                         Button("") {
-                            vault.iCloudBackupEnabled = true
-                            let generation = ICloudBackupGeneration(
-                                id: "visual-proof-generation",
-                                createdAt: Date().addingTimeInterval(-3600)
-                            )
-                            showingRestore = true
-                            recoveryKey = "•••• •••• ••••"
-                            recoverableGenerations = [generation]
-                            selectedGenerationID = generation.id
-                            settingsScrollTarget = "settings-icloud"
-                        }
-                        .visualProofShortcut("r")
-                        Button("") {
                             showingErase = true
                             eraseWord = FrozenEraseConfirmationPresentation.proofInitialText
-                            eraseICloudBackup = false
-                            eraseRecoveryKey = ""
                             settingsScrollTarget = "settings-erase"
                         }
                         .visualProofShortcut("x")
@@ -2171,7 +2011,6 @@ struct FrozenSettingsPage: View {
         .background(Theme.windowBackground)
         .onAppear {
             vault.reloadCredentialAccessRecords()
-            vault.refreshICloudBackupEnabled(preservingStatus: true)
         }
     }
 
@@ -2194,20 +2033,7 @@ struct FrozenSettingsPage: View {
         .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
     }
 
-    private var recentBackupCopy: String {
-        guard !completedBackupDates.isEmpty else {
-#if DEBUG
-            if vault.isVisualProof {
-                return appLocalized("Latest two: today 09:12 · yesterday 21:40 (keeps two)")
-            }
-#endif
-            return appLocalized("Latest two: no locally confirmed backup records (keeps two)")
-        }
-        let values = completedBackupDates.map {
-            $0.formatted(date: .abbreviated, time: .shortened)
-        }
-        return appLocalizedFormat("Recent backups: %@ (keeps two)", values.joined(separator: " · "))
-    }
+
 }
 
 struct CredentialComponentDraft: Identifiable {
@@ -2781,16 +2607,8 @@ enum FrozenSettingsContract {
         AppLanguage.publishedModes.map { appLocalized(AppLanguage.titleKey(for: $0)) }
     }
     static var agentAccessSubtitle: String { appLocalized("Choose a client. Review how it connects, then decide whether to check or configure.") }
-    static var immediateBackupAction: String { appLocalized("Back Up Now") }
-    static var recoveryKeyAction: String { appLocalized("Recovery Key…") }
-    static var restoreBackupAction: String { appLocalized("Restore from Backup…") }
-    static var iCloudActions: [String] { [immediateBackupAction, recoveryKeyAction, restoreBackupAction] }
     static var emptyLibraryAction: String { appLocalized("Create First Credential") }
-    static var restoreConfirmationAction: String { appLocalized("Authenticate and Restore") }
-    static var eraseICloudOption: String { appLocalized("Also Delete iCloud Backup") }
-    static var eraseCloudSequenceWarning: String {
-        appLocalized("Local data is erased first. The iCloud backup is deleted afterward and cannot be recovered.")
-    }
+
 }
 
 enum FrozenEraseConfirmationPresentation {

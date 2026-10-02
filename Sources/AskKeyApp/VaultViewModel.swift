@@ -59,10 +59,6 @@ final class VaultViewModel {
     var isAgentAccessPaused = false
     var revealedCredential: ManagedTextCredential?
     var pendingApprovalCount = 0
-    var iCloudBackupEnabled = false
-    var iCloudBackupStatusMessage: String?
-    var iCloudBackupStatusCopy: String?
-    var iCloudBackupStatusCount: Int?
     var brokerRecoveryAvailable = false
     var brokerFailureMessage: String?
     var retryBrokerStart: (() -> Void)?
@@ -127,7 +123,6 @@ final class VaultViewModel {
         didSet {
             preferences.languageMode = languageMode
             AppLanguage.apply(mode: languageMode)
-            setICloudBackupStatus(iCloudBackupStatusCopy)
         }
     }
 
@@ -137,37 +132,6 @@ final class VaultViewModel {
             return
         }
         errorMessage = UserFacingCopy.message(for: error)
-    }
-
-    func adoptRestoredPreferences() {
-        withMutation(keyPath: \.readApprovalAuthenticationEnabled) {
-            updateReadAuthentication(preferences.readApprovalAuthenticationEnabled)
-        }
-        if languageMode != preferences.languageMode {
-            languageMode = preferences.languageMode
-        } else {
-            AppLanguage.apply(mode: languageMode)
-        }
-        if appearanceMode != preferences.appearanceMode {
-            appearanceMode = preferences.appearanceMode
-        }
-    }
-
-    func setICloudBackupStatus(_ key: String?, count: Int? = nil) {
-        iCloudBackupStatusCopy = key
-        if key == nil {
-            iCloudBackupStatusCount = nil
-            iCloudBackupStatusMessage = nil
-            return
-        }
-        if let count {
-            iCloudBackupStatusCount = count
-        }
-        if let key, let storedCount = iCloudBackupStatusCount, key.contains("%lld") {
-            iCloudBackupStatusMessage = appLocalizedFormat(key, storedCount)
-        } else if let key {
-            iCloudBackupStatusMessage = appLocalized(key)
-        }
     }
 
     var hasCompletedOnboarding = false {
@@ -246,24 +210,6 @@ final class VaultViewModel {
         String, LocalVaultEraseLanguage, ManagementAuthenticator
     ) throws -> Void
     let authenticateLocalErase: (@MainActor (String) async -> ManagementAuthenticator)?
-    let inspectICloudBackupImpl: @MainActor (String) throws -> [ICloudBackupGeneration]
-    let listICloudBackupConflictsImpl: @MainActor (String) throws -> [String]
-    let restoreICloudBackupImpl: @MainActor (
-        String, String, ManagementAuthenticator
-    ) throws -> ICloudBackupGeneration
-    let takeOwnershipOfICloudBackupImpl: @MainActor (
-        String, String, ManagementAuthenticator
-    ) throws -> Void
-    let deleteICloudBackupImpl: @MainActor (String, ManagementAuthenticator) throws -> Void
-    let listICloudBackupNamespacesImpl: @MainActor () throws -> [String]
-    let immediateICloudBackupImpl: @MainActor () throws -> ICloudBackupGeneration
-    let iCloudBackupEnabledImpl: @MainActor () throws -> Bool
-    let setICloudBackupEnabledImpl: @MainActor (Bool) throws -> Bool
-    let createICloudBackupNamespaceImpl: @MainActor (ManagementAuthenticator) throws -> String
-    let activateICloudBackupNamespaceImpl: @MainActor (
-        String, ManagementAuthenticator
-    ) throws -> ICloudBackupGeneration
-    let authenticateICloudLifecycle: (@MainActor (String) async -> ManagementAuthenticator)?
     let unlockVaultImpl: () throws -> Void
     let beginManagementSessionImpl: (ManagementAuthenticator) throws -> Void
     let beginOnboardingManagementSessionImpl: () throws -> Void
@@ -286,61 +232,6 @@ final class VaultViewModel {
             try Vault.shared.eraseLocalLibrary(confirmation: $0, language: $1, using: $2)
         },
         authenticateLocalErase: (@MainActor (String) async -> ManagementAuthenticator)? = nil,
-        inspectICloudBackup: @escaping @MainActor (String) throws -> [ICloudBackupGeneration] = {
-            try ICloudAppLifecycleController.shared.inspect(recoveryKey: $0)
-        },
-        listICloudBackupConflicts: @escaping @MainActor (String) throws -> [String] = {
-            try ICloudAppLifecycleController.shared.unresolvedConflicts(recoveryKey: $0)
-        },
-        restoreICloudBackup: @escaping @MainActor (
-            String, String, ManagementAuthenticator
-        ) throws -> ICloudBackupGeneration = {
-            try ICloudAppLifecycleController.shared.restore(
-                recoveryKey: $0,
-                generationID: $1,
-                using: $2
-            )
-        },
-        takeOwnershipOfICloudBackup: @escaping @MainActor (
-            String, String, ManagementAuthenticator
-        ) throws -> Void = {
-            try ICloudAppLifecycleController.shared.takeOwnership(
-                recoveryKey: $0,
-                generationID: $1,
-                using: $2
-            )
-        },
-        deleteICloudBackup: @escaping @MainActor (
-            String, ManagementAuthenticator
-        ) throws -> Void = {
-            try ICloudAppLifecycleController.shared.deleteCloudBackup(recoveryKey: $0, using: $1)
-        },
-        listICloudBackupNamespaces: @escaping @MainActor () throws -> [String] = {
-            try ICloudAppLifecycleController.shared.cloudNamespaces()
-        },
-        immediateICloudBackup: @escaping @MainActor () throws -> ICloudBackupGeneration = {
-            try ICloudAppLifecycleController.shared.backUpNow()
-        },
-        iCloudBackupEnabled: @escaping @MainActor () throws -> Bool = {
-            try ICloudAppLifecycleController.shared.automaticBackupEnabled()
-        },
-        setICloudBackupEnabled: @escaping @MainActor (Bool) throws -> Bool = {
-            try ICloudAppLifecycleController.shared.setAutomaticBackupEnabled($0)
-        },
-        createICloudBackupNamespace: @escaping @MainActor (
-            ManagementAuthenticator
-        ) throws -> String = {
-            try ICloudAppLifecycleController.shared.createNewBackupNamespace(using: $0)
-        },
-        activateICloudBackupNamespace: @escaping @MainActor (
-            String, ManagementAuthenticator
-        ) throws -> ICloudBackupGeneration = {
-            try ICloudAppLifecycleController.shared.activateBackupNamespace(
-                recoveryKey: $0,
-                using: $1
-            )
-        },
-        authenticateICloudLifecycle: (@MainActor (String) async -> ManagementAuthenticator)? = nil,
         unlockVault: @escaping () throws -> Void = { try Vault.shared.unlock() },
         beginManagementSession: @escaping (ManagementAuthenticator) throws -> Void = {
             try Vault.shared.beginManagementSession(using: $0)
@@ -373,18 +264,6 @@ final class VaultViewModel {
         self.authenticateCredentialAccessRecordClear = authenticateCredentialAccessRecordClear
         eraseLocalLibraryImpl = eraseLocalLibrary
         self.authenticateLocalErase = authenticateLocalErase
-        inspectICloudBackupImpl = inspectICloudBackup
-        listICloudBackupConflictsImpl = listICloudBackupConflicts
-        restoreICloudBackupImpl = restoreICloudBackup
-        takeOwnershipOfICloudBackupImpl = takeOwnershipOfICloudBackup
-        deleteICloudBackupImpl = deleteICloudBackup
-        listICloudBackupNamespacesImpl = listICloudBackupNamespaces
-        immediateICloudBackupImpl = immediateICloudBackup
-        iCloudBackupEnabledImpl = iCloudBackupEnabled
-        setICloudBackupEnabledImpl = setICloudBackupEnabled
-        createICloudBackupNamespaceImpl = createICloudBackupNamespace
-        activateICloudBackupNamespaceImpl = activateICloudBackupNamespace
-        self.authenticateICloudLifecycle = authenticateICloudLifecycle
         unlockVaultImpl = unlockVault
         beginManagementSessionImpl = beginManagementSession
         beginOnboardingManagementSessionImpl = beginOnboardingManagementSession

@@ -1,5 +1,7 @@
 import CryptoKit
 import Foundation
+import Observation
+import AskKeyBroker
 import UserNotifications
 import XCTest
 @testable import AskKeyApp
@@ -35,7 +37,46 @@ final class Batch4SettingsLanguageTests: XCTestCase {
         }
     }
 
-    func testDisableReadAuthenticationAndMissingErrorsPresentInBothLanguages() {
+    func testDisableReadAuthenticationAndMissingErrorsPresentInBothLanguages() throws {
+        let suite = "AskKey.ReadPreference.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let recorder = ReadPreferenceRecorder()
+        let machine = BrokerApprovalStateMachine(authenticate: {
+            recorder.record($0)
+            return true
+        })
+        let model = VaultViewModel(
+            runtimeFileCleanupFailures: { false }, accessRecords: .empty,
+            preferences: AppPreferences(defaults: defaults),
+            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
+            updateReadAuthentication: { machine.setReadAuthenticationEnabled($0) },
+            credentialMutations: .readOnly { ([], [], [], false) }
+        )
+        for enabled in [true, false] {
+            let observation = ReadPreferenceRecorder()
+            withObservationTracking { _ = model.readApprovalAuthenticationEnabled } onChange: {
+                observation.recordChange()
+            }
+            model.readApprovalAuthenticationEnabled = enabled
+            XCTAssertTrue(observation.changed)
+            XCTAssertEqual(AppPreferences(defaults: defaults).readApprovalAuthenticationEnabled, enabled)
+            for operation in [BrokerApprovalOperation.read, .create, .modify] {
+                let before = recorder.purposes
+                let ticket = try machine.submit(.init(
+                    operationID: UUID().uuidString, credentialID: "synthetic", targetID: "synthetic",
+                    operation: operation, payloadDigest: String(repeating: "a", count: 64)
+                ), trustedCredentialDeadline: .none)
+                XCTAssertEqual(ticket.state, .pending)
+                XCTAssertEqual(recorder.purposes, before)
+                XCTAssertEqual(try machine.decide(
+                    requestID: ticket.requestID, capability: ticket.capability, decision: .once
+                ).state, .approved)
+                let purpose: BrokerAuthenticationPurpose = operation == .read ? .readApproval : .writeApproval
+                XCTAssertEqual(recorder.purposes, operation == .read && !enabled ? before : before + [purpose])
+            }
+        }
+
         let disable = ManagementAuthenticationAction.disableReadAuthentication.reasonKey
         XCTAssertEqual(
             ManagementAuthenticationPresentation(reasonKey: disable, language: "en").reason,
@@ -231,4 +272,14 @@ final class Batch4SettingsLanguageTests: XCTestCase {
         try await Task.sleep(nanoseconds: 80_000_000)
         XCTAssertEqual(deliveries, [created.id])
     }
+}
+
+private final class ReadPreferenceRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [BrokerAuthenticationPurpose] = []
+    private var didChange = false
+    var purposes: [BrokerAuthenticationPurpose] { lock.lock(); defer { lock.unlock() }; return values }
+    var changed: Bool { lock.lock(); defer { lock.unlock() }; return didChange }
+    func record(_ purpose: BrokerAuthenticationPurpose) { lock.lock(); values.append(purpose); lock.unlock() }
+    func recordChange() { lock.lock(); didChange = true; lock.unlock() }
 }

@@ -19,10 +19,7 @@ extension Vault {
             agentAccessGate.invalidate()
             throw VaultError.databaseError("Agent access pause state is invalid.")
         }
-        let restorePending = try store.configValue(
-            key: VaultStore.iCloudRestorePendingSettingsKey
-        ) != nil
-        let paused = configuredPaused || restorePending
+        let paused = configuredPaused
         agentAccessGate.synchronize(paused: paused)
         if paused {
             brokerRequests.pauseAndCancelAll()
@@ -43,7 +40,6 @@ extension Vault {
             approvalRequests.pauseAndCancelAll()
             cleanupRuntimeFileDeliveries()
             agentAccessGate.endExclusiveChange(paused: true)
-            onAutomaticBackupMustStop?()
         } catch {
             agentAccessGate.endExclusiveChange(paused: wasPaused)
             throw error
@@ -55,14 +51,10 @@ extension Vault {
         _ = try requireKey()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
         do {
-            guard try store.configValue(key: VaultStore.iCloudRestorePendingSettingsKey) == nil else {
-                throw VaultError.databaseError("iCloud restore settings recovery is pending.")
-            }
             try store.setConfigValue(key: Self.agentAccessPausedConfigKey, value: nil)
             brokerRequests.resume()
             approvalRequests.resume()
             agentAccessGate.endExclusiveChange(paused: false)
-            onAutomaticBackupMayResume?()
         } catch {
             agentAccessGate.endExclusiveChange(paused: wasPaused)
             throw error

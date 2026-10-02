@@ -8,7 +8,6 @@ struct LoginItemController {
 
     func setEnabled(_ isEnabled: Bool) throws {
         try setEnabledImpl(isEnabled)
-        NotificationCenter.default.post(name: .askKeyOrdinaryBackupSettingsDidChange, object: nil)
     }
 
     init(

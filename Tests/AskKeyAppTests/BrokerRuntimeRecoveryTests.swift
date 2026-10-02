@@ -156,6 +156,21 @@ final class BrokerRuntimeRecoveryTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+        let app = try String(
+            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/AskKeyApp.swift"), encoding: .utf8
+        )
+        let start = try XCTUnwrap(app.range(of: "private func startBroker()"))
+        let launch = String(app[start.lowerBound...])
+        let prepare = try XCTUnwrap(launch.range(of: "try Vault.shared.prepareAgentRuntime()"))
+        let coordinator = try XCTUnwrap(launch.range(of: "fileWrites = try BrokerFileWriteCoordinator("))
+        let listen = try XCTUnwrap(launch.range(of: "try server.start()"))
+        XCTAssertLessThan(prepare.lowerBound, coordinator.lowerBound)
+        XCTAssertLessThan(coordinator.lowerBound, listen.lowerBound)
+        let failure = String(launch[prepare.upperBound..<coordinator.lowerBound])
+        XCTAssertTrue(failure.contains("brokerServer?.stop()"))
+        XCTAssertTrue(failure.contains("brokerServer = nil"))
+        XCTAssertTrue(failure.contains("return"))
+
         let popover = try String(
             contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/VaultPopover.swift"),
             encoding: .utf8
@@ -178,10 +193,6 @@ final class BrokerRuntimeRecoveryTests: XCTestCase {
             "settings recovery must remain after the error alert is dismissed"
         )
 
-        let app = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/AskKeyApp.swift"),
-            encoding: .utf8
-        )
         XCTAssertTrue(app.contains("vault.clearBrokerRuntimeFailure()"))
         XCTAssertTrue(app.contains("vault.presentBrokerRuntimeFailure("))
         XCTAssertFalse(app.contains("vault.brokerRecoveryAvailable = false"))
@@ -196,18 +207,6 @@ final class BrokerRuntimeRecoveryTests: XCTestCase {
             runtimeFileCleanupFailures: { false },
             accessRecords: .empty,
             eraseLocalLibrary: { _, _, _ in },
-            inspectICloudBackup: { _ in [] },
-            listICloudBackupConflicts: { _ in [] },
-            restoreICloudBackup: { _, _, _ in
-                throw ICloudBackupError.containerUnavailable
-            },
-            takeOwnershipOfICloudBackup: { _, _, _ in },
-            deleteICloudBackup: { _, _ in },
-            listICloudBackupNamespaces: { [] },
-            createICloudBackupNamespace: { _ in "unused" },
-            activateICloudBackupNamespace: { _, _ in
-                throw ICloudBackupError.containerUnavailable
-            },
             unlockVault: {},
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),

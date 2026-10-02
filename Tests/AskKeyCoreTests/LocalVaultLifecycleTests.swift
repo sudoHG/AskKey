@@ -1,5 +1,6 @@
 import XCTest
 import CryptoKit
+import AskKeyBroker
 @testable import AskKeyCore
 
 final class LocalVaultLifecycleTests: XCTestCase {
@@ -18,7 +19,7 @@ final class LocalVaultLifecycleTests: XCTestCase {
 
         XCTAssertEqual(
             harness.actions,
-            [.quiesceOperations, .cleanupDeliveries, .stopBackups, .deleteData, .deleteKey]
+            [.quiesceOperations, .cleanupDeliveries, .deleteData, .deleteKey]
         )
     }
 
@@ -78,7 +79,7 @@ final class LocalVaultLifecycleTests: XCTestCase {
 
         XCTAssertEqual(
             harness.actions,
-            [.quiesceOperations, .cleanupDeliveries, .stopBackups, .deleteData, .deleteKey]
+            [.quiesceOperations, .cleanupDeliveries, .deleteData, .deleteKey]
         )
         XCTAssertNil(try harness.journal.load())
     }
@@ -107,13 +108,13 @@ final class LocalVaultLifecycleTests: XCTestCase {
     }
 
     func testExistingJournalRecoversWithoutRepeatingAuthenticationOrConfirmation() throws {
-        let harness = LifecycleHarness()
-        try harness.journal.save(.deliveriesCleared)
-
-        try harness.coordinator.recoverIfNeeded()
-
-        XCTAssertEqual(harness.actions, [.stopBackups, .deleteData, .deleteKey])
-        XCTAssertNil(try harness.journal.load())
+        for checkpoint in [LocalVaultEraseState.deliveriesCleared, .backupsStopped] {
+            let resumed = LifecycleHarness()
+            try resumed.journal.save(checkpoint)
+            try resumed.coordinator.recoverIfNeeded()
+            XCTAssertEqual(resumed.actions, [.deleteData, .deleteKey])
+            XCTAssertNil(try resumed.journal.load())
+        }
     }
 
     func testVaultQuiescingCancelsRequestsAndCleansDeliveriesBeforeBackupAndKeySteps() throws {
@@ -121,6 +122,12 @@ final class LocalVaultLifecycleTests: XCTestCase {
             .appendingPathComponent("AskKeyLocalEraseTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        let dataRoot = root.appendingPathComponent("local-data", isDirectory: true)
+        for name in ["client-config-backups", "credential-discovery", "restore-safety", "backup-pending-uploads", "opaque-old-data"] {
+            let directory = dataRoot.appendingPathComponent(name, isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data("SYNTHETIC_ERASE_DATA".utf8).write(to: directory.appendingPathComponent("opaque"))
+        }
         let deliveryManager = try FileDeliveryManager(
             rootURL: root.appendingPathComponent("deliveries", isDirectory: true)
         )
@@ -129,6 +136,21 @@ final class LocalVaultLifecycleTests: XCTestCase {
             key: SymmetricKey(size: .bits256),
             fileDeliveryManager: deliveryManager
         )
+        let machine = vault.approvalRequests
+        machine.configureAuthentication { _ in true }
+        let request = BrokerApprovalOperationRequest(
+            operationID: "erase-read", credentialID: "credential", targetID: "credential",
+            operation: .read, payloadDigest: String(repeating: "a", count: 64)
+        )
+        let approved = try machine.submit(request, trustedCredentialDeadline: .none)
+        _ = try machine.decide(
+            requestID: approved.requestID, capability: approved.capability,
+            decision: .timedAllow(duration: 30)
+        )
+        let pending = try machine.submit(.init(
+            operationID: "erase-write", credentialID: "credential", targetID: "credential",
+            operation: .create, payloadDigest: String(repeating: "b", count: 64)
+        ), trustedCredentialDeadline: .none)
         try vault.brokerRequests.register(requestID: "pending", capability: "capability")
         let delivery = try deliveryManager.materialize(
             credentialID: "credential",
@@ -137,17 +159,28 @@ final class LocalVaultLifecycleTests: XCTestCase {
         let destructiveSteps = LifecycleActionRecorder()
         let coordinator = vault.makeLocalEraseCoordinator(
             journal: MemoryLocalVaultEraseJournalStore(),
-            stopBackups: {
+            deleteEncryptedData: {
                 XCTAssertTrue(try vault.isAgentAccessPaused())
                 XCTAssertEqual(
                     vault.brokerRequests.status(requestID: "pending", capability: "capability"),
                     .cancelled
                 )
                 XCTAssertFalse(FileManager.default.fileExists(atPath: delivery.url.path))
-                destructiveSteps.append(.stopBackups)
+                XCTAssertNil(machine.timedAllowanceDeadline(credentialID: "credential"))
+                XCTAssertEqual(try machine.status(
+                    requestID: approved.requestID, capability: approved.capability
+                ), .cancelled)
+                XCTAssertEqual(try machine.status(
+                    requestID: pending.requestID, capability: pending.capability
+                ), .cancelled)
+                XCTAssertThrowsError(try vault.brokerCredentialCatalog(cancellation: .init()))
+                try FileManager.default.removeItem(at: dataRoot)
+                destructiveSteps.append(.deleteData)
             },
-            deleteEncryptedData: { destructiveSteps.append(.deleteData) },
-            deleteLocalKey: { destructiveSteps.append(.deleteKey) }
+            deleteLocalKey: {
+                XCTAssertFalse(FileManager.default.fileExists(atPath: dataRoot.path))
+                destructiveSteps.append(.deleteKey)
+            }
         )
 
         try coordinator.erase(
@@ -156,14 +189,13 @@ final class LocalVaultLifecycleTests: XCTestCase {
             using: .allow
         )
 
-        XCTAssertEqual(destructiveSteps.values, [.stopBackups, .deleteData, .deleteKey])
+        XCTAssertEqual(destructiveSteps.values, [.deleteData, .deleteKey])
     }
 }
 
 private enum LifecycleAction: String, CaseIterable {
     case quiesceOperations
     case cleanupDeliveries
-    case stopBackups
     case deleteData
     case deleteKey
 }
@@ -177,7 +209,6 @@ private final class LifecycleHarness {
         actions: .init(
             quiesceOperations: { try self.perform(.quiesceOperations) },
             cleanupDeliveries: { try self.perform(.cleanupDeliveries) },
-            stopBackups: { try self.perform(.stopBackups) },
             deleteEncryptedData: { try self.perform(.deleteData) },
             deleteLocalKey: { try self.perform(.deleteKey) }
         )

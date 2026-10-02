@@ -23,7 +23,7 @@ report = (
     "# 基础流程自动验收\n\n"
     f"通过 {passed} 项，失败 {failed} 项，跳过 {skipped} 项。\n\n"
     "对象：独立隔离包；操作由 XCUITest 通过可见控件执行。\n"
-    "此结果不代表真实 Touch ID、iCloud 或外部客户端环境已通过验收。\n\n"
+    "此结果不代表真实 Touch ID 或外部客户端环境已通过验收。\n\n"
     "操作记录、失败详情与截图见同目录的 basic-flows.xcresult。\n"
 )
 (output / "acceptance-result.md").write_text(report)

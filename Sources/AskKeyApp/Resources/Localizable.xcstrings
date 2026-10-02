@@ -1126,29 +1126,6 @@
         }
       }
     },
-    "A separate recovery key encrypts backups; neither Apple nor Ask Key can read them.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A separate recovery key encrypts backups; neither Apple nor Ask Key can read them."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "备份用独立恢复密钥加密，Apple 和请旨服务器都读不到内容。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!A separate recovery key encrypts backups; neither Apple nor Ask Key can read them.!!]"
-          }
-        }
-      }
-    },
     "A system confirmation appears when a request arrives.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -2414,29 +2391,6 @@
         }
       }
     },
-    "Also Delete iCloud Backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Also Delete iCloud Backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "同时删除 iCloud 备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Also Delete iCloud Backup!!]"
-          }
-        }
-      }
-    },
     "Always Allow": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -2479,29 +2433,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!An older library or unfinished migration was found. After authentication, Ask Key will resume a confirmed migration or show a new preview for your approval.!!]"
-          }
-        }
-      }
-    },
-    "Another device wrote this backup. Confirm takeover first.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Another device wrote this backup. Confirm takeover first."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这份备份由另一台设备写入，请先确认接管。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Another device wrote this backup. Confirm takeover first.!!]"
           }
         }
       }
@@ -3012,29 +2943,6 @@
         }
       }
     },
-    "Ask Key could not read the local backup key. Check Keychain access.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key could not read the local backup key. Check Keychain access."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法读取本机备份密钥，请检查钥匙串访问。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key could not read the local backup key. Check Keychain access.!!]"
-          }
-        }
-      }
-    },
     "Ask Key could not remove a temporary credential file. It will keep retrying.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3104,29 +3012,6 @@
         }
       }
     },
-    "Ask Key could not save the local backup key. Check Keychain access.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key could not save the local backup key. Check Keychain access."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法保存本机备份密钥，请检查钥匙串访问。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key could not save the local backup key. Check Keychain access.!!]"
-          }
-        }
-      }
-    },
     "Ask Key could not schedule expiry reminders because notifications are turned off.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3146,52 +3031,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Ask Key could not schedule expiry reminders because notifications are turned off.!!]"
-          }
-        }
-      }
-    },
-    "Ask Key could not securely generate a recovery key. Try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key could not securely generate a recovery key. Try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法安全生成恢复密钥，请稍后重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key could not securely generate a recovery key. Try again.!!]"
-          }
-        }
-      }
-    },
-    "Ask Key could not finish restoring local settings. Agent access remains paused. Retry Agent access to finish the restore.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key could not finish restoring local settings. Agent access remains paused. Retry Agent access to finish the restore."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨尚未完成本机设置恢复，Agent 访问保持暂停。请点击“重试 Agent 访问”完成恢复。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key could not finish restoring local settings. Agent access remains paused. Retry Agent access to finish the restore.!!]"
           }
         }
       }
@@ -3656,29 +3495,6 @@
         }
       }
     },
-    "Authenticate and Restore": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Authenticate and Restore"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "验证并恢复"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Authenticate and Restore!!]"
-          }
-        }
-      }
-    },
     "Authenticate and Reveal": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3698,29 +3514,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Authenticate and Reveal!!]"
-          }
-        }
-      }
-    },
-    "Authenticate and Take Ownership": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Authenticate and Take Ownership"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "验证并接管后续备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Authenticate and Take Ownership!!]"
           }
         }
       }
@@ -3817,29 +3610,6 @@
         }
       }
     },
-    "Automatic backup is paused until the backup conflict is resolved.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Automatic backup is paused until the backup conflict is resolved."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自动备份已暂停，请先处理备份冲突。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Automatic backup is paused until the backup conflict is resolved.!!]"
-          }
-        }
-      }
-    },
     "Back": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3863,29 +3633,6 @@
         }
       }
     },
-    "Back Up Now": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Back Up Now"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "立即备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Back Up Now!!]"
-          }
-        }
-      }
-    },
     "Back to Edit": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3905,75 +3652,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Back to Edit!!]"
-          }
-        }
-      }
-    },
-    "Backup cleanup state is invalid, so Ask Key stopped safely.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Backup cleanup state is invalid, so Ask Key stopped safely."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "备份清理状态异常，已安全停止。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Backup cleanup state is invalid, so Ask Key stopped safely.!!]"
-          }
-        }
-      }
-    },
-    "Backup completed.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Backup completed."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已完成立即备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Backup completed.!!]"
-          }
-        }
-      }
-    },
-    "Backup restored. The local credential list is up to date.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Backup restored. The local credential list is up to date."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "备份已恢复，本机凭证列表已更新。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Backup restored. The local credential list is up to date.!!]"
           }
         }
       }
@@ -4300,29 +3978,6 @@
         }
       }
     },
-    "Check Backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check Backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检查备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Check Backup!!]"
-          }
-        }
-      }
-    },
     "Checking": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -4388,29 +4043,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Choose!!]"
-          }
-        }
-      }
-    },
-    "Choose Backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose Backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Choose Backup!!]"
           }
         }
       }
@@ -5496,29 +5128,6 @@
         }
       }
     },
-    "Create a new Ask Key backup namespace": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create a new Ask Key backup namespace"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认创建新的请旨备份空间"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Create a new Ask Key backup namespace!!]"
-          }
-        }
-      }
-    },
     "Create a project to start storing secrets by environment.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -5653,52 +5262,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Create your first project!!]"
-          }
-        }
-      }
-    },
-    "Created": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Created"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "创建时间"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Created!!]"
-          }
-        }
-      }
-    },
-    "Created the first encrypted backup.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Created the first encrypted backup."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已创建第一份加密备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Created the first encrypted backup.!!]"
           }
         }
       }
@@ -6320,29 +5883,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Delete \"%@\"?!!]"
-          }
-        }
-      }
-    },
-    "Delete Ask Key iCloud backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete Ask Key iCloud backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认删除请旨 iCloud 备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Delete Ask Key iCloud backup!!]"
           }
         }
       }
@@ -7221,29 +6761,6 @@
         }
       }
     },
-    "Encrypted iCloud Backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Encrypted iCloud Backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud 加密备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Encrypted iCloud Backup!!]"
-          }
-        }
-      }
-    },
     "English": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -7332,29 +6849,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Enter text value!!]"
-          }
-        }
-      }
-    },
-    "Enter your saved recovery key to inspect available backups. Restoring requires system authentication.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter your saved recovery key to inspect available backups. Restoring requires system authentication."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "输入你独立保存的恢复密钥，检查可恢复的备份。确认恢复时需要系统验证。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Enter your saved recovery key to inspect available backups. Restoring requires system authentication.!!]"
           }
         }
       }
@@ -7842,29 +7336,6 @@
         }
       }
     },
-    "Found %lld recoverable backups.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Found %lld recoverable backups."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "找到 %lld 份可恢复备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Found %lld recoverable backups.!!]"
-          }
-        }
-      }
-    },
     "Frozen Content to Write": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -8298,29 +7769,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Hide value!!]"
-          }
-        }
-      }
-    },
-    "I Saved the Recovery Key — Start Backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I Saved the Recovery Key — Start Backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我已保存恢复密钥，开始备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!I Saved the Recovery Key — Start Backup!!]"
           }
         }
       }
@@ -9038,52 +8486,6 @@
         }
       }
     },
-    "Latest two: no locally confirmed backup records (keeps two)": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Latest two: no locally confirmed backup records (keeps two)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近两份：暂无本机可确认的备份记录（保留最近两份）"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Latest two: no locally confirmed backup records (keeps two)!!]"
-          }
-        }
-      }
-    },
-    "Latest two: today 09:12 · yesterday 21:40 (keeps two)": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Latest two: today 09:12 · yesterday 21:40 (keeps two)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近两份：今天 09:12 · 昨天 21:40（保留最近两份）"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Latest two: today 09:12 · yesterday 21:40 (keeps two)!!]"
-          }
-        }
-      }
-    },
     "Launch at Login": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -9218,29 +8620,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Leave empty to keep this credential ungrouped.!!]"
-          }
-        }
-      }
-    },
-    "Leave unchecked to keep the cloud backup for recovery.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leave unchecked to keep the cloud backup for recovery."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不勾则云端备份保留，可用于恢复。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Leave unchecked to keep the cloud backup for recovery.!!]"
           }
         }
       }
@@ -9402,29 +8781,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Local Caller!!]"
-          }
-        }
-      }
-    },
-    "Local data is erased first. The iCloud backup is deleted afterward and cannot be recovered.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Local data is erased first. The iCloud backup is deleted afterward and cannot be recovered."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本机数据会先单独抹除；随后才会删除 iCloud 备份，删除后无法恢复。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Local data is erased first. The iCloud backup is deleted afterward and cannot be recovered.!!]"
           }
         }
       }
@@ -9820,29 +9176,6 @@
         }
       }
     },
-    "Multiple backup versions were found. Choose one to restore.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multiple backup versions were found. Choose one to restore."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "发现多个备份版本，请选择要恢复的版本。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multiple backup versions were found. Choose one to restore.!!]"
-          }
-        }
-      }
-    },
     "Name": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -10234,29 +9567,6 @@
         }
       }
     },
-    "No complete, verifiable backup was found.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No complete, verifiable backup was found."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有找到完整且可验证的备份。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!No complete, verifiable backup was found.!!]"
-          }
-        }
-      }
-    },
     "No credentials yet": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -10460,29 +9770,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!No purpose declared!!]"
-          }
-        }
-      }
-    },
-    "No recoverable backup was found.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No recoverable backup was found."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有找到可恢复的备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!No recoverable backup was found.!!]"
           }
         }
       }
@@ -11104,52 +10391,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Paste .env content below or choose a file. Multiple keys become items in one credential.!!]"
-          }
-        }
-      }
-    },
-    "Paste Recovery Key": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paste Recovery Key"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "粘贴恢复密钥"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Paste Recovery Key!!]"
-          }
-        }
-      }
-    },
-    "Paste Recovery Key to Delete iCloud Backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paste Recovery Key to Delete iCloud Backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "粘贴恢复密钥以删除 iCloud 备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Paste Recovery Key to Delete iCloud Backup!!]"
           }
         }
       }
@@ -11777,29 +11018,6 @@
         }
       }
     },
-    "Recent": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recent"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近使用"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Recent!!]"
-          }
-        }
-      }
-    },
     "Recent activity": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -11823,29 +11041,6 @@
         }
       }
     },
-    "Recent backups: %@ (keeps two)": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recent backups: %@ (keeps two)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近备份：%@（保留最近两份）"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Recent backups: %@ (keeps two)!!]"
-          }
-        }
-      }
-    },
     "Recoverable for up to 30 days": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -11865,29 +11060,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Recoverable for up to 30 days!!]"
-          }
-        }
-      }
-    },
-    "Recovery Key…": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recovery Key…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看恢复密钥…"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Recovery Key…!!]"
           }
         }
       }
@@ -12279,121 +11451,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Restore!!]"
-          }
-        }
-      }
-    },
-    "Restore Ask Key encrypted backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restore Ask Key encrypted backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认恢复请旨加密备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Restore Ask Key encrypted backup!!]"
-          }
-        }
-      }
-    },
-    "Restore from Backup…": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restore from Backup…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从备份恢复…"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Restore from Backup…!!]"
-          }
-        }
-      }
-    },
-    "Restore from iCloud Backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restore from iCloud Backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从 iCloud 备份恢复"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Restore from iCloud Backup!!]"
-          }
-        }
-      }
-    },
-    "Restore from iCloud Backup…": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restore from iCloud Backup…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从 iCloud 备份恢复…"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Restore from iCloud Backup…!!]"
-          }
-        }
-      }
-    },
-    "Restore replaces current local credentials, groups, and settings. It requires system authentication and cannot be undone.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restore replaces current local credentials, groups, and settings. It requires system authentication and cannot be undone."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "恢复会用所选备份替换本机当前凭证、分组与设置。此操作需要系统验证，且无法撤销。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Restore replaces current local credentials, groups, and settings. It requires system authentication and cannot be undone.!!]"
           }
         }
       }
@@ -12810,29 +11867,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Save access keys, login details, certificates, or a combination of them.!!]"
-          }
-        }
-      }
-    },
-    "Save this new recovery key now. Ask Key will not show it again after you close it.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save this new recovery key now. Ask Key will not show it again after you close it."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请立即保存这把新恢复密钥；关闭后请旨不会再次显示。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Save this new recovery key now. Ask Key will not show it again after you close it.!!]"
           }
         }
       }
@@ -13274,29 +12308,6 @@
         }
       }
     },
-    "Start Ask Key backup with the saved recovery key": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start Ask Key backup with the saved recovery key"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认使用已保存的恢复密钥启动请旨备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Start Ask Key backup with the saved recovery key!!]"
-          }
-        }
-      }
-    },
     "Start Using": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -13435,29 +12446,6 @@
         }
       }
     },
-    "System authentication is required.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System authentication is required."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要先通过系统验证。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!System authentication is required.!!]"
-          }
-        }
-      }
-    },
     "System authentication is unavailable.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -13477,75 +12465,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!System authentication is unavailable.!!]"
-          }
-        }
-      }
-    },
-    "Take Ownership of Future Backups…": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Take Ownership of Future Backups…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接管后续备份…"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Take Ownership of Future Backups…!!]"
-          }
-        }
-      }
-    },
-    "Take ownership of Ask Key iCloud backup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Take ownership of Ask Key iCloud backup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认接管请旨 iCloud 备份"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Take ownership of Ask Key iCloud backup!!]"
-          }
-        }
-      }
-    },
-    "Taking ownership uses the selected backup as the starting point for future backups from this Mac. Confirm the selected version before authenticating.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Taking ownership uses the selected backup as the starting point for future backups from this Mac. Confirm the selected version before authenticating."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接管会以所选备份为起点，让本机继续写入后续备份。请先确认所选版本；接管需要系统验证。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Taking ownership uses the selected backup as the starting point for future backups from this Mac. Confirm the selected version before authenticating.!!]"
           }
         }
       }
@@ -13849,75 +12768,6 @@
         }
       }
     },
-    "The backup is incomplete or damaged.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The backup is incomplete or damaged."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "备份内容不完整或已损坏。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The backup is incomplete or damaged.!!]"
-          }
-        }
-      }
-    },
-    "The backup operation could not finish cleanup. Existing backups were preserved.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The backup operation could not finish cleanup. Existing backups were preserved."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "备份操作未能完整收尾，请稍后重试；现有备份仍被保留。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The backup operation could not finish cleanup. Existing backups were preserved.!!]"
-          }
-        }
-      }
-    },
-    "The backup was restored, but the local view could not refresh. Restart the app to check it; do not restore again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The backup was restored, but the local view could not refresh. Restart the app to check it; do not restore again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "备份已恢复，但本机界面刷新失败。请退出并重新打开应用检查，无需再次恢复。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The backup was restored, but the local view could not refresh. Restart the app to check it; do not restore again.!!]"
-          }
-        }
-      }
-    },
     "The client connection could not be verified.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -14056,29 +12906,6 @@
         }
       }
     },
-    "The interrupted backup could not be verified. Existing backups were preserved.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The interrupted backup could not be verified. Existing backups were preserved."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本机待完成备份无法验证，已停止继续写入。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The interrupted backup could not be verified. Existing backups were preserved.!!]"
-          }
-        }
-      }
-    },
     "The key or token from your provider": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -14098,52 +12925,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!The key or token from your provider!!]"
-          }
-        }
-      }
-    },
-    "The recovery key appears only when created. Use the copy you saved.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The recovery key appears only when created. Use the copy you saved."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "恢复密钥只在创建时显示；请使用你独立保存的副本。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The recovery key appears only when created. Use the copy you saved.!!]"
-          }
-        }
-      }
-    },
-    "The recovery key is invalid. Check it and try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The recovery key is invalid. Check it and try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "恢复密钥无效，请检查后重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The recovery key is invalid. Check it and try again.!!]"
           }
         }
       }
@@ -14194,98 +12975,6 @@
         }
       }
     },
-    "This Mac owns future backups, but automatic backup status could not be confirmed. Check the backup settings before continuing.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This Mac owns future backups, but automatic backup status could not be confirmed. Check the backup settings before continuing."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本机已接管后续备份，但尚未确认自动备份状态。请先检查备份设置。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This Mac owns future backups, but automatic backup status could not be confirmed. Check the backup settings before continuing.!!]"
-          }
-        }
-      }
-    },
-    "This Mac owns future backups. Automatic backup has resumed.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This Mac owns future backups. Automatic backup has resumed."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本机已接管后续备份，自动备份已恢复。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This Mac owns future backups. Automatic backup has resumed.!!]"
-          }
-        }
-      }
-    },
-    "This Mac owns future backups. Automatic backup is currently off.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This Mac owns future backups. Automatic backup is currently off."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本机已接管后续备份，自动备份当前处于关闭状态。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This Mac owns future backups. Automatic backup is currently off.!!]"
-          }
-        }
-      }
-    },
-    "This backup cannot be restored safely.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This backup cannot be restored safely."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "备份内容无法安全恢复。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This backup cannot be restored safely.!!]"
-          }
-        }
-      }
-    },
     "This cannot be undone.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -14305,29 +12994,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!This cannot be undone.!!]"
-          }
-        }
-      }
-    },
-    "This development or ad-hoc build does not have Ask Key's own iCloud capability. Official releases require Ask Key's container, entitlement, and signing materials.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This development or ad-hoc build does not have Ask Key's own iCloud capability. Official releases require Ask Key's container, entitlement, and signing materials."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此开发或临时签名版本没有请旨自有 iCloud 能力。正式发布需要注入自有容器、entitlement 与签名材料。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This development or ad-hoc build does not have Ask Key's own iCloud capability. Official releases require Ask Key's container, entitlement, and signing materials.!!]"
           }
         }
       }
@@ -15800,52 +14466,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!The .env file contains an unterminated quoted value.!!]"
-          }
-        }
-      }
-    },
-    "iCloud Backup is unavailable. Check iCloud and try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud Backup is unavailable. Check iCloud and try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud 备份当前不可用，请检查 iCloud 后重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!iCloud Backup is unavailable. Check iCloud and try again.!!]"
-          }
-        }
-      }
-    },
-    "iCloud is still syncing. Try again shortly.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud is still syncing. Try again shortly."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud 仍在同步，请稍后重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!iCloud is still syncing. Try again shortly.!!]"
           }
         }
       }

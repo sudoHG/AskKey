@@ -20,7 +20,6 @@ extension Vault {
 
     func makeLocalEraseCoordinator(
         journal: LocalVaultEraseJournalStore? = nil,
-        stopBackups: (@Sendable () throws -> Void)? = nil,
         deleteEncryptedData: (@Sendable () throws -> Void)? = nil,
         deleteLocalKey: (@Sendable () throws -> Void)? = nil
     ) -> LocalVaultEraseCoordinator {
@@ -41,10 +40,6 @@ extension Vault {
                             "Temporary credential cleanup must finish before local erase."
                         )
                     }
-                },
-                stopBackups: stopBackups ?? {
-                    AutomaticICloudBackupScheduler.shared?.cancelPendingWork(clearDirty: true)
-                    UserDefaultsICloudBackupLocalStateStore().stopAllAutomaticBackups()
                 },
                 deleteEncryptedData: deleteEncryptedData ?? { [weak self] in
                     guard let self else { throw VaultError.databaseError("Vault lifecycle unavailable.") }
@@ -74,9 +69,6 @@ extension Vault {
 
     private func deleteAllLocalKeyMaterial() throws {
         try deleteAllLocalVaultKeys()
-        try SystemICloudBackupMaterialStore(
-            service: VaultConfiguration.iCloudBackupKeychainService
-        ).deleteAll()
         finishLocalErase()
     }
 }

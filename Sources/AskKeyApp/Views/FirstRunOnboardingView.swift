@@ -3,7 +3,6 @@ import SwiftUI
 struct FirstRunOnboardingView: View {
     var onCreateCredential: () -> Void
     var onImportCredential: () -> Void
-    var onRestoreBackup: () -> Void
 
     @Environment(VaultViewModel.self) private var vault
     @State private var launchAtLoginEnabled = true
@@ -12,13 +11,11 @@ struct FirstRunOnboardingView: View {
     init(
         onCreateCredential: @escaping () -> Void,
         onImportCredential: @escaping () -> Void,
-        initialLaunchAtLoginEnabled: Bool? = nil,
-        onRestoreBackup: @escaping () -> Void = {}
+        initialLaunchAtLoginEnabled: Bool? = nil
     ) {
         self.hasExplicitLoginChoice = initialLaunchAtLoginEnabled != nil
         self.onCreateCredential = onCreateCredential
         self.onImportCredential = onImportCredential
-        self.onRestoreBackup = onRestoreBackup
         let launchAtLoginEnabled: Bool
         if let initialLaunchAtLoginEnabled {
             launchAtLoginEnabled = initialLaunchAtLoginEnabled
@@ -70,10 +67,6 @@ struct FirstRunOnboardingView: View {
                     )
                 }
                 .padding(.vertical, 22)
-                Button(appLocalized("Restore from iCloud Backup…"), action: onRestoreBackup)
-                    .buttonStyle(.link)
-                    .accessibilityIdentifier("onboarding-restore-backup")
-                    .padding(.bottom, 22)
                 }
 
                 if !vault.hasCompletedOnboarding {

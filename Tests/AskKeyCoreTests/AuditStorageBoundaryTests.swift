@@ -9,48 +9,7 @@ import AskKeyBroker
 /// Uses only synthetic bytes, an isolated temporary database, injected keys/authentication,
 /// and uniquely owned local directories. No App, Keychain, real cloud or process spawn.
 final class AuditStorageBoundaryTests: XCTestCase {
-    func testRealFileBackupStoreAcceptsCoordinatorDirectoryPrefixWithTrailingSlash() throws {
-        let root = try makeRoot()
-        let cloud = try makeCloud(root: root)
-        let prefix = "askkey-backup/audit-key/generations"
-        let blob = prefix + "/audit-generation/blob"
-        try cloud.create(Data("synthetic-encrypted-placeholder".utf8), at: blob)
 
-        // Establish that the fixture exists and the adapter works without a separator.
-        XCTAssertEqual(try cloud.list(prefix: prefix), [blob])
-        // The production coordinator uses exactly this trailing-slash form.
-        XCTAssertEqual(try cloud.list(prefix: prefix + "/"), [blob])
-    }
-
-    func testCoordinatorRoundTripsThroughRealFileAdapterInIsolatedContainer() throws {
-        let root = try makeRoot()
-        let cloud = try makeCloud(root: root)
-        let recoveryKey = try BackupRecoveryKey(encoded: Data(repeating: 0x51, count: 32).base64EncodedString())
-        let coordinator = try ICloudBackupCoordinator(
-            store: cloud,
-            recoveryKey: recoveryKey,
-            writerID: "11111111-1111-4111-8111-111111111111",
-            stateStore: AuditBackupMemoryState()
-        )
-        let snapshot = ICloudBackupSnapshot(
-            credentials: [.init(
-                id: "audit-credential",
-                displayName: "Audit Credential",
-                payload: .text("SYNTHETIC_AUDIT_VALUE"),
-                permission: .ask
-            )],
-            groupNames: [],
-            settings: .init(
-                languageMode: "system",
-                appearanceMode: "system",
-                defaultTimedAllowanceMinutes: 30,
-                launchAtLogin: false
-            )
-        )
-
-        _ = try coordinator.backUp(snapshot: snapshot)
-        XCTAssertEqual(try coordinator.restore(), snapshot)
-    }
 
     func testBrokerDoesNotDeliverAfterKeylessSQLPromotesAskPermission() throws {
         let harness = try makeVault()
@@ -192,41 +151,4 @@ final class AuditStorageBoundaryTests: XCTestCase {
         return root
     }
 
-    private func makeCloud(root: URL) throws -> ICloudFileBackupStore {
-        try ICloudFileBackupStore(
-            provider: AuditLocalContainer(root: root),
-            fileManager: AuditScopedFileManager(root: root)
-        )
-    }
-}
-
-private struct AuditLocalContainer: ICloudBackupContainerProviding {
-    let root: URL
-    func containerURL() -> URL? { root }
-}
-
-private final class AuditScopedFileManager: FileManager, @unchecked Sendable {
-    private let root: URL
-    init(root: URL) { self.root = root; super.init() }
-    override var temporaryDirectory: URL { root }
-}
-
-private final class AuditBackupMemoryState: ICloudBackupLocalStateStore {
-    private let lock = NSLock()
-    private var paused = false
-    private var takeover: String?
-    private var cleanup: [String] = []
-    private var uploads: [String: Data] = [:]
-    func beginExclusiveAccess(namespace: String) { lock.lock() }
-    func endExclusiveAccess(namespace: String) { lock.unlock() }
-    func isAutomaticBackupPaused(namespace: String) throws -> Bool { paused }
-    func setAutomaticBackupPaused(_ value: Bool, namespace: String) throws { paused = value }
-    func acceptedTakeoverGeneration(namespace: String) throws -> String? { takeover }
-    func setAcceptedTakeoverGeneration(_ generationID: String?, namespace: String) throws { takeover = generationID }
-    func pendingCleanupPaths(namespace: String) throws -> [String] { cleanup }
-    func setPendingCleanupPaths(_ paths: [String], namespace: String) throws { cleanup = paths }
-    func pendingUpload(namespace: String) throws -> Data? { uploads[namespace] }
-    func setPendingUpload(_ data: Data?, namespace: String) throws { uploads[namespace] = data }
-    func stopAllAutomaticBackups() { paused = true }
-    func resumeAutomaticBackupsForNewInstallation() { paused = false }
 }

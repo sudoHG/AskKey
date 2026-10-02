@@ -60,17 +60,7 @@ struct SettingsView: View {
         switch vault.settingsEntryState {
         case .onboarding, .empty:
             prototypeShell {
-                if workspaceRoute == .settings {
-                    ICloudBackupRecoveryView(
-                        onBack: { workspaceRoute = .library },
-                        onRestored: {
-                            onboardingRoute = nil
-                            workspaceRoute = .library
-                        }
-                    )
-                } else {
-                    onboardingContent
-                }
+                onboardingContent
             }
         case .locked:
             prototypeShell { lockedView }
@@ -139,8 +129,7 @@ struct SettingsView: View {
                     if vault.hasManagementSession || vault.beginOnboardingManagement() {
                         onboardingRoute = .fileImport
                     }
-                },
-                onRestoreBackup: { workspaceRoute = .settings }
+                }
             )
             .environment(vault)
         }

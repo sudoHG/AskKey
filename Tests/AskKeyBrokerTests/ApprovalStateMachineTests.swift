@@ -413,28 +413,6 @@ final class ApprovalStateMachineTests: XCTestCase {
         )
     }
 
-    func testRestoreResetReenablesReadAuthentication() throws {
-        let authentications = AuthenticationRecorder()
-        let machine = BrokerApprovalStateMachine(
-            readAuthenticationEnabled: false,
-            authenticate: {
-                authentications.record($0)
-                return true
-            }
-        )
-        machine.resetReadAuthenticationToDefaultEnabled()
-        let read = try machine.submit(request(operationID: "restored-read"))
-
-        XCTAssertEqual(
-            try machine.decide(
-                requestID: read.requestID,
-                capability: read.capability,
-                decision: .once
-            ).state,
-            .approved
-        )
-        XCTAssertEqual(authentications.values, [.readApproval])
-    }
 
     func testQueueNotifiesOnlyOnEmptyTransitionAndNotificationIsPrivate() throws {
         let notifications = NotificationRecorder()

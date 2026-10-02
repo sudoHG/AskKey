@@ -26,14 +26,12 @@ if [ "$MODE" = Release ]; then
   [ "$ASKKEY_RELEASES_ENABLED" = true ] || exit 1
   : "${ASKKEY_CODESIGN_IDENTITY:?AskKey Developer ID is required}"
   : "${ASKKEY_APPLE_TEAM_ID:?AskKey Apple Team is required}"
-  : "${ASKKEY_ICLOUD_CONTAINER_IDENTIFIER:?AskKey iCloud container is required}"
   [ "$ASKKEY_CODESIGN_IDENTITY" != - ] || exit 1
-  scripts/icloud-capability-gate.sh identifier "$ASKKEY_ICLOUD_CONTAINER_IDENTIFIER"
   SIGN_IDENTITY="$ASKKEY_CODESIGN_IDENTITY"
   BUNDLE_ID="com.sudohg.askkey.app"
 fi
 # Explicit on-machine testing uses the real local vault namespace, signed by
-# the owner's Developer ID. It does not enable cloud backup or software updates.
+# the owner's Developer ID. It does not enable software updates.
 if [ "$MODE" = Local ]; then
   : "${ASKKEY_CODESIGN_IDENTITY:?Local testing requires the owner signing identity}"
   : "${ASKKEY_APPLE_TEAM_ID:?Local testing requires the owner Apple Team}"
@@ -109,9 +107,6 @@ if [ "$MODE" = Local ]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(git rev-parse --short HEAD)" "$APP/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Add :AskKeyLocalTesting bool true" "$APP/Contents/Info.plist"
 fi
-if [ "$MODE" = Release ]; then
-  /usr/libexec/PlistBuddy -c "Add :AskKeyICloudContainerIdentifier string $ASKKEY_ICLOUD_CONTAINER_IDENTIFIER" "$APP/Contents/Info.plist"
-fi
 if [ "$CONFIG" = Debug ]; then
   /usr/libexec/PlistBuddy -c "Add :AskKeyRequiresDebugRunDirectory bool true" "$APP/Contents/Info.plist"
 fi
@@ -121,12 +116,6 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 echo "==> Signing with $SIGN_IDENTITY …"
 SIGN_OPTIONS=(--force)
 if [ "$CONFIG" = Release ]; then SIGN_OPTIONS=(--force --options runtime --timestamp); fi
-RELEASE_ENTITLEMENTS=""
-if [ "$MODE" = Release ]; then
-  RELEASE_ENTITLEMENTS="$(mktemp "${TMPDIR:-/tmp}/askkey-icloud-entitlements.XXXXXX")"
-  scripts/icloud-capability-gate.sh entitlements "$RELEASE_ENTITLEMENTS" "$ASKKEY_ICLOUD_CONTAINER_IDENTIFIER"
-  SIGN_OPTIONS+=(--entitlements "$RELEASE_ENTITLEMENTS")
-fi
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$CLI"
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP/Contents/Helpers/askkey"
 codesign --force --deep "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP"
@@ -135,10 +124,6 @@ if [ "$CONFIG" = Release ]; then
   ACTUAL_TEAM="$(codesign -dv --verbose=4 "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
   [ "$ACTUAL_TEAM" = "$ASKKEY_APPLE_TEAM_ID" ] || { echo "AskKey signing team mismatch" >&2; exit 1; }
   codesign --verify --strict -R '=anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists' "$APP"
-  if [ "$MODE" = Release ]; then
-    scripts/icloud-capability-gate.sh app "$APP" "$ASKKEY_ICLOUD_CONTAINER_IDENTIFIER"
-    rm -f "$RELEASE_ENTITLEMENTS"
-  fi
 fi
 
 echo "==> Done."

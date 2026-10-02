@@ -71,11 +71,6 @@ final class AppLanguageExperienceTests: XCTestCase {
             CredentialManagementCopy.resumeReason: "确认恢复 Agent 访问",
             "Clear Ask Key access records": "确认清除请旨访问记录",
             "Erase the local Ask Key vault": "确认抹除请旨本机凭证库",
-            "Restore Ask Key encrypted backup": "确认恢复请旨加密备份",
-            "Create a new Ask Key backup namespace": "确认创建新的请旨备份空间",
-            "Start Ask Key backup with the saved recovery key": "确认使用已保存的恢复密钥启动请旨备份",
-            "Take ownership of Ask Key iCloud backup": "确认接管请旨 iCloud 备份",
-            "Delete Ask Key iCloud backup": "确认删除请旨 iCloud 备份",
             "View the frozen file submitted for approval": "确认查看待批准的冻结文件内容",
             "Disable system authentication for read approvals": "关闭批准读取的系统验证",
         ]
@@ -896,18 +891,6 @@ final class AppLanguageExperienceTests: XCTestCase {
             runtimeFileCleanupFailures: { false },
             accessRecords: .empty,
             eraseLocalLibrary: { _, _, _ in },
-            inspectICloudBackup: { _ in [] },
-            listICloudBackupConflicts: { _ in [] },
-            restoreICloudBackup: { _, _, _ in
-                throw ICloudBackupError.containerUnavailable
-            },
-            takeOwnershipOfICloudBackup: { _, _, _ in },
-            deleteICloudBackup: { _, _ in },
-            listICloudBackupNamespaces: { [] },
-            createICloudBackupNamespace: { _ in "unused" },
-            activateICloudBackupNamespace: { _, _ in
-                throw ICloudBackupError.containerUnavailable
-            },
             unlockVault: unlockVault,
             beginManagementSession: beginManagementSession,
             beginOnboardingManagementSession: beginOnboardingManagementSession,

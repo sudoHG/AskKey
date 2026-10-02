@@ -165,18 +165,6 @@ final class AgentAccessMenuSessionTests: XCTestCase {
             runtimeFileCleanupFailures: { false },
             accessRecords: .empty,
             eraseLocalLibrary: { _, _, _ in },
-            inspectICloudBackup: { _ in [] },
-            listICloudBackupConflicts: { _ in [] },
-            restoreICloudBackup: { _, _, _ in
-                throw ICloudBackupError.containerUnavailable
-            },
-            takeOwnershipOfICloudBackup: { _, _, _ in },
-            deleteICloudBackup: { _, _ in },
-            listICloudBackupNamespaces: { [] },
-            createICloudBackupNamespace: { _ in "unused" },
-            activateICloudBackupNamespace: { _, _ in
-                throw ICloudBackupError.containerUnavailable
-            },
             unlockVault: {},
             beginManagementSession: beginManagementSession,
             beginOnboardingManagementSession: {},

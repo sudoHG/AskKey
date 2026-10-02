@@ -4,6 +4,7 @@ public enum LocalVaultEraseState: String, Codable, Equatable, Sendable {
     case confirmed
     case operationsQuiesced
     case deliveriesCleared
+    // Decode the former checkpoint so interrupted local erases still recover.
     case backupsStopped
     case dataDeleted
     case keyDeleted
@@ -77,20 +78,17 @@ public final class FileLocalVaultEraseJournalStore: LocalVaultEraseJournalStore 
 public struct LocalVaultEraseActions: Sendable {
     let quiesceOperations: @Sendable () throws -> Void
     let cleanupDeliveries: @Sendable () throws -> Void
-    let stopBackups: @Sendable () throws -> Void
     let deleteEncryptedData: @Sendable () throws -> Void
     let deleteLocalKey: @Sendable () throws -> Void
 
     public init(
         quiesceOperations: @escaping @Sendable () throws -> Void,
         cleanupDeliveries: @escaping @Sendable () throws -> Void,
-        stopBackups: @escaping @Sendable () throws -> Void,
         deleteEncryptedData: @escaping @Sendable () throws -> Void,
         deleteLocalKey: @escaping @Sendable () throws -> Void
     ) {
         self.quiesceOperations = quiesceOperations
         self.cleanupDeliveries = cleanupDeliveries
-        self.stopBackups = stopBackups
         self.deleteEncryptedData = deleteEncryptedData
         self.deleteLocalKey = deleteLocalKey
     }
@@ -156,10 +154,7 @@ public final class LocalVaultEraseCoordinator: @unchecked Sendable {
             case .operationsQuiesced:
                 try actions.cleanupDeliveries()
                 try journal.save(.deliveriesCleared)
-            case .deliveriesCleared:
-                try actions.stopBackups()
-                try journal.save(.backupsStopped)
-            case .backupsStopped:
+            case .deliveriesCleared, .backupsStopped:
                 try actions.deleteEncryptedData()
                 try journal.save(.dataDeleted)
             case .dataDeleted:

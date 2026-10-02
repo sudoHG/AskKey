@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import GRDB
 import XCTest
+import AskKeyBroker
 @testable import AskKeyCore
 
 final class MigrationPlannerTests: XCTestCase {
@@ -10,7 +11,12 @@ final class MigrationPlannerTests: XCTestCase {
         let keys = InMemoryMigrationKeyStore(legacyKey: Data(repeating: 0x11, count: 32))
         let placeholder = try VaultStore(path: try temporaryDirectory().appendingPathComponent("placeholder.db").path)
         let vault = Vault(store: placeholder)
+        XCTAssertThrowsError(try vault.brokerCredentialCatalog(cancellation: .init()))
+        let historical = paths.directory.appendingPathComponent("restore-safety/opaque")
+        try FileManager.default.createDirectory(at: historical.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("SYNTHETIC_HISTORY".utf8).write(to: historical)
         try vault.prepareAgentRuntime(paths: paths, keyStore: { keys })
+        XCTAssertEqual(try Data(contentsOf: historical), Data("SYNTHETIC_HISTORY".utf8))
         defer { try? vault.store.close() }
         XCTAssertFalse(vault.isLocked)
         XCTAssertFalse(vault.hasActiveManagementSession)
@@ -33,11 +39,27 @@ final class MigrationPlannerTests: XCTestCase {
         XCTAssertFalse(vault.hasActiveManagementSession)
         XCTAssertThrowsError(try vault.listTextCredentials())
         XCTAssertEqual(try vault.brokerCredentialCatalog(cancellation: .init()).count, 1)
+        vault.approvalRequests.setReadAuthenticationEnabled(false)
+        vault.approvalRequests.configureAuthentication { _ in false }
         try vault.prepareAgentRuntime(paths: paths, keyStore: {
             XCTFail("Already loaded runtime must not read keys again")
             return keys
         })
         XCTAssertFalse(vault.hasActiveManagementSession)
+        let ticket = try vault.approvalRequests.submit(.init(
+            operationID: "startup-read", credentialID: "TOKEN", targetID: "TOKEN",
+            operation: .read, payloadDigest: String(repeating: "a", count: 64)
+        ), trustedCredentialDeadline: .none)
+        XCTAssertEqual(try vault.approvalRequests.decide(
+            requestID: ticket.requestID, capability: ticket.capability, decision: .once
+        ).state, .approved)
+        try vault.beginManagementSession(using: .allow)
+        try vault.pauseAgentAccess(using: .allow)
+        try vault.prepareAgentRuntime(paths: paths, keyStore: { keys })
+        XCTAssertTrue(try vault.isAgentAccessPaused())
+        XCTAssertThrowsError(try vault.brokerCredentialCatalog(cancellation: .init()))
+        vault.lock()
+        XCTAssertThrowsError(try vault.brokerCredentialCatalog(cancellation: .init()))
         try vault.store.close()
     }
 
@@ -55,6 +77,7 @@ final class MigrationPlannerTests: XCTestCase {
         }
         XCTAssertTrue(vault.isLocked)
         XCTAssertFalse(vault.hasActiveManagementSession)
+        XCTAssertThrowsError(try vault.brokerCredentialCatalog(cancellation: .init()))
         XCTAssertEqual(try directoryBytes(fixture.directory), sourceBytes)
     }
 
