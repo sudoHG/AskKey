@@ -175,6 +175,21 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         XCTAssertEqual(keys.mutations, 0, "the different pending key is neither used nor deleted")
     }
 
+    func testAppKeyOpensLibraryWithoutCredentialRowsWhenPendingKeyCannotBeRead() throws {
+        let (paths, keys) = try unfinishedFirstCreation()
+        let pending = try XCTUnwrap(keys.pendingKey)
+        keys.appKey = pending
+        keys.pendingLoadFailure = AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
+        let before = try directoryBytes(paths.directory)
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
+        try opened.store.close()
+        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertEqual(keys.appKey, pending)
+        XCTAssertEqual(keys.pendingKey, pending)
+        XCTAssertEqual(keys.mutations, 0, "an unreadable pending key is never deleted")
+    }
+
     func testPromotedKeyWithLeftoverPendingDuplicateOpensUnfinishedDatabaseAndDeletesIt() throws {
         let (paths, keys) = try unfinishedFirstCreation()
         keys.appKey = keys.pendingKey
