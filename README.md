@@ -6,6 +6,15 @@ Credentials are encrypted on your Mac. Agents such as Codex, Cursor and Grok CLI
 
 > **Status:** under active restructuring before the first public release. Not ready for general use.
 
+## Development
+
+```bash
+swift build
+swift test
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for requirements, UI flows and repository checks.
+
 ## License
 
 MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
