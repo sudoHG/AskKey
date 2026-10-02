@@ -66,7 +66,7 @@ final class Batch4SettingsLanguageTests: XCTestCase {
                 let ticket = try machine.submit(.init(
                     operationID: UUID().uuidString, credentialID: "synthetic", targetID: "synthetic",
                     operation: operation, payloadDigest: String(repeating: "a", count: 64)
-                ))
+                ), trustedCredentialDeadline: .none)
                 XCTAssertEqual(ticket.state, .pending)
                 XCTAssertEqual(recorder.purposes, before)
                 XCTAssertEqual(try machine.decide(

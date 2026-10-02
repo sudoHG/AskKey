@@ -193,10 +193,6 @@ final class BrokerRuntimeRecoveryTests: XCTestCase {
             "settings recovery must remain after the error alert is dismissed"
         )
 
-        let app = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/AskKeyApp.swift"),
-            encoding: .utf8
-        )
         XCTAssertTrue(app.contains("vault.clearBrokerRuntimeFailure()"))
         XCTAssertTrue(app.contains("vault.presentBrokerRuntimeFailure("))
         XCTAssertFalse(app.contains("vault.brokerRecoveryAvailable = false"))

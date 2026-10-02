@@ -49,7 +49,7 @@ final class MigrationPlannerTests: XCTestCase {
         let ticket = try vault.approvalRequests.submit(.init(
             operationID: "startup-read", credentialID: "TOKEN", targetID: "TOKEN",
             operation: .read, payloadDigest: String(repeating: "a", count: 64)
-        ))
+        ), trustedCredentialDeadline: .none)
         XCTAssertEqual(try vault.approvalRequests.decide(
             requestID: ticket.requestID, capability: ticket.capability, decision: .once
         ).state, .approved)

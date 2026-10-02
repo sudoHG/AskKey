@@ -136,7 +136,7 @@ final class LocalVaultLifecycleTests: XCTestCase {
             operationID: "erase-read", credentialID: "credential", targetID: "credential",
             operation: .read, payloadDigest: String(repeating: "a", count: 64)
         )
-        let approved = try machine.submit(request)
+        let approved = try machine.submit(request, trustedCredentialDeadline: .none)
         _ = try machine.decide(
             requestID: approved.requestID, capability: approved.capability,
             decision: .timedAllow(duration: 30)
@@ -144,7 +144,7 @@ final class LocalVaultLifecycleTests: XCTestCase {
         let pending = try machine.submit(.init(
             operationID: "erase-write", credentialID: "credential", targetID: "credential",
             operation: .create, payloadDigest: String(repeating: "b", count: 64)
-        ))
+        ), trustedCredentialDeadline: .none)
         try vault.brokerRequests.register(requestID: "pending", capability: "capability")
         let delivery = try deliveryManager.materialize(
             credentialID: "credential",
