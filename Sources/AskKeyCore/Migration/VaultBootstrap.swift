@@ -49,45 +49,56 @@ enum VaultBootstrap {
         return .fresh
     }
 
+    /// Implements the opening decision table of #31. Every rejected state
+    /// leaves every file and key-store value unchanged.
     static func openCurrent(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore
     ) throws -> (store: VaultStore, key: SymmetricKey) {
-        switch try state(paths: paths) {
-        case .fresh:
-            try requireNoKey(keyStore)
-            return try createNewLibrary(paths: paths, keyStore: keyStore)
-        case .current:
-            let data: Data
-            do { data = try keyStore.loadAppKey() }
-            catch AppKeyStoreError.missingAppKey { throw VaultBootstrapError.missingKey }
-            guard data.count == 32 else { throw VaultBootstrapError.invalidKey }
-            let key = VaultCrypto.keyFromData(data)
+        let state = try state(paths: paths)
+        if let data = try loadKey(keyStore.loadAppKey, missing: .missingAppKey) {
+            // An App key is authoritative: no pending-key fallback, and it is
+            // never replaced when its database is missing.
+            guard state == .current else { throw VaultBootstrapError.missingDatabase }
+            let key = try validatedKey(data)
             try validateCurrentLibrary(paths: paths, key: key)
             let store = try VaultStore(path: paths.currentDatabase.path, authenticationKey: key)
             store.bindCredentialAuthenticationKey(key)
             return (store, key)
         }
+        let pending = try loadKey(keyStore.loadPendingKey, missing: .missingPendingKey)
+        switch state {
+        case .fresh:
+            // A pending key without any current file is an interrupted first
+            // creation before the database existed: resume with that key.
+            return try createNewLibrary(paths: paths, keyStore: keyStore, pendingKey: pending.map(validatedKey))
+        case .current:
+            guard let pending else { throw VaultBootstrapError.missingKey }
+            return try resumeUnfinishedFirstCreation(paths: paths, keyStore: keyStore, key: validatedKey(pending))
+        }
     }
 
-    private static func requireNoKey(_ keyStore: AppKeyStore) throws {
-        do {
-            _ = try keyStore.loadAppKey()
-            throw VaultBootstrapError.missingDatabase
-        } catch AppKeyStoreError.missingAppKey {}
-        do {
-            _ = try keyStore.loadPendingKey()
-            throw VaultBootstrapError.missingDatabase
-        } catch AppKeyStoreError.missingPendingKey {}
+    private static func loadKey(_ load: () throws -> Data, missing: AppKeyStoreError) throws -> Data? {
+        do { return try load() }
+        catch let error as AppKeyStoreError where error == missing { return nil }
+    }
+
+    private static func validatedKey(_ data: Data) throws -> SymmetricKey {
+        guard data.count == 32 else { throw VaultBootstrapError.invalidKey }
+        return VaultCrypto.keyFromData(data)
     }
 
     private static func createNewLibrary(
-        paths: VaultBootstrapPaths, keyStore: AppKeyStore
+        paths: VaultBootstrapPaths, keyStore: AppKeyStore, pendingKey: SymmetricKey?
     ) throws -> (store: VaultStore, key: SymmetricKey) {
-        let data = VaultCrypto.keyToData(VaultCrypto.generateKey())
-        try keyStore.savePendingKey(data)
+        let key: SymmetricKey
+        if let pendingKey {
+            key = pendingKey
+        } else {
+            key = VaultCrypto.generateKey()
+            try keyStore.savePendingKey(VaultCrypto.keyToData(key))
+        }
         try FileManager.default.createDirectory(at: paths.directory, withIntermediateDirectories: true,
                                                attributes: [.posixPermissions: 0o700])
-        let key = VaultCrypto.keyFromData(data)
         let store = try VaultStore(path: paths.currentDatabase.path)
         do {
             store.bindCredentialAuthenticationKey(key)
@@ -100,6 +111,92 @@ enum VaultBootstrap {
         } catch {
             try? store.close()
             throw error
+        }
+    }
+
+    /// Recovers a crash between database creation and key promotion. The
+    /// pending key is promoted only when the database is still exactly what
+    /// `createNewLibrary` writes; there are no encrypted rows to authenticate.
+    private static func resumeUnfinishedFirstCreation(
+        paths: VaultBootstrapPaths, keyStore: AppKeyStore, key: SymmetricKey
+    ) throws -> (store: VaultStore, key: SymmetricKey) {
+        try CurrentLibrarySnapshot.withCopy(of: paths.currentDatabase) { snapshot in
+            let database = try DatabaseQueue(path: snapshot.path)
+            defer { try? database.close() }
+            try database.read(requireUnfinishedFirstCreation)
+        }
+        let store = try VaultStore(path: paths.currentDatabase.path, authenticationKey: key,
+                                   validation: requireUnfinishedFirstCreation)
+        do {
+            store.bindCredentialAuthenticationKey(key)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                                 ofItemAtPath: paths.currentDatabase.path)
+            try keyStore.promotePendingKey()
+            try keyStore.deletePendingKey()
+            return (store, key)
+        } catch {
+            try? store.close()
+            throw error
+        }
+    }
+
+    /// "Unfinished first creation" (#31 rule 6): exactly the baseline
+    /// identifier and schema, and contents indistinguishable from the seed
+    /// that the baseline migration writes. Any extra row disqualifies it.
+    static func requireUnfinishedFirstCreation(_ db: Database) throws {
+        guard try CurrentLibrarySchema.opening(db) == .baseline else { throw VaultBootstrapError.missingKey }
+        let expected = try DatabaseQueue()
+        defer { try? expected.close() }
+        try CurrentLibrarySchema.migrator().migrate(expected)
+        guard try FirstCreationContents(db) == expected.read(FirstCreationContents.init) else {
+            throw VaultBootstrapError.missingKey
+        }
+    }
+
+    /// Creation-written contents with generated identifiers and timestamps
+    /// abstracted away, so the expected value comes from the baseline migrator.
+    private struct FirstCreationContents: Equatable {
+        let rowCounts: [String: Int]
+        let project: [String: DatabaseValue]
+        let environment: [String: DatabaseValue]
+        let config: [String: DatabaseValue]
+
+        init(_ db: Database) throws {
+            let tables = try String.fetchAll(db, sql: """
+                SELECT name FROM sqlite_master
+                WHERE type = 'table' AND name NOT GLOB 'sqlite_*' AND name != 'grdb_migrations'
+                ORDER BY name
+                """)
+            var counts: [String: Int] = [:]
+            for table in tables {
+                counts[table] = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(table.quotedDatabaseIdentifier)")
+            }
+            rowCounts = counts
+            let projects = try Row.fetchAll(db, sql: "SELECT * FROM projects")
+            let environments = try Row.fetchAll(db, sql: "SELECT * FROM environments")
+            guard projects.count == 1, environments.count == 1 else {
+                project = [:]; environment = [:]; config = [:]
+                return
+            }
+            // References to the seed project compare equal; any other value
+            // must match the migrator's literally.
+            let projectID: DatabaseValue = projects[0]["id"]
+            let seedProject = "\u{0}seed-project".databaseValue
+            func abstracted(_ value: DatabaseValue) -> DatabaseValue {
+                value == projectID && !value.isNull ? seedProject : value
+            }
+            func columns(_ row: Row, excluding volatile: Set<String>) -> [String: DatabaseValue] {
+                var result: [String: DatabaseValue] = [:]
+                for (column, value) in row where !volatile.contains(column) { result[column] = abstracted(value) }
+                return result
+            }
+            project = columns(projects[0], excluding: ["id", "created_at", "updated_at"])
+            environment = columns(environments[0], excluding: ["id", "created_at"])
+            var values: [String: DatabaseValue] = [:]
+            for row in try Row.fetchAll(db, sql: "SELECT key, value FROM config") {
+                values[row["key"]] = abstracted(row["value"])
+            }
+            config = values
         }
     }
 

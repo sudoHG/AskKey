@@ -63,17 +63,77 @@ final class VaultBootstrapTests: XCTestCase {
         try vault.store.close()
     }
 
-    func testFreshBootstrapRejectsPendingKeyWithoutDatabase() throws {
+    func testFreshBootstrapResumesInterruptedCreationWithPendingKey() throws {
         let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        let pending = Data(repeating: 0x42, count: 32)
         let keys = MemoryAppKeyStore()
-        keys.pendingKey = Data(repeating: 0x42, count: 32)
+        keys.pendingKey = pending
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
+        XCTAssertEqual(try opened.store.fetchAllProjects().count, 1)
+        try opened.store.close()
+        XCTAssertEqual(keys.appKey, pending)
+        XCTAssertNil(keys.pendingKey)
+        XCTAssertEqual(keys.mutations, 2, "only promotion and deletion; no new pending key")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: paths.directory.path), ["credentials-v2.db"])
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: paths.currentDatabase.path)[.posixPermissions] as? Int,
+                       0o600)
+        XCTAssertEqual(try VaultBootstrap.state(paths: paths), .current)
+
+        let before = try directoryBytes(paths.directory)
+        let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertEqual(VaultCrypto.keyToData(reopened.key), pending)
+        try reopened.store.close()
+        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertEqual(keys.appKey, pending)
+        XCTAssertNil(keys.pendingKey)
+        XCTAssertEqual(keys.mutations, 2)
+    }
+
+    func testFreshBootstrapRejectsMalformedPendingKeyWithoutChangingFilesOrKeys() throws {
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        try Data("SYNTHETIC-sibling".utf8).write(to: paths.directory.appendingPathComponent("vault.db"))
+        let keys = MemoryAppKeyStore()
+        keys.pendingKey = Data(repeating: 0x42, count: 31)
+        let before = try directoryBytes(paths.directory)
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+            XCTAssertEqual($0 as? VaultBootstrapError, .invalidKey)
+        }
+        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertEqual(keys.pendingKey, Data(repeating: 0x42, count: 31))
+        XCTAssertNil(keys.appKey)
+        XCTAssertEqual(keys.mutations, 0)
+    }
+
+    func testFreshBootstrapRejectsPendingKeyWithOrphanedCurrentSidecars() throws {
+        for suffix in ["-wal", "-shm", "-journal"] {
+            let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+            try Data("SYNTHETIC-orphan\(suffix)".utf8)
+                .write(to: URL(fileURLWithPath: paths.currentDatabase.path + suffix))
+            let keys = MemoryAppKeyStore()
+            keys.pendingKey = Data(repeating: 0x42, count: 32)
+            let before = try directoryBytes(paths.directory)
+            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys), suffix) {
+                XCTAssertEqual($0 as? VaultBootstrapError, .invalidState, suffix)
+            }
+            XCTAssertEqual(try directoryBytes(paths.directory), before, suffix)
+            XCTAssertEqual(keys.pendingKey, Data(repeating: 0x42, count: 32), suffix)
+            XCTAssertNil(keys.appKey, suffix)
+            XCTAssertEqual(keys.mutations, 0, suffix)
+        }
+    }
+
+    func testActivatedKeyWithoutDatabaseIgnoresPendingKeyAndChangesNothing() throws {
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        let keys = MemoryAppKeyStore(appKey: Data(repeating: 0x42, count: 32))
+        keys.pendingKey = Data(repeating: 0x24, count: 32)
         let before = try directoryBytes(paths.directory)
         XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
             XCTAssertEqual($0 as? VaultBootstrapError, .missingDatabase)
         }
         XCTAssertEqual(try directoryBytes(paths.directory), before)
-        XCTAssertEqual(keys.pendingKey, Data(repeating: 0x42, count: 32))
-        XCTAssertNil(keys.appKey)
+        XCTAssertEqual(keys.appKey, Data(repeating: 0x42, count: 32))
+        XCTAssertEqual(keys.pendingKey, Data(repeating: 0x24, count: 32))
         XCTAssertEqual(keys.mutations, 0)
     }
 
@@ -139,6 +199,8 @@ final class MemoryAppKeyStore: AppKeyStore {
     var appKey: Data?
     var pendingKey: Data?
     var mutations = 0
+    /// Simulates an interruption between database creation and promotion.
+    var promotionFailure: Error?
     init(appKey: Data? = nil) { self.appKey = appKey }
     func loadAppKey() throws -> Data {
         guard let appKey else { throw AppKeyStoreError.missingAppKey }
@@ -149,7 +211,11 @@ final class MemoryAppKeyStore: AppKeyStore {
         return pendingKey
     }
     func savePendingKey(_ data: Data) throws { mutations += 1; pendingKey = data }
-    func promotePendingKey() throws { mutations += 1; appKey = try loadPendingKey() }
+    func promotePendingKey() throws {
+        if let promotionFailure { throw promotionFailure }
+        mutations += 1
+        appKey = try loadPendingKey()
+    }
     func deletePendingKey() throws { mutations += 1; pendingKey = nil }
     func deleteAppKey() throws { mutations += 1; appKey = nil }
     func deleteLegacyKey() throws { mutations += 1 }

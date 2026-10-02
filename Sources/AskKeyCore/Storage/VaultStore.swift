@@ -32,7 +32,10 @@ final class VaultStore {
         return record
     }
 
-    init(path: String, authenticationKey: SymmetricKey? = nil) throws {
+    /// `validation` runs on the private preflight copy and again on the opened
+    /// connection before any migration-table write.
+    init(path: String, authenticationKey: SymmetricKey? = nil,
+         validation: (Database) throws -> Void = { _ in }) throws {
         self.path = path
         let exists = try CurrentLibrarySnapshot.regularFileExists(URL(fileURLWithPath: path))
         guard exists || authenticationKey == nil else { throw VaultBootstrapError.missingDatabase }
@@ -47,6 +50,7 @@ final class VaultStore {
                 opening = try probe.read {
                     let opening = try CurrentLibrarySchema.opening($0)
                     if let authenticationKey { try Self.validateCredentialRows($0, key: authenticationKey) }
+                    try validation($0)
                     return opening
                 }
                 proof = verified
@@ -57,6 +61,14 @@ final class VaultStore {
             if let proof {
                 // GRDB calls this before validating the format or opening WAL
                 // bookkeeping. Reject any change since private-copy validation.
+                //
+                // Defense in depth only, not a guarantee. AskKey assumes it is
+                // the only process that opens the library (#31 concurrency
+                // scope; see SECURITY.md). No file lock is held after this
+                // check, so a same-user process can still change the files
+                // between it and SQLite's first schema or WAL read, or later.
+                // Normal SQLite transaction revalidation of the schema and
+                // credential authentication still applies.
                 try proof.validate(URL(fileURLWithPath: path))
                 var moved: CInt = 0
                 guard sqlite3_file_control(database.sqliteConnection, nil, SQLITE_FCNTL_HAS_MOVED, &moved) == SQLITE_OK,
@@ -91,6 +103,7 @@ final class VaultStore {
             try db.write { database in
                 try CurrentLibrarySchema.adoptLegacyV15(database) {
                     if let authenticationKey { try Self.validateCredentialRows($0, key: authenticationKey) }
+                    try validation($0)
                 }
             }
         } else if exists {
@@ -99,6 +112,7 @@ final class VaultStore {
                     throw VaultBootstrapError.invalidState
                 }
                 if let authenticationKey { try Self.validateCredentialRows(database, key: authenticationKey) }
+                try validation(database)
             }
         } else {
             try migrate()

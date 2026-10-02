@@ -97,17 +97,114 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
             """, error: .schemaMismatch)
     }
 
-    func testDatabaseWithoutAppKeyRejectsPendingFallbackAndChangesNoFile() throws {
+    func testPendingKeyWithLegacyV15HistoryFailsWithoutChangingAnyFile() throws {
         let (paths, keys) = try fixtureLibrary()
         keys.pendingKey = keys.appKey
         keys.appKey = nil
+        let pending = keys.pendingKey
         let before = try directoryBytes(paths.directory)
         XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
             XCTAssertEqual($0 as? VaultBootstrapError, .missingKey)
         }
         XCTAssertEqual(try directoryBytes(paths.directory), before)
         XCTAssertEqual(keys.mutations, 0)
-        XCTAssertNotNil(keys.pendingKey)
+        XCTAssertEqual(keys.pendingKey, pending)
+        XCTAssertNil(keys.appKey)
+    }
+
+    func testPendingKeyIsPromotedForUnfinishedFirstCreation() throws {
+        let (paths, keys) = try unfinishedFirstCreation()
+        let pending = try XCTUnwrap(keys.pendingKey)
+        try addHistoricalSiblings(paths)
+        let before = try directoryBytes(paths.directory)
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
+        XCTAssertEqual(try identifiers(opened.store), ["askkey-0001-baseline"])
+        try opened.store.close()
+        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertEqual(keys.appKey, pending)
+        XCTAssertNil(keys.pendingKey)
+        XCTAssertEqual(keys.mutations, 2)
+
+        let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        defer { try? reopened.store.close() }
+        XCTAssertEqual(VaultCrypto.keyToData(reopened.key), pending)
+        let vault = Vault(store: reopened.store, key: reopened.key)
+        _ = try vault.createTextCredential(.init(name: "SYNTHETIC-TOKEN", value: "synthetic",
+                                                 environmentVariable: "SYNTHETIC_TOKEN", permission: .allowed),
+                                           using: .deny)
+        XCTAssertEqual(try vault.brokerCredentialCatalog(cancellation: .init()).count, 1)
+        XCTAssertEqual(keys.mutations, 2)
+    }
+
+    func testPendingKeyWithCredentialRowFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(error: .missingKey) { paths, pending in
+            let store = try VaultStore(path: paths.currentDatabase.path)
+            defer { try? store.close() }
+            let key = VaultCrypto.keyFromData(pending)
+            store.bindCredentialAuthenticationKey(key)
+            _ = try Vault(store: store, key: key).createTextCredential(
+                .init(name: "SYNTHETIC-TOKEN", value: "synthetic", environmentVariable: "SYNTHETIC_TOKEN",
+                      permission: .allowed), using: .deny)
+            try store.db.write { db in
+                try db.execute(sql: "DELETE FROM credential_access_records; DELETE FROM activity_log")
+                XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM credentials"), 1)
+            }
+        }
+    }
+
+    func testPendingKeyWithExtraConfigKeyFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(sql: "INSERT INTO config (key, value) VALUES ('SYNTHETIC-extra', 'x')",
+                                  error: .missingKey)
+    }
+
+    func testPendingKeyWithForeignActiveProjectFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(sql: "UPDATE config SET value = 'SYNTHETIC-other' WHERE key = 'active_project_id'",
+                                  error: .missingKey)
+    }
+
+    func testPendingKeyWithChangedSeedEnvironmentFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(sql: "UPDATE environments SET color = 'SYNTHETIC-red'", error: .missingKey)
+    }
+
+    func testPendingKeyWithExtraProjectFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(sql: """
+            INSERT INTO projects (id, name, active_environment, icon, created_at, updated_at)
+            VALUES ('SYNTHETIC-project', 'SYNTHETIC', 'Default', 'folder', 'now', 'now')
+            """, error: .missingKey)
+    }
+
+    func testPendingKeyWithActivityRowFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(sql: """
+            INSERT INTO activity_log (id, secret_name, project_name, environment_name, source, accessed_at)
+            VALUES ('SYNTHETIC', 'S', 'P', 'E', 'cli', 'now')
+            """, error: .missingKey)
+    }
+
+    func testPendingKeyWithUnknownIdentifierFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(sql: "INSERT INTO grdb_migrations VALUES ('unknown')", error: .unsupportedMigrations)
+    }
+
+    func testPendingKeyWithSchemaMismatchFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(sql: "ALTER TABLE config ADD COLUMN unknown TEXT", error: .schemaMismatch)
+    }
+
+    func testMalformedPendingKeyWithUnfinishedDatabaseFailsWithoutChangingAnyFileOrKey() throws {
+        try assertPendingRejected(pendingKey: Data(repeating: 7, count: 33), error: .invalidKey) { _, _ in }
+    }
+
+    func testUnfinishedDatabaseWithoutAnyKeyFailsWithoutChangingAnyFile() throws {
+        let (paths, keys) = try unfinishedFirstCreation()
+        keys.pendingKey = nil
+        try addHistoricalSiblings(paths)
+        let before = try directoryBytes(paths.directory)
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+            XCTAssertEqual($0 as? VaultBootstrapError, .missingKey)
+        }
+        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertNil(keys.appKey)
+        XCTAssertNil(keys.pendingKey)
+        XCTAssertEqual(keys.mutations, 0)
     }
 
     func testDatabaseWithoutAnyKeyFailsWithoutChangingAnyFile() throws {
@@ -208,6 +305,58 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
             if let error { XCTAssertEqual($0 as? VaultBootstrapError, error) }
         }
         XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertEqual(keys.mutations, 0)
+    }
+
+    private struct InterruptedCreation: Error {}
+
+    /// Produces the real on-disk state of a first creation interrupted
+    /// between database initialization and pending-key promotion.
+    private func unfinishedFirstCreation() throws -> (VaultBootstrapPaths, MemoryAppKeyStore) {
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        let keys = MemoryAppKeyStore()
+        keys.promotionFailure = InterruptedCreation()
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+            XCTAssertTrue($0 is InterruptedCreation)
+        }
+        keys.promotionFailure = nil
+        keys.mutations = 0
+        XCTAssertNil(keys.appKey)
+        XCTAssertEqual(keys.pendingKey?.count, 32)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: paths.directory.path), ["credentials-v2.db"])
+        return (paths, keys)
+    }
+
+    private func addHistoricalSiblings(_ paths: VaultBootstrapPaths) throws {
+        try Data("SYNTHETIC-sibling".utf8).write(to: paths.directory.appendingPathComponent("vault.db"))
+        try Data("SYNTHETIC-journal".utf8).write(to: paths.directory.appendingPathComponent("migration-v2.journal"))
+        try Data().write(to: paths.directory.appendingPathComponent("credentials-v2.db.pending-wal"))
+    }
+
+    private func assertPendingRejected(sql: String, error: VaultBootstrapError) throws {
+        try assertPendingRejected(error: error) { paths, _ in
+            let database = try DatabaseQueue(path: paths.currentDatabase.path)
+            try database.write { try $0.execute(sql: sql) }
+            try database.close()
+        }
+    }
+
+    private func assertPendingRejected(
+        pendingKey: Data? = nil, error: VaultBootstrapError,
+        mutate: (VaultBootstrapPaths, Data) throws -> Void
+    ) throws {
+        let (paths, keys) = try unfinishedFirstCreation()
+        try mutate(paths, try XCTUnwrap(keys.pendingKey))
+        if let pendingKey { keys.pendingKey = pendingKey }
+        let pending = keys.pendingKey
+        try addHistoricalSiblings(paths)
+        let before = try directoryBytes(paths.directory)
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+            XCTAssertEqual($0 as? VaultBootstrapError, error)
+        }
+        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertEqual(keys.pendingKey, pending)
+        XCTAssertNil(keys.appKey)
         XCTAssertEqual(keys.mutations, 0)
     }
 
