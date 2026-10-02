@@ -198,9 +198,13 @@ final class TextRuntimeTests: XCTestCase {
     func testDisconnectTerminatesTheChildAndSpawnBoundaryFailureIsNotRetried() throws {
         let control = Pipe()
         let cancellation = BrokerCancellation()
-        let runtime = BrokerTextRuntime(resolveCredentials: { _, _ in
-            .resolved([.init(environmentVariable: "TOKEN", value: "secret")])
-        })
+        let spawned = expectation(description: "target spawned")
+        let runtime = BrokerTextRuntime(
+            resolveCredentials: { _, _ in
+                .resolved([.init(environmentVariable: "TOKEN", value: "secret")])
+            },
+            afterSpawn: { spawned.fulfill() }
+        )
         let finished = expectation(description: "child terminated")
         let result = LockedResult()
         DispatchQueue.global().async {
@@ -211,7 +215,7 @@ final class TextRuntimeTests: XCTestCase {
             )
             finished.fulfill()
         }
-        usleep(100_000)
+        wait(for: [spawned], timeout: 2)
         try control.fileHandleForWriting.close()
         wait(for: [finished], timeout: 2)
         XCTAssertEqual(result.value, .exited(143))
@@ -233,9 +237,13 @@ final class TextRuntimeTests: XCTestCase {
 
     func testInterruptIsForwardedToTheTargetProcess() throws {
         let control = Pipe()
-        let runtime = BrokerTextRuntime(resolveCredentials: { _, _ in
-            .resolved([.init(environmentVariable: "TOKEN", value: "secret")])
-        })
+        let spawned = expectation(description: "target spawned")
+        let runtime = BrokerTextRuntime(
+            resolveCredentials: { _, _ in
+                .resolved([.init(environmentVariable: "TOKEN", value: "secret")])
+            },
+            afterSpawn: { spawned.fulfill() }
+        )
         let finished = expectation(description: "interrupted")
         let result = LockedResult()
         DispatchQueue.global().async {
@@ -245,7 +253,7 @@ final class TextRuntimeTests: XCTestCase {
             )
             finished.fulfill()
         }
-        usleep(100_000)
+        wait(for: [spawned], timeout: 2)
         var interrupt = BrokerRuntimeSignal.interrupt.rawValue
         XCTAssertEqual(write(control.fileHandleForWriting.fileDescriptor, &interrupt, 1), 1)
         wait(for: [finished], timeout: 2)

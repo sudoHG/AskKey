@@ -136,9 +136,6 @@ final class CodexNativeHookClientTests: XCTestCase {
 
     func testInteractiveSessionHonorsCancellationWhileServerIsQuiet() throws {
         let cancelled = LockedFlag()
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
-            cancelled.value = true
-        }
         let session = try interactiveSession(
             script: "sleep 8",
             timeout: 4,
@@ -147,6 +144,9 @@ final class CodexNativeHookClientTests: XCTestCase {
         defer { session.close() }
 
         try session.writeLine(Data("request".utf8))
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+            cancelled.value = true
+        }
         let started = Date()
         XCTAssertThrowsError(try session.readLine()) { error in
             XCTAssertEqual(error as? RestrictedProcess.InteractiveFailure, .cancelled)
@@ -155,8 +155,16 @@ final class CodexNativeHookClientTests: XCTestCase {
     }
 
     func testInteractiveSessionUsesOneDeadlineAcrossNotificationFlood() throws {
+        let directory = try makeInteractiveDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let release = directory.appendingPathComponent("release-flood")
         let session = try interactiveSession(
-            script: "IFS= read line; while :; do printf 'notification\\n'; done",
+            script: """
+            IFS= read line
+            printf 'notification\\n'
+            while [ ! -f '\(release.path)' ]; do /bin/sleep 0.01; done
+            while :; do printf 'notification\\n'; done
+            """,
             timeout: 1,
             maximumOutputBytes: 512
         )
@@ -165,6 +173,11 @@ final class CodexNativeHookClientTests: XCTestCase {
         try session.writeLine(Data("request".utf8))
         var lines = 0
         XCTAssertThrowsError(try {
+            _ = try session.readLine()
+            lines += 1
+            // Release the flood only after a bounded notification was read.
+            // A second writeLine would reset the deadline under test.
+            try Data().write(to: release)
             while true {
                 _ = try session.readLine()
                 lines += 1
@@ -237,10 +250,13 @@ private extension CodexNativeHookClientTests {
         maximumOutputBytes: Int = 1_048_576,
         isCancelled: (@Sendable () -> Bool)? = nil
     ) throws -> RestrictedProcess.InteractiveSession {
-        try RestrictedProcess.startInteractive(
+        let readinessDirectory = try makeInteractiveDirectory()
+        defer { try? FileManager.default.removeItem(at: readinessDirectory) }
+        let ready = readinessDirectory.appendingPathComponent("ready")
+        let session = try RestrictedProcess.startInteractive(
             RestrictedProcess.InteractiveRequest(
                 executable: URL(fileURLWithPath: "/bin/sh"),
-                arguments: ["-c", script],
+                arguments: ["-c", "printf ready > '\(ready.path)'\n\(script)"],
                 environment: ["PATH": "/bin:/usr/bin"],
                 currentDirectory: directory,
                 timeout: timeout,
@@ -250,6 +266,19 @@ private extension CodexNativeHookClientTests {
                 isCancelled: isCancelled
             )
         )
+        do {
+            // Process startup is setup; writeLine starts the request deadline.
+            let deadline = ProcessInfo.processInfo.systemUptime + 5
+            while ProcessInfo.processInfo.systemUptime < deadline {
+                if (try? Data(contentsOf: ready)) == Data("ready".utf8) { return session }
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+            XCTFail("The interactive fixture did not report ready")
+            throw CocoaError(.fileReadNoSuchFile)
+        } catch {
+            session.close()
+            throw error
+        }
     }
 
     final class LockedFlag: @unchecked Sendable {
