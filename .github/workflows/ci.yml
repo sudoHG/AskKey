@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+      - name: Check optimized cancellation runtime
+        run: bash scripts/test-cancellation-runtime.sh
+
+      - name: Verify UI delivery gate rejects incomplete runs
+        run: python3 -m unittest discover -s Tests/Automation -v
+
+      - name: Check isolated development launcher
+        run: bash scripts/test-dev-launch.sh
+
+      - name: Check offline release packaging
+        if: hashFiles('scripts/test-release-package.py') != ''
+        run: python3 scripts/test-release-package.py
+
+  basic-ui-flows:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install XcodeGen
+        run: brew list xcodegen || brew install xcodegen
+      - name: Run required desktop flows
+        run: bash scripts/run-e2e.sh
+      - name: Preserve UI evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: askkey-basic-ui-evidence
+          path: Tests/UI/output/
+          if-no-files-found: error
+          retention-days: 7
