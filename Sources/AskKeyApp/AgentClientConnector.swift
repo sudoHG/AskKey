@@ -10,7 +10,6 @@ enum AgentClient: String, CaseIterable, Identifiable, Sendable {
     case codex = "Codex"
     case cursor = "Cursor"
     case grok = "Grok CLI"
-    case multica = "Self-hosted Multica"
 
     var id: String { rawValue }
     var proofID: String {
@@ -18,7 +17,6 @@ enum AgentClient: String, CaseIterable, Identifiable, Sendable {
         case .codex: return "codex"
         case .cursor: return "cursor"
         case .grok: return "grok"
-        case .multica: return "multica"
         }
     }
     var isAutomatic: Bool { true }
@@ -27,18 +25,12 @@ enum AgentClient: String, CaseIterable, Identifiable, Sendable {
         if self == .codex {
             return appLocalized("Ask Key will back up Codex's user-level configuration, add Ask Key and credential discovery before SSH, then verify both. Only this Ask Key hook will be trusted.")
         }
-        if self == .multica {
-            return appLocalized("Ask Key will use the existing Multica sign-in to add the configuration and assign it to agents.")
-        }
         return appLocalizedFormat("Ask Key will back up %@'s user settings, add Ask Key and credential discovery before SSH, then verify the connection and configuration.", rawValue)
     }
 
     var connectionSuccessMessage: String {
         if self == .codex {
             return appLocalized("MCP is connected and credential discovery before SSH is enabled. Start a new Codex task to use it.")
-        }
-        if self == .multica {
-            return appLocalized("Ask Key is configured in Multica.")
         }
         return appLocalizedFormat("Ask Key was added to %@ and the connection was verified.", rawValue)
     }
@@ -56,7 +48,6 @@ struct DebugClientE2ERequest: Equatable, Sendable {
     let client: AgentClient
     let home: URL
     let output: URL
-    let multicaServerName: String?
 
     static func parse(
         environment: [String: String],
@@ -66,7 +57,6 @@ struct DebugClientE2ERequest: Equatable, Sendable {
         case "codex": .codex
         case "cursor": .cursor
         case "grok": .grok
-        case "multica": .multica
         default: nil
         }
         guard let client,
@@ -85,19 +75,6 @@ struct DebugClientE2ERequest: Equatable, Sendable {
         guard resolvedHome.path != actual,
               resolvedHome.path != "/",
               resolvedOutput.deletingLastPathComponent() == resolvedHome else { return nil }
-        let multicaServerName = client == .multica
-            ? environment["ASKKEY_MULTICA_E2E_SERVER_NAME"]
-            : nil
-        if client == .multica {
-            guard let multicaServerName else { return nil }
-            let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
-            let prefix = "askkey-debug-"
-            let stub = resolvedHome.appendingPathComponent(".local/bin/multica")
-            guard multicaServerName.hasPrefix(prefix),
-                  (prefix.count + 1...64).contains(multicaServerName.count),
-                  multicaServerName.unicodeScalars.allSatisfy(allowed.contains),
-                  FileManager.default.isExecutableFile(atPath: stub.path) else { return nil }
-        }
         var outputInfo = stat()
         if resolvedOutput.path.withCString({ lstat($0, &outputInfo) }) == 0 {
             guard outputInfo.st_mode & S_IFMT == S_IFREG,
@@ -108,8 +85,7 @@ struct DebugClientE2ERequest: Equatable, Sendable {
         return Self(
             client: client,
             home: resolvedHome,
-            output: resolvedOutput,
-            multicaServerName: multicaServerName
+            output: resolvedOutput
         )
     }
 }
@@ -126,7 +102,7 @@ struct DebugClientE2EResult: Codable {
         Self(
             client: client.rawValue,
             previewConnected: previewConnected,
-            connected: client == .multica ? false : connected,
+            connected: connected,
             rollback: connected ? "not_needed" : "completed",
             error: connected ? nil : AgentClientErrorCopy.message(for: client),
             configured: connected
@@ -153,13 +129,12 @@ enum DebugClientE2ERunner {
             environment: environment,
             actualHome: FileManager.default.homeDirectoryForCurrentUser
         ) else {
-            fail("Ask Key client E2E request is invalid: use codex, cursor, grok, or multica with an owner-only 0700 home and a direct result file inside it")
+            fail("Ask Key client E2E request is invalid: use codex, cursor, or grok with an owner-only 0700 home and a direct result file inside it")
         }
         Task.detached {
             let connector = AgentClientConnector(
                 home: request.home,
-                supportDirectory: request.home.appendingPathComponent("support", isDirectory: true),
-                multicaDebugServerName: request.multicaServerName
+                supportDirectory: request.home.appendingPathComponent("support", isDirectory: true)
             )
             let result: DebugClientE2EResult
             do {
@@ -235,9 +210,8 @@ enum AgentClientErrorCopy {
         if let error = error as? OfficialInstallTopologyError {
             return OfficialInstallCopy.message(for: error)
         }
-        if let error = error as? MulticaConnectionError { return error.localizedDescription }
         let kind = classify(error)
-        let name = client == .multica ? "Multica" : client.rawValue
+        let name = client.rawValue
         switch kind {
         case .configuration:
             return appLocalizedFormat("The %@ user configuration cannot be updated safely. Fix that configuration, then try again.", name)
@@ -318,11 +292,9 @@ struct AgentClientConnector: Sendable {
     private static let codexMutationLock = NSLock()
     private static let cursorMutationLock = NSLock()
     private static let grokMutationLock = NSLock()
-    private static let multicaMutationLock = NSLock()
     private let home: URL
     private let installationHome: URL
     private let supportDirectoryOverride: URL?
-    private let multicaDebugServerName: String?
 #if DEBUG
     private let helperURLOverride: URL?
 #endif
@@ -331,13 +303,11 @@ struct AgentClientConnector: Sendable {
         home: URL? = nil,
         installationHome: URL? = nil,
         supportDirectory: URL? = nil,
-        multicaDebugServerName: String? = nil,
         helperURL: URL? = nil
     ) {
         self.home = home ?? Self.defaultClientHome
         self.installationHome = installationHome ?? home ?? FileManager.default.homeDirectoryForCurrentUser
         self.supportDirectoryOverride = supportDirectory
-        self.multicaDebugServerName = multicaDebugServerName
 #if DEBUG
         self.helperURLOverride = helperURL
 #else
@@ -372,8 +342,6 @@ struct AgentClientConnector: Sendable {
         case .grok:
             let context = try commandDiscoveryContext(for: .grok)
             return try Self.previewGrok(grokAdapter(), context: context)
-        case .multica:
-            return try multicaAdapter().preview()
         }
     }
 
@@ -406,10 +374,6 @@ struct AgentClientConnector: Sendable {
             let result = try apply(.grok, plan: plan)
             if let failure = result.failure { throw failure }
             return result.outcome == .verifiedConnected
-        case .multica:
-            return try Self.performExclusive(client: client) {
-                try multicaAdapter().connect()
-            }
         }
     }
 
@@ -423,7 +387,6 @@ struct AgentClientConnector: Sendable {
         case .codex: lock = codexMutationLock
         case .cursor: lock = cursorMutationLock
         case .grok: lock = grokMutationLock
-        case .multica: lock = multicaMutationLock
         }
         lock.lock()
         defer { lock.unlock() }
@@ -613,43 +576,6 @@ struct AgentClientConnector: Sendable {
                 .appendingPathComponent("client-backups/grok", isDirectory: true),
             brokerSocketPath: BrokerConfiguration.socketURL.path,
             signing: isolatedSigning
-        )
-    }
-
-    func resolvedMulticaExecutable() -> URL {
-        // Configuration isolation must not redirect installation discovery.
-        // The dedicated E2E entry remains confined to its explicitly supplied stub.
-        if multicaDebugServerName != nil {
-            return home.appendingPathComponent(".local/bin/multica")
-        }
-        return firstExecutable([
-            installationHome.appendingPathComponent(".local/bin/multica").path,
-            "/opt/homebrew/bin/multica", "/usr/local/bin/multica",
-        ])
-    }
-
-    func multicaAdapter() throws -> MulticaWorkspaceMCPAdapter {
-        let executable = resolvedMulticaExecutable()
-        let signing: CodexHelperSigning
-#if DEBUG
-        signing = (multicaDebugServerName != nil || helperURLOverride != nil)
-            ? .development
-            : .executable
-#else
-        signing = .executable
-#endif
-        return MulticaWorkspaceMCPAdapter(
-            helperURL: try resolvedHelperURL(),
-            helperIsTrusted: signing.isTrusted,
-            command: ProcessMulticaWorkspaceMCPCommand.make(
-                executable: executable,
-                serverName: multicaDebugServerName ?? "askkey",
-                assignmentAgentName: multicaDebugServerName == nil ? nil : "开发｜快修"
-            ),
-            serverName: multicaDebugServerName ?? "askkey",
-            removeCreatedServerAfterConfiguration: multicaDebugServerName != nil,
-            recoveryDirectory: supportDirectory
-                .appendingPathComponent("client-backups/multica-recovery", isDirectory: true)
         )
     }
 

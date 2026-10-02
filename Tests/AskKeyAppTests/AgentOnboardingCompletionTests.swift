@@ -127,25 +127,6 @@ final class AgentOnboardingCompletionTests: XCTestCase {
         }
     }
 
-    func testMulticaCompletionCopyConfirmsWorkspaceWithoutClaimingConnection() throws {
-        let session = makeSession(
-            phase: .completed,
-            result: AgentLastKnownResult(
-                outcome: .workspaceConfigured,
-                checkedAt: Date(timeIntervalSince1970: 2),
-                targetSummary: "Studio"
-            )
-        )
-
-        let completion = try XCTUnwrap(AgentOnboardingCopy.completion(for: .multica, session: session))
-        XCTAssertEqual(completion.title, "Complete: workspace configuration confirmed")
-        XCTAssertEqual(
-            completion.detail,
-            "Workspace configuration is present. Agent runtime access has not been verified."
-        )
-        XCTAssertFalse(completion.title.localizedCaseInsensitiveContains("connected"))
-    }
-
     private func makeSession(
         phase: AgentOnboardingPhase,
         failure: AgentOnboardingFailure? = nil,

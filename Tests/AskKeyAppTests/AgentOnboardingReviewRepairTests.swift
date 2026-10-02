@@ -7,7 +7,6 @@ import XCTest
 @MainActor
 final class AgentOnboardingReviewRepairTests: XCTestCase {
     override func tearDown() {
-        MulticaRecoveryJournal.testWriteInterceptor = nil
         super.tearDown()
     }
 
@@ -38,34 +37,6 @@ final class AgentOnboardingReviewRepairTests: XCTestCase {
         XCTAssertEqual(session.attempt.phase, .recoveryRequired)
         XCTAssertNotEqual(session.attempt.phase, .readyToConfirm)
         await coordinator.confirm(.codex)
-        XCTAssertEqual(probe.applyCount, 0)
-    }
-
-    func testRemoteUnknownCheckWithPlanDoesNotUnlockConfirm() async {
-        let probe = RepairProbe()
-        probe.checkHandler = { client, _ in
-            AgentCheckReport(
-                outcome: .workspaceConfigured,
-                targetSummary: "ws",
-                plan: samplePlan(client),
-                failure: nil
-            )
-        }
-        let coordinator = AgentOnboardingCoordinator(operations: probe.operations)
-        coordinator.adoptRecovery(
-            .multica,
-            result: AgentLastKnownResult(
-                outcome: .configuredUnverified,
-                checkedAt: Date(timeIntervalSince1970: 10),
-                targetSummary: "ws"
-            ),
-            failure: .remoteUnknown,
-            change: .remoteUnknown
-        )
-        await coordinator.startCheck(.multica)
-        XCTAssertEqual(coordinator.session(for: .multica).attempt.changeStatus, .remoteUnknown)
-        XCTAssertEqual(coordinator.session(for: .multica).attempt.phase, .recoveryRequired)
-        await coordinator.confirm(.multica)
         XCTAssertEqual(probe.applyCount, 0)
     }
 
@@ -347,162 +318,6 @@ final class AgentOnboardingReviewRepairTests: XCTestCase {
         XCTAssertEqual(replies, 1)
     }
 
-    func testJournalAtomicReplaceKeepsContentAndPermissions() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-journal-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let first = MulticaRecoveryJournal.Record(
-            operationID: "old",
-            workspaceID: "ws",
-            serverName: "askkey",
-            agentIDs: ["a"],
-            phase: "starting",
-            createdServerID: nil,
-            assignedAgentIDs: []
-        )
-        let second = MulticaRecoveryJournal.Record(
-            operationID: "new",
-            workspaceID: "ws",
-            serverName: "askkey",
-            agentIDs: ["a"],
-            phase: "created",
-            createdServerID: "srv",
-            assignedAgentIDs: []
-        )
-        try MulticaRecoveryJournal.write(first, to: directory)
-        try MulticaRecoveryJournal.write(second, to: directory)
-        let loaded = try XCTUnwrap(MulticaRecoveryJournal.load(from: directory))
-        XCTAssertEqual(loaded, second)
-        let file = directory.appendingPathComponent("pending.json")
-        var fileInfo = stat()
-        XCTAssertEqual(file.path.withCString { lstat($0, &fileInfo) }, 0)
-        XCTAssertEqual(fileInfo.st_mode & S_IFMT, S_IFREG)
-        XCTAssertEqual(fileInfo.st_mode & 0o777, 0o600)
-        var dirInfo = stat()
-        XCTAssertEqual(directory.path.withCString { lstat($0, &dirInfo) }, 0)
-        XCTAssertEqual(dirInfo.st_mode & 0o777, 0o700)
-        let leftovers = try FileManager.default.contentsOfDirectory(atPath: directory.path)
-            .filter { $0.hasSuffix(".tmp") }
-        XCTAssertTrue(leftovers.isEmpty)
-    }
-
-    func testJournalWriteFailureKeepsPreviousRecord() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-journal-\(UUID().uuidString)", isDirectory: true)
-        defer {
-            _ = directory.path.withCString { chflags($0, 0) }
-            _ = directory.path.withCString { chmod($0, S_IRWXU) }
-            try? FileManager.default.removeItem(at: directory)
-        }
-        let first = MulticaRecoveryJournal.Record(
-            operationID: "keep",
-            workspaceID: "ws",
-            serverName: "askkey",
-            agentIDs: [],
-            phase: "starting",
-            createdServerID: nil,
-            assignedAgentIDs: []
-        )
-        try MulticaRecoveryJournal.write(first, to: directory)
-        XCTAssertEqual(directory.path.withCString { chflags($0, UInt32(UF_IMMUTABLE)) }, 0)
-        XCTAssertThrowsError(
-            try MulticaRecoveryJournal.write(
-                .init(
-                    operationID: "lost",
-                    workspaceID: "ws",
-                    serverName: "askkey",
-                    agentIDs: [],
-                    phase: "created",
-                    createdServerID: "x",
-                    assignedAgentIDs: []
-                ),
-                to: directory
-            )
-        )
-        XCTAssertEqual(directory.path.withCString { chflags($0, 0) }, 0)
-        XCTAssertEqual(MulticaRecoveryJournal.load(from: directory)?.operationID, "keep")
-        XCTAssertEqual(MulticaRecoveryJournal.load(from: directory)?.phase, "starting")
-    }
-
-    func testJournalRejectsSymlinkWithoutFollowing() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-journal-\(UUID().uuidString)", isDirectory: true)
-        let target = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-journal-target-\(UUID().uuidString)")
-        defer {
-            try? FileManager.default.removeItem(at: directory)
-            try? FileManager.default.removeItem(at: target)
-        }
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try Data("secret".utf8).write(to: target)
-        let pending = directory.appendingPathComponent("pending.json")
-        try FileManager.default.createSymbolicLink(at: pending, withDestinationURL: target)
-        XCTAssertThrowsError(
-            try MulticaRecoveryJournal.write(
-                .init(
-                    operationID: "nope",
-                    workspaceID: "ws",
-                    serverName: "askkey",
-                    agentIDs: [],
-                    phase: "starting",
-                    createdServerID: nil,
-                    assignedAgentIDs: []
-                ),
-                to: directory
-            )
-        )
-        XCTAssertEqual(try String(contentsOf: target, encoding: .utf8), "secret")
-        XCTAssertNil(MulticaRecoveryJournal.load(from: directory))
-    }
-
-    func testJournalWriteFailureBeforeRemoteCreateIsZeroMutation() throws {
-        let recovery = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-journal-file-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: recovery) }
-        FileManager.default.createFile(atPath: recovery.path, contents: Data(), attributes: nil)
-        let probe = MutationProbe(existing: false)
-        let adapter = MulticaWorkspaceMCPAdapter(
-            helperURL: URL(fileURLWithPath: "/Applications/Ask Key.app/Contents/Helpers/askkey"),
-            helperIsTrusted: { _ in true },
-            command: probe.command,
-            recoveryDirectory: recovery
-        )
-        let plan = try XCTUnwrap(try adapter.checkStatus().plan)
-        XCTAssertThrowsError(try adapter.commit(plan))
-        XCTAssertEqual(probe.addCount, 0)
-        XCTAssertEqual(probe.assignCount, 0)
-    }
-
-    func testCreatedPhaseJournalFailureKeepsUnknownEvidenceWithoutDelete() throws {
-        let recovery = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-journal-\(UUID().uuidString)", isDirectory: true)
-        defer {
-            MulticaRecoveryJournal.testWriteInterceptor = nil
-            try? FileManager.default.removeItem(at: recovery)
-        }
-        let probe = MutationProbe(existing: false)
-        MulticaRecoveryJournal.testWriteInterceptor = { record in
-            if record.phase == "created" {
-                throw MulticaConnectionError.communicationFailed
-            }
-        }
-        let adapter = MulticaWorkspaceMCPAdapter(
-            helperURL: URL(fileURLWithPath: "/Applications/Ask Key.app/Contents/Helpers/askkey"),
-            helperIsTrusted: { _ in true },
-            command: probe.command,
-            recoveryDirectory: recovery
-        )
-        let plan = try XCTUnwrap(try adapter.checkStatus().plan)
-        XCTAssertThrowsError(try adapter.commit(plan)) { error in
-            XCTAssertEqual(error as? AgentOnboardingFailure, .remoteUnknown)
-        }
-        XCTAssertEqual(probe.addCount, 1)
-        XCTAssertEqual(probe.removeCount, 0)
-        let record = try XCTUnwrap(MulticaRecoveryJournal.load(from: recovery))
-        XCTAssertEqual(record.phase, "unknown")
-        XCTAssertEqual(record.createdServerID, "created-id")
-    }
-
     func testLocalApplyStopsWhenAskKeyAppearsAfterCheck() throws {
         let home = FileManager.default.temporaryDirectory
             .appendingPathComponent("askkey-cursor-home-\(UUID().uuidString)", isDirectory: true)
@@ -618,15 +433,8 @@ private func samplePlan(_ client: AgentClient) -> AgentOnboardingPlan {
         createdAt: Date(timeIntervalSince1970: 1),
         targetIdentity: client.rawValue,
         scopeSummary: "scope",
-        agentIDs: ["agent-1"],
-        agentNames: ["开发"],
-        workspaceID: client == .multica ? "ws-1" : nil,
-        workspaceName: client == .multica ? "Studio" : nil,
-        serverID: nil,
-        createsServer: client == .multica,
         configurationPresent: false,
         verifiesOnly: false,
-        preconditionSummary: "backup",
-        activeAgentFingerprint: client == .multica ? "agent-1,agent-2" : ""
+        preconditionSummary: "backup"
     )
 }

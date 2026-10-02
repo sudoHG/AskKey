@@ -4,29 +4,14 @@ import XCTest
 
 /// Call-boundary evidence for 331-404 S1.
 /// These assertions describe the new contract. On baseline ef90eae they must RED:
-/// the Agent access page auto-previews Multica, and preview failures write
+/// the Agent access page starts previews, and preview failures write
 /// `VaultViewModel.errorMessage`.
 @MainActor
 final class AgentOnboardingCallBoundaryTests: XCTestCase {
-    func testAgentAccessAppearSourceDoesNotAutoPreviewMultica() throws {
-        // Source absence is not S1 evidence. Keep only as a cheap regression
-        // against reintroducing the old literal. Real call-boundary proof is
-        // AgentOnboardingViewWiringTests.
-        let source = try String(
-            contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyApp/Views/CredentialManagementView.swift"
-            ),
-            encoding: .utf8
-        )
-        XCTAssertFalse(source.contains("previewClient(.multica)"))
-        XCTAssertTrue(source.contains("AgentOnboardingView()"))
-    }
-
     func testCoordinatorAppearAndExplainDoNotStartChecks() async {
         let probe = OnboardingCheckProbe()
         let coordinator = AgentOnboardingCoordinator(operations: probe.operations)
         coordinator.appear()
-        coordinator.explain(.multica)
         coordinator.explain(.codex)
         coordinator.disappear()
         XCTAssertEqual(probe.checkCount, 0)
@@ -194,19 +179,6 @@ final class AgentOnboardingCallBoundaryTests: XCTestCase {
         await coordinator.confirm(.codex)
         XCTAssertEqual(probe.applyCount, 0)
 
-        await coordinator.startCheck(.multica)
-        coordinator.adoptRecovery(
-            .multica,
-            result: AgentLastKnownResult(
-                outcome: .configuredUnverified,
-                checkedAt: Date(timeIntervalSince1970: 1),
-                targetSummary: "ws"
-            ),
-            failure: .remoteUnknown,
-            change: .remoteUnknown
-        )
-        await coordinator.confirm(.multica)
-        XCTAssertEqual(probe.applyCount, 0)
     }
 
     func testUnconfirmedLocalDiscoveryWriteRequiresFreshCheckBeforeAnotherConfirm() async {
@@ -333,16 +305,9 @@ final class AgentOnboardingCallBoundaryTests: XCTestCase {
                     createdAt: Date(),
                     targetIdentity: "codex",
                     scopeSummary: "add",
-                    agentIDs: [],
-                    agentNames: [],
-                    workspaceID: nil,
-                    workspaceName: nil,
-                    serverID: nil,
-                    createsServer: false,
                     configurationPresent: false,
                     verifiesOnly: false,
-                    preconditionSummary: "backup",
-                    activeAgentFingerprint: ""
+                    preconditionSummary: "backup"
                 ),
                 failure: nil
             )
@@ -358,8 +323,8 @@ final class AgentOnboardingCallBoundaryTests: XCTestCase {
 
     func testPreviewFailureDoesNotWriteGlobalErrorMessage() async {
         let viewModel = VaultViewModel(runtimeFileCleanupFailures: { false })
-        let preview = await viewModel.loadAgentClientPreview(.multica) {
-            throw MulticaConnectionError.timedOut
+        let preview = await viewModel.loadAgentClientPreview(.cursor) {
+            throw AgentOnboardingFailure.timedOut
         }
         XCTAssertNil(preview)
         XCTAssertNil(
@@ -463,15 +428,8 @@ private func sampleOnboardingPlan(client: AgentClient) -> AgentOnboardingPlan {
         createdAt: Date(timeIntervalSince1970: 1_700_000_000),
         targetIdentity: client.rawValue,
         scopeSummary: "scope",
-        agentIDs: [],
-        agentNames: [],
-        workspaceID: nil,
-        workspaceName: nil,
-        serverID: nil,
-        createsServer: false,
         configurationPresent: false,
         verifiesOnly: false,
-        preconditionSummary: "backup",
-        activeAgentFingerprint: ""
+        preconditionSummary: "backup"
     )
 }

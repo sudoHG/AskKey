@@ -1,6 +1,4 @@
 [
-  "testMulticaFirstNetworkFailureRecoversWithoutSecondClick",
-  "testMulticaReviewDoesNotClaimFailureBeforeChecking",
   "testEnglishCheckShowsCompletionAndDoesNotRunOnEntry",
   "testLaunchAndCheckDisplaysPersistentCompletion",
   "testFailedCheckShowsActionableFeedback",

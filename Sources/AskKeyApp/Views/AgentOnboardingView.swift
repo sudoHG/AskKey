@@ -20,10 +20,6 @@ struct AgentOnboardingView: View {
                     title: appLocalized("Local clients"),
                     clients: [.codex, .cursor, .grok]
                 )
-                clientGroup(
-                    title: appLocalized("Workspace service"),
-                    clients: [.multica]
-                )
             }
             .padding(28)
         }
@@ -160,19 +156,6 @@ struct AgentOnboardingView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(plan.scopeSummary)
                 .font(.system(size: 11))
-            if !plan.agentNames.isEmpty {
-                if plan.agentNames.count <= 6 {
-                    Text(plan.agentNames.joined(separator: "、"))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textMuted)
-                } else {
-                    DisclosureGroup(appLocalizedFormat("%d agents in this change", plan.agentNames.count)) {
-                        Text(plan.agentNames.joined(separator: "、"))
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.textMuted)
-                    }
-                }
-            }
             Text(plan.preconditionSummary)
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textMuted)
@@ -202,13 +185,6 @@ struct AgentOnboardingView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
-            if failure == .networkUnavailable || failure == .localNetworkBlocked {
-                DisclosureGroup(appLocalized("Troubleshooting")) {
-                    Text(AgentOnboardingCopy.troubleshooting(for: failure))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textMuted)
-                }
-            }
             if session.attempt.phase == .recoveryRequired {
                 Button(appLocalized("Recovery notes")) { showingDiagnostics = true }
                     .buttonStyle(.bordered)
@@ -229,15 +205,12 @@ struct AgentOnboardingView: View {
     ) -> some View {
         HStack(spacing: 8) {
             if session.attempt.phase == .readyToConfirm {
-                Button(client == .multica
-                       ? appLocalized("Confirm workspace setup")
-                       : appLocalized("Confirm connection")) {
+                Button(appLocalized("Confirm connection")) {
                     Task { await onboarding.confirm(client) }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.brand)
-                .disabled(session.attempt.changeStatus == .restoreFailed
-                          || session.attempt.changeStatus == .remoteUnknown)
+                .disabled(session.attempt.changeStatus == .restoreFailed)
                 .accessibilityIdentifier("onboarding-confirm-\(client.proofID)")
                 .onboardingActivateWithKeyboard { Task { await onboarding.confirm(client) } }
 #if DEBUG
@@ -274,9 +247,7 @@ struct AgentOnboardingView: View {
             ? appLocalized("Cancel check")
             : (session.attempt.phase == .completed
                ? appLocalized("Check again")
-               : (client == .multica
-                  ? appLocalized("Check workspace")
-                  : appLocalized("Check this Mac")))
+               : appLocalized("Check this Mac"))
         let identifier = checking
             ? "onboarding-cancel-\(client.proofID)"
             : "onboarding-check-\(client.proofID)"
@@ -319,13 +290,10 @@ struct AgentOnboardingView: View {
     }
 
     private func displayName(_ client: AgentClient) -> String {
-        client == .multica ? "Multica" : appLocalized(client.rawValue)
+        appLocalized(client.rawValue)
     }
 
     private func explanation(for client: AgentClient, session: AgentClientOnboardingSession) -> String {
-        if client == .multica {
-            return appLocalized("Ask Key will use your existing Multica sign-in to read workspace configuration. This check only reads status; it does not create a server or assign agents.")
-        }
         return appLocalizedFormat(
             "Ask Key will first check this Mac and any existing %@ settings, then show the change that needs confirmation.",
             displayName(client)
@@ -340,8 +308,6 @@ struct AgentOnboardingView: View {
         switch result.outcome {
         case .verifiedConnected:
             return appLocalizedFormat("Last: verified connection · %@", stamp)
-        case .workspaceConfigured:
-            return appLocalizedFormat("Last: workspace configured · %@", stamp)
         case .configuredUnverified:
             if result.discovery != nil {
                 return appLocalizedFormat("Last: MCP connected, setup incomplete · %@", stamp)
@@ -437,12 +403,6 @@ enum AgentOnboardingCopy {
                 appLocalizedFormat("Complete: %@ is connected", appLocalized(client.rawValue)),
                 appLocalized("Connection verification passed. No further setup is needed.")
             )
-        case .workspaceConfigured:
-            guard client == .multica else { return nil }
-            return (
-                appLocalized("Complete: workspace configuration confirmed"),
-                appLocalized("Workspace configuration is present. Agent runtime access has not been verified.")
-            )
         case .configuredUnverified, .existingConfigUnverified, .notConfigured:
             return nil
         }
@@ -461,7 +421,7 @@ enum AgentOnboardingCopy {
         failure: AgentOnboardingFailure,
         change: AgentChangeStatus
     ) -> String {
-        let name = client == .multica ? "Multica" : client.rawValue
+        let name = client.rawValue
         switch failure {
         case .discoverySetupCancelled:
             return appLocalized("Credential discovery setup was cancelled. The verified MCP connection was kept. Check again before continuing.")
@@ -472,18 +432,8 @@ enum AgentOnboardingCopy {
             return appLocalized("MCP is connected, but credential discovery before SSH is not verified. Check again to finish setup.")
         case .cancelled:
             return ""
-        case .networkUnavailable:
-            return appLocalized("Temporarily unable to reach Multica. Workspace settings were not read, and nothing was changed.")
-        case .localNetworkBlocked:
-            return appLocalized("Local network access is blocked. Workspace settings were not read.")
-        case .notLoggedIn:
-            return appLocalized("Sign in to Multica first, then check again.")
-        case .noWorkspace:
-            return appLocalized("Join a Multica workspace, then check again.")
-        case .workspaceChoiceRequired:
-            return appLocalized("Select a default workspace in Multica, then check again.")
         case .permissionDenied:
-            return appLocalized("This account cannot change this workspace connection settings.")
+            return appLocalized("System authentication failed.")
         case .unsupportedVersion:
             return appLocalizedFormat("This version of %@ is not verified yet. Existing settings were left unchanged.", name)
         case .nameConflict:
@@ -504,43 +454,21 @@ enum AgentOnboardingCopy {
             return appLocalizedFormat("%@ did not complete the connection check. Restart %@, then try again.", name, name)
         case .restoreFailed:
             return appLocalized("The connection did not finish, and original settings could not be restored. Writing has stopped and the backup was kept.")
-        case .remoteUnknown:
-            return appLocalized("The configuration result is not confirmed. The workspace may already have changed.")
         case .cliMissing:
-            if client != .multica { return appLocalizedFormat("%@ was not found. Install or open it, then check again.", name) }
-            return appLocalized("Multica was not found. Install Multica, then try again.")
+            return appLocalizedFormat("%@ was not found. Install or open it, then check again.", name)
         case .timedOut:
-            if client != .multica { return appLocalizedFormat("Could not read %@'s local configuration. Check again.", name) }
-            return appLocalized("Temporarily unable to reach Multica. Workspace settings were not read, and nothing was changed.")
+            return appLocalizedFormat("Could not read %@'s local configuration. Check again.", name)
         case .communicationFailed:
-            if client != .multica { return appLocalizedFormat("Could not read %@'s local configuration. Check again.", name) }
-            return appLocalized("Temporarily unable to reach Multica. Workspace settings were not read, and nothing was changed.")
+            return appLocalizedFormat("Could not read %@'s local configuration. Check again.", name)
         case .planChanged:
-            if client != .multica { return appLocalized("Local settings changed after review. Check again before confirming.") }
-            return appLocalized("The workspace or agent range changed. Check again, then confirm the updated range. Nothing was written.")
-        case .untrustedHelper:
-            return appLocalized("The Ask Key helper signature or version does not match. Reinstall Ask Key, then try again.")
-        case .cliNotConfigured:
-            return appLocalized("Multica CLI is not set up on this Mac. Run multica setup, then try again.")
-        }
-    }
-
-    static func troubleshooting(for failure: AgentOnboardingFailure) -> String {
-        switch failure {
-        case .localNetworkBlocked:
-            return appLocalized("Check Ask Key’s Local Network permission. If it is already allowed, retry or restart Ask Key. Also check the server and VPN. Do not allow Chrome for this.")
-        default:
-            return appLocalized("Retry the check. Confirm Ask Key’s Local Network permission if needed, then retry or restart Ask Key. Check the server and VPN. Do not allow Chrome for this.")
+            return appLocalized("Local settings changed after review. Check again before confirming.")
         }
     }
 
     static func recoveryNotes(for client: AgentClient, change: AgentChangeStatus) -> String {
-        if change == .remoteUnknown {
-            return appLocalized("Open Multica and check whether an askkey server or agent assignment already exists. Ask Key will not create or delete anything automatically.")
-        }
         return appLocalizedFormat(
             "A managed backup for %@ was kept. Stop ordinary retry. Review the backup notes, then continue only after the original settings are safe.",
-            client == .multica ? "Multica" : client.rawValue
+            client.rawValue
         )
     }
 }

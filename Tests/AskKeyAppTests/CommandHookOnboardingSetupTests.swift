@@ -142,16 +142,9 @@ private func makePlan(configurationPresent: Bool) -> AgentOnboardingPlan {
         createdAt: Date(timeIntervalSince1970: 1_700_000_000),
         targetIdentity: AgentClient.cursor.rawValue,
         scopeSummary: "Cursor",
-        agentIDs: [],
-        agentNames: [],
-        workspaceID: nil,
-        workspaceName: nil,
-        serverID: nil,
-        createsServer: false,
         configurationPresent: configurationPresent,
         verifiesOnly: false,
-        preconditionSummary: "",
-        activeAgentFingerprint: ""
+        preconditionSummary: ""
     )
 }
 

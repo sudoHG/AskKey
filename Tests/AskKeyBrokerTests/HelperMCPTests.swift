@@ -325,62 +325,6 @@ final class HelperMCPTests: XCTestCase {
         XCTAssertEqual(process.terminationStatus, 0)
     }
 
-    func testMulticaConfigurationUsesRunningHelperPath() throws {
-        let value = try multicaConfiguration()
-        XCTAssertEqual(value?["command"] as? String, try helperExecutable().standardizedFileURL.resolvingSymlinksInPath().path)
-        XCTAssertEqual(value?["args"] as? [String], ["mcp"])
-        if let root = try DebugRunDirectory.resolve() {
-            XCTAssertEqual(value?.count, 3)
-            XCTAssertEqual(value?["env"] as? [String: String], ["ASKKEY_DEBUG_RUN_DIRECTORY": root.path])
-        } else {
-            XCTAssertEqual(value?.count, 2)
-            XCTAssertNil(value?["env"])
-        }
-    }
-
-    func testMulticaRuntimeRestartsHelperFromAuthoritativeConfiguration() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
-            .appendingPathComponent("ak-mr-\(UUID().uuidString.prefix(8))", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-        let socketPath = directory.appendingPathComponent("broker.sock").path
-        let server = try startHealthServer(socketPath: socketPath)
-        addTeardownBlock { server.stop() }
-        let runtime = MulticaTestRuntime(
-            configuration: try XCTUnwrap(multicaConfiguration()),
-            resolveExecutable: { configuredPath in
-                configuredPath == (try? self.helperExecutable().standardizedFileURL.resolvingSymlinksInPath().path)
-                    ? try? self.helperExecutable()
-                    : nil
-            },
-            socketPath: socketPath
-        )
-        addTeardownBlock { runtime.stop() }
-
-        var session = try runtime.start()
-        XCTAssertEqual(
-            try connectionStatus(
-                processInput: session.input,
-                processOutput: session.output,
-                id: 1
-            )["status"] as? String,
-            "connected"
-        )
-
-        let reconnection = try runtime.reconnectAfterDisconnect()
-        XCTAssertEqual(reconnection.failure, .helperExited(0))
-        session = reconnection.session
-        XCTAssertEqual(
-            try connectionStatus(
-                processInput: session.input,
-                processOutput: session.output,
-                id: 2
-            )["status"] as? String,
-            "connected"
-        )
-        runtime.stop()
-    }
-
     func testMCPConnectionStatusTracksBrokerDisconnectAndReconnect() throws {
         let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
             .appendingPathComponent("ak-mc-\(UUID().uuidString.prefix(8))", isDirectory: true)
@@ -556,7 +500,7 @@ final class HelperMCPTests: XCTestCase {
         for line in [
             #"{"jsonrpc":"2.0","id":{},"method":"ping"}"#,
             #"{"jsonrpc":"2.0","method":"ping"}"#,
-            #"{"jsonrpc":"2.0","id":"initialize","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"multica-test","version":"1"}}}"#,
+            #"{"jsonrpc":"2.0","id":"initialize","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"synthetic-mcp-client","version":"1"}}}"#,
             #"{"jsonrpc":"2.0","id":"tools","method":"tools/list","params":{}}"#,
             #"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run","arguments":{"credentials":["REJECTED"],"command":["/usr/bin/true"]}}}"#,
             #"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run","arguments":{"credentials":["TOKEN"],"command":["/bin/sh","-c","test \"$TOKEN\" = must-not-appear"]}}}"#,
@@ -803,19 +747,6 @@ final class HelperMCPTests: XCTestCase {
         return executable
     }
 
-    private func multicaConfiguration() throws -> [String: Any]? {
-        let command = try helperExecutable().standardizedFileURL.resolvingSymlinksInPath().path
-        let configuration = try MulticaServerConfiguration.make(command: command, args: ["mcp"])
-        var value: [String: Any] = [
-            "command": configuration.command,
-            "args": configuration.args,
-        ]
-        if let env = configuration.env {
-            value["env"] = env
-        }
-        return value
-    }
-
     private func startMCPHelper(socketPath: String) throws -> (Process, Pipe, Pipe) {
         let process = Process()
         process.executableURL = try helperExecutable()
@@ -959,67 +890,6 @@ final class HelperMCPTests: XCTestCase {
             }
             return true
         }
-    }
-}
-
-private final class MulticaTestRuntime {
-    typealias Session = (process: Process, input: Pipe, output: Pipe)
-    enum Failure: Equatable { case helperExited(Int32) }
-
-    private let configuration: [String: Any]
-    private let resolveExecutable: (String) -> URL?
-    private let socketPath: String
-    private var session: Session?
-
-    init(
-        configuration: [String: Any],
-        resolveExecutable: @escaping (String) -> URL?,
-        socketPath: String
-    ) {
-        self.configuration = configuration
-        self.resolveExecutable = resolveExecutable
-        self.socketPath = socketPath
-    }
-
-    func start() throws -> Session {
-        guard session == nil,
-              let command = configuration["command"] as? String,
-              let executableURL = resolveExecutable(command),
-              let arguments = configuration["args"] as? [String],
-              arguments == ["mcp"] else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        let process = Process()
-        process.executableURL = executableURL
-        process.arguments = arguments
-        var environment = ProcessInfo.processInfo.environment
-        environment.removeValue(forKey: "ASKKEY_DEBUG_RUN_DIRECTORY")
-        environment["ASKKEY_BROKER_SOCKET"] = socketPath
-        process.environment = environment
-        let input = Pipe()
-        let output = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        let session = (process, input, output)
-        self.session = session
-        return session
-    }
-
-    func reconnectAfterDisconnect() throws -> (failure: Failure, session: Session) {
-        guard let session else { throw CocoaError(.fileReadUnknown) }
-        try session.input.fileHandleForWriting.close()
-        session.process.waitUntilExit()
-        self.session = nil
-        return (.helperExited(session.process.terminationStatus), try start())
-    }
-
-    func stop() {
-        guard let session else { return }
-        if session.process.isRunning { session.process.terminate() }
-        session.process.waitUntilExit()
-        self.session = nil
     }
 }
 

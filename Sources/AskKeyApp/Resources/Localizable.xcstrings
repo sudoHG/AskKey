@@ -265,22 +265,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Connection verification passed. No further setup is needed.!!]" } }
       }
     },
-    "Complete: workspace configuration confirmed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Complete: workspace configuration confirmed" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "检查完成：工作区配置已确认" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Complete: workspace configuration confirmed!!]" } }
-      }
-    },
-    "Workspace configuration is present. Agent runtime access has not been verified.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Workspace configuration is present. Agent runtime access has not been verified." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "工作区接入配置已存在，尚未验证 Agent 的实际调用。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Workspace configuration is present. Agent runtime access has not been verified.!!]" } }
-      }
-    },
     " (Optional)": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -2476,29 +2460,6 @@
         }
       }
     },
-    "An existing Multica configuration was found.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An existing Multica configuration was found."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已发现现有 Multica 配置。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!An existing Multica configuration was found.!!]"
-          }
-        }
-      }
-    },
     "An older library or unfinished migration was found. After authentication, Ask Key will resume a confirmed migration or show a new preview for your approval.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3212,29 +3173,6 @@
         }
       }
     },
-    "Ask Key could not send the setup to Multica. Restart Multica, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key could not send the setup to Multica. Restart Multica, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨无法把接入信息交给 Multica。请重启 Multica，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key could not send the setup to Multica. Restart Multica, then try again.!!]"
-          }
-        }
-      }
-    },
     "Ask Key could not finish restoring local settings. Agent access remains paused. Retry Agent access to finish the restore.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3396,29 +3334,6 @@
         }
       }
     },
-    "Ask Key is configured in Multica.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key is configured in Multica."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 已配置请旨。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key is configured in Multica.!!]"
-          }
-        }
-      }
-    },
     "Ask Key is not running. Open Ask Key, then try again.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3530,29 +3445,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Ask Key will back up %@'s user-level configuration, add Ask Key, then verify the connection.!!]"
-          }
-        }
-      }
-    },
-    "Ask Key will use the existing Multica sign-in to add the configuration and assign it to agents.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key will use the existing Multica sign-in to add the configuration and assign it to agents."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨会使用现有登录态在 Multica 添加配置并分配给 Agent。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key will use the existing Multica sign-in to add the configuration and assign it to agents.!!]"
           }
         }
       }
@@ -4431,29 +4323,6 @@
         }
       }
     },
-    "Check whether Ask Key is configured in Multica.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check whether Ask Key is configured in Multica."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看 Multica 是否已配置请旨。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Check whether Ask Key is configured in Multica.!!]"
-          }
-        }
-      }
-    },
     "Checking": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -5209,29 +5078,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Connect!!]"
-          }
-        }
-      }
-    },
-    "Connect Codex, Cursor, Grok CLI, and self-hosted Multica.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connect Codex, Cursor, Grok CLI, and self-hosted Multica."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "可接入 Codex、Cursor、Grok CLI 和自托管 Multica。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Connect Codex, Cursor, Grok CLI, and self-hosted Multica.!!]"
           }
         }
       }
@@ -9951,236 +9797,6 @@
         }
       }
     },
-    "Multica CLI is not set up on this Mac. Run multica setup, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica CLI is not set up on this Mac. Run multica setup, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica CLI 尚未完成本机设置。请先运行 multica setup，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica CLI is not set up on this Mac. Run multica setup, then try again.!!]"
-          }
-        }
-      }
-    },
-    "Multica could not start. Reinstall Multica, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica could not start. Reinstall Multica, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法启动 Multica。请重新安装 Multica，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica could not start. Reinstall Multica, then try again.!!]"
-          }
-        }
-      }
-    },
-    "Multica did not respond in time. Restart Multica, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica did not respond in time. Restart Multica, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 没有及时响应。请重启 Multica，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica did not respond in time. Restart Multica, then try again.!!]"
-          }
-        }
-      }
-    },
-    "Multica did not return a verifiable configuration result. Check the configuration in Multica, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica did not return a verifiable configuration result. Check the configuration in Multica, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 未返回可确认的配置结果。请检查 Multica 中的配置后再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica did not return a verifiable configuration result. Check the configuration in Multica, then try again.!!]"
-          }
-        }
-      }
-    },
-    "Multica failed while %@. Contact Ask Key support with this operation name before retrying.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica failed while %@. Contact Ask Key support with this operation name before retrying."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 在执行 %@ 时失败。请带着这个操作名联系请旨支持后再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica failed while %@. Contact Ask Key support with this operation name before retrying.!!]"
-          }
-        }
-      }
-    },
-    "Multica has multiple workspaces, so Ask Key cannot choose one. Select a default workspace in the Multica CLI, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica has multiple workspaces, so Ask Key cannot choose one. Select a default workspace in the Multica CLI, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 有多个工作区，无法确定要接入哪一个。请先在 Multica CLI 选择默认工作区，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica has multiple workspaces, so Ask Key cannot choose one. Select a default workspace in the Multica CLI, then try again.!!]"
-          }
-        }
-      }
-    },
-    "Multica is not signed in. Sign in to Multica, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica is not signed in. Sign in to Multica, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 尚未登录。请先登录 Multica，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica is not signed in. Sign in to Multica, then try again.!!]"
-          }
-        }
-      }
-    },
-    "Multica returned an unrecognized result. Upgrade Multica, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica returned an unrecognized result. Upgrade Multica, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 返回了无法识别的结果。请升级 Multica，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica returned an unrecognized result. Upgrade Multica, then try again.!!]"
-          }
-        }
-      }
-    },
-    "Multica setup failed and this attempt could not be fully rolled back. Stop retrying and contact Ask Key support.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica setup failed and this attempt could not be fully rolled back. Stop retrying and contact Ask Key support."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 接入失败，且无法完整撤销本次更改。请停止重试并联系请旨支持。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica setup failed and this attempt could not be fully rolled back. Stop retrying and contact Ask Key support.!!]"
-          }
-        }
-      }
-    },
-    "Multica was not found. Install Multica, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica was not found. Install Multica, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有找到 Multica。请先安装 Multica，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Multica was not found. Install Multica, then try again.!!]"
-          }
-        }
-      }
-    },
     "Multiline quoted values are not supported in .env imports.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -13451,29 +13067,6 @@
         }
       }
     },
-    "Self-hosted Multica": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Self-hosted Multica"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自托管 Multica"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Self-hosted Multica!!]"
-          }
-        }
-      }
-    },
     "Server Address": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -14256,29 +13849,6 @@
         }
       }
     },
-    "The Multica server creation outcome is unknown. A server may have been created; the API cannot establish ownership, so no server was automatically deleted. Stop retrying, inspect MCP servers in Multica, and contact Ask Key support for recovery.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The Multica server creation outcome is unknown. A server may have been created; the API cannot establish ownership, so no server was automatically deleted. Stop retrying, inspect MCP servers in Multica, and contact Ask Key support for recovery."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Multica 新增服务的结果无法确认。服务可能已经创建；当前接口无法确认归属，因此没有自动删除。请停止重试，在 Multica 检查 MCP 服务并联系请旨支持协助恢复。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The Multica server creation outcome is unknown. A server may have been created; the API cannot establish ownership, so no server was automatically deleted. Stop retrying, inspect MCP servers in Multica, and contact Ask Key support for recovery.!!]"
-          }
-        }
-      }
-    },
     "The backup is incomplete or damaged.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -14689,75 +14259,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!This Mac owns future backups. Automatic backup is currently off.!!]"
-          }
-        }
-      }
-    },
-    "This Multica server does not support automatic setup. Upgrade Multica, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This Multica server does not support automatic setup. Upgrade Multica, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前 Multica 服务端不支持自动接入。请先升级 Multica，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This Multica server does not support automatic setup. Upgrade Multica, then try again.!!]"
-          }
-        }
-      }
-    },
-    "This Multica sign-in has no available workspace. Join a workspace, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This Multica sign-in has no available workspace. Join a workspace, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前 Multica 登录没有可用工作区。请先加入工作区，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This Multica sign-in has no available workspace. Join a workspace, then try again.!!]"
-          }
-        }
-      }
-    },
-    "This account cannot manage Multica MCP servers. Ask a workspace admin for permission, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This account cannot manage Multica MCP servers. Ask a workspace admin for permission, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前账号不能管理 Multica 的 MCP。请让工作区管理员授予权限，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This account cannot manage Multica MCP servers. Ask a workspace admin for permission, then try again.!!]"
           }
         }
       }
@@ -16027,75 +15528,6 @@
         }
       }
     },
-    "adding the MCP server": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "adding the MCP server"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新增 MCP 服务"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!adding the MCP server!!]"
-          }
-        }
-      }
-    },
-    "assigning the server to an agent": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "assigning the server to an agent"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "给 Agent 分配服务"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!assigning the server to an agent!!]"
-          }
-        }
-      }
-    },
-    "checking an agent assignment": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "checking an agent assignment"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "核对 Agent 分配"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!checking an agent assignment!!]"
-          }
-        }
-      }
-    },
     "copy": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -16115,29 +15547,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!copy!!]"
-          }
-        }
-      }
-    },
-    "created": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "created"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "创建"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!created!!]"
           }
         }
       }
@@ -16441,75 +15850,6 @@
         }
       }
     },
-    "listing MCP servers": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "listing MCP servers"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "读取 MCP 服务"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!listing MCP servers!!]"
-          }
-        }
-      }
-    },
-    "listing agents": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "listing agents"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "读取 Agent"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!listing agents!!]"
-          }
-        }
-      }
-    },
-    "listing workspaces": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "listing workspaces"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "读取工作区"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!listing workspaces!!]"
-          }
-        }
-      }
-    },
     "read": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -16529,75 +15869,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!read!!]"
-          }
-        }
-      }
-    },
-    "reading the default workspace": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "reading the default workspace"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "读取默认工作区"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!reading the default workspace!!]"
-          }
-        }
-      }
-    },
-    "removing the MCP server": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "removing the MCP server"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "撤销 MCP 服务"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!removing the MCP server!!]"
-          }
-        }
-      }
-    },
-    "removing the server from an agent": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "removing the server from an agent"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "撤销 Agent 服务分配"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!removing the server from an agent!!]"
           }
         }
       }
@@ -16736,29 +16007,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!updated!!]"
-          }
-        }
-      }
-    },
-    "updating the MCP server": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "updating the MCP server"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更新 MCP 服务"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!updating the MCP server!!]"
           }
         }
       }
@@ -16970,29 +16218,6 @@
         }
       }
     },
-    "Workspace service": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Workspace service"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "工作区服务"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Workspace service!!]"
-          }
-        }
-      }
-    },
     "Review connection": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -17062,29 +16287,6 @@
         }
       }
     },
-    "Check workspace": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check workspace"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检查工作区"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Check workspace!!]"
-          }
-        }
-      }
-    },
     "Confirm connection": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -17104,29 +16306,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Confirm connection!!]"
-          }
-        }
-      }
-    },
-    "Confirm workspace setup": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm workspace setup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认配置工作区"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Confirm workspace setup!!]"
           }
         }
       }
@@ -17269,29 +16448,6 @@
         }
       }
     },
-    "Troubleshooting": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Troubleshooting"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "排查方法"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Troubleshooting!!]"
-          }
-        }
-      }
-    },
     "Recovery notes": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -17311,52 +16467,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Recovery notes!!]"
-          }
-        }
-      }
-    },
-    "Confirm the server when you check": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm the server when you check"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检查时确认服务器"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Confirm the server when you check!!]"
-          }
-        }
-      }
-    },
-    "Ask Key will use your existing Multica sign-in to read workspace configuration. This check only reads status; it does not create a server or assign agents.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key will use your existing Multica sign-in to read workspace configuration. This check only reads status; it does not create a server or assign agents."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用你已有的 Multica 登录信息，查询工作区中的请旨配置。这一步只读取配置状态，不创建接入或分配 Agent。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key will use your existing Multica sign-in to read workspace configuration. This check only reads status; it does not create a server or assign agents.!!]"
           }
         }
       }
@@ -17403,29 +16513,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Last: verified connection · %@!!]"
-          }
-        }
-      }
-    },
-    "Last: workspace configured · %@": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last: workspace configured · %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次：工作区已配置 · %@"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Last: workspace configured · %@!!]"
           }
         }
       }
@@ -17495,144 +16582,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Last: not configured · %@!!]"
-          }
-        }
-      }
-    },
-    "Temporarily unable to reach Multica. Workspace settings were not read, and nothing was changed.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temporarily unable to reach Multica. Workspace settings were not read, and nothing was changed."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂时无法访问 Multica。尚未读到工作区配置，本次没有修改配置。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Temporarily unable to reach Multica. Workspace settings were not read, and nothing was changed.!!]"
-          }
-        }
-      }
-    },
-    "Local network access is blocked. Workspace settings were not read.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Local network access is blocked. Workspace settings were not read."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本地网络访问受阻，尚未读到工作区配置。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Local network access is blocked. Workspace settings were not read.!!]"
-          }
-        }
-      }
-    },
-    "Sign in to Multica first, then check again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in to Multica first, then check again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要先在 Multica 登录，然后再检查。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Sign in to Multica first, then check again.!!]"
-          }
-        }
-      }
-    },
-    "Join a Multica workspace, then check again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Join a Multica workspace, then check again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要先加入一个 Multica 工作区，然后再检查。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Join a Multica workspace, then check again.!!]"
-          }
-        }
-      }
-    },
-    "Select a default workspace in Multica, then check again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select a default workspace in Multica, then check again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请先在 Multica 选择默认工作区，然后再检查。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Select a default workspace in Multica, then check again.!!]"
-          }
-        }
-      }
-    },
-    "This account cannot change this workspace connection settings.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This account cannot change this workspace connection settings."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前账号不能更改这个工作区的接入设置。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This account cannot change this workspace connection settings.!!]"
           }
         }
       }
@@ -17775,121 +16724,6 @@
         }
       }
     },
-    "The configuration result is not confirmed. The workspace may already have changed.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The configuration result is not confirmed. The workspace may already have changed."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "配置结果尚未确认，工作区可能已经发生变更。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The configuration result is not confirmed. The workspace may already have changed.!!]"
-          }
-        }
-      }
-    },
-    "The workspace or agent range changed. Check again, then confirm the updated range. Nothing was written.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The workspace or agent range changed. Check again, then confirm the updated range. Nothing was written."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "工作区或 Agent 范围已变化。请重新检查，再确认更新后的范围。尚未写入。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The workspace or agent range changed. Check again, then confirm the updated range. Nothing was written.!!]"
-          }
-        }
-      }
-    },
-    "Check Ask Key’s Local Network permission. If it is already allowed, retry or restart Ask Key. Also check the server and VPN. Do not allow Chrome for this.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check Ask Key’s Local Network permission. If it is already allowed, retry or restart Ask Key. Also check the server and VPN. Do not allow Chrome for this."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请查看请旨的本地网络权限。若已允许，请重试或重启请旨。同时检查服务器和 VPN。不要为此去允许 Chrome。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Check Ask Key’s Local Network permission. If it is already allowed, retry or restart Ask Key. Also check the server and VPN. Do not allow Chrome for this.!!]"
-          }
-        }
-      }
-    },
-    "Retry the check. Confirm Ask Key’s Local Network permission if needed, then retry or restart Ask Key. Check the server and VPN. Do not allow Chrome for this.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retry the check. Confirm Ask Key’s Local Network permission if needed, then retry or restart Ask Key. Check the server and VPN. Do not allow Chrome for this."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请重试检查。如有需要，确认请旨的本地网络权限后重试或重启请旨。检查服务器和 VPN。不要为此去允许 Chrome。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Retry the check. Confirm Ask Key’s Local Network permission if needed, then retry or restart Ask Key. Check the server and VPN. Do not allow Chrome for this.!!]"
-          }
-        }
-      }
-    },
-    "Open Multica and check whether an askkey server or agent assignment already exists. Ask Key will not create or delete anything automatically.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open Multica and check whether an askkey server or agent assignment already exists. Ask Key will not create or delete anything automatically."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请到 Multica 核对是否已有 askkey 接入或 Agent 分配。请旨不会自动创建或删除。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Open Multica and check whether an askkey server or agent assignment already exists. Ask Key will not create or delete anything automatically.!!]"
-          }
-        }
-      }
-    },
     "A managed backup for %@ was kept. Stop ordinary retry. Review the backup notes, then continue only after the original settings are safe.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -17909,98 +16743,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!A managed backup for %@ was kept. Stop ordinary retry. Review the backup notes, then continue only after the original settings are safe.!!]"
-          }
-        }
-      }
-    },
-    "Workspace %@ already has Ask Key configured.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Workspace %@ already has Ask Key configured."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "工作区 %@ 已配置请旨。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Workspace %@ already has Ask Key configured.!!]"
-          }
-        }
-      }
-    },
-    "This only confirms workspace configuration. It does not prove a real Agent task.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This only confirms workspace configuration. It does not prove a real Agent task."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这里只确认工作区有配置；Agent 能否实际使用，还需在 Multica 运行一次任务。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!This only confirms workspace configuration. It does not prove a real Agent task.!!]"
-          }
-        }
-      }
-    },
-    "Add Ask Key to workspace %@ and assign %d active agents.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add Ask Key to workspace %@ and assign %d active agents."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将为工作区 %@ 新增请旨，并分配给 %d 个活跃 Agent。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Add Ask Key to workspace %@ and assign %d active agents.!!]"
-          }
-        }
-      }
-    },
-    "Ask Key will create the missing server, then assign only the agents shown here.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key will create the missing server, then assign only the agents shown here."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨会创建缺少的接入，并只分配给这里列出的 Agent。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key will create the missing server, then assign only the agents shown here.!!]"
           }
         }
       }
@@ -18047,29 +16789,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!If verification fails, Ask Key restores the original settings.!!]"
-          }
-        }
-      }
-    },
-    "%d agents in this change": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d agents in this change"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本次变更包含 %d 个 Agent"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%d agents in this change!!]"
           }
         }
       }

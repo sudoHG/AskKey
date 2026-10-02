@@ -189,9 +189,8 @@ private final class CodexSetupFixture {
     let broker: BrokerSocketServer
     let plan = AgentOnboardingPlan(
         client: .codex, createdAt: Date(), targetIdentity: "Codex", scopeSummary: "",
-        agentIDs: [], agentNames: [], workspaceID: nil, workspaceName: nil, serverID: nil,
-        createsServer: false, configurationPresent: false, verifiesOnly: false,
-        preconditionSummary: "", activeAgentFingerprint: ""
+        configurationPresent: false, verifiesOnly: false,
+        preconditionSummary: ""
     )
 
     init(

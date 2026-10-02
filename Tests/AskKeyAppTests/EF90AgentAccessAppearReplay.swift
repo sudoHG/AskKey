@@ -29,9 +29,9 @@ enum EF90AgentAccessAppearReplay {
         vault: VaultViewModel,
         preview: @escaping @Sendable (AgentClient) throws -> AgentClientPreview
     ) async {
-        // Verbatim ef90 `agentAccessDetail.onAppear`.
-        if !previewMode && !checkedClients.contains(.multica) {
-            await previewClient(.multica, vault: vault, preview: preview)
+        // Former ef90 auto-preview control flow with a retained-client fixture.
+        if !previewMode && !checkedClients.contains(.cursor) {
+            await previewClient(.cursor, vault: vault, preview: preview)
         }
     }
 

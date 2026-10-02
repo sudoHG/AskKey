@@ -66,28 +66,6 @@ enum AgentOnboardingRuntime {
         return error
     }
 
-    @MainActor
-    static func adoptPendingRecovery(
-        into coordinator: AgentOnboardingCoordinator,
-        supportDirectory: URL
-    ) {
-        let directory = supportDirectory.appendingPathComponent(
-            "client-backups/multica-recovery",
-            isDirectory: true
-        )
-        guard let record = MulticaRecoveryJournal.load(from: directory) else { return }
-        let restoreFailed = record.phase == "restore_failed"
-        coordinator.adoptRecovery(
-            .multica,
-            result: AgentLastKnownResult(
-                outcome: .configuredUnverified,
-                checkedAt: Date(),
-                targetSummary: record.workspaceID
-            ),
-            failure: restoreFailed ? .restoreFailed : .remoteUnknown,
-            change: restoreFailed ? .restoreFailed : .remoteUnknown
-        )
-    }
 }
 
 extension AgentClientConnector {
@@ -101,8 +79,6 @@ extension AgentClientConnector {
             report = try checkCursor()
         case .grok:
             report = try checkGrok()
-        case .multica:
-            report = try multicaAdapter().checkStatus()
         }
         try throwIfCheckCancelled()
         return report
@@ -123,7 +99,7 @@ extension AgentClientConnector {
             return AgentApplyReport(
                 outcome: report.outcome,
                 changeStatus: .notWritten,
-                failure: report.failure ?? (report.outcome == .verifiedConnected || report.outcome == .workspaceConfigured
+                failure: report.failure ?? (report.outcome == .verifiedConnected
                     ? nil : .verificationFailed),
                 targetSummary: report.targetSummary,
                 discovery: report.discovery
@@ -136,10 +112,6 @@ extension AgentClientConnector {
             return try applyCursor(plan: plan)
         case .grok:
             return try applyGrok(plan: plan)
-        case .multica:
-            return try Self.performExclusive(client: .multica) {
-                try multicaAdapter().commit(plan)
-            }
         }
     }
 
@@ -151,8 +123,6 @@ extension AgentClientConnector {
             return try cursorAdapter().hasConfiguration()
         case .grok:
             return try grokAdapter().hasConfiguration()
-        case .multica:
-            return try multicaAdapter().checkStatus().outcome == .workspaceConfigured
         }
     }
 
@@ -253,7 +223,6 @@ extension AgentClientConnector {
         let change: AgentChangeStatus
         switch failure {
         case .restoreFailed: change = .restoreFailed
-        case .remoteUnknown: change = .remoteUnknown
         default: change = failure == .verificationFailed ? .restored : .notWritten
         }
         return AgentApplyReport(
@@ -273,16 +242,9 @@ extension AgentClientConnector {
                 "Add Ask Key for the current user of %@. Other connections stay as they are. A backup is created first.",
                 client.rawValue
             ),
-            agentIDs: [],
-            agentNames: [],
-            workspaceID: nil,
-            workspaceName: nil,
-            serverID: nil,
-            createsServer: false,
             configurationPresent: false,
             verifiesOnly: false,
-            preconditionSummary: appLocalized("If verification fails, Ask Key restores the original settings."),
-            activeAgentFingerprint: ""
+            preconditionSummary: appLocalized("If verification fails, Ask Key restores the original settings.")
         )
     }
 }

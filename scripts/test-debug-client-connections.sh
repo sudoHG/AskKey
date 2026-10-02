@@ -12,4 +12,3 @@ swift test --filter CodexUserMCPAdapterTests
 swift test --filter CursorUserMCPAdapterTests
 swift test --filter GrokCLIAdapterTests
 swift test --filter AgentClientConnectorTests
-scripts/test-debug-multica-connection.sh

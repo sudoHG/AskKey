@@ -64,8 +64,7 @@ final class AgentOnboardingCoordinator {
     func startCheck(_ client: AgentClient) async {
         var session = session(for: client)
         if session.attempt.phase.isInFlight { return }
-        if session.attempt.changeStatus == .restoreFailed
-            || session.attempt.changeStatus == .remoteUnknown {
+        if session.attempt.changeStatus == .restoreFailed {
             // Ordinary write retry is blocked; a readonly check is still allowed.
         }
         let operationID = UUID()
@@ -133,8 +132,7 @@ final class AgentOnboardingCoordinator {
         var session = session(for: client)
         guard let plan = session.plan else { return }
         guard session.attempt.phase == .readyToConfirm || session.attempt.phase == .needsAction else { return }
-        guard session.attempt.changeStatus != .restoreFailed,
-              session.attempt.changeStatus != .remoteUnknown else { return }
+        guard session.attempt.changeStatus != .restoreFailed else { return }
         if session.attempt.phase.isInFlight { return }
 
         let operationID = UUID()
@@ -275,7 +273,7 @@ final class AgentOnboardingCoordinator {
             sessions[client] = session
             return
         }
-        if report.outcome == .verifiedConnected || report.outcome == .workspaceConfigured {
+        if report.outcome == .verifiedConnected {
             session.attempt.phase = .completed
             session.attempt.changeStatus = .notWritten
         } else if report.plan != nil {
@@ -313,14 +311,13 @@ final class AgentOnboardingCoordinator {
 
     private func recoveryLock(_ change: AgentChangeStatus) -> AgentChangeStatus? {
         switch change {
-        case .restoreFailed, .remoteUnknown: return change
+        case .restoreFailed: return change
         default: return nil
         }
     }
 
     private func recoveryFailure(_ change: AgentChangeStatus) -> AgentOnboardingFailure {
         switch change {
-        case .remoteUnknown: return .remoteUnknown
         default: return .restoreFailed
         }
     }
@@ -338,7 +335,7 @@ final class AgentOnboardingCoordinator {
             session.attempt.failure = failure
             session.attempt.changeStatus = report.changeStatus
             switch report.changeStatus {
-            case .restoreFailed, .remoteUnknown:
+            case .restoreFailed:
                 session.attempt.phase = .recoveryRequired
             case .restored:
                 session.attempt.phase = .rolledBack
@@ -350,8 +347,7 @@ final class AgentOnboardingCoordinator {
                     session.plan = nil
                 }
             }
-            if report.changeStatus == .verifiedAndKept || report.outcome == .verifiedConnected
-                || report.outcome == .workspaceConfigured {
+            if report.changeStatus == .verifiedAndKept || report.outcome == .verifiedConnected {
                 session.lastKnownResult = AgentLastKnownResult(
                     outcome: report.outcome,
                     checkedAt: clock(),
@@ -382,7 +378,6 @@ final class AgentOnboardingCoordinator {
         let change: AgentChangeStatus
         switch failure {
         case .restoreFailed: change = .restoreFailed
-        case .remoteUnknown: change = .remoteUnknown
         case .planChanged: change = .notWritten
         default: change = .notWritten
         }

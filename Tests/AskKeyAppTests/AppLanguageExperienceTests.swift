@@ -352,12 +352,10 @@ final class AppLanguageExperienceTests: XCTestCase {
             encoding: .utf8
         )
         XCTAssertTrue(source.contains("AgentOnboardingView()"))
-        XCTAssertFalse(source.contains("previewClient(.multica)"))
         XCTAssertFalse(source.contains("预览用户级配置差异"))
         XCTAssertFalse(source.contains("先看差异"))
         XCTAssertFalse(source.contains("Review the diff"))
         XCTAssertFalse(source.contains("reason: \"Connect \\(client.rawValue) to Ask Key\""))
-        XCTAssertFalse(source.contains("MulticaSetupGuide"))
         XCTAssertFalse(source.contains("setString("))
         XCTAssertFalse(source.contains("Local Ask Key connection is healthy"))
         XCTAssertFalse(source.contains("{\"command\""))
@@ -380,9 +378,6 @@ final class AppLanguageExperienceTests: XCTestCase {
         XCTAssertFalse(connectorSource.contains("redactedCursorDiff"))
         XCTAssertFalse(connectorSource.contains("\"command\""))
 
-        XCTAssertTrue(AgentClient.multica.isAutomatic)
-        XCTAssertFalse(AgentClient.multica.connectionPreviewSummary.contains("{"))
-        XCTAssertFalse(AgentClient.multica.connectionPreviewSummary.contains("\"command\""))
     }
 
     func testCancellingKeychainAccessDoesNotShowAnErrorBanner() async {
