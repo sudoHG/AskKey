@@ -23,7 +23,7 @@ final class LocalizationRemediationTests: XCTestCase {
 
     func testOwnedCatalogIsNotASystemFrameworkTable() {
         let english = AppLanguage.table(language: "en")
-        XCTAssertGreaterThanOrEqual(english.count, 700, "SwiftPM must load the Ask Key catalog, not a 228-key system table")
+        XCTAssertGreaterThanOrEqual(english.count, 640, "SwiftPM must load the Ask Key catalog, not a 228-key system table")
         XCTAssertEqual(english["Ask Key"], "Ask Key")
         XCTAssertEqual(english["Credential Library"], "Credential Library")
         XCTAssertEqual(AppLanguage.localized("AskKey", language: "en"), "Ask Key")

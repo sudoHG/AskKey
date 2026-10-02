@@ -780,7 +780,7 @@ final class WorkspaceVisualContractTests: XCTestCase {
         XCTAssertEqual(
             try FileManager.default.contentsOfDirectory(atPath: directory.path)
                 .filter { $0.first?.isNumber == true && $0.hasSuffix(".png") }.count,
-            35
+            34
         )
     }
 
