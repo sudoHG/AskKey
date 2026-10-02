@@ -78,16 +78,16 @@ final class CurrentSchemaTests: XCTestCase {
 
         let result = try store.db.read { database in
             (
-                try database.columns(in: "projects").map(\.name),
+                try database.tableExists("projects"),
                 try database.tableExists("folder_associations")
             )
         }
 
-        XCTAssertFalse(result.0.contains("path"))
+        XCTAssertFalse(result.0)
         XCTAssertFalse(result.1)
     }
 
-    func testNewStoreStillCreatesLegacyProjectAndSecretTables() throws {
+    func testNewStoreDropsLegacyProjectAndSecretTables() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("AskKeyLegacySchema-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -96,19 +96,15 @@ final class CurrentSchemaTests: XCTestCase {
 
         let result = try store.db.read { database in
             (
-                try database.tableExists("projects"),
-                try database.tableExists("environments"),
-                try database.tableExists("secrets"),
-                try database.tableExists("secret_values"),
-                try database.columns(in: "projects").map(\.name)
+                try ["projects", "environments", "secrets", "secret_values", "activity_log"]
+                    .filter { try database.tableExists($0) },
+                try ["config", "credentials", "agent_write_operations", "credential_access_records"]
+                    .filter { try database.tableExists($0) }
             )
         }
 
-        XCTAssertTrue(result.0)
-        XCTAssertTrue(result.1)
-        XCTAssertTrue(result.2)
-        XCTAssertTrue(result.3)
-        XCTAssertFalse(result.4.contains("path"))
+        XCTAssertEqual(result.0, [])
+        XCTAssertEqual(result.1, ["config", "credentials", "agent_write_operations", "credential_access_records"])
     }
 }
 

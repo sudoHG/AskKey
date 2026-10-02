@@ -8,18 +8,20 @@ import AskKeyBroker
 final class CurrentLibraryAdoptionTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 2_000_000_000)
 
-    func testNewLibraryMatchesV15Schema() throws {
+    func testNewLibraryMatchesAdoptedFixtureSchema() throws {
         let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
         let keys = MemoryAppKeyStore()
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         defer { try? opened.store.close() }
-        let expected = try DatabaseQueue()
-        defer { try? expected.close() }
-        try expected.write { try $0.execute(sql: String(contentsOf: fixture("schema.sql"), encoding: .utf8)) }
-        XCTAssertEqual(try opened.store.db.read { try CurrentLibrarySchema.normalizedSchema($0) },
-                       try expected.read { try CurrentLibrarySchema.normalizedSchema($0) })
-        XCTAssertEqual(try identifiers(opened.store), ["askkey-0001-baseline"])
-        XCTAssertEqual(try opened.store.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM projects") }, 1)
+        let (fixturePaths, fixtureKeys) = try fixtureLibrary()
+        let adopted = try VaultBootstrap.openCurrent(paths: fixturePaths, keyStore: fixtureKeys)
+        defer { try? adopted.store.close() }
+        let schema = try opened.store.db.read { try CurrentLibrarySchema.normalizedSchema($0) }
+        XCTAssertEqual(schema, try adopted.store.db.read { try CurrentLibrarySchema.normalizedSchema($0) })
+        XCTAssertEqual(schema, try v15SchemaWithoutLegacyTables())
+        XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
+        XCTAssertEqual(try identifiers(adopted.store), Self.currentIdentifiers)
+        XCTAssertEqual(try existingLegacyTables(opened.store), [])
         XCTAssertEqual(keys.appKey?.count, 32)
         XCTAssertNil(keys.pendingKey)
     }
@@ -27,11 +29,15 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
     func testAdoptionPreservesEveryManifestItemAndAllOtherRowsAndSecondOpenChangesNothing() throws {
         XCTAssertFalse(KeychainQuery.systemKeychainAllowed)
         let (paths, keys) = try fixtureLibrary()
-        let original = try allDataRows(paths.currentDatabase)
+        var original = try allDataRows(paths.currentDatabase)
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         try verifyManifest(store: opened.store, key: opened.key, directory: paths.directory)
-        XCTAssertEqual(try identifiers(opened.store), ["askkey-0001-baseline"])
+        XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
+        XCTAssertEqual(try existingLegacyTables(opened.store), [])
+        XCTAssertEqual(try opened.store.db.read { try CurrentLibrarySchema.normalizedSchema($0) },
+                       try v15SchemaWithoutLegacyTables())
         try opened.store.close()
+        for table in CurrentLibrarySchema.legacyTables { XCTAssertNotNil(original.removeValue(forKey: table), table) }
         XCTAssertEqual(try allDataRows(paths.currentDatabase), original)
         XCTAssertEqual(keys.mutations, 1, "only the best-effort deletePendingKey")
         let before = try directoryBytes(paths.directory)
@@ -120,7 +126,8 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         let before = try directoryBytes(paths.directory)
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
-        XCTAssertEqual(try identifiers(opened.store), ["askkey-0001-baseline"])
+        XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
+        XCTAssertEqual(try existingLegacyTables(opened.store), [])
         try opened.store.close()
         XCTAssertEqual(try directoryBytes(paths.directory), before)
         XCTAssertEqual(keys.appKey, pending)
@@ -238,17 +245,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
 
     func testPendingKeyWithCredentialRowFailsWithoutChangingAnyFileOrKey() throws {
         try assertPendingRejected(error: .missingKey) { paths, pending in
-            let store = try VaultStore(path: paths.currentDatabase.path)
-            defer { try? store.close() }
-            let key = VaultCrypto.keyFromData(pending)
-            store.bindCredentialAuthenticationKey(key)
-            _ = try Vault(store: store, key: key).createTextCredential(
-                .init(name: "SYNTHETIC-TOKEN", value: "synthetic", environmentVariable: "SYNTHETIC_TOKEN",
-                      permission: .allowed), using: .deny)
-            try store.db.write { db in
-                try db.execute(sql: "DELETE FROM credential_access_records; DELETE FROM activity_log")
-                XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM credentials"), 1)
-            }
+            try self.insertAuthenticatedCredential(into: paths, key: pending)
         }
     }
 
@@ -263,18 +260,19 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
     }
 
     func testPendingKeyWithChangedSeedEnvironmentFailsWithoutChangingAnyFileOrKey() throws {
-        try assertPendingRejected(sql: "UPDATE environments SET color = 'SYNTHETIC-red'", error: .missingKey)
+        try assertPendingRejected(baselineOnly: true, sql: "UPDATE environments SET color = 'SYNTHETIC-red'",
+                                  error: .missingKey)
     }
 
     func testPendingKeyWithExtraProjectFailsWithoutChangingAnyFileOrKey() throws {
-        try assertPendingRejected(sql: """
+        try assertPendingRejected(baselineOnly: true, sql: """
             INSERT INTO projects (id, name, active_environment, icon, created_at, updated_at)
             VALUES ('SYNTHETIC-project', 'SYNTHETIC', 'Default', 'folder', 'now', 'now')
             """, error: .missingKey)
     }
 
     func testPendingKeyWithActivityRowFailsWithoutChangingAnyFileOrKey() throws {
-        try assertPendingRejected(sql: """
+        try assertPendingRejected(baselineOnly: true, sql: """
             INSERT INTO activity_log (id, secret_name, project_name, environment_name, source, accessed_at)
             VALUES ('SYNTHETIC', 'S', 'P', 'E', 'cli', 'now')
             """, error: .missingKey)
@@ -392,7 +390,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
                           CurrentLibrarySchema.normalizeSQL("v TEXTNOT NULL"))
     }
 
-    private func assertRejected(sql: String, error: VaultBootstrapError?) throws {
+    func assertRejected(sql: String, error: VaultBootstrapError?) throws {
         let (paths, keys) = try fixtureLibrary()
         let database = try DatabaseQueue(path: paths.currentDatabase.path)
         try database.write { try $0.execute(sql: sql) }
@@ -407,11 +405,13 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         XCTAssertEqual(keys.mutations, 0)
     }
 
+    static let currentIdentifiers = ["askkey-0001-baseline", "askkey-0002-drop-legacy-tables"]
+
     private struct InterruptedCreation: Error {}
 
     /// Produces the real on-disk state of a first creation interrupted
     /// between database initialization and pending-key promotion.
-    private func unfinishedFirstCreation() throws -> (VaultBootstrapPaths, MemoryAppKeyStore) {
+    func unfinishedFirstCreation() throws -> (VaultBootstrapPaths, MemoryAppKeyStore) {
         let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
         let keys = MemoryAppKeyStore()
         keys.promotionFailure = InterruptedCreation()
@@ -426,25 +426,25 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         return (paths, keys)
     }
 
-    private func addHistoricalSiblings(_ paths: VaultBootstrapPaths) throws {
+    func addHistoricalSiblings(_ paths: VaultBootstrapPaths) throws {
         try Data("SYNTHETIC-sibling".utf8).write(to: paths.directory.appendingPathComponent("vault.db"))
         try Data("SYNTHETIC-journal".utf8).write(to: paths.directory.appendingPathComponent("migration-v2.journal"))
         try Data().write(to: paths.directory.appendingPathComponent("credentials-v2.db.pending-wal"))
     }
 
-    private func assertPendingRejected(sql: String, error: VaultBootstrapError) throws {
-        try assertPendingRejected(error: error) { paths, _ in
+    func assertPendingRejected(baselineOnly: Bool = false, sql: String, error: VaultBootstrapError) throws {
+        try assertPendingRejected(baselineOnly: baselineOnly, error: error) { paths, _ in
             let database = try DatabaseQueue(path: paths.currentDatabase.path)
             try database.write { try $0.execute(sql: sql) }
             try database.close()
         }
     }
 
-    private func assertPendingRejected(
-        pendingKey: Data? = nil, error: VaultBootstrapError,
+    func assertPendingRejected(
+        baselineOnly: Bool = false, pendingKey: Data? = nil, error: VaultBootstrapError,
         mutate: (VaultBootstrapPaths, Data) throws -> Void
     ) throws {
-        let (paths, keys) = try unfinishedFirstCreation()
+        let (paths, keys) = try baselineOnly ? unfinishedBaselineCreation() : unfinishedFirstCreation()
         try mutate(paths, try XCTUnwrap(keys.pendingKey))
         if let pendingKey { keys.pendingKey = pendingKey }
         let pending = keys.pendingKey
@@ -459,28 +459,28 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         XCTAssertEqual(keys.mutations, 0)
     }
 
-    private func fixture(_ name: String) throws -> URL {
+    func fixture(_ name: String) throws -> URL {
         try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: nil, subdirectory: "Fixtures/v15"))
     }
 
-    private func fixtureLibrary() throws -> (VaultBootstrapPaths, MemoryAppKeyStore) {
+    func fixtureLibrary() throws -> (VaultBootstrapPaths, MemoryAppKeyStore) {
         let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
         try FileManager.default.copyItem(at: fixture("library.db"), to: paths.currentDatabase)
         return (paths, MemoryAppKeyStore(appKey: try Data(contentsOf: fixture("library.key"))))
     }
 
-    private func temporaryDirectory() throws -> URL {
+    func temporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyAdoption-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
         addTeardownBlock { try FileManager.default.removeItem(at: directory) }
         return directory
     }
 
-    private func identifiers(_ store: VaultStore) throws -> [String] {
+    func identifiers(_ store: VaultStore) throws -> [String] {
         try store.db.read { try String.fetchAll($0, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid") }
     }
 
-    private func allDataRows(_ source: URL) throws -> [String: [Row]] {
+    func allDataRows(_ source: URL) throws -> [String: [Row]] {
         try CurrentLibrarySnapshot.withCopy(of: source) { snapshot in
             let database = try DatabaseQueue(path: snapshot.path)
             defer { try? database.close() }
@@ -493,7 +493,8 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         }
     }
 
-    private func verifyManifest(store: VaultStore, key: SymmetricKey, directory: URL) throws {
+    func verifyManifest(store: VaultStore, key: SymmetricKey, directory: URL,
+                                legacyRowsKept: Bool = false) throws {
         let manifest = try JSONDecoder().decode(V15Manifest.self, from: Data(contentsOf: fixture("manifest.json")))
         let deliveries = try FileDeliveryManager(rootURL: directory.appendingPathComponent("deliveries"))
         let clock = now
@@ -514,8 +515,13 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
                        manifest.accessRecords)
         try store.db.read { db in
             for (table, count) in manifest.rowCounts {
+                if CurrentLibrarySchema.legacyTables.contains(table) {
+                    XCTAssertEqual(try db.tableExists(table), legacyRowsKept, table)
+                    if legacyRowsKept { XCTAssertGreaterThanOrEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \"\(table)\"") ?? -1, count, table) }
+                    continue
+                }
                 XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \"\(table)\""),
-                               table == "grdb_migrations" ? 1 : count, table)
+                               table == "grdb_migrations" ? 2 : count, table)
             }
             let writes = try Row.fetchAll(db, sql: "SELECT * FROM agent_write_operations ORDER BY operation_id").map { row in
                 V15Write(operationID: row["operation_id"], credentialID: row["credential_id"],

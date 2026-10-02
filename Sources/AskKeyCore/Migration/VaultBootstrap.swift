@@ -125,8 +125,10 @@ enum VaultBootstrap {
 
     /// Builds the library at `credentials-v2.db.creating` and renames it into
     /// place only when complete, so the current path holds either nothing or a
-    /// complete baseline library. The pending key is promoted after the rename;
-    /// a crash in between is the unfinished first creation of rule 6.
+    /// complete library: `VaultStore` runs every migration on the new file, so
+    /// it is at both AskKey identifiers with the legacy tables dropped before
+    /// the rename. The pending key is promoted after the rename; a crash in
+    /// between is the unfinished first creation of rule 6.
     private static func createNewLibrary(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore, pendingKey: SymmetricKey?,
         beforeRename: (URL) throws -> Void, beforeSync: (URL) throws -> Void
@@ -293,21 +295,31 @@ enum VaultBootstrap {
         }
     }
 
-    /// "Unfinished first creation" (#31 rule 6): exactly the baseline
-    /// identifier and schema, and contents indistinguishable from the seed
-    /// that the baseline migration writes. Any extra row disqualifies it.
+    /// "Unfinished first creation" (#31 rule 6): contents indistinguishable
+    /// from what `createNewLibrary` writes before promotion. Creation ends at
+    /// both AskKey identifiers with the legacy tables dropped (its seed always
+    /// qualifies); a library created by the baseline-only code before
+    /// askkey-0002 existed is at the baseline identifier with its seed.
+    /// The expected value comes from the real migrator at the same
+    /// identifiers. Any extra row or other schema disqualifies it.
     static func requireUnfinishedFirstCreation(_ db: Database) throws {
-        guard try CurrentLibrarySchema.opening(db) == .baseline else { throw VaultBootstrapError.missingKey }
+        let target: String
+        switch try CurrentLibrarySchema.opening(db) {
+        case .baseline: target = CurrentLibrarySchema.baselineIdentifier
+        case .current: target = CurrentLibrarySchema.dropLegacyTablesIdentifier
+        case .legacyV15: throw VaultBootstrapError.missingKey
+        }
         let expected = try DatabaseQueue()
         defer { try? expected.close() }
-        try CurrentLibrarySchema.migrator().migrate(expected)
-        guard try FirstCreationContents(db) == expected.read(FirstCreationContents.init) else {
+        try CurrentLibrarySchema.migrator().migrate(expected, upTo: target)
+        guard try CurrentLibrarySchema.normalizedSchema(db) == expected.read(CurrentLibrarySchema.normalizedSchema),
+              try FirstCreationContents(db) == expected.read(FirstCreationContents.init) else {
             throw VaultBootstrapError.missingKey
         }
     }
 
     /// Creation-written contents with generated identifiers and timestamps
-    /// abstracted away, so the expected value comes from the baseline migrator.
+    /// abstracted away, so the expected value comes from the migrator.
     private struct FirstCreationContents: Equatable {
         let rowCounts: [String: Int]
         let project: [String: DatabaseValue]
@@ -325,31 +337,49 @@ enum VaultBootstrap {
                 counts[table] = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(table.quotedDatabaseIdentifier)")
             }
             rowCounts = counts
-            let projects = try Row.fetchAll(db, sql: "SELECT * FROM projects")
-            let environments = try Row.fetchAll(db, sql: "SELECT * FROM environments")
-            guard projects.count == 1, environments.count == 1 else {
-                project = [:]; environment = [:]; config = [:]
-                return
-            }
             // References to the seed project compare equal; any other value
             // must match the migrator's literally.
-            let projectID: DatabaseValue = projects[0]["id"]
-            let seedProject = "\u{0}seed-project".databaseValue
-            func abstracted(_ value: DatabaseValue) -> DatabaseValue {
-                value == projectID && !value.isNull ? seedProject : value
+            var projectID = DatabaseValue.null
+            if counts["projects"] != nil || counts["environments"] != nil {
+                let projects = try Row.fetchAll(db, sql: "SELECT * FROM projects")
+                let environments = try Row.fetchAll(db, sql: "SELECT * FROM environments")
+                guard projects.count == 1, environments.count == 1 else {
+                    project = [:]; environment = [:]; config = [:]
+                    return
+                }
+                projectID = projects[0]["id"]
+                project = Self.columns(projects[0], excluding: ["id", "created_at", "updated_at"], seed: projectID)
+                environment = Self.columns(environments[0], excluding: ["id", "created_at"], seed: projectID)
+            } else {
+                // With the legacy tables dropped, the seed project's generated
+                // identifier survives only as the canonical UUID text that
+                // creation stored in `active_project_id`.
+                let active = try DatabaseValue.fetchOne(
+                    db, sql: "SELECT value FROM config WHERE key = 'active_project_id'") ?? .null
+                if case .string(let text) = active.storage, UUID(uuidString: text)?.uuidString == text {
+                    projectID = active
+                }
+                project = [:]; environment = [:]
             }
-            func columns(_ row: Row, excluding volatile: Set<String>) -> [String: DatabaseValue] {
-                var result: [String: DatabaseValue] = [:]
-                for (column, value) in row where !volatile.contains(column) { result[column] = abstracted(value) }
-                return result
-            }
-            project = columns(projects[0], excluding: ["id", "created_at", "updated_at"])
-            environment = columns(environments[0], excluding: ["id", "created_at"])
             var values: [String: DatabaseValue] = [:]
             for row in try Row.fetchAll(db, sql: "SELECT key, value FROM config") {
-                values[row["key"]] = abstracted(row["value"])
+                values[row["key"]] = Self.abstracted(row["value"], seed: projectID)
             }
             config = values
+        }
+
+        private static func abstracted(_ value: DatabaseValue, seed projectID: DatabaseValue) -> DatabaseValue {
+            value == projectID && !value.isNull ? "\u{0}seed-project".databaseValue : value
+        }
+
+        private static func columns(
+            _ row: Row, excluding volatile: Set<String>, seed projectID: DatabaseValue
+        ) -> [String: DatabaseValue] {
+            var result: [String: DatabaseValue] = [:]
+            for (column, value) in row where !volatile.contains(column) {
+                result[column] = abstracted(value, seed: projectID)
+            }
+            return result
         }
     }
 
