@@ -12,12 +12,16 @@ The project started as a fork of [Lokalite](https://github.com/RubenGlez/lokalit
 
 The codebase is being re-imported from a private legacy repository and restructured. Tracking issue: the pinned "Normalization roadmap" issue. Until that issue is closed:
 
-- All work happens through GitHub Issues and pull requests. See [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md).
+- All work happens through GitHub Issues and pull requests.
 - Structural tasks are **move-only**: no logic changes unless the issue explicitly asks for them. If you find a bug, open a new issue instead of fixing it in place.
 - iCloud backup and recovery were removed from v0.1 in #18. A redesigned backup needs its own issue.
 - Supported agent clients are Codex, Cursor and Grok CLI. Multica support was removed in #17; do not reintroduce it.
 
-## Roles
+## Maintainer's agent workflow
+
+This section applies only to agents run by the maintainer. If you are an outside contributor or an agent working for one: use your own Git identity, ignore the roles below, and follow [CONTRIBUTING.md](CONTRIBUTING.md). Everything else in this file applies to everyone.
+
+The maintainer's agents follow [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md); the planner also follows [docs/agents/planner.md](docs/agents/planner.md).
 
 | Role | Does | Does not |
 |---|---|---|
@@ -33,14 +37,8 @@ Never, unless an issue labeled `ready-for-human` is being done by the maintainer
 - Touch `/Applications/Ask Key.app`, or install anything into `/Applications`.
 - Read or write the production keychain service `com.sudohg.askkey.vault`. Development builds use `com.sudohg.askkey.vault.dev`.
 - Use real credentials in tests. Use synthetic values only.
-- Merge PRs, push or force-push `main`, delete branches or data you did not create, or change repository settings, visibility, label definitions or protection rules. The planner may merge a PR or push `main` only after the maintainer explicitly approves that specific action.
+- Merge PRs, push or force-push `main`, delete branches or data you did not create, or change repository settings, visibility, label definitions or protection rules. Only the maintainer decides merges; an agent may merge or push `main` only after the maintainer explicitly approves that specific action.
 - Push to or modify the archived repository `sudoHG/AskKey-legacy`. Reading it locally as a reference is fine.
-
-## GitHub identity
-
-Commits, tags, pushes, pull requests and issues use the maintainer's identity `sudoHG <by331works@gmail.com>`; read back the effective identity before committing. No `Co-authored-by` or tool attribution lines in commits or PR bodies.
-
-In the maintainer's setup, comments and label changes go through bot accounts: the planner uses `gh-bot luoji <gh arguments>`, the executor uses `gh-bot wangmiao <gh arguments>`. Outside contributors use their own accounts.
 
 ## Product identifiers (do not change)
 
@@ -75,5 +73,6 @@ Run the development app only when an issue needs it; it uses the isolated `AskKe
 
 ## Where to read next
 
-- [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md): claiming, receipts, review
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute
+- [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md): the maintainer's agent workflow (claiming, receipts, review)
 - [docs/agents/triage-labels.md](docs/agents/triage-labels.md): label meanings

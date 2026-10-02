@@ -1,6 +1,6 @@
 # Contributing to AskKey
 
-AskKey is under active restructuring before its first public release. Read the [feature inventory](docs/features.md) and use a scoped GitHub issue to agree on the intended change. Agent contributors must also follow [AGENTS.md](AGENTS.md) and the [issue workflow](docs/agents/issue-workflow.md).
+AskKey is under active restructuring before its first public release. Read the [feature inventory](docs/features.md) and use a scoped GitHub issue to agree on the intended change. If you use an AI agent, it must follow the general rules in [AGENTS.md](AGENTS.md); the issue workflow under `docs/agents/` is the maintainer's internal process and does not apply to outside contributions. Use your own Git identity.
 
 ## Requirements
 
