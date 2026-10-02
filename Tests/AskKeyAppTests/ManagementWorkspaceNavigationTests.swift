@@ -143,7 +143,11 @@ final class ManagementWorkspaceNavigationTests: XCTestCase {
         viewModel.hasManagementSession = true
 
         viewModel.renewManagementSession()
-        try await Task.sleep(for: .milliseconds(50))
+        let deadline = ProcessInfo.processInfo.systemUptime + 2
+        while viewModel.hasManagementSession,
+              ProcessInfo.processInfo.systemUptime < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
 
         XCTAssertFalse(viewModel.hasManagementSession)
         XCTAssertFalse(viewModel.isLocked)
