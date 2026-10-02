@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -38,7 +40,6 @@ jobs:
         run: python3 scripts/check_hygiene.py
 
   basic-ui-flows:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
