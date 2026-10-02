@@ -558,33 +558,31 @@ final class GrokCLIAdapterTests: XCTestCase {
         let grok = try fixture.writeExecutable(
             name: "hang-grok-heartbeat",
             contents: """
-            #!/usr/bin/python3 -I
-            import os
-            import signal
-            import sys
-            import time
-            args = sys.argv[1:]
-            if args[:3] == ["mcp", "add", "--help"]:
-                sys.stdout.write("--scope user\\n")
-                sys.exit(0)
-            if args[:2] == ["mcp", "list"]:
-                sys.stdout.write('[{"command":"\(fixture.helperURL.path)","args":["mcp"],"enabled":true,"name":"askkey","scope":"user"}]\\n')
-                sys.exit(0)
-            if args[:2] == ["mcp", "doctor"]:
-                signal.signal(signal.SIGTERM, signal.SIG_IGN)
-                child = os.fork()
-                if child == 0:
-                    signal.signal(signal.SIGTERM, signal.SIG_IGN)
-                    signal.signal(signal.SIGHUP, signal.SIG_IGN)
-                    signal.alarm(8)
-                    while True:
-                        with open("\(heartbeat.path)", "ab", buffering=0) as stream:
-                            stream.write(b"x")
-                        time.sleep(0.05)
-                with open("\(childPidFile.path)", "w", encoding="utf-8") as stream:
-                    stream.write(str(child))
-                os.wait()
-            sys.exit(1)
+            #!/bin/sh
+            if [ "$1" = "mcp" ] && [ "$2" = "add" ] && [ "$3" = "--help" ]; then
+              printf '%s\\n' '--scope user'
+              exit 0
+            fi
+            if [ "$1" = "mcp" ] && [ "$2" = "list" ]; then
+              printf '%s\\n' '[{"command":"\(fixture.helperURL.path)","args":["mcp"],"enabled":true,"name":"askkey","scope":"user"}]'
+              exit 0
+            fi
+            if [ "$1" = "mcp" ] && [ "$2" = "doctor" ]; then
+              trap '' TERM
+              (
+                trap '' TERM HUP
+                remaining=160
+                while [ "$remaining" -gt 0 ]; do
+                  printf x >> '\(heartbeat.path)'
+                  /bin/sleep 0.05
+                  remaining=$((remaining - 1))
+                done
+              ) &
+              printf '%s\\n' "$!" > '\(childPidFile.path)'
+              while [ ! -s '\(heartbeat.path)' ]; do /bin/sleep 0.01; done
+              wait
+            fi
+            exit 1
             """
         )
         let control = Process()
@@ -643,7 +641,7 @@ final class GrokCLIAdapterTests: XCTestCase {
             fi
             if [ "$1" = "mcp" ] && [ "$2" = "doctor" ]; then
               trap '' TERM
-              dd if=/dev/zero bs=4096 2>/dev/null &
+              (while :; do printf 'untrusted-output-block\\n'; done) &
               echo $! > "\(childPidFile.path)"
               wait
             fi
