@@ -70,7 +70,6 @@ multica:Tests/AskKeyBrokerTests/HelperMCPTests.swift
 multica:Tests/AskKeyBrokerTests/MulticaServerConfigurationTests.swift
 multica:Tests/AskKeyE2ETests/AskKeyE2ETests.swift
 multica:Tests/UI/required-flows.json
-multica:docs/agents/issue-workflow.md
 multica:docs/features.md
 multica:scripts/debug-multica-stub.sh
 multica:scripts/test-debug-client-connections.sh

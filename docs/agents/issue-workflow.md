@@ -46,7 +46,7 @@ gh issue list --repo sudoHG/AskKey --label ready-for-agent --state open
 git -C ~/Coding/AskKey-workspace/legacy worktree add --detach ~/Coding/AskKey-workspace/worktrees/legacy-<number> legacy-final
 ```
 
-The `AGENTS.md` and other docs inside the legacy tree are outdated (they mention Multica, doctier and `.harness`). Ignore them; this repository's rules apply. Never fetch legacy history into this repository.
+The `AGENTS.md` and other docs inside the legacy tree are outdated (they describe retired tools and processes). Ignore them; this repository's rules apply. Never fetch legacy history into this repository.
 
 After a PR is merged, remove its worktree: `git worktree remove ~/Coding/AskKey-workspace/worktrees/<number>`.
 
