@@ -1,0 +1,32 @@
+name: AskKeyE2E
+options:
+  deploymentTarget:
+    macOS: "14.0"
+targets:
+  AskKeyE2ETests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - ../AskKeyE2ETests
+    settings:
+      base:
+        ASKKEY_E2E_RUNNER_BUNDLE_ID: com.sudohg.askkey.e2e.tests
+        PRODUCT_BUNDLE_IDENTIFIER: $(ASKKEY_E2E_RUNNER_BUNDLE_ID)
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        SWIFT_VERSION: "5.0"
+schemes:
+  AskKeyE2E:
+    build:
+      targets:
+        AskKeyE2ETests: [test]
+    test:
+      targets:
+        - AskKeyE2ETests
+      gatherCoverageData: false
+      environmentVariables:
+        ASKKEY_E2E_APP: $(ASKKEY_E2E_APP)
+        ASKKEY_E2E_ROOT: $(ASKKEY_E2E_ROOT)
+      commandLineArguments: {}

@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|mcp__askkey__list_credentials)$",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "askkey",
+            "tool": "credential_discovery_guard",
+            "input": {
+              "session_id": "${session_id}",
+              "turn_id": "${turn_id}",
+              "tool_name": "${tool_name}",
+              "tool_input": "${tool_input}"
+            },
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
