@@ -40,7 +40,13 @@ struct VaultBootstrapPaths {
 
 enum VaultBootstrap {
     static func state(paths: VaultBootstrapPaths) throws -> VaultBootstrapState {
-        try CurrentLibrarySnapshot.regularFileExists(paths.currentDatabase) ? .current : .fresh
+        if try CurrentLibrarySnapshot.regularFileExists(paths.currentDatabase) { return .current }
+        for suffix in ["-wal", "-shm", "-journal"] {
+            guard try !CurrentLibrarySnapshot.regularFileExists(
+                URL(fileURLWithPath: paths.currentDatabase.path + suffix)
+            ) else { throw VaultBootstrapError.invalidState }
+        }
+        return .fresh
     }
 
     static func openCurrent(

@@ -35,10 +35,13 @@ final class VaultStore {
     init(path: String, authenticationKey: SymmetricKey? = nil) throws {
         self.path = path
         let exists = try CurrentLibrarySnapshot.regularFileExists(URL(fileURLWithPath: path))
+        guard exists || authenticationKey == nil else { throw VaultBootstrapError.missingDatabase }
         var opening: CurrentLibrarySchema.Opening?
+        var proof: CurrentLibrarySnapshot.Proof?
+        defer { proof = nil }
         if exists {
             // Validate a private copy before SQLite can touch original sidecars.
-            try CurrentLibrarySnapshot.withCopy(of: URL(fileURLWithPath: path)) { snapshot in
+            try CurrentLibrarySnapshot.withVerifiedCopy(of: URL(fileURLWithPath: path)) { snapshot, verified in
                 let probe = try DatabaseQueue(path: snapshot.path)
                 defer { try? probe.close() }
                 opening = try probe.read {
@@ -46,10 +49,19 @@ final class VaultStore {
                     if let authenticationKey { try Self.validateCredentialRows($0, key: authenticationKey) }
                     return opening
                 }
+                proof = verified
             }
         }
         var configuration = Configuration()
         configuration.prepareDatabase { database in
+            if let proof {
+                // GRDB calls this before validating the format or opening WAL
+                // bookkeeping. Reject any change since private-copy validation.
+                try proof.validate(URL(fileURLWithPath: path))
+                var moved: CInt = 0
+                guard sqlite3_file_control(database.sqliteConnection, nil, SQLITE_FCNTL_HAS_MOVED, &moved) == SQLITE_OK,
+                      moved == 0 else { throw VaultBootstrapError.invalidState }
+            }
             // Let SQLite checkpoint and remove its own current WAL sidecars
             // when the last connection closes. Persisted WAL indexes would be
             // rebuilt by a second open even when no database row changed.
@@ -60,7 +72,21 @@ final class VaultStore {
             }
         }
         if !exists { configuration.journalMode = .wal }
-        db = try DatabaseQueue(path: path, configuration: configuration)
+        let openingPath: String
+        if exists {
+            // GRDB's writable flags include CREATE. A recognized SQLite URI
+            // narrows them to read-write without creating a disappeared file.
+            guard sqlite3_compileoption_used("USE_URI") != 0,
+                  var components = URLComponents(url: URL(fileURLWithPath: path), resolvingAgainstBaseURL: false) else {
+                throw VaultBootstrapError.invalidState
+            }
+            components.queryItems = [URLQueryItem(name: "mode", value: "rw")]
+            guard let uri = components.url else { throw VaultBootstrapError.invalidState }
+            openingPath = uri.absoluteString
+        } else {
+            openingPath = path
+        }
+        db = try DatabaseQueue(path: openingPath, configuration: configuration)
         if opening == .legacyV15 {
             try db.write { database in
                 try CurrentLibrarySchema.adoptLegacyV15(database) {

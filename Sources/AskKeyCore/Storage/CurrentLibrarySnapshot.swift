@@ -4,6 +4,22 @@ import Foundation
 /// Only credentials-v2.db and its SQLite WAL are copied. SQLite never opens
 /// the originals during preflight, including for read-only validation.
 enum CurrentLibrarySnapshot {
+    struct Proof: Equatable {
+        fileprivate let files: [String: ObservedFile]
+
+        func validate(_ source: URL) throws {
+            guard try CurrentLibrarySnapshot.contents(source) == self else {
+                throw VaultBootstrapError.invalidState
+            }
+        }
+    }
+
+    fileprivate struct ObservedFile: Equatable {
+        let device: dev_t
+        let inode: ino_t
+        let bytes: Data
+    }
+
     static func regularFileExists(_ url: URL) throws -> Bool {
         var info = stat()
         guard url.path.withCString({ lstat($0, &info) }) == 0 else {
@@ -15,6 +31,10 @@ enum CurrentLibrarySnapshot {
     }
 
     static func withCopy<T>(of source: URL, _ body: (URL) throws -> T) throws -> T {
+        try withVerifiedCopy(of: source) { destination, _ in try body(destination) }
+    }
+
+    static func withVerifiedCopy<T>(of source: URL, _ body: (URL, Proof) throws -> T) throws -> T {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("AskKeyCurrentLibrary-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
@@ -22,14 +42,14 @@ enum CurrentLibrarySnapshot {
         do {
             let destination = directory.appendingPathComponent("credentials-v2.db")
             let before = try contents(source)
-            guard before[""] != nil else { throw VaultBootstrapError.missingDatabase }
-            for (suffix, bytes) in before {
+            guard before.files[""] != nil else { throw VaultBootstrapError.missingDatabase }
+            for (suffix, file) in before.files {
                 let url = URL(fileURLWithPath: destination.path + suffix)
-                try bytes.write(to: url)
+                try file.bytes.write(to: url)
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             }
             guard try contents(source) == before else { throw VaultBootstrapError.invalidState }
-            let result = try body(destination)
+            let result = try body(destination, before)
             guard try contents(source) == before else { throw VaultBootstrapError.invalidState }
             try FileManager.default.removeItem(at: directory)
             return result
@@ -39,14 +59,14 @@ enum CurrentLibrarySnapshot {
         }
     }
 
-    private static func contents(_ source: URL) throws -> [String: Data] {
+    private static func contents(_ source: URL) throws -> Proof {
         // A hot rollback journal cannot be safely inspected by opening its
         // original database. Current libraries use WAL; preserve and reject it.
         guard try !regularFileExists(URL(fileURLWithPath: source.path + "-journal")) else {
             throw VaultBootstrapError.invalidState
         }
         _ = try regularFileExists(URL(fileURLWithPath: source.path + "-shm"))
-        var files: [String: Data] = [:]
+        var files: [String: ObservedFile] = [:]
         for suffix in ["", "-wal"] {
             let url = URL(fileURLWithPath: source.path + suffix)
             guard try regularFileExists(url) else { continue }
@@ -58,9 +78,19 @@ enum CurrentLibrarySnapshot {
                 throw VaultBootstrapError.invalidState
             }
             let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-            files[suffix] = try handle.readToEnd() ?? Data()
+            let bytes = try handle.readToEnd() ?? Data()
+            var after = stat()
+            guard fstat(descriptor, &after) == 0,
+                  info.st_size == after.st_size,
+                  info.st_mtimespec.tv_sec == after.st_mtimespec.tv_sec,
+                  info.st_mtimespec.tv_nsec == after.st_mtimespec.tv_nsec,
+                  info.st_ctimespec.tv_sec == after.st_ctimespec.tv_sec,
+                  info.st_ctimespec.tv_nsec == after.st_ctimespec.tv_nsec else {
+                throw VaultBootstrapError.invalidState
+            }
+            files[suffix] = ObservedFile(device: info.st_dev, inode: info.st_ino, bytes: bytes)
             try handle.close()
         }
-        return files
+        return Proof(files: files)
     }
 }
