@@ -1,4 +1,3 @@
-#if DEBUG
 import CryptoKit
 import Darwin
 import Foundation
@@ -6,7 +5,7 @@ import AskKeyBroker
 
 /// Only selected by an explicitly configured isolated Debug run. These are
 /// synthetic test keys, never the production login-keychain material.
-final class DebugRunMigrationKeyStore: MigrationKeyStore {
+final class IsolatedAppKeyStore: AppKeyStore {
     private let directory: URL
     private let legacyService: String
     private let pendingService: String
@@ -20,16 +19,11 @@ final class DebugRunMigrationKeyStore: MigrationKeyStore {
         self.legacyService = legacyService
         self.pendingService = pendingService
         self.appService = appService
-        if !FileManager.default.fileExists(atPath: self.directory.path) {
-            try FileManager.default.createDirectory(
-                at: self.directory, withIntermediateDirectories: false,
-                attributes: [.posixPermissions: 0o700]
-            )
+        if FileManager.default.fileExists(atPath: self.directory.path) {
+            try verifyFile(self.directory, isDirectory: true)
         }
-        try verifyFile(self.directory, isDirectory: true)
     }
 
-    func loadLegacyKey() throws -> Data { try load(legacyService, missing: .missingLegacyKey) }
     func loadPendingKey() throws -> Data { try load(pendingService, missing: .missingPendingKey) }
     func loadAppKey() throws -> Data { try load(appService, missing: .missingAppKey) }
     func savePendingKey(_ data: Data) throws { try save(data, service: pendingService) }
@@ -53,7 +47,7 @@ final class DebugRunMigrationKeyStore: MigrationKeyStore {
         }
     }
 
-    private func load(_ service: String, missing: MigrationKeyStoreError) throws -> Data {
+    private func load(_ service: String, missing: AppKeyStoreError) throws -> Data {
         let url = file(service)
         guard FileManager.default.fileExists(atPath: url.path) else { throw missing }
         try verifyFile(directory, isDirectory: true)
@@ -63,12 +57,16 @@ final class DebugRunMigrationKeyStore: MigrationKeyStore {
         defer { Darwin.close(descriptor) }
         var bytes = [UInt8](repeating: 0, count: 33)
         let count = Darwin.read(descriptor, &bytes, 33)
-        guard count == 32 else { throw MigrationKeyStoreError.conflictingKey }
+        guard count == 32 else { throw AppKeyStoreError.conflictingKey }
         return Data(bytes.prefix(32))
     }
 
     private func save(_ data: Data, service: String) throws {
-        guard data.count == 32 else { throw MigrationKeyStoreError.conflictingKey }
+        guard data.count == 32 else { throw AppKeyStoreError.conflictingKey }
+        if !FileManager.default.fileExists(atPath: directory.path) {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                                                   attributes: [.posixPermissions: 0o700])
+        }
         try verifyFile(directory, isDirectory: true)
         let url = file(service)
         let descriptor = url.path.withCString {
@@ -76,7 +74,7 @@ final class DebugRunMigrationKeyStore: MigrationKeyStore {
         }
         guard descriptor >= 0 else {
             guard errno == EEXIST, try load(service, missing: .conflictingKey) == data else {
-                throw MigrationKeyStoreError.conflictingKey
+                throw AppKeyStoreError.conflictingKey
             }
             return
         }
@@ -84,7 +82,7 @@ final class DebugRunMigrationKeyStore: MigrationKeyStore {
         let count = data.withUnsafeBytes { Darwin.write(descriptor, $0.baseAddress, $0.count) }
         guard count == data.count, fsync(descriptor) == 0 else {
             _ = url.path.withCString { Darwin.unlink($0) }
-            throw MigrationKeyStoreError.conflictingKey
+            throw AppKeyStoreError.conflictingKey
         }
     }
 
@@ -98,4 +96,3 @@ final class DebugRunMigrationKeyStore: MigrationKeyStore {
         }
     }
 }
-#endif

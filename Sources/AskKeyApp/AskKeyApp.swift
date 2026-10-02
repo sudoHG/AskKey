@@ -532,15 +532,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         setupWindowBehavior()
         setupStatusItemMenu()
         NotificationCenter.default.addObserver(
-            forName: .askKeyVaultBootstrapDidChange, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, self.brokerServer == nil else { return }
-                self.startBroker()
-            }
-        }
-
-        NotificationCenter.default.addObserver(
             forName: .hotkeyShortcutChanged, object: nil, queue: .main
         ) { [weak self] note in
             guard let id = note.object as? String else { return }
@@ -592,8 +583,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         do {
             try Vault.shared.prepareAgentRuntime()
         } catch {
-            if case VaultBootstrapError.migrationRequired = error {
-                vault.migrationRequired = true
+            if error is VaultBootstrapError {
+                vault.errorMessage = UserFacingCopy.message(for: error)
             } else {
                 vault.errorMessage = "Ask Key could not prepare Agent access. Open the app to review the vault state."
             }
@@ -1849,7 +1840,6 @@ enum FrozenApprovalActions {
 }
 
 extension Notification.Name {
-    static let askKeyVaultBootstrapDidChange = Notification.Name("askKeyVaultBootstrapDidChange")
     static let presentNextAgentApproval = Notification.Name("presentNextAgentApproval")
 }
 

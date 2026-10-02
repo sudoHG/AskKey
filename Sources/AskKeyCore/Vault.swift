@@ -122,11 +122,7 @@ public final class Vault {
     }
 
     public func validateStoreAvailability() throws {
-        switch try bootstrapState() {
-        case .legacy: throw VaultBootstrapError.migrationRequired(.legacy)
-        case .mixed: throw VaultBootstrapError.migrationRequired(.mixed)
-        case .fresh, .migrated: return
-        }
+        _ = try bootstrapState()
     }
 
     public func bootstrapState() throws -> VaultBootstrapState {
@@ -178,17 +174,16 @@ public final class Vault {
     // MARK: - Setup
 
     /// Loads only the App-owned current format for background Agent work.
-    /// Human management remains independently locked; legacy migration is never
-    /// recovered implicitly from this entry point.
+    /// Human management remains independently locked.
     public func prepareAgentRuntime() throws {
         lifecycleLock.lock()
         defer { lifecycleLock.unlock() }
         try VaultConfiguration.validateRuntimeIsolation()
-        try prepareAgentRuntime(paths: bootstrapPaths, keyStore: { try self.migrationKeyStore() })
+        try prepareAgentRuntime(paths: bootstrapPaths, keyStore: { try self.appKeyStore() })
     }
 
     // Explicit synthetic paths/key store keep startup tests off the real vault.
-    func prepareAgentRuntime(paths: VaultBootstrapPaths, keyStore: () throws -> MigrationKeyStore) throws {
+    func prepareAgentRuntime(paths: VaultBootstrapPaths, keyStore: () throws -> AppKeyStore) throws {
         lifecycleLock.lock()
         defer { lifecycleLock.unlock() }
         stateLock.lock()
@@ -196,64 +191,8 @@ public final class Vault {
         stateLock.unlock()
         if alreadyLoaded { return }
 
-        let hasCurrentJournal = FileManager.default.fileExists(atPath: paths.currentJournal.path)
-        let hasPreviousJournal = FileManager.default.fileExists(atPath: paths.previousJournal.path)
-        let state: VaultBootstrapState
-        do {
-            state = try VaultBootstrap.state(paths: paths)
-        } catch where hasCurrentJournal || hasPreviousJournal {
-            throw VaultBootstrapError.migrationRequired(.mixed)
-        }
-        guard state == .fresh || state == .migrated else {
-            throw VaultBootstrapError.migrationRequired(state)
-        }
-        // A previous journal with no v2 authority still requires authenticated
-        // migration review. Never load its old key here.
-        guard !hasPreviousJournal || hasCurrentJournal else {
-            throw VaultBootstrapError.migrationRequired(.mixed)
-        }
-        let keys = try keyStore()
-        if hasCurrentJournal {
-            // Check only with the activated App key: no pending/legacy fallback,
-            // promotion, revocation or journal rewrite during background startup.
-            do {
-                let attributes = try FileManager.default.attributesOfItem(atPath: paths.currentJournal.path)
-                guard attributes[.type] as? FileAttributeType == .typeRegular else {
-                    throw VaultBootstrapError.invalidState
-                }
-                let appKey = try keys.loadAppKey()
-                guard appKey.count == 32 else { throw VaultBootstrapError.invalidKey }
-                let encrypted = try Data(contentsOf: paths.currentJournal)
-                let cleartext = try VaultCrypto.decryptData(encrypted, using: VaultCrypto.keyFromData(appKey))
-                let journal = try JSONDecoder().decode(AgentRuntimeJournalHeader.self, from: cleartext)
-                guard journal.state == .complete else { throw VaultBootstrapError.invalidState }
-            } catch {
-                throw VaultBootstrapError.migrationRequired(state)
-            }
-        }
-        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: try keyStore())
         try adoptBootstrappedLibrary(opened)
-    }
-
-    private struct AgentRuntimeJournalHeader: Decodable {
-        let state: MigrationJournalState
-    }
-
-    /// Resumes only an already-started cutover after an explicit identity check.
-    /// A merely prepared preview stays uncommitted; recovery never creates a
-    /// fresh library and leaves human management locked on every exit.
-    @discardableResult
-    public func recoverMigration(using authenticator: ManagementAuthenticator) throws -> VaultBootstrapState {
-        lifecycleLock.lock()
-        defer { lifecycleLock.unlock() }
-        try VaultConfiguration.validateRuntimeIsolation()
-        try authorizeManagement(authenticator, reason: CredentialManagementCopy.manageReason)
-        defer { lock() }
-        try recoverPreviousMigrationIfNeeded()
-        if let committer = try migrationCommitterIfAvailable() {
-            try committer.recover()
-        }
-        return try bootstrapState()
     }
 
     public func unlock() throws {
@@ -261,13 +200,6 @@ public final class Vault {
         defer { lifecycleLock.unlock() }
         try VaultConfiguration.validateRuntimeIsolation()
         try recoverInterruptedLocalErase()
-        try recoverPreviousMigrationIfNeeded()
-        if let committer = try migrationCommitterIfAvailable() {
-            try committer.recover()
-            guard try committer.state() == .complete else {
-                throw VaultBootstrapError.migrationRequired(try bootstrapState())
-            }
-        }
         try openBootstrappedLibrary()
     }
 
@@ -364,80 +296,6 @@ public final class Vault {
         guard authenticator.confirm(reason: reason) else {
             throw VaultError.managementAuthenticationRequired
         }
-    }
-
-    /// Builds an in-memory migration preview beside the legacy runtime. This
-    /// does not create or promote a new database and does not change Keychain.
-    public func migrationPreview(
-        cancellation: MigrationPreviewCancellation? = nil
-    ) throws -> MigrationPreview {
-        try requireManagementSession()
-        return try migrationPreview(using: .allow, cancellation: cancellation)
-    }
-
-    public func migrationPreview(
-        using authenticator: ManagementAuthenticator,
-        cancellation: MigrationPreviewCancellation? = nil
-    ) throws -> MigrationPreview {
-        lifecycleLock.lock()
-        defer { lifecycleLock.unlock() }
-        try VaultConfiguration.validateRuntimeIsolation()
-        try authorizeManagement(authenticator, reason: CredentialManagementCopy.manageReason)
-        try recoverPreviousMigrationIfNeeded()
-        let state = try bootstrapState()
-        guard state == .legacy || state == .mixed else { throw VaultBootstrapError.invalidState }
-        let legacyKey = try migrationKeyStore().loadLegacyKey()
-        guard legacyKey.count == 32 else { throw VaultBootstrapError.invalidKey }
-        return try MigrationPlanner(
-            databaseURL: bootstrapPaths.migrationSource,
-            legacyKey: VaultCrypto.keyFromData(legacyKey),
-            migrationKey: VaultCrypto.generateKey()
-        ).preview(cancellation: cancellation)
-    }
-
-    /// Commits the accepted preview to the App-only database. Once database
-    /// promotion begins, all subsequent launches recover forward from the
-    /// authenticated journal; only `prepared` remains rollback-safe.
-    public func commitMigration() throws {
-        // A reviewed fingerprint is mandatory. Retaining this source-compatible
-        // entry point must not reintroduce an unreviewed automatic cutover.
-        throw VaultBootstrapError.migrationRequired(try bootstrapState())
-    }
-
-    public func commitMigration(
-        accepting preview: MigrationPreview,
-        using authenticator: ManagementAuthenticator
-    ) throws {
-        lifecycleLock.lock()
-        defer { lifecycleLock.unlock() }
-        try VaultConfiguration.validateRuntimeIsolation()
-        try authorizeManagement(authenticator, reason: CredentialManagementCopy.manageReason)
-        guard preview.canCommit, let fingerprint = preview.sourceFingerprint else {
-            throw MigrationCommitError.conflictsRequireResolution
-        }
-        try recoverPreviousMigrationIfNeeded()
-        if FileManager.default.fileExists(atPath: bootstrapPaths.previousJournal.path) {
-            let previous = try previousMigrationCommitter()
-            if try previous.state() == .prepared { try previous.rollbackPrepared() }
-        }
-        let committer = try migrationCommitter()
-        if try committer.state() == .prepared { try committer.rollbackPrepared() }
-        if try committer.state() == nil {
-            _ = try committer.prepare(expectedSourceFingerprint: fingerprint)
-        }
-        stateLock.lock()
-        let previousStore = _store
-        _store = nil
-        _key = nil
-        _managementSessionExpiresAt = nil
-        stateLock.unlock()
-        try previousStore?.close()
-        try committer.commit()
-        guard try committer.state() == .complete else {
-            throw MigrationCommitError.invalidJournal
-        }
-        try openBootstrappedLibrary()
-        try beginManagementSession(using: .allow)
     }
 
     // MARK: - Project Management
@@ -1038,7 +896,7 @@ public final class Vault {
     }
 
     private func openBootstrappedLibrary() throws {
-        let opened = try VaultBootstrap.openCurrent(paths: bootstrapPaths, keyStore: migrationKeyStore())
+        let opened = try VaultBootstrap.openCurrent(paths: bootstrapPaths, keyStore: appKeyStore())
         try adoptBootstrappedLibrary(opened)
     }
 
@@ -1057,55 +915,16 @@ public final class Vault {
         }
     }
 
-    private func migrationCommitterIfAvailable() throws -> MigrationCommitter? {
-        guard FileManager.default.fileExists(atPath: VaultConfiguration.migrationJournalURL.path) else {
-            return nil
-        }
-        return try migrationCommitter()
-    }
-
-    private func migrationCommitter() throws -> MigrationCommitter {
-        MigrationCommitter(
-            legacyDatabaseURL: bootstrapPaths.migrationSource,
-            newDatabaseURL: VaultConfiguration.migratedVaultFileURL,
-            journalURL: VaultConfiguration.migrationJournalURL,
-            keyStore: try migrationKeyStore()
-        )
-    }
-
-    func migrationKeyStore() throws -> MigrationKeyStore {
-        try makeMigrationKeyStore(
-            legacyService: bootstrapPaths.migrationSource == bootstrapPaths.previousDatabase
-                ? VaultConfiguration.previousAppKeychainService : VaultConfiguration.keychainService,
+    func appKeyStore() throws -> AppKeyStore {
+        try makeAppKeyStore(
+            legacyService: VaultConfiguration.keychainService,
             pendingService: VaultConfiguration.pendingAppKeychainService,
             appService: VaultConfiguration.appKeychainService
         )
     }
 
-    private func previousMigrationCommitter() throws -> MigrationCommitter {
-        MigrationCommitter(
-            legacyDatabaseURL: bootstrapPaths.legacyDatabase,
-            newDatabaseURL: bootstrapPaths.previousDatabase,
-            journalURL: bootstrapPaths.previousJournal,
-            keyStore: try makeMigrationKeyStore(
-                legacyService: VaultConfiguration.keychainService,
-                pendingService: VaultConfiguration.previousAppKeychainService + ".migration",
-                appService: VaultConfiguration.previousAppKeychainService
-            )
-        )
-    }
-
-    private func recoverPreviousMigrationIfNeeded() throws {
-        // The v2 journal becomes the authority as soon as its own commit starts;
-        // its successful cutover revokes the v1 key needed by the old journal.
-        guard !FileManager.default.fileExists(atPath: bootstrapPaths.currentDatabase.path),
-              !FileManager.default.fileExists(atPath: bootstrapPaths.currentJournal.path) else { return }
-        guard FileManager.default.fileExists(atPath: bootstrapPaths.previousJournal.path) else { return }
-        try previousMigrationCommitter().recover()
-    }
-
     func deleteAllLocalVaultKeys() throws {
-        for store in [try migrationKeyStore(), try makeMigrationKeyStore(
+        for store in [try appKeyStore(), try makeAppKeyStore(
             legacyService: VaultConfiguration.keychainService,
             pendingService: VaultConfiguration.previousAppKeychainService + ".migration",
             appService: VaultConfiguration.previousAppKeychainService
@@ -1116,35 +935,27 @@ public final class Vault {
         }
     }
 
-    private func makeMigrationKeyStore(
+    private func makeAppKeyStore(
         legacyService: String, pendingService: String, appService: String
-    ) throws -> MigrationKeyStore {
+    ) throws -> AppKeyStore {
         try VaultConfiguration.validateRuntimeIsolation()
         #if DEBUG
         if let directory = VaultConfiguration.debugRunDirectory {
-            return try DebugRunMigrationKeyStore(
+            return try IsolatedAppKeyStore(
                 directory: directory, legacyService: legacyService,
                 pendingService: pendingService, appService: appService
             )
         }
         #endif
         guard let executableURL = Bundle.main.executableURL else {
-            throw MigrationKeyStoreError.securityFailure(errSecParam)
+            throw AppKeyStoreError.securityFailure(errSecParam)
         }
-        return AppBoundMigrationKeyStore(
+        return AppBoundKeyStore(
             legacyService: legacyService,
             pendingService: pendingService,
             appService: appService,
             trustedApplicationURL: executableURL
         )
-    }
-
-    private func openStore(at url: URL) throws -> VaultStore {
-        do {
-            return try VaultStore(path: url.path)
-        } catch {
-            throw VaultError.databaseError(error.localizedDescription)
-        }
     }
 
     func closeStoreForLocalErase() throws {

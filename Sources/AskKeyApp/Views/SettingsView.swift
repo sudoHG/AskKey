@@ -54,9 +54,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var rootContent: some View {
-        if vault.migrationRequired {
-            prototypeShell { MigrationReviewView().environment(vault) }
-        } else {
         switch vault.settingsEntryState {
         case .onboarding, .empty:
             prototypeShell {
@@ -86,8 +83,6 @@ struct SettingsView: View {
             }
 #endif
         }
-    }
-
     }
 
     @ViewBuilder

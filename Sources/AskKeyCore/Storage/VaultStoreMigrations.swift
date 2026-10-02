@@ -1,229 +1,139 @@
 import Foundation
 import GRDB
 
-extension VaultStore {
-    func migrate() throws {
+enum CurrentLibrarySchema {
+    static let baselineIdentifier = "askkey-0001-baseline"
+    static let legacyIdentifiers = [
+        "v1", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
+        "v12-remove-folder-associations", "v13-remove-project-path",
+        "v14-authenticated-credentials", "v15-file-write-receipts",
+    ]
+
+    // The v15 CREATE statements are preserved verbatim, including old tables.
+    static let baselineSQL = """
+    CREATE TABLE "config" ("key" TEXT PRIMARY KEY, "value" TEXT NOT NULL);
+    CREATE TABLE "projects" ("id" TEXT PRIMARY KEY, "name" TEXT NOT NULL UNIQUE, "active_environment" TEXT, "icon" TEXT, "created_at" TEXT NOT NULL, "updated_at" TEXT NOT NULL);
+    CREATE TABLE "environments" ("id" TEXT PRIMARY KEY, "project_id" TEXT NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE, "name" TEXT NOT NULL, "color" TEXT, "created_at" TEXT NOT NULL, UNIQUE ("project_id", "name"));
+    CREATE TABLE "secrets" ("id" TEXT PRIMARY KEY, "project_id" TEXT NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE, "name" TEXT NOT NULL, "description" TEXT, "icon" TEXT, "category" TEXT NOT NULL DEFAULT 'secret', "created_at" TEXT NOT NULL, "updated_at" TEXT NOT NULL, "agent_access" TEXT NOT NULL DEFAULT 'allowed', UNIQUE ("project_id", "name"));
+    CREATE TABLE "secret_values" ("id" TEXT PRIMARY KEY, "secret_id" TEXT NOT NULL REFERENCES "secrets"("id") ON DELETE CASCADE, "environment_id" TEXT REFERENCES "environments"("id") ON DELETE CASCADE, "encrypted_value" BLOB NOT NULL, "updated_at" TEXT NOT NULL, UNIQUE ("secret_id", "environment_id"));
+    CREATE UNIQUE INDEX secret_values_unique_default_environment
+        ON secret_values(secret_id)
+        WHERE environment_id IS NULL;
+    CREATE TABLE "activity_log" ("id" TEXT PRIMARY KEY, "secret_name" TEXT NOT NULL, "project_name" TEXT NOT NULL, "environment_name" TEXT NOT NULL, "source" TEXT NOT NULL, "accessed_at" TEXT NOT NULL, "agent" TEXT, "action" TEXT NOT NULL DEFAULT 'read', "peer_team" TEXT);
+    CREATE TABLE "credentials" ("id" TEXT PRIMARY KEY, "name_index" BLOB NOT NULL UNIQUE, "encrypted_display_name" BLOB NOT NULL, "encrypted_payload" BLOB NOT NULL, "encrypted_usage_instructions" BLOB NOT NULL, "encrypted_private_notes" BLOB NOT NULL, "encrypted_group_name" BLOB, "encrypted_environment_variable" BLOB, "payload_kind" TEXT NOT NULL, "permission" TEXT NOT NULL, "expires_at" TEXT, "created_at" TEXT NOT NULL, "updated_at" TEXT NOT NULL, "encrypted_original_filename" BLOB, "byte_size" INTEGER, "content_digest" BLOB, "deleted_at" TEXT, "authentication_tag" BLOB);
+    CREATE TABLE "agent_write_operations" ("operation_id" TEXT PRIMARY KEY, "payload_digest" TEXT NOT NULL, "credential_id" TEXT NOT NULL, "operation" TEXT NOT NULL, "committed_at" TEXT NOT NULL, "request_id" TEXT NOT NULL, "capability_digest" TEXT NOT NULL, "result_digest" TEXT);
+    CREATE TABLE "credential_access_records" ("id" TEXT PRIMARY KEY, "encrypted_record" BLOB NOT NULL);
+    CREATE INDEX "agent_write_operations_request_id" ON "agent_write_operations"("request_id");
+    """
+
+    static func migrator() -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
-
-        migrator.registerMigration("v1") { db in
+        migrator.registerMigration(baselineIdentifier) { db in
+            try db.execute(sql: baselineSQL)
+            // Retain the Default seed required by the still-supported queries.
+            let projectID = UUID().uuidString
+            let environmentID = UUID().uuidString
             let now = iso8601()
-
-            try db.create(table: "config") { t in
-                t.column("key", .text).primaryKey()
-                t.column("value", .text).notNull()
-            }
-
-            try db.create(table: "projects") { t in
-                t.column("id", .text).primaryKey()
-                t.column("name", .text).notNull().unique()
-                t.column("path", .text)
-                t.column("active_environment", .text)
-                t.column("icon", .text)
-                t.column("created_at", .text).notNull()
-                t.column("updated_at", .text).notNull()
-            }
-
-            try db.create(table: "environments") { t in
-                t.column("id", .text).primaryKey()
-                t.column("project_id", .text).notNull().references("projects", onDelete: .cascade)
-                t.column("name", .text).notNull()
-                t.column("color", .text)
-                t.column("created_at", .text).notNull()
-                t.uniqueKey(["project_id", "name"])
-            }
-
-            try db.create(table: "secrets") { t in
-                t.column("id", .text).primaryKey()
-                t.column("project_id", .text).notNull().references("projects", onDelete: .cascade)
-                t.column("name", .text).notNull()
-                t.column("description", .text)
-                t.column("icon", .text)
-                t.column("category", .text).notNull().defaults(to: SecretCategory.secret.rawValue)
-                t.column("created_at", .text).notNull()
-                t.column("updated_at", .text).notNull()
-                t.uniqueKey(["project_id", "name"])
-            }
-
-            try db.create(table: "secret_values") { t in
-                t.column("id", .text).primaryKey()
-                t.column("secret_id", .text).notNull().references("secrets", onDelete: .cascade)
-                t.column("environment_id", .text).references("environments", onDelete: .cascade)
-                t.column("encrypted_value", .blob).notNull()
-                t.column("updated_at", .text).notNull()
-                t.uniqueKey(["secret_id", "environment_id"])
-            }
-
             try db.execute(sql: """
-                CREATE UNIQUE INDEX IF NOT EXISTS secret_values_unique_default_environment
-                ON secret_values(secret_id)
-                WHERE environment_id IS NULL
-            """)
-
-            let defaultProjectId = UUID().uuidString
+                INSERT INTO projects (id, name, active_environment, icon, created_at, updated_at)
+                VALUES (?, 'Default', 'Default', 'folder', ?, ?)
+                """, arguments: [projectID, now, now])
             try db.execute(sql: """
-                INSERT INTO projects (id, name, path, active_environment, icon, created_at, updated_at)
-                VALUES (?, 'Default', NULL, NULL, 'folder', ?, ?)
-            """, arguments: [defaultProjectId, now, now])
-
+                INSERT INTO environments (id, project_id, name, created_at)
+                VALUES (?, ?, 'Default', ?)
+                """, arguments: [environmentID, projectID, now])
             try db.execute(sql: "INSERT INTO config (key, value) VALUES ('active_project_id', ?)",
-                           arguments: [defaultProjectId])
+                           arguments: [projectID])
         }
-
-        // No "v2": an early migration was dropped before release and the numbers
-        // were never renumbered. GRDB keys migrations by string, so the gap is
-        // harmless — v1 then v3 apply in registration order (L5).
-        migrator.registerMigration("v3") { db in
-            try db.create(table: "activity_log", options: .ifNotExists) { t in
-                t.column("id", .text).primaryKey()
-                t.column("secret_name", .text).notNull()
-                t.column("project_name", .text).notNull()
-                t.column("environment_name", .text).notNull()
-                t.column("source", .text).notNull()
-                t.column("accessed_at", .text).notNull()
-            }
-        }
-
-        migrator.registerMigration("v4") { db in
-            let now = iso8601()
-            let projects = try ProjectRecord.fetchAll(db)
-
-            for project in projects {
-                let defaultEnvironment: EnvironmentRecord
-                if let existing = try EnvironmentRecord
-                    .filter(Column("project_id") == project.id && Column("name") == "Default")
-                    .fetchOne(db) {
-                    defaultEnvironment = existing
-                } else {
-                    defaultEnvironment = EnvironmentRecord(
-                        id: UUID().uuidString,
-                        projectId: project.id,
-                        name: "Default",
-                        color: nil,
-                        createdAt: now
-                    )
-                    try defaultEnvironment.insert(db)
-                }
-
-                try db.execute(sql: """
-                    UPDATE secret_values
-                    SET environment_id = ?
-                    WHERE environment_id IS NULL
-                      AND secret_id IN (SELECT id FROM secrets WHERE project_id = ?)
-                """, arguments: [defaultEnvironment.id, project.id])
-
-                if project.activeEnvironment == nil {
-                    try db.execute(sql: """
-                        UPDATE projects
-                        SET active_environment = ?, updated_at = ?
-                        WHERE id = ?
-                    """, arguments: [defaultEnvironment.name, now, project.id])
-                }
-            }
-        }
-
-        migrator.registerMigration("v5") { db in
-            try db.alter(table: "secrets") { t in
-                t.add(column: "agent_access", .text)
-                    .notNull()
-                    .defaults(to: AgentAccessPolicy.allowed.rawValue)
-            }
-        }
-
-        migrator.registerMigration("v6") { db in
-            try db.alter(table: "activity_log") { t in
-                t.add(column: "agent", .text)
-                t.add(column: "action", .text)
-                    .notNull()
-                    .defaults(to: ActivityLogEntry.Action.read.rawValue)
-            }
-        }
-
-        // ADR 0019: the Developer ID team of the genuine signed binary that
-        // brokered the read, when verified. Nullable/additive — existing rows
-        // and app-local/dev reads stay nil.
-        migrator.registerMigration("v7") { db in
-            try db.alter(table: "activity_log") { t in
-                t.add(column: "peer_team", .text)
-            }
-        }
-
-        migrator.registerMigration("v8") { db in
-            try db.create(table: "credentials") { t in
-                t.column("id", .text).primaryKey()
-                t.column("name_index", .blob).notNull().unique()
-                t.column("encrypted_display_name", .blob).notNull()
-                t.column("encrypted_payload", .blob).notNull()
-                t.column("encrypted_usage_instructions", .blob).notNull()
-                t.column("encrypted_private_notes", .blob).notNull()
-                t.column("encrypted_group_name", .blob)
-                t.column("encrypted_environment_variable", .blob)
-                t.column("payload_kind", .text).notNull()
-                t.column("permission", .text).notNull()
-                t.column("expires_at", .text)
-                t.column("created_at", .text).notNull()
-                t.column("updated_at", .text).notNull()
-            }
-            try db.create(table: "folder_associations") { t in
-                t.column("path", .text).primaryKey()
-                t.column("encrypted_suggested_group_name", .blob)
-            }
-        }
-
-        migrator.registerMigration("v9") { db in
-            try db.alter(table: "credentials") { t in
-                t.add(column: "encrypted_original_filename", .blob)
-                t.add(column: "byte_size", .integer)
-                t.add(column: "content_digest", .blob)
-            }
-        }
-
-        migrator.registerMigration("v10") { db in
-            try db.alter(table: "credentials") { t in
-                t.add(column: "deleted_at", .text)
-            }
-            try db.create(table: "agent_write_operations") { t in
-                t.column("operation_id", .text).primaryKey()
-                t.column("payload_digest", .text).notNull()
-                t.column("credential_id", .text).notNull()
-                t.column("operation", .text).notNull()
-                t.column("committed_at", .text).notNull()
-                t.column("request_id", .text).notNull()
-                t.column("capability_digest", .text).notNull()
-            }
-        }
-
-        migrator.registerMigration("v11") { db in
-            try db.create(table: "credential_access_records") { t in
-                t.column("id", .text).primaryKey()
-                t.column("encrypted_record", .blob).notNull()
-            }
-        }
-
-        migrator.registerMigration("v12-remove-folder-associations") { db in
-            try db.drop(table: "folder_associations")
-        }
-
-        migrator.registerMigration("v13-remove-project-path") { db in
-            try db.alter(table: "projects") { table in
-                table.drop(column: "path")
-            }
-        }
-
-        migrator.registerMigration("v14-authenticated-credentials") { db in
-            // Existing rows deliberately remain unsigned. Only the explicit
-            // migration acceptance path may import historical unsigned records.
-            try db.alter(table: "credentials") { table in
-                table.add(column: "authentication_tag", .blob)
-            }
-        }
-
-        migrator.registerMigration("v15-file-write-receipts") { db in
-            try db.alter(table: "agent_write_operations") { table in
-                table.add(column: "result_digest", .text)
-            }
-            try db.create(index: "agent_write_operations_request_id", on: "agent_write_operations", columns: ["request_id"])
-        }
-
-        try migrator.migrate(db)
+        return migrator
     }
+
+    enum Opening: Equatable { case baseline, legacyV15 }
+
+    static func opening(_ db: Database) throws -> Opening {
+        guard try db.tableExists("grdb_migrations") else {
+            throw VaultBootstrapError.unsupportedMigrations
+        }
+        let identifiers = try String.fetchAll(db, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid")
+        let opening: Opening
+        if identifiers == [baselineIdentifier] { opening = .baseline }
+        else if identifiers == legacyIdentifiers { opening = .legacyV15 }
+        else { throw VaultBootstrapError.unsupportedMigrations }
+
+        let expected = try DatabaseQueue()
+        defer { try? expected.close() }
+        try migrator().migrate(expected)
+        guard try normalizedSchema(db) == expected.read({ try normalizedSchema($0) }) else {
+            throw VaultBootstrapError.schemaMismatch
+        }
+        return opening
+    }
+
+    static func adoptLegacyV15(_ db: Database, validation: (Database) throws -> Void = { _ in }) throws {
+        // The caller holds the write transaction. Recheck its authoritative state.
+        let state = try opening(db)
+        try validation(db)
+        if state == .legacyV15 {
+            try db.execute(sql: "DELETE FROM grdb_migrations")
+            try db.execute(sql: "INSERT INTO grdb_migrations (identifier) VALUES (?)",
+                           arguments: [baselineIdentifier])
+        }
+    }
+
+    static func normalizedSchema(_ db: Database) throws -> [String] {
+        try Row.fetchAll(db, sql: """
+            SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name
+            """).map { row in
+                let type: String = row["type"]
+                let name: String = row["name"]
+                let table: String = row["tbl_name"]
+                let sql: String? = row["sql"]
+                return [type, name, table, sql.map(normalizeSQL) ?? "\u{2}"].joined(separator: "\u{0}")
+            }
+    }
+
+    // Ignore formatting outside quoted tokens; never normalize literal values.
+    static func normalizeSQL(_ sql: String) -> String {
+        let characters = Array(sql)
+        var tokens: [String] = []
+        var word = ""
+        var index = 0
+        func flushWord() {
+            if !word.isEmpty { tokens.append(word.lowercased()); word = "" }
+        }
+        while index < characters.count {
+            let character = characters[index]
+            if character == "'" || character == "\"" || character == "`" || character == "[" {
+                flushWord()
+                let delimiter: Character = character == "[" ? "]" : character
+                var quoted = String(character)
+                index += 1
+                while index < characters.count {
+                    let next = characters[index]
+                    quoted.append(next)
+                    index += 1
+                    if next == delimiter {
+                        if index < characters.count, characters[index] == delimiter {
+                            quoted.append(characters[index])
+                            index += 1
+                        } else { break }
+                    }
+                }
+                tokens.append(quoted)
+                continue
+            } else if character.isLetter || character.isNumber || character == "_" || character == "$" {
+                word.append(character)
+            } else {
+                flushWord()
+                if !character.isWhitespace { tokens.append(String(character)) }
+            }
+            index += 1
+        }
+        flushWord()
+        return tokens.joined(separator: "\u{1}")
+    }
+}
+
+extension VaultStore {
+    func migrate() throws { try CurrentLibrarySchema.migrator().migrate(db) }
 }

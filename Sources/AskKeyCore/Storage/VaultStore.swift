@@ -32,23 +32,68 @@ final class VaultStore {
         return record
     }
 
-    init(path: String) throws {
+    init(path: String, authenticationKey: SymmetricKey? = nil) throws {
         self.path = path
-        var config = Configuration()
-        config.journalMode = .wal
-        db = try DatabaseQueue(path: path, configuration: config)
-        try migrate()
+        let exists = try CurrentLibrarySnapshot.regularFileExists(URL(fileURLWithPath: path))
+        var opening: CurrentLibrarySchema.Opening?
+        if exists {
+            // Validate a private copy before SQLite can touch original sidecars.
+            try CurrentLibrarySnapshot.withCopy(of: URL(fileURLWithPath: path)) { snapshot in
+                let probe = try DatabaseQueue(path: snapshot.path)
+                defer { try? probe.close() }
+                opening = try probe.read {
+                    let opening = try CurrentLibrarySchema.opening($0)
+                    if let authenticationKey { try Self.validateCredentialRows($0, key: authenticationKey) }
+                    return opening
+                }
+            }
+        }
+        var configuration = Configuration()
+        configuration.prepareDatabase { database in
+            // Let SQLite checkpoint and remove its own current WAL sidecars
+            // when the last connection closes. Persisted WAL indexes would be
+            // rebuilt by a second open even when no database row changed.
+            var persistWAL: CInt = 0
+            let result = sqlite3_file_control(database.sqliteConnection, nil, SQLITE_FCNTL_PERSIST_WAL, &persistWAL)
+            guard result == SQLITE_OK else {
+                throw DatabaseError(resultCode: ResultCode(rawValue: result))
+            }
+        }
+        if !exists { configuration.journalMode = .wal }
+        db = try DatabaseQueue(path: path, configuration: configuration)
+        if opening == .legacyV15 {
+            try db.write { database in
+                try CurrentLibrarySchema.adoptLegacyV15(database) {
+                    if let authenticationKey { try Self.validateCredentialRows($0, key: authenticationKey) }
+                }
+            }
+        } else if exists {
+            try db.read { database in
+                guard try CurrentLibrarySchema.opening(database) == .baseline else {
+                    throw VaultBootstrapError.invalidState
+                }
+                if let authenticationKey { try Self.validateCredentialRows(database, key: authenticationKey) }
+            }
+        } else {
+            try migrate()
+        }
     }
 
-    private init(readOnlyPath path: String) throws {
+    init(readOnlyPath path: String) throws {
         self.path = path
         var config = Configuration()
         config.readonly = true
         db = try DatabaseQueue(path: path, configuration: config)
     }
 
+    private static func validateCredentialRows(_ db: Database, key: SymmetricKey) throws {
+        for record in try CredentialRecord.fetchAll(db) {
+            _ = try CredentialRecordAuthentication.verify(record, using: key)
+        }
+    }
+
     /// Returns a connection that preserves reads for diagnostics while SQLite
-    /// rejects every write after migration commit begins.
+    /// rejects every write to the quiesced store.
     func quiescedCopy() throws -> VaultStore {
         try VaultStore(readOnlyPath: path)
     }
