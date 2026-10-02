@@ -1,6 +1,144 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "The vault key exists but its database is missing. Ask Key did not create or overwrite a library.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The vault key exists but its database is missing. Ask Key did not create or overwrite a library."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "凭证库密钥存在，但数据库缺失。请旨没有创建或覆盖凭证库。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!The vault key exists but its database is missing. Ask Key did not create or overwrite a library.!!]"
+          }
+        }
+      }
+    },
+    "The library exists but its App-owned key is missing. Existing data was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The library exists but its App-owned key is missing. Existing data was not changed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "凭证库存在，但应用专属密钥缺失。现有数据未被更改。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!The library exists but its App-owned key is missing. Existing data was not changed.!!]"
+          }
+        }
+      }
+    },
+    "The local library state could not be verified. Existing data was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The local library state could not be verified. Existing data was not changed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证本机凭证库状态。现有数据未被更改。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!The local library state could not be verified. Existing data was not changed.!!]"
+          }
+        }
+      }
+    },
+    "The local vault key is invalid. Existing data was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The local vault key is invalid. Existing data was not changed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本机凭证库密钥无效。现有数据未被更改。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!The local vault key is invalid. Existing data was not changed.!!]"
+          }
+        }
+      }
+    },
+    "The library has an unsupported migration history. Existing data was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The library has an unsupported migration history. Existing data was not changed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "凭证库的迁移记录不受支持。现有数据未被更改。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!The library has an unsupported migration history. Existing data was not changed.!!]"
+          }
+        }
+      }
+    },
+    "The library schema does not match the supported baseline. Existing data was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The library schema does not match the supported baseline. Existing data was not changed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "凭证库结构与支持的基线不一致。现有数据未被更改。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!The library schema does not match the supported baseline. Existing data was not changed.!!]"
+          }
+        }
+      }
+    },
     "Connect Ask Key to %@ and configure credential discovery before SSH.": {
       "extractionState": "manual",
       "localizations": {
@@ -684,29 +822,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!%lld credentials are protected. Start using Ask Key to unlock management.!!]"
-          }
-        }
-      }
-    },
-    "%lld credentials in %lld groups": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld credentials in %lld groups"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "共 %lld 项凭证，%lld 个分组"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%lld credentials in %lld groups!!]"
           }
         }
       }
@@ -2414,29 +2529,6 @@
         }
       }
     },
-    "An older library or unfinished migration was found. After authentication, Ask Key will resume a confirmed migration or show a new preview for your approval.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An older library or unfinished migration was found. After authentication, Ask Key will resume a confirmed migration or show a new preview for your approval."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检测到旧版数据或未完成的迁移。认证后会恢复已确认的迁移，或展示新的迁移预览供你确认。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!An older library or unfinished migration was found. After authentication, Ask Key will resume a confirmed migration or show a new preview for your approval.!!]"
-          }
-        }
-      }
-    },
     "App": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3403,29 +3495,6 @@
         }
       }
     },
-    "Authenticate and Continue": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Authenticate and Continue"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "认证并继续"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Authenticate and Continue!!]"
-          }
-        }
-      }
-    },
     "Authenticate and Copy": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3882,29 +3951,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Cancel!!]"
-          }
-        }
-      }
-    },
-    "Cancel Preview": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancel Preview"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取消预览"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Cancel Preview!!]"
           }
         }
       }
@@ -4618,29 +4664,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Confirm Permanent Deletion!!]"
-          }
-        }
-      }
-    },
-    "Confirm and Migrate": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm and Migrate"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认并迁移"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Confirm and Migrate!!]"
           }
         }
       }
@@ -7773,29 +7796,6 @@
         }
       }
     },
-    "I confirm these permission changes": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I confirm these permission changes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我确认上述权限调整"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!I confirm these permission changes!!]"
-          }
-        }
-      }
-    },
     "Icon": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -8896,98 +8896,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Manage!!]"
-          }
-        }
-      }
-    },
-    "Migrate Existing Library": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Migrate Existing Library"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "迁移现有凭证库"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Migrate Existing Library!!]"
-          }
-        }
-      }
-    },
-    "Migration": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Migration"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "迁移"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Migration!!]"
-          }
-        }
-      }
-    },
-    "Migration Preview": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Migration Preview"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "迁移预览"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Migration Preview!!]"
-          }
-        }
-      }
-    },
-    "Migration is blocked by %lld duplicate-name conflicts. Your existing data is preserved.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Migration is blocked by %lld duplicate-name conflicts. Your existing data is preserved."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "存在 %lld 组重名冲突，暂不能迁移。现有数据已保留。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Migration is blocked by %lld duplicate-name conflicts. Your existing data is preserved.!!]"
           }
         }
       }
@@ -12856,29 +12764,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!The file could not be read.!!]"
-          }
-        }
-      }
-    },
-    "The integrity of older permissions cannot be verified. These credentials will be migrated to Ask Every Time; you can authorize each one again afterward.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The integrity of older permissions cannot be verified. These credentials will be migrated to Ask Every Time; you can authorize each one again afterward."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "旧版权限没有完整性证明。迁移会将相关凭证改为“每次询问”，之后可逐项重新授权。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The integrity of older permissions cannot be verified. These credentials will be migrated to Ask Every Time; you can authorize each one again afterward.!!]"
           }
         }
       }

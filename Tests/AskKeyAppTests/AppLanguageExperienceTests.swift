@@ -457,7 +457,7 @@ final class AppLanguageExperienceTests: XCTestCase {
     }
 
     func testMigrationKeychainFailuresUseTheSameCancellationAndCopyRules() async {
-        var failure = MigrationKeyStoreError.securityFailure(-128)
+        var failure = AppKeyStoreError.securityFailure(-128)
         let login = LoginItemProbe()
         let viewModel = makeViewModel(
             preferences: AppPreferences(defaults: defaults),

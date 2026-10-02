@@ -43,9 +43,6 @@ final class VaultViewModel {
     var isLocked = true
     var onboarding = AgentOnboardingCoordinator()
     var errorMessage: String?
-    var migrationRequired = false
-    var migrationPreview: MigrationPreview?
-    var migrationBusy = false
     /// Set by the popover to hand the "new credential" action over to the manager
     /// window: a `MenuBarExtra(.window)` popover closes as soon as a sheet takes
     /// key focus, so the add form can't live there. The manager consumes and
@@ -284,8 +281,6 @@ final class VaultViewModel {
         hasCompletedOnboarding = preferences.hasCompletedOnboarding
         do {
             onboardingCredentialCount = try storedCredentialCountImpl()
-        } catch VaultBootstrapError.migrationRequired {
-            migrationRequired = true
         } catch {
             presentError(error)
         }
@@ -334,47 +329,6 @@ final class VaultViewModel {
         } catch {
             errorMessage = nil
             return .failed
-        }
-    }
-
-    func reviewMigration() async {
-        guard !migrationBusy else { return }
-        migrationBusy = true
-        defer { migrationBusy = false }
-        guard let authenticator = await confirmDeviceOwner(reason: CredentialManagementCopy.manageReason) else { return }
-        do {
-            let state = try Vault.shared.recoverMigration(using: authenticator)
-            if state == .migrated {
-                migrationPreview = nil
-                migrationRequired = false
-                hasCompletedOnboarding = true
-                isLocked = true
-                hasManagementSession = false
-                NotificationCenter.default.post(name: .askKeyVaultBootstrapDidChange, object: nil)
-                return
-            }
-            migrationPreview = try Vault.shared.migrationPreview(using: authenticator)
-        } catch { presentError(error) }
-    }
-
-    func acceptMigration() async {
-        guard !migrationBusy, let preview = migrationPreview, preview.canCommit else { return }
-        migrationBusy = true
-        defer { migrationBusy = false }
-        guard let authenticator = await confirmDeviceOwner(reason: CredentialManagementCopy.manageReason) else { return }
-        do {
-            try Vault.shared.commitMigration(accepting: preview, using: authenticator)
-            NotificationCenter.default.post(name: .askKeyVaultBootstrapDidChange, object: nil)
-            migrationPreview = nil
-            migrationRequired = false
-            isLocked = false
-            hasManagementSession = true
-            hasCompletedOnboarding = true
-            reloadCredentials()
-            renewManagementSession()
-        } catch {
-            migrationPreview = nil
-            presentError(error)
         }
     }
 
@@ -457,7 +411,6 @@ final class VaultViewModel {
         // Closing/locking invalidates approvals still awaiting system auth too.
         // A later successful response must not recreate the closed session.
         managementAuthorizationGeneration &+= 1
-        migrationPreview = nil
         managementSessionPolicy.cancel()
         Vault.shared.endManagementSession()
         hasManagementSession = false

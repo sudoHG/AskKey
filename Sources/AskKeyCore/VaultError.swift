@@ -10,7 +10,7 @@ public enum KeychainFailureDisposition: Sendable {
         switch error {
         case VaultError.keychainReadFailed(let status),
              VaultError.keychainWriteFailed(let status),
-             MigrationKeyStoreError.securityFailure(let status):
+             AppKeyStoreError.securityFailure(let status):
             return status == errSecUserCanceled ? .cancelled : .failed
         case VaultError.keychainKeyUnreachable:
             return .failed

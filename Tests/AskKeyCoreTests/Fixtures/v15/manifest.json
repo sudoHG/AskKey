@@ -1,0 +1,135 @@
+{
+  "accessRecords" : [
+    {
+      "callerHint" : "SYNTHETIC-Agent-allowed",
+      "credentialID" : "BC46973F-B72F-4C67-B78D-023B9256B112",
+      "declaredPurpose" : "SYNTHETIC-Access-allowed",
+      "operation" : "runtimeRead",
+      "result" : "allowed",
+      "timestamp" : 1021692800
+    },
+    {
+      "callerHint" : "SYNTHETIC-Agent-denied",
+      "credentialID" : "BC46973F-B72F-4C67-B78D-023B9256B112",
+      "declaredPurpose" : "SYNTHETIC-Access-denied",
+      "operation" : "runtimeRead",
+      "result" : "denied",
+      "timestamp" : 1021692800
+    },
+    {
+      "callerHint" : "SYNTHETIC-Agent-failed",
+      "credentialID" : "BC46973F-B72F-4C67-B78D-023B9256B112",
+      "declaredPurpose" : "SYNTHETIC-Access-failed",
+      "operation" : "runtimeRead",
+      "result" : "failed",
+      "timestamp" : 1021692800
+    }
+  ],
+  "credentials" : [
+    {
+      "id" : "B8F77956-14A8-46A7-9996-9EDCFDBB4E28",
+      "kind" : "file",
+      "name" : "SYNTHETIC-Binary-File",
+      "permission" : "ask",
+      "trashed" : false
+    },
+    {
+      "group" : "SYNTHETIC-Populated-Group",
+      "id" : "C5564A81-C509-48BA-80F9-09CDDF70D72F",
+      "kind" : "file",
+      "name" : "SYNTHETIC-PEM-File",
+      "permission" : "allowed",
+      "trashed" : false
+    },
+    {
+      "group" : "SYNTHETIC-Populated-Group",
+      "id" : "BC46973F-B72F-4C67-B78D-023B9256B112",
+      "kind" : "text",
+      "name" : "SYNTHETIC-Text-1",
+      "permission" : "allowed",
+      "trashed" : false
+    },
+    {
+      "expiry" : "2036-07-18T13:20:00Z",
+      "group" : "SYNTHETIC-Populated-Group",
+      "id" : "5563E134-78F0-48B7-A874-873EA4863FA0",
+      "kind" : "text",
+      "name" : "SYNTHETIC-Text-2",
+      "permission" : "ask",
+      "trashed" : false
+    },
+    {
+      "group" : "SYNTHETIC-Populated-Group",
+      "id" : "9012E4FE-7C28-40C1-96CB-B09807CC19AB",
+      "kind" : "text",
+      "name" : "SYNTHETIC-Text-3",
+      "permission" : "hidden",
+      "trashed" : false
+    },
+    {
+      "id" : "E573FACD-6BF5-4899-B5D8-67C78E5AB99D",
+      "kind" : "text",
+      "name" : "SYNTHETIC-Text-4",
+      "permission" : "allowed",
+      "trashed" : false
+    },
+    {
+      "id" : "060DE343-799D-429F-AAAF-4D8891808CD6",
+      "kind" : "text",
+      "name" : "SYNTHETIC-Text-5",
+      "permission" : "ask",
+      "trashed" : false
+    },
+    {
+      "id" : "5FA7E574-B054-4170-8D71-AFF7BAD1F98A",
+      "kind" : "text",
+      "name" : "SYNTHETIC-Text-6",
+      "permission" : "hidden",
+      "trashed" : false
+    },
+    {
+      "id" : "87CD9146-5CF2-4FA3-B6EF-521B64F8DA25",
+      "kind" : "text",
+      "name" : "SYNTHETIC-Trashed-Text",
+      "permission" : "hidden",
+      "trashed" : true
+    }
+  ],
+  "groups" : [
+    "SYNTHETIC-Empty-Group",
+    "SYNTHETIC-Populated-Group"
+  ],
+  "rowCounts" : {
+    "activity_log" : 0,
+    "agent_write_operations" : 2,
+    "config" : 2,
+    "credential_access_records" : 3,
+    "credentials" : 9,
+    "environments" : 1,
+    "grdb_migrations" : 14,
+    "projects" : 1,
+    "secret_values" : 0,
+    "secrets" : 0
+  },
+  "writeOperations" : [
+    {
+      "capabilityDigest" : "69419428987e625b8d4e800f5f558a769a31a4dc752b80ba103031067da86b90",
+      "committedAt" : "2033-05-18T03:33:20Z",
+      "credentialID" : "B8F77956-14A8-46A7-9996-9EDCFDBB4E28",
+      "operation" : "modify",
+      "operationID" : "SYNTHETIC-Agent-File-Write",
+      "payloadDigest" : "d502aa37b1a542b0358e332fd60092e19950ef3b2a8b384b4db4bec6a8d6cbce",
+      "requestID" : "52F4BCBB-E14A-4C31-B1B0-7E2EE92438C7",
+      "resultDigest" : "a3d846533befbfad55ea14a7764698ccbdcb0034a76776d2e3cf95b84320525f"
+    },
+    {
+      "capabilityDigest" : "5b0f84babef566e3a332dbdd679b3814942a5b9be77773f2fad2bb8a93a9e7c2",
+      "committedAt" : "2033-05-18T03:33:20Z",
+      "credentialID" : "BC46973F-B72F-4C67-B78D-023B9256B112",
+      "operation" : "modify",
+      "operationID" : "SYNTHETIC-Agent-Text-Write",
+      "payloadDigest" : "1fd057f025f47b6efed064e64f0748491e0d81a4b410bbf0d6f87ff4d0ad47b4",
+      "requestID" : "18E859FE-2CD0-424D-B3CA-34F621AAF3CD"
+    }
+  ]
+}
