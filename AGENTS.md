@@ -21,9 +21,9 @@ The codebase is being re-imported from a private legacy repository and restructu
 
 | Role | Does | Does not |
 |---|---|---|
-| Planner (Claude) | Writes task issues, reviews PRs, merges, advances phases | Large implementation work |
+| Planner (Claude) | Writes task issues, reviews PRs, recommends merges, advances phases | Large implementation work; merging or pushing `main` without the maintainer's approval |
 | Executor (Codex) | Claims `ready-for-agent` issues, implements in a dedicated worktree, opens PRs with a receipt, addresses review comments | Merge PRs, push to `main`, change repository settings |
-| Maintainer | Makes decisions, completes `ready-for-human` issues, starts executor sessions | — |
+| Maintainer | Makes decisions, approves each merge and each push to `main`, completes `ready-for-human` issues, starts executor sessions | — |
 
 ## Safety boundaries (all agents)
 
@@ -33,8 +33,14 @@ Never, unless an issue labeled `ready-for-human` is being done by the maintainer
 - Touch `/Applications/Ask Key.app`, or install anything into `/Applications`.
 - Read or write the production keychain service `com.sudohg.askkey.vault`. Development builds use `com.sudohg.askkey.vault.dev`.
 - Use real credentials in tests. Use synthetic values only.
-- Merge PRs, push or force-push `main`, delete branches you did not create, or change repository settings, labels or protection rules.
+- Merge PRs, push or force-push `main`, delete branches or data you did not create, or change repository settings, visibility, label definitions or protection rules. The planner may merge a PR or push `main` only after the maintainer explicitly approves that specific action.
 - Push to or modify the archived repository `sudoHG/AskKey-legacy`. Reading it locally as a reference is fine.
+
+## GitHub identity
+
+Commits, tags, pushes, pull requests and issues use the maintainer's identity `sudoHG <by331works@gmail.com>`; read back the effective identity before committing. No `Co-authored-by` or tool attribution lines in commits or PR bodies.
+
+In the maintainer's setup, comments and label changes go through bot accounts: the planner uses `gh-bot luoji <gh arguments>`, the executor uses `gh-bot wangmiao <gh arguments>`. Outside contributors use their own accounts.
 
 ## Product identifiers (do not change)
 
@@ -44,7 +50,7 @@ Releases are disabled. Do not add signing, notarization, Sparkle or Homebrew rel
 
 ## Repository hygiene
 
-- **No process records in the repo.** Logs, screenshots, xcresult bundles, audit notes and progress journals go to `~/Coding/AskKey-workspace/evidence/<issue-number>/`. Progress is reported in the PR description.
+- **No process records, and no evidence directories.** Keep logs, screenshots and xcresult bundles only until their results are read, then delete them. The PR description carries the evidence: commands, counts, SHAs and CI links.
 - No absolute local paths (`/Users/...`, `/private/var/...`) in committed files. Use `FileManager` temporary directories in tests.
 - File and directory names are English.
 - Code, comments, docs and ADRs are written in English. User-facing UI strings live in `Localizable.xcstrings` (English and Simplified Chinese).

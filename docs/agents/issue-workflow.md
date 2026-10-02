@@ -17,7 +17,7 @@ Labels are described in [triage-labels.md](triage-labels.md).
 
 ## Executor: claiming and doing a task
 
-Start every session with:
+Comments and label changes below use `gh-bot wangmiao` (see AGENTS.md → GitHub identity). Start every session with:
 
 ```bash
 gh pr list --repo sudoHG/AskKey --label changes-requested --author @me
@@ -33,9 +33,9 @@ gh issue list --repo sudoHG/AskKey --label ready-for-agent --state open
    git worktree add ~/Coding/AskKey-workspace/worktrees/<number> -b task/<number>-<short-slug> origin/main
    ```
 5. **Implement only what the Scope allows.** If the card is unclear, the Scope is not enough, or Acceptance cannot be met: comment with the exact problem, add `needs-info`, and stop working on that issue. Do not guess. Then move on to the next claimable issue.
-6. **Run every Acceptance command.** Put logs and other evidence in `~/Coding/AskKey-workspace/evidence/<number>/`, never in the repo.
+6. **Run every Acceptance command.** Keep logs and other artifacts only until you have read the results, then delete them. Never put them in the repo; report commands, counts and SHAs in the receipt.
 7. **Commit** with a clear English message. Author identity: `sudoHG <by331works@gmail.com>`.
-8. **Push the task branch and open a PR** with `Closes #<number>` and the receipt below. Add `needs-review` to the PR.
+8. **Push the task branch and open a ready (non-draft) PR** with `Closes #<number>` and the receipt below. Add `needs-review` to the PR.
 9. **Continue** with the next claimable issue until none remain.
 
 **Tasks that produce no repository change** (for example, recording evidence from the legacy code): skip steps 7–8. Post the receipt as an issue comment instead and add `needs-review` to the issue. The planner closes it.
@@ -48,7 +48,7 @@ git -C ~/Coding/AskKey-workspace/legacy worktree add --detach ~/Coding/AskKey-wo
 
 The `AGENTS.md` and other docs inside the legacy tree are outdated (they describe retired tools and processes). Ignore them; this repository's rules apply. Never fetch legacy history into this repository.
 
-After a PR is merged, remove its worktree: `git worktree remove ~/Coding/AskKey-workspace/worktrees/<number>`.
+After a PR is merged, clean up what the task created: `git worktree remove ~/Coding/AskKey-workspace/worktrees/<number>`, then `git branch -d task/<number>-<short-slug>`. The remote branch is deleted at merge.
 
 ## Receipt (PR description)
 
@@ -66,7 +66,9 @@ The PR template contains these sections. Fill all of them; write "None" when a s
 2. Read the receipt; compare test counts and Acceptance results.
 3. Run deterministic checks locally where useful.
 4. Read the diff line by line only for `risk:security` changes and listed deviations. Verify move-only changes mechanically.
-5. Squash-merge, or leave numbered change requests and set `changes-requested`.
+5. Either leave numbered change requests and set `changes-requested`, or report the PR as accepted to the maintainer. Merge (squash) only after the maintainer approves that PR; accepted PRs may be presented together in one approval request.
+
+The planner's comments and label changes use `gh-bot luoji`. Changes to rule documents also go through a PR.
 
 ## Maintainer tasks
 
