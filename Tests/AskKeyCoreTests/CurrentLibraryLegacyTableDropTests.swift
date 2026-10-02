@@ -4,8 +4,8 @@ import XCTest
 @testable import AskKeyCore
 
 /// askkey-0002-drop-legacy-tables (#33): opening states after the drop
-/// migration, kept legacy data, and unfinished first creations on either
-/// side of it. Uses the v15 fixture helpers of `CurrentLibraryAdoptionTests`.
+/// migration, kept legacy data, and unfinished first creations before and
+/// after it existed. Uses the v15 fixture helpers of `CurrentLibraryAdoptionTests`.
 extension CurrentLibraryAdoptionTests {
     func testAdoptionKeepsLegacyTablesHoldingASecretAndReopens() throws {
         try assertLegacyTablesKept(sql: """
@@ -23,6 +23,43 @@ extension CurrentLibraryAdoptionTests {
 
     func testAdoptionKeepsLegacyTablesWithACustomizedDefaultProject() throws {
         try assertLegacyTablesKept(sql: "UPDATE projects SET icon = 'SYNTHETIC-icon'")
+    }
+
+    /// Guards `foreignKeyChecks: .immediate` on askkey-0002: a deferred,
+    /// database-wide foreign_key_check would reject this kept legacy row and
+    /// make the library impossible to open.
+    func testAdoptionKeepsLegacyRowsViolatingAForeignKeyAndReopens() throws {
+        try assertLegacyTablesKept(sql: """
+            INSERT INTO secrets (id, project_id, name, created_at, updated_at)
+            VALUES ('SYNTHETIC-orphan', 'SYNTHETIC-missing-project', 'SYNTHETIC-ORPHAN', 'now', 'now')
+            """, foreignKeysEnabled: false)
+    }
+
+    func testCreationRunsDropMigrationBeforeRename() throws {
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        let keys = MemoryAppKeyStore()
+        var observedCreation = false
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys) { creating in
+            observedCreation = true
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.currentDatabase.path))
+            try CurrentLibrarySnapshot.withCopy(of: creating) { snapshot in
+                let database = try DatabaseQueue(path: snapshot.path)
+                defer { try? database.close() }
+                try database.read { db in
+                    XCTAssertEqual(try String.fetchAll(db, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid"),
+                                   Self.currentIdentifiers)
+                    XCTAssertEqual(try CurrentLibrarySchema.legacyTables.filter { try db.tableExists($0) }, [])
+                    XCTAssertEqual(try CurrentLibrarySchema.opening(db), .current)
+                    XCTAssertNoThrow(try VaultBootstrap.requireUnfinishedFirstCreation(db))
+                }
+            }
+        }
+        XCTAssertTrue(observedCreation)
+        XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
+        XCTAssertEqual(try existingLegacyTables(opened.store), [])
+        try opened.store.close()
+        XCTAssertEqual(keys.appKey?.count, 32)
+        XCTAssertNil(keys.pendingKey)
     }
 
     func testMigratedLibraryWithUnknownExtraIdentifierFailsWithoutChangingAnyFile() throws {
@@ -53,7 +90,7 @@ extension CurrentLibraryAdoptionTests {
         try assertRejected(sql: Self.currentHistorySQL + "DROP TABLE activity_log;", error: .schemaMismatch)
     }
 
-    func testPendingKeyIsPromotedForCreationInterruptedBetweenMigrations() throws {
+    func testPendingKeyIsPromotedForBaselineOnlyUnfinishedCreation() throws {
         let (paths, keys) = try unfinishedBaselineCreation()
         let pending = try XCTUnwrap(keys.pendingKey)
         try addHistoricalSiblings(paths)
@@ -105,9 +142,11 @@ extension CurrentLibraryAdoptionTests {
 
     /// Adoption must keep every legacy table and row when they may hold user
     /// data, record the drop migration anyway, and reopen without changes.
-    func assertLegacyTablesKept(sql: String) throws {
+    func assertLegacyTablesKept(sql: String, foreignKeysEnabled: Bool = true) throws {
         let (paths, keys) = try fixtureLibrary()
-        let database = try DatabaseQueue(path: paths.currentDatabase.path)
+        var configuration = Configuration()
+        configuration.foreignKeysEnabled = foreignKeysEnabled
+        let database = try DatabaseQueue(path: paths.currentDatabase.path, configuration: configuration)
         try database.write { try $0.execute(sql: sql) }
         try database.close()
         let original = try allDataRows(paths.currentDatabase)
@@ -149,8 +188,8 @@ extension CurrentLibraryAdoptionTests {
         }
     }
 
-    /// Produces a first creation interrupted between the baseline and the drop
-    /// migration (also the state the baseline-only code leaves behind).
+    /// Produces the unfinished first creation that the baseline-only code
+    /// (before askkey-0002 existed) leaves behind: `[baseline]` with its seed.
     func unfinishedBaselineCreation() throws -> (VaultBootstrapPaths, MemoryAppKeyStore) {
         let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
         let keys = MemoryAppKeyStore()

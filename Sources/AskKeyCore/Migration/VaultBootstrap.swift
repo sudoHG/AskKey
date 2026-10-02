@@ -121,8 +121,10 @@ enum VaultBootstrap {
 
     /// Builds the library at `credentials-v2.db.creating` and renames it into
     /// place only when complete, so the current path holds either nothing or a
-    /// complete baseline library. The pending key is promoted after the rename;
-    /// a crash in between is the unfinished first creation of rule 6.
+    /// complete library: `VaultStore` runs every migration on the new file, so
+    /// it is at both AskKey identifiers with the legacy tables dropped before
+    /// the rename. The pending key is promoted after the rename; a crash in
+    /// between is the unfinished first creation of rule 6.
     private static func createNewLibrary(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore, pendingKey: SymmetricKey?,
         beforeRename: (URL) throws -> Void
@@ -237,8 +239,8 @@ enum VaultBootstrap {
     /// "Unfinished first creation" (#31 rule 6): contents indistinguishable
     /// from what `createNewLibrary` writes before promotion. Creation ends at
     /// both AskKey identifiers with the legacy tables dropped (its seed always
-    /// qualifies); a crash between the two migrations, or a creation by the
-    /// baseline-only code, leaves only the baseline identifier with its seed.
+    /// qualifies); a library created by the baseline-only code before
+    /// askkey-0002 existed is at the baseline identifier with its seed.
     /// The expected value comes from the real migrator at the same
     /// identifiers. Any extra row or other schema disqualifies it.
     static func requireUnfinishedFirstCreation(_ db: Database) throws {
