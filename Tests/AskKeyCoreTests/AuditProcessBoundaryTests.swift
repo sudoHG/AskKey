@@ -123,29 +123,17 @@ final class AuditProcessBoundaryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
 
         let stub = root.appendingPathComponent("codex-audit-stub")
-        // Python isolated mode ignores user Python settings. The stub never
-        // launches a real client or reads client configuration. Its descendant
-        // closes inherited stdout by exiting after four seconds, even if the
-        // Swift assertion fails or the caller abandons the subprocess.
+        // Use the system shell's built-in printf to avoid Python cold start
+        // inside the CLI deadline before the version is written. The stub
+        // never launches a real client or reads client configuration. Its
+        // descendant holds inherited stdout until it exits after four seconds.
         let script = """
-        #!/usr/bin/python3 -I
-        import os
-        import signal
-        import sys
-        import time
-
-        if sys.argv[1:] == ["--version"]:
-            os.write(1, b"codex-cli 0.153.4\\n")
-            child = os.fork()
-            if child == 0:
-                signal.signal(signal.SIGALRM, signal.SIG_DFL)
-                signal.alarm(4)
-                try:
-                    time.sleep(4)
-                finally:
-                    os._exit(0)
-            os._exit(0)
-        os._exit(0)
+        #!/bin/sh
+        if [ "$#" -eq 1 ] && [ "$1" = "--version" ]; then
+            printf 'codex-cli 0.153.4\\n'
+            /bin/sleep 4 &
+        fi
+        exit 0
         """
         try Data(script.utf8).write(to: stub, options: .atomic)
         try FileManager.default.setAttributes(
@@ -157,6 +145,7 @@ final class AuditProcessBoundaryTests: XCTestCase {
         let started = ProcessInfo.processInfo.systemUptime
         let status = command.status()
         let elapsed = ProcessInfo.processInfo.systemUptime - started
+        print("Codex descendant-stdout status elapsed=\(elapsed)s")
 
         XCTAssertEqual(status, .supported(version: "0.153.4"))
         XCTAssertLessThan(
