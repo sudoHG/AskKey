@@ -1,0 +1,19 @@
+[
+  "testMulticaFirstNetworkFailureRecoversWithoutSecondClick",
+  "testMulticaReviewDoesNotClaimFailureBeforeChecking",
+  "testEnglishCheckShowsCompletionAndDoesNotRunOnEntry",
+  "testLaunchAndCheckDisplaysPersistentCompletion",
+  "testFailedCheckShowsActionableFeedback",
+  "testMCPConnectedWithoutDiscoveryDoesNotShowComplete",
+  "testCursorAndGrokConfiguredDiscoveryShowCompletion",
+  "testCursorAndGrokMissingDiscoveryDoesNotShowComplete",
+  "testCancelCheckStopsItsProcessAndAllowsRetry",
+  "testDenyApprovalSettlesRealQueue",
+  "testAllowOnceCannotBeConsumedTwice",
+  "testCancelPendingBrokerApprovalDoesNotExecuteTarget",
+  "testDisconnectActiveHelperStopsTargetWithoutReexecution",
+  "testRestartInvalidatesPendingBrokerApprovalWithoutExecutingTarget",
+  "testCredentialCreateEditRecycleRestorePersistsAfterRestart",
+  "testManagementStartsLockedAndRequiresExplicitUnlock",
+  "testClosingManagementWindowRequiresUnlockWhenReopened"
+]
