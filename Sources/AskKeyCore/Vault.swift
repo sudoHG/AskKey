@@ -44,27 +44,8 @@ public final class Vault {
     private var _store: VaultStore?
     private var _managementSessionExpiresAt: Date?
     private var _accessRecordWriteFailed = false
-    private var _onSnapshotRelevantChange: (() -> Void)?
-    private var _onAutomaticBackupMustStop: (() -> Void)?
-    private var _onAutomaticBackupMayResume: (() -> Void)?
-
-    public var onSnapshotRelevantChange: (() -> Void)? {
-        get { stateLock.lock(); defer { stateLock.unlock() }; return _onSnapshotRelevantChange }
-        set { stateLock.lock(); _onSnapshotRelevantChange = newValue; stateLock.unlock() }
-    }
-
-    public var onAutomaticBackupMustStop: (() -> Void)? {
-        get { stateLock.lock(); defer { stateLock.unlock() }; return _onAutomaticBackupMustStop }
-        set { stateLock.lock(); _onAutomaticBackupMustStop = newValue; stateLock.unlock() }
-    }
-
-    public var onAutomaticBackupMayResume: (() -> Void)? {
-        get { stateLock.lock(); defer { stateLock.unlock() }; return _onAutomaticBackupMayResume }
-        set { stateLock.lock(); _onAutomaticBackupMayResume = newValue; stateLock.unlock() }
-    }
 
     func notifySnapshotRelevantChange() {
-        onSnapshotRelevantChange?()
         NotificationCenter.default.post(name: .askKeyCredentialSnapshotDidChange, object: nil)
     }
 

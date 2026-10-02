@@ -4,11 +4,6 @@ import AskKeyBroker
 enum BrokerRuntimeFailure {
     static func userFacing(for error: Error) -> (message: String, canRetry: Bool) {
         switch error {
-        case ICloudAppLifecycleError.restoreSettingsRecoveryFailed:
-            return (
-                "Ask Key could not finish restoring local settings. Agent access remains paused. Retry Agent access to finish the restore.",
-                true
-            )
         case BrokerFileWriteError.stagingNotADirectory:
             return (
                 "Ask Key could not start Agent access because the secure staging folder is a file. Remove that file, then retry.",

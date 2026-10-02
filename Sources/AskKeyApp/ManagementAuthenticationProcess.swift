@@ -5,8 +5,7 @@ import AskKeyCore
 
 enum ManagementAuthenticationAction: CaseIterable {
     case manage, reveal, pause, resume
-    case clearAccessRecords, eraseLibrary, restoreBackup, createBackupNamespace
-    case activateBackupNamespace, takeBackupOwnership, deleteBackup, revealFrozenFile
+    case clearAccessRecords, eraseLibrary, revealFrozenFile
     case approveRead, approveWrite, permanentlyDelete, replaceImportedCredential
     case disableReadAuthentication, legacyRelease, legacyUnlock
 
@@ -18,11 +17,6 @@ enum ManagementAuthenticationAction: CaseIterable {
         case .resume: CredentialManagementCopy.resumeReason
         case .clearAccessRecords: "Clear Ask Key access records"
         case .eraseLibrary: "Erase the local Ask Key vault"
-        case .restoreBackup: "Restore Ask Key encrypted backup"
-        case .createBackupNamespace: "Create a new Ask Key backup namespace"
-        case .activateBackupNamespace: "Start Ask Key backup with the saved recovery key"
-        case .takeBackupOwnership: "Take ownership of Ask Key iCloud backup"
-        case .deleteBackup: "Delete Ask Key iCloud backup"
         case .revealFrozenFile: "View the frozen file submitted for approval"
         case .approveRead: "Approve this Agent credential request"
         case .approveWrite: "Approve this Agent credential change"

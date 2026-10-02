@@ -262,14 +262,7 @@ final class WorkspaceVisualContractTests: XCTestCase {
             "Choose a client. Review how it connects, then decide whether to check or configure."
         )
         AppLanguage.current = "zh-Hans"
-        XCTAssertEqual(FrozenSettingsContract.iCloudActions, ["立即备份", "查看恢复密钥…", "从备份恢复…"])
         XCTAssertEqual(FrozenSettingsContract.emptyLibraryAction, "新建第一份凭证")
-        XCTAssertEqual(FrozenSettingsContract.restoreConfirmationAction, "验证并恢复")
-        XCTAssertEqual(FrozenSettingsContract.eraseICloudOption, "同时删除 iCloud 备份")
-        XCTAssertEqual(
-            FrozenSettingsContract.eraseCloudSequenceWarning,
-            "本机数据会先单独抹除；随后才会删除 iCloud 备份，删除后无法恢复。"
-        )
     }
 
     func testLoginAtStartupTurnsOffInlineWithFrozenWarning() {
@@ -583,206 +576,13 @@ final class WorkspaceVisualContractTests: XCTestCase {
         XCTAssertFalse(relaunched.timedAllowanceEnabled)
     }
 
-    @MainActor
-    func testICloudSwitchReflectsTheRealLifecycleResult() {
-        var applied: [Bool] = []
-        let model = VaultViewModel(
-            runtimeFileCleanupFailures: { false },
-            accessRecords: .empty,
-            eraseLocalLibrary: { _, _, _ in },
-            iCloudBackupEnabled: { true },
-            setICloudBackupEnabled: {
-                applied.append($0)
-                return $0
-            },
-            preferences: AppPreferences(
-                defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard
-            ),
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
-            credentialMutations: .readOnly { ([], [], [], false) }
-        )
-        model.refreshICloudBackupEnabled()
-        XCTAssertTrue(model.iCloudBackupEnabled)
-        model.setICloudBackupEnabled(false)
-        XCTAssertFalse(model.iCloudBackupEnabled)
-        XCTAssertEqual(applied, [false])
-    }
 
-    @MainActor
-    func testUnavailableICloudIsReportedInsideSettingsWithoutGlobalAlert() {
-        let model = VaultViewModel(
-            runtimeFileCleanupFailures: { false },
-            accessRecords: .empty,
-            eraseLocalLibrary: { _, _, _ in },
-            iCloudBackupEnabled: { throw ICloudBackupError.containerUnavailable },
-            preferences: AppPreferences(
-                defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard
-            ),
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
-            credentialMutations: .readOnly { ([], [], [], false) }
-        )
 
-        model.languageMode = "zh-Hans"
-        model.refreshICloudBackupEnabled()
 
-        XCTAssertFalse(model.iCloudBackupEnabled)
-        XCTAssertNil(model.errorMessage)
-        XCTAssertEqual(model.iCloudBackupStatusMessage, "iCloud 备份当前不可用，请检查 iCloud 后重试。")
-        XCTAssertFalse(model.iCloudBackupStatusMessage?.contains("ICloudBackupError") == true)
 
-        model.languageMode = "en"
-        XCTAssertEqual(
-            model.iCloudBackupStatusMessage,
-            "iCloud Backup is unavailable. Check iCloud and try again."
-        )
-        XCTAssertFalse(model.iCloudBackupStatusMessage?.contains("AskKeyCore.ICloudBackupError") == true)
 
-        model.languageMode = "zh-Hans"
-        XCTAssertEqual(model.iCloudBackupStatusMessage, "iCloud 备份当前不可用，请检查 iCloud 后重试。")
-    }
 
-    @MainActor
-    func testInspectICloudErrorFollowsTheCurrentLanguage() {
-        let model = VaultViewModel(
-            runtimeFileCleanupFailures: { false },
-            accessRecords: .empty,
-            eraseLocalLibrary: { _, _, _ in },
-            inspectICloudBackup: { _ in throw ICloudBackupError.invalidRecoveryKey },
-            preferences: AppPreferences(
-                defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard
-            ),
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
-            credentialMutations: .readOnly { ([], [], [], false) }
-        )
-        model.isLocked = false
-        model.hasManagementSession = true
 
-        model.languageMode = "zh-Hans"
-        XCTAssertTrue(model.inspectICloudBackup(recoveryKey: "bad").isEmpty)
-        XCTAssertEqual(model.iCloudBackupStatusMessage, "恢复密钥无效，请检查后重试。")
-        XCTAssertFalse(model.iCloudBackupStatusMessage?.contains("ICloudBackupError") == true)
-
-        model.languageMode = "en"
-        XCTAssertEqual(
-            model.iCloudBackupStatusMessage,
-            "The recovery key is invalid. Check it and try again."
-        )
-        XCTAssertFalse(model.iCloudBackupStatusMessage?.contains("AskKeyCore.ICloudBackupError") == true)
-
-        model.languageMode = "zh-Hans"
-        XCTAssertEqual(model.iCloudBackupStatusMessage, "恢复密钥无效，请检查后重试。")
-    }
-
-    @MainActor
-    func testImmediateICloudBackupReportsTheCreatedGeneration() {
-        let expected = ICloudBackupGeneration(id: "generation", createdAt: Date())
-        let model = VaultViewModel(
-            runtimeFileCleanupFailures: { false },
-            accessRecords: .empty,
-            eraseLocalLibrary: { _, _, _ in },
-            immediateICloudBackup: { expected },
-            preferences: AppPreferences(
-                defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard
-            ),
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
-            credentialMutations: .readOnly { ([], [], [], false) }
-        )
-        model.isLocked = false
-        model.hasManagementSession = true
-        XCTAssertEqual(model.backUpNow(), expected)
-    }
-
-    @MainActor
-    func testICloudEnableFailsClosedWhenMultipleHistoricalNamespacesExist() throws {
-        let first = try ICloudBackupKeyMaterial.generate()
-        let second = try ICloudBackupKeyMaterial.generate()
-        let store = VisualProofBackupStore(namespaces: [
-            first.recoveryKey.keyID,
-            second.recoveryKey.keyID,
-        ])
-        let materials = VisualProofMaterialStore([first, second])
-        let state = VisualProofBackupState(paused: [
-            first.recoveryKey.keyID,
-            second.recoveryKey.keyID,
-        ])
-        let controller = ICloudAppLifecycleController(
-            makeCloudStore: { store },
-            materials: materials,
-            state: state,
-            safetySnapshots: LocalICloudSafetySnapshotStore(
-                directory: FileManager.default.temporaryDirectory
-                    .appendingPathComponent(UUID().uuidString, isDirectory: true)
-            ),
-            preferences: AppPreferences(
-                defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard
-            ),
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in })
-        )
-        XCTAssertThrowsError(try controller.setAutomaticBackupEnabled(true)) { error in
-            XCTAssertEqual(error as? ICloudBackupError, .forkDetected)
-        }
-        XCTAssertTrue(try state.isAutomaticBackupPaused(namespace: first.recoveryKey.keyID))
-        XCTAssertTrue(try state.isAutomaticBackupPaused(namespace: second.recoveryKey.keyID))
-    }
-
-    @MainActor
-    func testICloudReenableCannotReuseAnOldRecoveryKeyNamespace() throws {
-        let material = try ICloudBackupKeyMaterial.generate()
-        let store = VisualProofBackupStore(namespaces: [material.recoveryKey.keyID])
-        let materials = VisualProofMaterialStore([material])
-        let state = VisualProofBackupState(paused: [material.recoveryKey.keyID])
-        let controller = ICloudAppLifecycleController(
-            makeCloudStore: { store },
-            materials: materials,
-            state: state,
-            safetySnapshots: LocalICloudSafetySnapshotStore(
-                directory: FileManager.default.temporaryDirectory
-                    .appendingPathComponent(UUID().uuidString, isDirectory: true)
-            ),
-            preferences: AppPreferences(
-                defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard
-            ),
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in })
-        )
-
-        XCTAssertThrowsError(try controller.setAutomaticBackupEnabled(true)) { error in
-            XCTAssertEqual(error as? ICloudBackupError, .invalidRecoveryKey)
-        }
-        XCTAssertTrue(try state.isAutomaticBackupPaused(namespace: material.recoveryKey.keyID))
-    }
-
-    @MainActor
-    func testICloudShowsRecoveryKeyBeforeWritingTheFirstCloudBackup() throws {
-        let store = VisualProofBackupStore(namespaces: [])
-        let controller = ICloudAppLifecycleController(
-            makeCloudStore: { store },
-            materials: VisualProofMaterialStore([]),
-            state: VisualProofBackupState(),
-            safetySnapshots: LocalICloudSafetySnapshotStore(
-                directory: FileManager.default.temporaryDirectory
-                    .appendingPathComponent(UUID().uuidString, isDirectory: true)
-            ),
-            preferences: AppPreferences(
-                defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard
-            ),
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in })
-        )
-
-        let recoveryKey = try controller.createNewBackupNamespace(using: .allow)
-
-        XCTAssertFalse(recoveryKey.isEmpty)
-        XCTAssertTrue(store.createdPaths.isEmpty)
-    }
-
-    func testICloudFailuresUseHumanReadableMessages() {
-        XCTAssertEqual(
-            ICloudBackupError.containerUnavailable.localizedDescription,
-            "iCloud 备份当前不可用，请检查 iCloud 后重试。"
-        )
-        XCTAssertFalse(
-            ICloudBackupError.invalidRecoveryKey.localizedDescription.contains("ICloudBackupError")
-        )
-    }
 
     @MainActor
     func testFrozenPrototypePagesRenderAsTaskBuildEvidence() throws {
@@ -901,7 +701,6 @@ final class WorkspaceVisualContractTests: XCTestCase {
             manager(deleted, section: .recycleBin, route: .recycleBin),
             as: "17c-detail-delete-result", in: directory
         )
-        populated.iCloudBackupEnabled = true
         populated.isVisualProof = true
         try render(
             manager(populated, route: .settings),
@@ -914,18 +713,6 @@ final class WorkspaceVisualContractTests: XCTestCase {
                 readAuthenticationConfirmation: true
             ),
             as: "18b-settings-read-warning", in: directory
-        )
-        let generation = ICloudBackupGeneration(
-            id: "backup-generation",
-            createdAt: Date().addingTimeInterval(-60 * 60)
-        )
-        try render(
-            manager(
-                populated,
-                route: .settings,
-                restoreGenerations: [generation]
-            ),
-            as: "18c-settings-restore-warning", in: directory
         )
         try render(
             manager(
@@ -1078,7 +865,6 @@ final class WorkspaceVisualContractTests: XCTestCase {
             + CredentialPermission.prototypeCases.map(\.prototypeTitle)
             + FrozenSettingsContract.languageOptions
             + [FrozenSettingsContract.agentAccessSubtitle]
-            + FrozenSettingsContract.iCloudActions
             + FrozenDangerActions.initialTitles
             + FrozenDangerActions.confirmationTitles
             + FrozenCollectionCopy.groupActions
@@ -1143,9 +929,7 @@ final class WorkspaceVisualContractTests: XCTestCase {
         readAuthenticationConfirmation: Bool = false,
         editorExpanded: Bool = false,
         importValues: [(name: String, value: String)] = [],
-        restoreGenerations: [ICloudBackupGeneration] = [],
         settingsErase: Bool = false,
-        settingsEraseICloud: Bool = false,
         credentialDeleteConfirmation: String? = nil,
         groupDeleteConfirmation: String? = nil,
         accessRecordClearConfirmation: Bool = false
@@ -1157,9 +941,7 @@ final class WorkspaceVisualContractTests: XCTestCase {
             previewReadAuthenticationConfirmation: readAuthenticationConfirmation,
             previewEditorExpanded: editorExpanded,
             previewImportValues: importValues,
-            previewSettingsRestoreGenerations: restoreGenerations,
             previewSettingsErase: settingsErase,
-            previewSettingsEraseICloud: settingsEraseICloud,
             previewCredentialDeleteConfirmation: credentialDeleteConfirmation,
             previewGroupDeleteConfirmation: groupDeleteConfirmation,
             previewAccessRecordClearConfirmation: accessRecordClearConfirmation
@@ -1289,72 +1071,4 @@ final class WorkspaceVisualContractTests: XCTestCase {
         try data.write(to: directory.appendingPathComponent("\(name).png"), options: .atomic)
         XCTAssertGreaterThan(data.count, 5_000, "\(name) did not render useful evidence")
     }
-}
-
-private final class VisualProofBackupStore: ICloudBackupStore {
-    private let namespaces: [String]
-    private(set) var createdPaths: [String] = []
-
-    init(namespaces: [String]) { self.namespaces = namespaces }
-
-    func create(_ data: Data, at path: String) throws { createdPaths.append(path) }
-    func replace(_ data: Data, at path: String) throws {}
-    func read(at path: String) throws -> Data? { nil }
-    func list(prefix: String) throws -> [String] {
-        namespaces.map { "askkey-backup/\($0)/current" }
-    }
-    func conflictPaths(prefix: String) throws -> [String] { [] }
-    func resolveConflicts(prefix: String) throws {}
-    func delete(at path: String) throws {}
-}
-
-private final class VisualProofMaterialStore: ICloudBackupMaterialStore {
-    private var values: [String: ICloudBackupKeyMaterial]
-
-    init(_ materials: [ICloudBackupKeyMaterial]) {
-        values = Dictionary(uniqueKeysWithValues: materials.map {
-            ($0.recoveryKey.keyID, $0)
-        })
-    }
-
-    func save(_ material: ICloudBackupKeyMaterial) throws {
-        values[material.recoveryKey.keyID] = material
-    }
-    func load(keyID: String) throws -> ICloudBackupKeyMaterial? { values[keyID] }
-    func delete(keyID: String) throws { values.removeValue(forKey: keyID) }
-}
-
-private final class VisualProofBackupState: ICloudBackupLocalStateStore {
-    private var pendingUploads: [String: Data] = [:]
-    func pendingUpload(namespace: String) throws -> Data? { pendingUploads[namespace] }
-    func setPendingUpload(_ data: Data?, namespace: String) throws { pendingUploads[namespace] = data }
-
-    private var paused = Set<String>()
-    private var takeover: [String: String] = [:]
-    private var cleanup: [String: [String]] = [:]
-
-    init(paused: Set<String> = []) { self.paused = paused }
-
-    func beginExclusiveAccess(namespace: String) {}
-    func endExclusiveAccess(namespace: String) {}
-    func isAutomaticBackupPaused(namespace: String) throws -> Bool {
-        paused.contains(namespace)
-    }
-    func setAutomaticBackupPaused(_ paused: Bool, namespace: String) throws {
-        if paused { self.paused.insert(namespace) } else { self.paused.remove(namespace) }
-    }
-    func acceptedTakeoverGeneration(namespace: String) throws -> String? {
-        takeover[namespace]
-    }
-    func setAcceptedTakeoverGeneration(_ generationID: String?, namespace: String) throws {
-        takeover[namespace] = generationID
-    }
-    func pendingCleanupPaths(namespace: String) throws -> [String] {
-        cleanup[namespace] ?? []
-    }
-    func setPendingCleanupPaths(_ paths: [String], namespace: String) throws {
-        cleanup[namespace] = paths
-    }
-    func stopAllAutomaticBackups() {}
-    func resumeAutomaticBackupsForNewInstallation() {}
 }

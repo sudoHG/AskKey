@@ -79,65 +79,7 @@ final class LocalizationRemediationTests: XCTestCase {
         XCTAssertEqual(appLocalized("Deny"), "拒绝")
     }
 
-    func testRestoreSettingsWriteUpdatesLiveLanguageState() async {
-        let defaults = UserDefaults(suiteName: "331-392-restore-\(UUID().uuidString)")!
-        defaults.set("en", forKey: "languageMode")
-        defaults.set("en", forKey: "appearanceMode")
-        let preferences = AppPreferences(defaults: defaults)
-        let model = VaultViewModel(
-            runtimeFileCleanupFailures: { false },
-            accessRecords: .empty,
-            restoreICloudBackup: { _, _, _ in
-                preferences.languageMode = "zh-Hans"
-                preferences.appearanceMode = "dark"
-                return ICloudBackupGeneration(id: "g", createdAt: Date())
-            },
-            authenticateDeviceOwner: { _ in .allow },
-            preferences: preferences,
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
-            credentialMutations: .readOnly { ([], [], [], false) }
-        )
-        model.languageMode = "en"
-        model.isLocked = false
-        model.hasManagementSession = true
-        XCTAssertEqual(AppLanguage.current, "en")
 
-        let result = await model.restoreICloudBackup(recoveryKey: "synthetic", generationID: "g")
-        XCTAssertNotNil(result)
-        XCTAssertEqual(preferences.languageMode, "zh-Hans")
-        XCTAssertEqual(model.languageMode, "zh-Hans")
-        XCTAssertEqual(AppLanguage.current, "zh-Hans")
-        XCTAssertEqual(AppLanguage.store.resolved, "zh-Hans")
-        XCTAssertEqual(appLocalized("Settings"), "设置")
-    }
-
-    func testRestoreSyncsLanguageEvenWhenLocalViewRefreshFails() async {
-        struct RefreshFailure: Error {}
-        let defaults = UserDefaults(suiteName: "331-392-restore-fail-\(UUID().uuidString)")!
-        defaults.set("en", forKey: "languageMode")
-        let preferences = AppPreferences(defaults: defaults)
-        let model = VaultViewModel(
-            runtimeFileCleanupFailures: { false },
-            accessRecords: .readOnly { throw RefreshFailure() },
-            restoreICloudBackup: { _, _, _ in
-                preferences.languageMode = "zh-Hans"
-                return ICloudBackupGeneration(id: "g", createdAt: Date())
-            },
-            authenticateDeviceOwner: { _ in .allow },
-            preferences: preferences,
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
-            credentialMutations: .readOnly { ([], [], [], false) }
-        )
-        model.languageMode = "en"
-        model.isLocked = false
-        model.hasManagementSession = true
-
-        let result = await model.restoreICloudBackup(recoveryKey: "synthetic", generationID: "g")
-        XCTAssertNil(result)
-        XCTAssertEqual(model.languageMode, "zh-Hans")
-        XCTAssertEqual(AppLanguage.current, "zh-Hans")
-        XCTAssertEqual(appLocalized("Settings"), "设置")
-    }
 
     func testThirdLanguageComesFromOneDeclarationAndFullCatalog() throws {
         XCTAssertFalse(AppLanguage.publishedModes.contains("qps-ploc"))

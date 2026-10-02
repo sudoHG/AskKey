@@ -99,7 +99,6 @@ enum AppRuntimeState {
         model.hasCompletedOnboarding = true
         model.isLocked = true
         model.hasManagementSession = false
-        model.iCloudBackupEnabled = true
         model.credentials = [
             .visualProof(
                 id: "prod",
@@ -591,13 +590,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             return
         }
         do {
-            try ICloudAppLifecycleController.shared.prepareAgentRuntime()
+            try Vault.shared.prepareAgentRuntime()
         } catch {
-            if case ICloudAppLifecycleError.restoreSettingsRecoveryFailed = error {
-                vault.adoptRestoredPreferences()
-                vault.refreshAgentAccessPauseState()
-                presentBrokerRuntimeFailure(error)
-            } else if case VaultBootstrapError.migrationRequired = error {
+            if case VaultBootstrapError.migrationRequired = error {
                 vault.migrationRequired = true
             } else {
                 vault.errorMessage = "Ask Key could not prepare Agent access. Open the app to review the vault state."
@@ -607,10 +602,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             brokerServer = nil
             return
         }
-        vault.adoptRestoredPreferences()
         vault.refreshAgentAccessPauseState()
 #if !(DEBUG && ASKKEY_E2E_TESTING)
-        ICloudAppLifecycleController.shared.startAutomaticScheduling()
         CredentialExpiryReminderController.shared.onAuthorizationFailure = { [weak self] message in
             Task { @MainActor [weak self] in
                 self?.vault.errorMessage = message
@@ -1106,7 +1099,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             "detail-delete-confirm": [("v", 9, proofModifiers), ("d", 2, proofModifiers)],
             "detail-edit": [("v", 9, proofModifiers), ("j", 38, proofModifiers)],
             "recycle-empty": [("4", 21, proofModifiers)],
-            "settings-restore": [(",", 43, .command), ("r", 15, proofModifiers)],
             "settings-erase": [(",", 43, .command), ("x", 7, proofModifiers)],
             "settings-record-clear": [(",", 43, .command), ("c", 8, proofModifiers)],
         ]

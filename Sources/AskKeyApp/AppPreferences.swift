@@ -41,7 +41,6 @@ final class AppPreferences {
         }
         set {
             defaults.set(newValue, forKey: "appearanceMode")
-            NotificationCenter.default.post(name: .askKeyOrdinaryBackupSettingsDidChange, object: nil)
         }
     }
 
@@ -49,7 +48,6 @@ final class AppPreferences {
         get { defaults.string(forKey: "languageMode") ?? "system" }
         set {
             defaults.set(newValue, forKey: "languageMode")
-            NotificationCenter.default.post(name: .askKeyOrdinaryBackupSettingsDidChange, object: nil)
         }
     }
 
@@ -65,7 +63,6 @@ final class AppPreferences {
         }
         set {
             defaults.set(newValue, forKey: "defaultTimedAllowanceMinutes")
-            NotificationCenter.default.post(name: .askKeyOrdinaryBackupSettingsDidChange, object: nil)
         }
     }
 
@@ -97,10 +94,4 @@ final class AppPreferences {
             defaults.set(newValue, forKey: "recentSecretNames")
         }
     }
-}
-
-extension Notification.Name {
-    static let askKeyOrdinaryBackupSettingsDidChange = Notification.Name(
-        "askKeyOrdinaryBackupSettingsDidChange"
-    )
 }

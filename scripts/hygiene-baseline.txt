@@ -6,13 +6,12 @@ debug:Sources/AskKeyApp/AppPreferences.swift:1
 debug:Sources/AskKeyApp/AskKeyApp.swift:17
 debug:Sources/AskKeyApp/E2EAppRuntime.swift:1
 debug:Sources/AskKeyApp/E2EBrokerScenario.swift:1
-debug:Sources/AskKeyApp/ICloudAppLifecycleController.swift:1
 debug:Sources/AskKeyApp/ManagementAuthenticationProcess.swift:2
 debug:Sources/AskKeyApp/OnboardingTerminationGate.swift:2
-debug:Sources/AskKeyApp/VaultViewModel+Credentials.swift:8
+debug:Sources/AskKeyApp/VaultViewModel+Credentials.swift:7
 debug:Sources/AskKeyApp/VaultViewModel.swift:3
 debug:Sources/AskKeyApp/Views/AgentOnboardingView.swift:5
-debug:Sources/AskKeyApp/Views/CredentialManagementView.swift:9
+debug:Sources/AskKeyApp/Views/CredentialManagementView.swift:8
 debug:Sources/AskKeyApp/Views/FirstRunOnboardingView.swift:1
 debug:Sources/AskKeyApp/Views/SettingsView.swift:1
 debug:Sources/AskKeyBroker/BrokerProtocol.swift:1
@@ -21,7 +20,6 @@ debug:Sources/AskKeyCore/ClientConfigFileIO.swift:1
 debug:Sources/AskKeyCore/CursorUserMCPAdapter.swift:2
 debug:Sources/AskKeyCore/E2EProcessFixture.swift:1
 debug:Sources/AskKeyCore/E2EVaultFixture.swift:1
-debug:Sources/AskKeyCore/ICloudBackup.swift:4
 debug:Sources/AskKeyCore/Keychain/DebugRunMigrationKeyStore.swift:1
 debug:Sources/AskKeyCore/Keychain/KeychainStore.swift:3
 debug:Sources/AskKeyCore/Models/CredentialName.swift:1
@@ -34,8 +32,6 @@ local-path:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
 size:Sources/AskKeyApp/AgentClientConnector.swift
 size:Sources/AskKeyApp/AgentOnboardingDebugSupport.swift
 size:Sources/AskKeyApp/AskKeyApp.swift
-size:Sources/AskKeyApp/VaultViewModel+Credentials.swift
-size:Sources/AskKeyApp/VaultViewModel.swift
 size:Sources/AskKeyApp/Views/CredentialManagementView.swift
 size:Sources/AskKeyBroker/ApprovalStateMachine.swift
 size:Sources/AskKeyBroker/BrokerProtocol.swift
@@ -47,7 +43,6 @@ size:Sources/AskKeyCore/CodexUserMCPAdapter.swift
 size:Sources/AskKeyCore/CommandDiscoveryHookConfiguration.swift
 size:Sources/AskKeyCore/CursorUserMCPAdapter.swift
 size:Sources/AskKeyCore/GrokCLIAdapter.swift
-size:Sources/AskKeyCore/ICloudBackup.swift
 size:Sources/AskKeyCore/RestrictedProcess.swift
 size:Sources/AskKeyCore/Vault+TextCredentials.swift
 size:Sources/AskKeyCore/Vault.swift
@@ -61,12 +56,10 @@ size:Tests/AskKeyBrokerTests/FileWriteCoordinatorTests.swift
 size:Tests/AskKeyBrokerTests/HelperApprovalWaitTests.swift
 size:Tests/AskKeyBrokerTests/HelperMCPTests.swift
 size:Tests/AskKeyCoreTests/AgentTextWriteGovernanceTests.swift
-size:Tests/AskKeyCoreTests/AutomaticICloudBackupSchedulerTests.swift
 size:Tests/AskKeyCoreTests/CodexUserMCPAdapterTests.swift
 size:Tests/AskKeyCoreTests/CursorUserMCPAdapterTests.swift
 size:Tests/AskKeyCoreTests/GrokCLIAdapterTests.swift
 size:Tests/AskKeyCoreTests/HumanFileCredentialTests.swift
-size:Tests/AskKeyCoreTests/ICloudBackupTests.swift
 size:Tests/AskKeyCoreTests/MigrationPlannerTests.swift
 size:Tests/AskKeyCoreTests/RuntimeApprovalBoundaryTests.swift
 test-support:Sources/AskKeyApp/AgentClientConnector.swift

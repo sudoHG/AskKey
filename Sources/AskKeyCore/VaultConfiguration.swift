@@ -65,16 +65,6 @@ public enum VaultConfiguration {
         appKeychainService + ".migration"
     }
 
-    public static var iCloudBackupKeychainService: String {
-        // Recovery material is independent of the local vault format/key.
-        // Preserve its namespace across the authenticated-record migration.
-        previousAppKeychainService + ".icloud-backup"
-    }
-
-    public static var localRestoreSafetySnapshotDirectory: URL {
-        applicationSupportDirectory.appendingPathComponent("restore-safety", isDirectory: true)
-    }
-
     static var localEraseJournalURL: URL {
         if let directory = runtimeIsolationDirectory {
             return directory.appendingPathComponent("lifecycle/erase.journal")
