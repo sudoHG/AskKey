@@ -34,7 +34,7 @@ gh issue list --repo sudoHG/AskKey --label ready-for-agent --state open
    git fetch origin
    git worktree add ~/Coding/AskKey-workspace/worktrees/<number> -b task/<number>-<short-slug> origin/main
    ```
-5. **Implement only what the Scope allows.** If the card is unclear, the Scope is not enough, or Acceptance cannot be met: comment with the exact problem, add `needs-info`, and stop working on that issue. Do not guess. Then move on to the next claimable issue.
+5. **Implement only what the Scope allows.** If the card is unclear, the Scope is not enough, or Acceptance cannot be met: comment with the exact problem, add `needs-info`, and stop working on that issue. Do not guess. Any question to the planner, in an issue or in a PR, must also add the `needs-info` label to that issue or PR; the planner's watcher triggers on labels, so a comment alone may go unseen. Then move on to the next claimable issue.
 6. **Run every Acceptance command.** Keep logs and other artifacts only until you have read the results, then delete them. Never put them in the repo; report commands, counts and SHAs in the receipt.
 7. **Commit** with a clear English message, using the identity your setup prescribes. No tool attribution lines.
 8. **Push the task branch and open a ready (non-draft) PR** with `Closes #<number>` and the receipt below. Add `needs-review` to the PR.
