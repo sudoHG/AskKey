@@ -29,18 +29,7 @@ public enum VaultError: Error, LocalizedError {
     case invalidSecretName(String)
     case encryptionFailed
     case decryptionFailed
-    case secretNotFound(String)
-    case secretAlreadyExists(String)
-    case projectNotFound(String)
-    case projectAlreadyExists(String)
-    case projectContainsSecrets(String)
-    case environmentNotFound(String)
-    case environmentAlreadyExists(String)
-    case environmentContainsSecrets(String)
-    case noActiveProject
     case databaseError(String)
-    case invalidExportPassphrase
-    case keyDerivationFailed(String)
     case managementAuthenticationRequired
     case invalidCredentialName(String)
     case credentialNameConflict(String)
@@ -71,30 +60,8 @@ public enum VaultError: Error, LocalizedError {
             return "Failed to encrypt secret value."
         case .decryptionFailed:
             return "Failed to decrypt secret value. The vault key may have changed."
-        case .secretNotFound(let name):
-            return "Secret '\(name)' not found."
-        case .secretAlreadyExists(let name):
-            return "Secret '\(name)' already exists. Use `set` to update it."
-        case .projectNotFound(let name):
-            return "Project '\(name)' not found."
-        case .projectAlreadyExists(let name):
-            return "Project '\(name)' already exists."
-        case .projectContainsSecrets(let name):
-            return "Project '\(name)' contains environments or secrets and cannot be deleted."
-        case .environmentNotFound(let name):
-            return "Environment '\(name)' not found."
-        case .environmentAlreadyExists(let name):
-            return "Environment '\(name)' already exists in this project."
-        case .environmentContainsSecrets(let name):
-            return "Environment '\(name)' contains secret values and cannot be deleted."
-        case .noActiveProject:
-            return "No active project. Run `askkey project use <name>` or `cd` into a linked project directory."
         case .databaseError(let message):
             return "Database error: \(message)"
-        case .invalidExportPassphrase:
-            return "Invalid passphrase for encrypted export."
-        case .keyDerivationFailed(let message):
-            return "Failed to derive export key: \(message)"
         case .managementAuthenticationRequired:
             return "Credential management requires confirmation before it can continue."
         case .invalidCredentialName:

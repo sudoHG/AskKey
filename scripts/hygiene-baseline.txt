@@ -23,7 +23,6 @@ debug:Sources/AskKeyCore/E2EVaultFixture.swift:1
 debug:Sources/AskKeyCore/Keychain/KeychainStore.swift:3
 debug:Sources/AskKeyCore/Models/CredentialName.swift:1
 debug:Sources/AskKeyCore/RestrictedProcess.swift:3
-debug:Sources/AskKeyCore/Storage/VaultStoreSecretQueries.swift:1
 debug:Sources/AskKeyCore/Vault.swift:2
 debug:Sources/AskKeyCore/VaultConfiguration.swift:1
 debug:Sources/AskKeyHelper/main.swift:1
@@ -44,7 +43,6 @@ size:Sources/AskKeyCore/CursorUserMCPAdapter.swift
 size:Sources/AskKeyCore/GrokCLIAdapter.swift
 size:Sources/AskKeyCore/RestrictedProcess.swift
 size:Sources/AskKeyCore/Vault+TextCredentials.swift
-size:Sources/AskKeyCore/Vault.swift
 size:Sources/AskKeyHelper/main.swift
 size:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
 size:Tests/AskKeyAppTests/AppLanguageExperienceTests.swift
