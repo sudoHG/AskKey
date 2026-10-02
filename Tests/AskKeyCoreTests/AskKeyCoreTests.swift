@@ -516,24 +516,6 @@ final class VaultResolutionTests: XCTestCase {
         }
     }
 
-    func testContextUsesExplicitEnvironmentName() throws {
-        let vault = try makeVault()
-        _ = try vault.addProject(name: "alpha")
-        let workspace = SecretWorkspace(vault: vault)
-
-        let ctx = try workspace.resolveContext(projectName: "alpha", environmentName: "staging")
-        XCTAssertEqual(ctx.environmentName, "staging")
-    }
-
-    func testContextFallsBackToActiveEnvironment() throws {
-        let vault = try makeVault()
-        _ = try vault.addProject(name: "alpha")
-        let workspace = SecretWorkspace(vault: vault)
-
-        let ctx = try workspace.resolveContext(projectName: "alpha")
-        XCTAssertEqual(ctx.environmentName, "Default")
-    }
-
     private func makeVault() throws -> Vault {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

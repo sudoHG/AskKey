@@ -1,4 +1,5 @@
 import XCTest
+import Darwin
 import AskKeyBroker
 @testable import AskKeyCore
 
@@ -71,11 +72,15 @@ final class BrokerCatalogTests: XCTestCase {
             XCTAssertFalse(json.contains(forbidden), forbidden)
         }
 
-        let legacy = VaultSocketClient(socketPath: socketPath, agentContext: "attacker")
-        XCTAssertThrowsError(try legacy.send(.listProjects))
-        XCTAssertThrowsError(try legacy.send(.listActivity(limit: 100, filter: .init())))
-        XCTAssertThrowsError(try legacy.send(.export(projectId: "anything", passphrase: nil)))
-        XCTAssertThrowsError(try legacy.send(.decryptExport(envelope: Data(), passphrase: "anything")))
+        for request in [
+            #"{"listProjects":{}}"#,
+            #"{"listActivity":{"limit":100,"filter":{}}}"#,
+            #"{"export":{"projectId":"anything"}}"#,
+            #"{"decryptExport":{"envelope":"","passphrase":"anything"}}"#,
+        ] {
+            let frame = Data((#"{"agentContext":"attacker","request":\#(request)}"# + "\n").utf8)
+            XCTAssertEqual(try sendLegacyFrame(frame, socketPath: socketPath), .failure(.resourceExhausted))
+        }
     }
 
     func testCatalogFailsClosedForUnknownStoredPermission() throws {
@@ -155,5 +160,50 @@ final class BrokerCatalogTests: XCTestCase {
                 .success(.health(.init(version: BrokerProtocolVersion.current, status: "ok")))
             )
         }
+    }
+
+    private func sendLegacyFrame(_ frame: Data, socketPath: String) throws -> BrokerResponse {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw BrokerSocketError.systemError("socket", errno) }
+        defer { close(fd) }
+        var timeout = timeval(tv_sec: 2, tv_usec: 0)
+        for option in [SO_RCVTIMEO, SO_SNDTIMEO] {
+            guard setsockopt(fd, SOL_SOCKET, option, &timeout, socklen_t(MemoryLayout.size(ofValue: timeout))) == 0 else {
+                throw BrokerSocketError.systemError("setsockopt", errno)
+            }
+        }
+        var noSignal: Int32 = 1
+        guard setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout.size(ofValue: noSignal))) == 0 else {
+            throw BrokerSocketError.systemError("setsockopt", errno)
+        }
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let capacity = MemoryLayout.size(ofValue: address.sun_path)
+        guard socketPath.utf8.count < capacity else { throw BrokerSocketError.pathTooLong }
+        _ = withUnsafeMutablePointer(to: &address.sun_path.0) { destination in
+            socketPath.withCString { strncpy(destination, $0, capacity - 1) }
+        }
+        let connected = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard connected == 0 else { throw BrokerSocketError.notRunning }
+        let written = frame.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+        guard written == frame.count else { throw BrokerSocketError.systemError("write", errno) }
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
+        func readExactly(_ count: Int) throws -> Data {
+            var bytes = Data()
+            while bytes.count < count {
+                guard let part = try handle.read(upToCount: count - bytes.count), !part.isEmpty else {
+                    throw BrokerSocketError.noResponse
+                }
+                bytes.append(part)
+            }
+            return bytes
+        }
+        let length = try readExactly(4).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+        guard Int(length) <= BrokerLimits.maximumResponseBytes else { throw BrokerSocketError.responseTooLarge }
+        return try JSONDecoder().decode(BrokerResponse.self, from: readExactly(Int(length)))
     }
 }

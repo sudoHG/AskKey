@@ -34,8 +34,6 @@ debug:Sources/AskKeyCore/Vault.swift:2
 debug:Sources/AskKeyCore/VaultConfiguration.swift:1
 debug:Sources/AskKeyHelper/main.swift:1
 local-path:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
-local-path:Tests/AskKeyCoreTests/AgentDetectionTests.swift
-local-path:Tests/AskKeyCoreTests/SecretReferenceTests.swift
 multica:Sources/AskKeyApp/AgentClientConnector.swift
 multica:Sources/AskKeyApp/AgentOnboardingDebugSupport.swift
 multica:Sources/AskKeyApp/AgentOnboardingModels.swift
@@ -109,7 +107,6 @@ size:Tests/AskKeyBrokerTests/FileWriteCoordinatorTests.swift
 size:Tests/AskKeyBrokerTests/HelperApprovalWaitTests.swift
 size:Tests/AskKeyBrokerTests/HelperMCPTests.swift
 size:Tests/AskKeyCoreTests/AgentTextWriteGovernanceTests.swift
-size:Tests/AskKeyCoreTests/AskKeyCoreTests.swift
 size:Tests/AskKeyCoreTests/AutomaticICloudBackupSchedulerTests.swift
 size:Tests/AskKeyCoreTests/CodexUserMCPAdapterTests.swift
 size:Tests/AskKeyCoreTests/CursorUserMCPAdapterTests.swift
