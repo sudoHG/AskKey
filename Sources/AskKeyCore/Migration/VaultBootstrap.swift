@@ -68,14 +68,11 @@ enum VaultBootstrap {
             guard state == .current else { throw VaultBootstrapError.missingDatabase }
             let key = try validatedKey(data)
             let authenticated = try validateCurrentLibrary(paths: paths, key: key)
-            if authenticated == 0,
-               let pending = try loadKey(keyStore.loadPendingKey, missing: .missingPendingKey),
-               pending != data {
-                // Without credential rows the App key cannot be authenticated,
-                // so a different pending key leaves it unclear which key owns
-                // the library. Keep both and fail closed.
-                throw VaultBootstrapError.invalidKey
-            }
+            // With credential rows the App key is authenticated against every
+            // row, so any pending key is stale. Without rows the App key cannot
+            // be authenticated: it still opens the library, but a pending key
+            // that differs from it is left untouched (neither used nor deleted).
+            let deletesPendingKey = authenticated > 0 || !hasDifferentPendingKey(keyStore, appKey: data)
             let store = try VaultStore(path: paths.currentDatabase.path, authenticationKey: key)
             do {
                 store.bindCredentialAuthenticationKey(key)
@@ -85,7 +82,7 @@ enum VaultBootstrap {
                 throw error
             }
             // A crash between promotion and deletion leaves this duplicate.
-            try? keyStore.deletePendingKey()
+            if deletesPendingKey { try? keyStore.deletePendingKey() }
             return (store, key)
         }
         let pending = try loadKey(keyStore.loadPendingKey, missing: .missingPendingKey)
@@ -104,6 +101,17 @@ enum VaultBootstrap {
     private static func loadKey(_ load: () throws -> Data, missing: AppKeyStoreError) throws -> Data? {
         do { return try load() }
         catch let error as AppKeyStoreError where error == missing { return nil }
+    }
+
+    /// True when a pending key exists and differs from `appKey`, or when it
+    /// cannot be read; in both cases it must not be deleted.
+    private static func hasDifferentPendingKey(_ keyStore: AppKeyStore, appKey: Data) -> Bool {
+        do {
+            guard let pending = try loadKey(keyStore.loadPendingKey, missing: .missingPendingKey) else { return false }
+            return pending != appKey
+        } catch {
+            return true
+        }
     }
 
     private static func validatedKey(_ data: Data) throws -> SymmetricKey {
@@ -143,6 +151,8 @@ enum VaultBootstrap {
                                                  ofItemAtPath: paths.creatingDatabase.path)
             try synchronize(paths.creatingDatabase)
             // RENAME_EXCL: never replace a current database that appeared.
+            // A file system without RENAME_EXCL support (ENOTSUP) fails closed
+            // by design; APFS and HFS+ support it.
             guard renamex_np(paths.creatingDatabase.path, paths.currentDatabase.path, UInt32(RENAME_EXCL)) == 0 else {
                 throw VaultBootstrapError.invalidState
             }
@@ -150,7 +160,10 @@ enum VaultBootstrap {
             try? removeCreationFiles(paths: paths)
             throw error
         }
-        try? synchronize(paths.directory)
+        // The rename must be durable before the pending key is promoted. On
+        // failure the complete library and the pending key stay, and rule 6
+        // recovers them on the next launch.
+        try synchronize(paths.directory)
         let store = try VaultStore(path: paths.currentDatabase.path)
         do {
             store.bindCredentialAuthenticationKey(key)
@@ -165,6 +178,8 @@ enum VaultBootstrap {
     }
 
     /// Removes only `credentials-v2.db.creating` and its SQLite sidecars.
+    /// Like the pre-open identity checks, this relies on the single-opener
+    /// assumption: no other process creates a library in this directory.
     private static func removeCreationFiles(paths: VaultBootstrapPaths) throws {
         for suffix in ["", "-wal", "-shm", "-journal"] {
             let path = paths.creatingDatabase.path + suffix
@@ -178,7 +193,13 @@ enum VaultBootstrap {
         let descriptor = url.path.withCString { Darwin.open($0, O_RDONLY | O_NOFOLLOW | O_CLOEXEC) }
         guard descriptor >= 0 else { throw VaultBootstrapError.invalidState }
         defer { Darwin.close(descriptor) }
-        guard fsync(descriptor) == 0 else { throw VaultBootstrapError.invalidState }
+        // F_FULLFSYNC flushes the drive cache; plain fsync is only a fallback
+        // for file systems that do not support it.
+        if fcntl(descriptor, F_FULLFSYNC) == 0 { return }
+        let error = errno
+        guard [ENOTSUP, EOPNOTSUPP, EINVAL, ENOTTY].contains(error), fsync(descriptor) == 0 else {
+            throw VaultBootstrapError.invalidState
+        }
     }
 
     /// Metadata only; runs after a library has been opened successfully.

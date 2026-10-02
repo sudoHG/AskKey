@@ -80,7 +80,7 @@ final class CurrentLibraryOpeningRaceTests: XCTestCase {
         let keys = MemoryAppKeyStore(appKey: try Data(contentsOf: fixture("library.key")))
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         try opened.store.close()
-        XCTAssertEqual(keys.mutations, 0)
+        XCTAssertEqual(keys.mutations, 1, "only the best-effort deletePendingKey")
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: paths.directory.path), ["credentials-v2.db"])
     }
 

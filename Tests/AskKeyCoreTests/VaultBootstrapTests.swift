@@ -87,7 +87,7 @@ final class VaultBootstrapTests: XCTestCase {
         XCTAssertEqual(try directoryBytes(paths.directory), before)
         XCTAssertEqual(keys.appKey, pending)
         XCTAssertNil(keys.pendingKey)
-        XCTAssertEqual(keys.mutations, 2)
+        XCTAssertEqual(keys.mutations, 3, "the App-key reopen only calls deletePendingKey")
     }
 
     func testFailureBeforeCreationRenameLeavesNoCurrentDatabaseAndNextLaunchReusesPendingKey() throws {
@@ -119,6 +119,29 @@ final class VaultBootstrapTests: XCTestCase {
         let after = try directoryBytes(paths.directory)
         XCTAssertEqual(Set(after.keys), Set(siblings.keys).union(["credentials-v2.db"]))
         for (name, bytes) in siblings { XCTAssertEqual(after[name], bytes, name) }
+    }
+
+    func testCurrentDatabaseAppearingBeforeCreationRenameIsNeverReplaced() throws {
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        try writePendingSiblings(paths)
+        let siblings = try directoryBytes(paths.directory)
+        let marker = Data("SYNTHETIC-current-marker".utf8)
+        let keys = MemoryAppKeyStore()
+        var observedCreation = false
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys) { _ in
+            observedCreation = true
+            try marker.write(to: paths.currentDatabase)
+        }) { XCTAssertEqual($0 as? VaultBootstrapError, .invalidState) }
+        XCTAssertTrue(observedCreation)
+        XCTAssertEqual(try Data(contentsOf: paths.currentDatabase), marker)
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.creatingDatabase.path + suffix), suffix)
+        }
+        let after = try directoryBytes(paths.directory)
+        XCTAssertEqual(Set(after.keys), Set(siblings.keys).union(["credentials-v2.db"]))
+        for (name, bytes) in siblings { XCTAssertEqual(after[name], bytes, name) }
+        XCTAssertEqual(keys.pendingKey?.count, 32)
+        XCTAssertNil(keys.appKey)
     }
 
     func testCreationRemovesOnlyLeftoverCreationFiles() throws {
@@ -297,11 +320,7 @@ final class MemoryAppKeyStore: AppKeyStore {
         mutations += 1
         appKey = try loadPendingKey()
     }
-    func deletePendingKey() throws {
-        guard pendingKey != nil else { return }
-        mutations += 1
-        pendingKey = nil
-    }
+    func deletePendingKey() throws { mutations += 1; pendingKey = nil }
     func deleteAppKey() throws { mutations += 1; appKey = nil }
     func deleteLegacyKey() throws { mutations += 1 }
 }
