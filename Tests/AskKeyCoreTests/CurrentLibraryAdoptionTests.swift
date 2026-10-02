@@ -19,7 +19,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         XCTAssertEqual(try opened.store.db.read { try CurrentLibrarySchema.normalizedSchema($0) },
                        try expected.read { try CurrentLibrarySchema.normalizedSchema($0) })
         XCTAssertEqual(try identifiers(opened.store), ["askkey-0001-baseline"])
-        XCTAssertEqual(try opened.store.fetchAllProjects().count, 1)
+        XCTAssertEqual(try opened.store.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM projects") }, 1)
         XCTAssertEqual(keys.appKey?.count, 32)
         XCTAssertNil(keys.pendingKey)
     }

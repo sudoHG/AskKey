@@ -13,7 +13,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0"),
-        .package(url: "https://github.com/P-H-C/phc-winner-argon2.git", revision: "f57e61e19229e23c4445b85494dbf7c07de721cb"),
     ],
     targets: [
         .target(
@@ -32,7 +31,6 @@ let package = Package(
             dependencies: [
                 "AskKeyBroker",
                 .product(name: "GRDB", package: "GRDB.swift"),
-                .product(name: "argon2", package: "phc-winner-argon2"),
             ],
             path: "Sources/AskKeyCore",
             swiftSettings: [.swiftLanguageMode(.v5)]
