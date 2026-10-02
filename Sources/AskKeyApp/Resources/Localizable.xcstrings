@@ -4431,52 +4431,6 @@
         }
       }
     },
-    "Check for Updates": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check for Updates"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检查更新"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Check for Updates!!]"
-          }
-        }
-      }
-    },
-    "Check for Updates…": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check for Updates…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检查更新…"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Check for Updates…!!]"
-          }
-        }
-      }
-    },
     "Check whether Ask Key is configured in Multica.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -13727,29 +13681,6 @@
         }
       }
     },
-    "Software Update": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Software Update"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "软件更新"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Software Update!!]"
-          }
-        }
-      }
-    },
     "Start Ask Key backup with the saved recovery key": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -15885,29 +15816,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Version!!]"
-          }
-        }
-      }
-    },
-    "Version %@ · Check, then confirm before download and install.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Version %@ · Check, then confirm before download and install."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前版本 %@ · 检查后确认再下载和安装。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Version %@ · Check, then confirm before download and install.!!]"
           }
         }
       }

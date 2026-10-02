@@ -2069,20 +2069,6 @@ struct FrozenSettingsPage: View {
                         )
                         .frame(width: 360)
                     }
-                    Divider()
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(appLocalized("Software Update")).font(.system(size: 12.5, weight: .semibold))
-                            Text(FrozenSettingsContract.softwareUpdateSubtitle(appVersion: appVersion))
-                                .font(.system(size: 11.5)).foregroundStyle(Theme.textMuted)
-                        }
-                        Spacer()
-                        Button(FrozenSettingsContract.softwareUpdateAction) {
-                            (NSApp.delegate as? AppDelegate)?.softwareUpdater.checkForUpdates()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.brand)
-                    }
                 }
                 .padding(14)
                 .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
@@ -2221,11 +2207,6 @@ struct FrozenSettingsPage: View {
             $0.formatted(date: .abbreviated, time: .shortened)
         }
         return appLocalizedFormat("Recent backups: %@ (keeps two)", values.joined(separator: " · "))
-    }
-
-    private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-            ?? "0.0.0"
     }
 }
 
@@ -2805,10 +2786,6 @@ enum FrozenSettingsContract {
     static var restoreBackupAction: String { appLocalized("Restore from Backup…") }
     static var iCloudActions: [String] { [immediateBackupAction, recoveryKeyAction, restoreBackupAction] }
     static var emptyLibraryAction: String { appLocalized("Create First Credential") }
-    static var softwareUpdateAction: String { appLocalized("Check for Updates") }
-    static func softwareUpdateSubtitle(appVersion: String) -> String {
-        appLocalizedFormat("Version %@ · Check, then confirm before download and install.", appVersion)
-    }
     static var restoreConfirmationAction: String { appLocalized("Authenticate and Restore") }
     static var eraseICloudOption: String { appLocalized("Also Delete iCloud Backup") }
     static var eraseCloudSequenceWarning: String {

@@ -2,7 +2,6 @@ import AppKit
 import CoreGraphics
 import CoreServices
 import SwiftUI
-import Sparkle
 @preconcurrency import UserNotifications
 import AskKeyBroker
 import AskKeyCore
@@ -438,7 +437,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             ? authenticationSubprocessVault
             : normalVault
     }
-    lazy var softwareUpdater = SoftwareUpdater()
     lazy var hotkeyManager = GlobalHotkeyManager()
     private var windowEventMonitor: Any?
     private var managementWindow: NSWindow?
@@ -1446,7 +1444,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         let window = ManagementWindowConfiguration.makeWindow(
             rootView: SettingsView()
                 .environment(vault)
-                .environment(softwareUpdater)
                 .environment(\.locale, vault.appLocale)
                 .frame(
                     width: WorkspaceVisualContract.windowWidth,
@@ -1600,15 +1597,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                   let contentView = window.contentView else { return event }
 
             let menu = NSMenu()
-            if let updater = self.softwareUpdater.controller {
-                let checkForUpdates = NSMenuItem(
-                    title: appLocalized("Check for Updates…"),
-                    action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
-                    keyEquivalent: "")
-                checkForUpdates.target = updater
-                menu.addItem(checkForUpdates)
-                menu.addItem(.separator())
-            }
             menu.addItem(NSMenuItem(title: appLocalized("Quit Ask Key"),
                                     action: #selector(NSApplication.terminate(_:)),
                                     keyEquivalent: "q"))

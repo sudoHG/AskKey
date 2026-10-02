@@ -206,10 +206,7 @@ final class ManagementAuthenticationProcessTests: XCTestCase {
 
         let executable = executableDirectory.appendingPathComponent("AskKeyApp")
         try FileManager.default.copyItem(at: try appExecutable(), to: executable)
-        try copyRuntimeDependencies(
-            executableDirectory: executableDirectory,
-            resources: resources
-        )
+        try copyRuntimeDependencies(resources: resources)
         try copyInfoLocalization("en", to: resources)
         try copyInfoLocalization("zh-Hans", to: resources)
         try Data("""
@@ -301,14 +298,11 @@ final class ManagementAuthenticationProcessTests: XCTestCase {
             .appendingPathComponent("AskKeyIsolatedProducts-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: isolated, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: isolated) }
-        let sparkle = isolated.appendingPathComponent("Sparkle.framework", isDirectory: true)
         let resources = isolated.appendingPathComponent("AskKey_AskKeyApp.bundle", isDirectory: true)
-        try FileManager.default.createDirectory(at: sparkle, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
 
         let found = try BuildProductLocator.locateRuntimeDependencies(searchRoots: [isolated])
-        XCTAssertEqual(found.sparkle.path, sparkle.path)
-        XCTAssertEqual(found.resourceBundle?.path, resources.path)
+        XCTAssertEqual(found?.path, resources.path)
     }
 
     func testRuntimeDependencySearchDoesNotRequireTheRepositoryBuildDirectory() throws {
@@ -316,28 +310,21 @@ final class ManagementAuthenticationProcessTests: XCTestCase {
             .appendingPathComponent("AskKeyLocator-\(UUID().uuidString)", isDirectory: true)
         let isolated = root.appendingPathComponent("scratch", isDirectory: true)
         let decoyBuild = root.appendingPathComponent(".build", isDirectory: true)
-            .appendingPathComponent("Sparkle.framework", isDirectory: true)
+            .appendingPathComponent("AskKey_AskKeyApp.bundle", isDirectory: true)
         try FileManager.default.createDirectory(at: isolated, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: decoyBuild, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
 
-        XCTAssertThrowsError(
+        XCTAssertNil(
             try BuildProductLocator.locateRuntimeDependencies(searchRoots: [isolated])
         )
     }
 
-    private func copyRuntimeDependencies(
-        executableDirectory: URL,
-        resources: URL
-    ) throws {
+    private func copyRuntimeDependencies(resources: URL) throws {
         let found = try BuildProductLocator.locateRuntimeDependencies(
             searchRoots: [try appExecutable().deletingLastPathComponent()]
         )
-        try FileManager.default.copyItem(
-            at: found.sparkle,
-            to: executableDirectory.appendingPathComponent("Sparkle.framework")
-        )
-        if let resourceBundle = found.resourceBundle {
+        if let resourceBundle = found {
             try FileManager.default.copyItem(
                 at: resourceBundle,
                 to: resources.appendingPathComponent("AskKey_AskKeyApp.bundle")
@@ -356,38 +343,29 @@ final class ManagementAuthenticationProcessTests: XCTestCase {
 enum BuildProductLocator {
     static func locateRuntimeDependencies(
         searchRoots: [URL]
-    ) throws -> (sparkle: URL, resourceBundle: URL?) {
-        var sparkle: URL?
+    ) throws -> URL? {
         var resourceBundle: URL?
         for root in searchRoots {
             guard FileManager.default.fileExists(atPath: root.path) else { continue }
-            let directSparkle = root.appendingPathComponent("Sparkle.framework")
-            if sparkle == nil, FileManager.default.fileExists(atPath: directSparkle.path) {
-                sparkle = directSparkle
-            }
             let directResources = root.appendingPathComponent("AskKey_AskKeyApp.bundle")
             if resourceBundle == nil, FileManager.default.fileExists(atPath: directResources.path) {
                 resourceBundle = directResources
             }
-            if sparkle != nil, resourceBundle != nil { break }
+            if resourceBundle != nil { break }
             guard let enumerator = FileManager.default.enumerator(
                 at: root,
                 includingPropertiesForKeys: [.isDirectoryKey]
             ) else { continue }
             for case let url as URL in enumerator {
-                if sparkle == nil, url.lastPathComponent == "Sparkle.framework" {
-                    sparkle = url
-                    enumerator.skipDescendants()
-                } else if resourceBundle == nil,
-                          url.lastPathComponent == "AskKey_AskKeyApp.bundle" {
+                if resourceBundle == nil,
+                   url.lastPathComponent == "AskKey_AskKeyApp.bundle" {
                     resourceBundle = url
                     enumerator.skipDescendants()
                 }
-                if sparkle != nil, resourceBundle != nil { break }
+                if resourceBundle != nil { break }
             }
-            if sparkle != nil, resourceBundle != nil { break }
+            if resourceBundle != nil { break }
         }
-        guard let sparkle else { throw CocoaError(.fileNoSuchFile) }
-        return (sparkle, resourceBundle)
+        return resourceBundle
     }
 }
