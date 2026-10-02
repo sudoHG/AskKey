@@ -367,7 +367,10 @@ final class VaultBootstrapTests: XCTestCase {
             XCTFail("recovery must not create a new library")
         }, beforeDurabilitySync: { synchronized.append($0.standardizedFileURL.path) })
         XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
-        XCTAssertEqual(try opened.store.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM projects") }, 1)
+        XCTAssertEqual(try opened.store.db.read {
+            try String.fetchAll($0, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid")
+        }, [CurrentLibrarySchema.baselineIdentifier, CurrentLibrarySchema.dropLegacyTablesIdentifier])
+        XCTAssertFalse(try opened.store.db.read { try $0.tableExists("projects") })
         try opened.store.close()
         XCTAssertEqual(synchronized, [paths.currentDatabase, paths.directory,
                                       paths.directory.deletingLastPathComponent()].map(\.standardizedFileURL.path))

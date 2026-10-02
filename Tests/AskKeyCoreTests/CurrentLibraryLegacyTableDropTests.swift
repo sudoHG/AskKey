@@ -39,7 +39,7 @@ extension CurrentLibraryAdoptionTests {
         let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
         let keys = MemoryAppKeyStore()
         var observedCreation = false
-        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys) { creating in
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, beforeCreationRename: { creating in
             observedCreation = true
             XCTAssertFalse(FileManager.default.fileExists(atPath: paths.currentDatabase.path))
             try CurrentLibrarySnapshot.withCopy(of: creating) { snapshot in
@@ -53,7 +53,7 @@ extension CurrentLibraryAdoptionTests {
                     XCTAssertNoThrow(try VaultBootstrap.requireUnfinishedFirstCreation(db))
                 }
             }
-        }
+        })
         XCTAssertTrue(observedCreation)
         XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
         XCTAssertEqual(try existingLegacyTables(opened.store), [])
@@ -110,6 +110,62 @@ extension CurrentLibraryAdoptionTests {
         let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         try reopened.store.close()
         XCTAssertEqual(keys.mutations, 3, "the App-key reopen only calls deletePendingKey")
+    }
+
+    /// A library left at `[askkey-0001-baseline]` by the baseline-only code,
+    /// already holding an App key and authenticated credential rows, runs
+    /// askkey-0002 on open: the empty legacy tables are dropped and every
+    /// credential stays readable with the same App key.
+    func testBaselineLibraryWithAppKeyAndCredentialsRunsDropMigrationAndKeepsCredentials() throws {
+        let (paths, keys) = try unfinishedBaselineCreation()
+        let appKey = try XCTUnwrap(keys.pendingKey)
+        let source = try temporaryDirectory().appendingPathComponent("SYNTHETIC-source.db")
+        let sourceStore = try VaultStore(path: source.path)
+        let key = VaultCrypto.keyFromData(appKey)
+        sourceStore.bindCredentialAuthenticationKey(key)
+        let expected = ["SYNTHETIC-TOKEN-A": "synthetic-a", "SYNTHETIC-TOKEN-B": "synthetic-b"]
+        let sourceVault = Vault(store: sourceStore, key: key)
+        try sourceVault.beginManagementSession(using: .allow)
+        for (name, value) in expected.sorted(by: { $0.key < $1.key }) {
+            _ = try sourceVault.createTextCredential(
+                .init(name: name, value: value, permission: .allowed), using: .allow)
+        }
+        sourceVault.lock()
+        try sourceStore.close()
+        let baseline = try DatabaseQueue(path: paths.currentDatabase.path)
+        try baseline.writeWithoutTransaction { db in
+            try db.execute(sql: "ATTACH DATABASE ? AS source", arguments: [source.path])
+            try db.execute(sql: "INSERT INTO credentials SELECT * FROM source.credentials")
+            try db.execute(sql: "DETACH DATABASE source")
+        }
+        try baseline.close()
+        keys.appKey = appKey
+        keys.pendingKey = nil
+        let credentialRows = try allDataRows(paths.currentDatabase)["credentials"]
+        XCTAssertEqual(credentialRows?.count, 2)
+
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertEqual(VaultCrypto.keyToData(opened.key), appKey)
+        XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
+        XCTAssertEqual(try existingLegacyTables(opened.store), [])
+        XCTAssertEqual(try opened.store.db.read { try CurrentLibrarySchema.opening($0) }, .current)
+        let vault = Vault(store: opened.store, key: opened.key)
+        try vault.beginManagementSession(using: .allow)
+        let listed = try vault.listTextCredentials()
+        XCTAssertEqual(Set(listed.map(\.name)), Set(expected.keys))
+        for credential in listed {
+            XCTAssertEqual(try vault.revealTextCredential(id: credential.id, using: .allow).value,
+                           expected[credential.name])
+        }
+        vault.lock()
+        try opened.store.close()
+        XCTAssertEqual(try allDataRows(paths.currentDatabase)["credentials"], credentialRows)
+        XCTAssertEqual(keys.appKey, appKey)
+        XCTAssertNil(keys.pendingKey)
+
+        let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertEqual(try identifiers(reopened.store), Self.currentIdentifiers)
+        try reopened.store.close()
     }
 
     func testPendingKeyWithCredentialRowAtBaselineFailsWithoutChangingAnyFileOrKey() throws {
