@@ -6,30 +6,18 @@ import AskKeyBroker
 final class AuditProcessBoundaryTests: XCTestCase {
     func testHelperVerificationBoundsExitedParentPipeAndStopsItsDescendant() throws {
         let harness = try makeHelperProbe(body: """
-        import signal
-        import time
-        ready_r, ready_w = os.pipe()
-        child = os.fork()
-        if child == 0:
-            os.close(ready_r)
-            signal.alarm(4)
-            marker = os.path.join(os.path.dirname(__file__), "heartbeat")
-            with open(marker, "ab", buffering=0) as stream:
-                stream.write(b"x")
-                os.write(ready_w, b"r")
-                while True:
-                    time.sleep(0.01)
-                    stream.write(b"x")
-        os.close(ready_w)
-        os.read(ready_r, 1)
-        os._exit(0)
+        heartbeat &
+        wait_for_heartbeat
+        exit 0
         """)
         defer { harness.server.stop(); try? FileManager.default.removeItem(at: harness.root) }
         let started = ProcessInfo.processInfo.systemUptime
         XCTAssertEqual(harness.adapter.status(), .connected)
+        let elapsed = ProcessInfo.processInfo.systemUptime - started
         XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - started, 3)
+        print("Audit exited-parent helper elapsed=\(elapsed)s")
         let marker = harness.root.appendingPathComponent("heartbeat")
-        let first = try Data(contentsOf: marker)
+        let first = try waitForHeartbeat(at: marker)
         Thread.sleep(forTimeInterval: 0.15)
         XCTAssertEqual(try Data(contentsOf: marker), first,
             "A probe descendant must stop even when the direct helper has already exited")
@@ -37,35 +25,45 @@ final class AuditProcessBoundaryTests: XCTestCase {
 
     func testHelperTimeoutStopsTheWholeProbeGroup() throws {
         let harness = try makeHelperProbe(body: """
-        import signal
-        import time
-        signal.alarm(4)
-        if os.fork() == 0:
-            signal.alarm(4)
-            with open(os.path.join(os.path.dirname(__file__), "heartbeat"), "ab", buffering=0) as stream:
-                while True:
-                    stream.write(b"x")
-                    time.sleep(0.01)
-        time.sleep(4)
+        heartbeat &
+        wait_for_heartbeat
+        /bin/sleep 4
         """)
         defer { harness.server.stop(); try? FileManager.default.removeItem(at: harness.root) }
         let started = ProcessInfo.processInfo.systemUptime
         XCTAssertEqual(harness.adapter.status(), .notConnected)
+        let elapsed = ProcessInfo.processInfo.systemUptime - started
         XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - started, 3)
+        print("Audit timeout helper elapsed=\(elapsed)s")
         let marker = harness.root.appendingPathComponent("heartbeat")
-        let first = try Data(contentsOf: marker)
+        let first = try waitForHeartbeat(at: marker)
         Thread.sleep(forTimeInterval: 0.15)
         XCTAssertEqual(try Data(contentsOf: marker), first)
     }
 
     func testHelperVerificationBoundsLargeAndContinuousOutput() throws {
-        for body in ["os.write(1, b'x' * 2097152)", "while True: os.write(1, b'x' * 8192)"] {
+        let bodies = [
+            "block=0; while [ \"$block\" -lt 256 ]; do printf 'x%8191s' ''; block=$((block + 1)); done",
+            "while :; do printf 'x%8191s' ''; done"
+        ]
+        for (index, body) in bodies.enumerated() {
             let harness = try makeHelperProbe(body: body)
             defer { harness.server.stop(); try? FileManager.default.removeItem(at: harness.root) }
             let started = ProcessInfo.processInfo.systemUptime
             XCTAssertEqual(harness.adapter.status(), .notConnected)
+            let elapsed = ProcessInfo.processInfo.systemUptime - started
             XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - started, 3)
+            print("Audit output helper \(index) elapsed=\(elapsed)s")
         }
+    }
+
+    private func waitForHeartbeat(at marker: URL) throws -> Data {
+        let deadline = ProcessInfo.processInfo.systemUptime + 1
+        while ProcessInfo.processInfo.systemUptime < deadline {
+            if let data = try? Data(contentsOf: marker), !data.isEmpty { return data }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        throw CocoaError(.fileReadNoSuchFile)
     }
 
     private func makeHelperProbe(body: String) throws -> (root: URL, adapter: CodexUserMCPAdapter, server: BrokerSocketServer) {
@@ -75,15 +73,33 @@ final class AuditProcessBoundaryTests: XCTestCase {
             attributes: [.posixPermissions: 0o700])
         let helper = root.appendingPathComponent("synthetic-helper")
         let script = """
-        #!/usr/bin/python3 -I
-        import json
-        import os
-        import sys
-        sys.stdin.read()
-        print(json.dumps({"jsonrpc": "2.0", "id": 1, "result": {
-            "protocolVersion": "2024-11-05", "serverInfo": {"name": "askkey", "version": "0.1.0"}}}), flush=True)
-        print(json.dumps({"jsonrpc": "2.0", "id": 2, "result": {
-            "tools": [{"name": "list_credentials"}, {"name": "run"}]}}), flush=True)
+        #!/bin/sh
+        while IFS= read -r request; do :; done
+        printf '%s\\n' \\
+            '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"askkey","version":"0.1.0"}}}' \\
+            '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"list_credentials"},{"name":"run"}]}}'
+        marker="${0%/*}/heartbeat"
+        heartbeat() {
+            while :; do
+                printf x >> "$marker"
+                /bin/sleep 0.01
+            done
+        }
+        wait_for_heartbeat() {
+            attempt=0
+            while [ ! -s "$marker" ]; do
+                attempt=$((attempt + 1))
+                [ "$attempt" -lt 100 ] || exit 1
+                /bin/sleep 0.01
+            done
+        }
+        # RestrictedProcess gives this synthetic helper a private process group.
+        # Fail safely if that isolation regresses before using a group watchdog.
+        group=$(/bin/ps -o pgid= -p "$$")
+        while [ "${group# }" != "$group" ]; do group="${group# }"; done
+        [ "$group" = "$$" ] || exit 1
+        # Bound every descendant if the test caller abandons the probe.
+        (/bin/sleep 4; kill -TERM 0) &
         \(body)
         """
         try Data(script.utf8).write(to: helper)
@@ -109,7 +125,9 @@ final class AuditProcessBoundaryTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: stub.path)
         let started = ProcessInfo.processInfo.systemUptime
         _ = ProcessCodexMCPCommand.make(executable: stub).status()
+        let elapsed = ProcessInfo.processInfo.systemUptime - started
         XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - started, 3)
+        print("Audit continuous Codex output elapsed=\(elapsed)s")
     }
 
     func testCodexStatusDoesNotWaitForDescendantToCloseInheritedStdout() throws {
