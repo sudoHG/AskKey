@@ -34,9 +34,8 @@ jobs:
       - name: Check isolated development launcher
         run: bash scripts/test-dev-launch.sh
 
-      - name: Check offline release packaging
-        if: hashFiles('scripts/test-release-package.py') != ''
-        run: python3 scripts/test-release-package.py
+      - name: Check repository hygiene
+        run: python3 scripts/check_hygiene.py
 
   basic-ui-flows:
     if: github.event_name == 'workflow_dispatch'
