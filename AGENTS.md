@@ -14,7 +14,7 @@ The codebase is being re-imported from a private legacy repository and restructu
 
 - All work happens through GitHub Issues and pull requests. See [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md).
 - Structural tasks are **move-only**: no logic changes unless the issue explicitly asks for them. If you find a bug, open a new issue instead of fixing it in place.
-- iCloud backup and recovery are being removed from v0.1 (Phase 3). Do not extend them.
+- iCloud backup and recovery were removed from v0.1 in #18. A redesigned backup needs its own issue.
 - Supported agent clients are Codex, Cursor and Grok CLI. Multica support was removed in #17; do not reintroduce it.
 
 ## Roles
