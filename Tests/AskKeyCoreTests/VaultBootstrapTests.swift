@@ -364,7 +364,7 @@ final class VaultBootstrapTests: XCTestCase {
             XCTFail("recovery must not create a new library")
         }, beforeDurabilitySync: { synchronized.append($0.standardizedFileURL.path) })
         XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
-        XCTAssertEqual(try opened.store.fetchAllProjects().count, 1)
+        XCTAssertEqual(try opened.store.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM projects") }, 1)
         try opened.store.close()
         XCTAssertEqual(synchronized, [paths.currentDatabase, paths.directory,
                                       paths.directory.deletingLastPathComponent()].map(\.standardizedFileURL.path))
