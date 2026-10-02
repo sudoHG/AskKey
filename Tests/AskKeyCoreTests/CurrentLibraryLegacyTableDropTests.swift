@@ -72,7 +72,7 @@ extension CurrentLibraryAdoptionTests {
 
         let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         try reopened.store.close()
-        XCTAssertEqual(keys.mutations, 2)
+        XCTAssertEqual(keys.mutations, 3, "the App-key reopen only calls deletePendingKey")
     }
 
     func testPendingKeyWithCredentialRowAtBaselineFailsWithoutChangingAnyFileOrKey() throws {
@@ -117,7 +117,7 @@ extension CurrentLibraryAdoptionTests {
         try verifyManifest(store: opened.store, key: opened.key, directory: paths.directory, legacyRowsKept: true)
         try opened.store.close()
         XCTAssertEqual(try allDataRows(paths.currentDatabase), original)
-        XCTAssertEqual(keys.mutations, 0)
+        XCTAssertEqual(keys.mutations, 1, "only the best-effort deletePendingKey")
 
         let before = try directoryBytes(paths.directory)
         let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
@@ -125,7 +125,7 @@ extension CurrentLibraryAdoptionTests {
         try reopened.store.close()
         XCTAssertEqual(try directoryBytes(paths.directory), before)
         XCTAssertEqual(try allDataRows(paths.currentDatabase), original)
-        XCTAssertEqual(keys.mutations, 0)
+        XCTAssertEqual(keys.mutations, 2)
     }
 
     func insertAuthenticatedCredential(into paths: VaultBootstrapPaths, key pending: Data) throws {

@@ -284,13 +284,12 @@ public final class Vault {
         }
     }
 
-    // MARK: - Secret CRUD
+    // MARK: - Environment variable names
 
-    /// Secret names must be POSIX shell identifiers so they can never break out of
-    /// the `export NAME='…'` constructs the MCP handoff, `askkey shell`, and the
-    /// `.env` export emit (M5 — only the value was escaped there, not the name).
-    /// Enforced on creation, the single write chokepoint; `set` only updates an
-    /// already-validated name.
+    /// Credential environment-variable mappings must use POSIX shell identifiers,
+    /// so a mapped name is always a valid, unambiguous key in the environment a
+    /// credential is delivered into. `CredentialFieldValidation` applies this rule
+    /// to every credential and component mapping before it is stored.
     static let secretNamePattern = "^[A-Za-z_][A-Za-z0-9_]*$"
 
     static func validateSecretName(_ name: String) throws {

@@ -87,7 +87,104 @@ final class VaultBootstrapTests: XCTestCase {
         XCTAssertEqual(try directoryBytes(paths.directory), before)
         XCTAssertEqual(keys.appKey, pending)
         XCTAssertNil(keys.pendingKey)
-        XCTAssertEqual(keys.mutations, 2)
+        XCTAssertEqual(keys.mutations, 3, "the App-key reopen only calls deletePendingKey")
+    }
+
+    func testFailureBeforeCreationRenameLeavesNoCurrentDatabaseAndNextLaunchReusesPendingKey() throws {
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        try writePendingSiblings(paths)
+        let siblings = try directoryBytes(paths.directory)
+        let keys = MemoryAppKeyStore()
+        var observedCreation = false
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys) { creating in
+            observedCreation = true
+            XCTAssertEqual(creating, paths.creatingDatabase)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: creating.path))
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.currentDatabase.path))
+            throw InjectedCreationFailure()
+        }) { XCTAssertTrue($0 is InjectedCreationFailure) }
+        XCTAssertTrue(observedCreation)
+        XCTAssertEqual(try directoryBytes(paths.directory), siblings, "no current or creation file remains")
+        XCTAssertNil(keys.appKey)
+        let pending = try XCTUnwrap(keys.pendingKey)
+        XCTAssertEqual(pending.count, 32)
+        XCTAssertEqual(try VaultBootstrap.state(paths: paths), .fresh)
+
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
+        XCTAssertEqual(try opened.store.db.read {
+            try String.fetchAll($0, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid")
+        }, CurrentLibrarySchema.currentIdentifiers)
+        XCTAssertFalse(try opened.store.db.read { try $0.tableExists("projects") })
+        try opened.store.close()
+        XCTAssertEqual(keys.appKey, pending)
+        XCTAssertNil(keys.pendingKey)
+        let after = try directoryBytes(paths.directory)
+        XCTAssertEqual(Set(after.keys), Set(siblings.keys).union(["credentials-v2.db"]))
+        for (name, bytes) in siblings { XCTAssertEqual(after[name], bytes, name) }
+    }
+
+    func testCurrentDatabaseAppearingBeforeCreationRenameIsNeverReplaced() throws {
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        try writePendingSiblings(paths)
+        let siblings = try directoryBytes(paths.directory)
+        let marker = Data("SYNTHETIC-current-marker".utf8)
+        let keys = MemoryAppKeyStore()
+        var observedCreation = false
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys) { _ in
+            observedCreation = true
+            try marker.write(to: paths.currentDatabase)
+        }) { XCTAssertEqual($0 as? VaultBootstrapError, .invalidState) }
+        XCTAssertTrue(observedCreation)
+        XCTAssertEqual(try Data(contentsOf: paths.currentDatabase), marker)
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.creatingDatabase.path + suffix), suffix)
+        }
+        let after = try directoryBytes(paths.directory)
+        XCTAssertEqual(Set(after.keys), Set(siblings.keys).union(["credentials-v2.db"]))
+        for (name, bytes) in siblings { XCTAssertEqual(after[name], bytes, name) }
+        XCTAssertEqual(keys.pendingKey?.count, 32)
+        XCTAssertNil(keys.appKey)
+    }
+
+    func testCreationRemovesOnlyLeftoverCreationFiles() throws {
+        for pending in [nil, Data(repeating: 0x42, count: 32)] {
+            let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+            try writePendingSiblings(paths)
+            let siblings = try directoryBytes(paths.directory)
+            for suffix in ["", "-wal", "-shm", "-journal"] {
+                try Data("SYNTHETIC-leftover\(suffix)".utf8)
+                    .write(to: URL(fileURLWithPath: paths.creatingDatabase.path + suffix))
+            }
+            let keys = MemoryAppKeyStore()
+
+            // A fail-closed state leaves even creation leftovers untouched.
+            keys.pendingKey = Data(repeating: 0x42, count: 31)
+            let rejected = try directoryBytes(paths.directory)
+            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+                XCTAssertEqual($0 as? VaultBootstrapError, .invalidKey)
+            }
+            XCTAssertEqual(try directoryBytes(paths.directory), rejected)
+
+            keys.pendingKey = pending
+            let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+            if let pending { XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending) }
+            try opened.store.close()
+            XCTAssertEqual(keys.appKey?.count, 32)
+            XCTAssertNil(keys.pendingKey)
+            let after = try directoryBytes(paths.directory)
+            XCTAssertEqual(Set(after.keys), Set(siblings.keys).union(["credentials-v2.db"]))
+            for (name, bytes) in siblings { XCTAssertEqual(after[name], bytes, name) }
+        }
+    }
+
+    func testCreationTightensDirectoryAndDatabasePermissions() throws {
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: paths.directory.path)
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: MemoryAppKeyStore())
+        try opened.store.close()
+        XCTAssertEqual(try permissions(paths.directory), 0o700)
+        XCTAssertEqual(try permissions(paths.currentDatabase), 0o600)
     }
 
     func testFreshBootstrapRejectsMalformedPendingKeyWithoutChangingFilesOrKeys() throws {
@@ -187,6 +284,16 @@ final class VaultBootstrapTests: XCTestCase {
         XCTAssertThrowsError(try store.setConfigValue(key: "after_close", value: "blocked"))
     }
 
+    private struct InjectedCreationFailure: Error {}
+
+    private func writePendingSiblings(_ paths: VaultBootstrapPaths) throws {
+        try Data("SYNTHETIC-pending-shm".utf8)
+            .write(to: paths.directory.appendingPathComponent("credentials-v2.db.pending-shm"))
+        try Data("SYNTHETIC-pending-wal".utf8)
+            .write(to: paths.directory.appendingPathComponent("credentials-v2.db.pending-wal"))
+        try Data("SYNTHETIC-sibling".utf8).write(to: paths.directory.appendingPathComponent("vault.db"))
+    }
+
     private func temporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyBootstrap-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
@@ -232,4 +339,8 @@ func directoryBytes(_ directory: URL) throws -> [String: Data] {
         } else { result[name] = try Data(contentsOf: url) }
     }
     return result
+}
+
+func permissions(_ url: URL) throws -> Int? {
+    try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? Int
 }

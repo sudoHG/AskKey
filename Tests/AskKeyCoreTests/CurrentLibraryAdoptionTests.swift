@@ -39,14 +39,15 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         try opened.store.close()
         for table in CurrentLibrarySchema.legacyTables { XCTAssertNotNil(original.removeValue(forKey: table), table) }
         XCTAssertEqual(try allDataRows(paths.currentDatabase), original)
-        XCTAssertEqual(keys.mutations, 0)
+        XCTAssertEqual(keys.mutations, 1, "only the best-effort deletePendingKey")
         let before = try directoryBytes(paths.directory)
         let second = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         try second.store.close()
         let after = try directoryBytes(paths.directory)
         XCTAssertEqual(Set(after.keys), Set(before.keys))
         for name in before.keys { XCTAssertEqual(after[name], before[name], name) }
-        XCTAssertEqual(keys.mutations, 0)
+        XCTAssertEqual(keys.mutations, 2)
+        XCTAssertNil(keys.pendingKey)
     }
 
     func testAdoptionIgnoresHistoricalSiblingsAndPendingFiles() throws {
@@ -63,7 +64,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         try opened.store.close()
         let after = try directoryBytes(paths.directory)
         for name in siblings { XCTAssertEqual(after[name], before[name], name) }
-        XCTAssertEqual(keys.mutations, 0)
+        XCTAssertEqual(keys.mutations, 1, "only the best-effort deletePendingKey")
     }
 
     func testUnknownExtraIdentifierFailsWithoutChangingAnyFile() throws {
@@ -141,7 +142,90 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
                                                  environmentVariable: "SYNTHETIC_TOKEN", permission: .allowed),
                                            using: .deny)
         XCTAssertEqual(try vault.brokerCredentialCatalog(cancellation: .init()).count, 1)
-        XCTAssertEqual(keys.mutations, 2)
+        XCTAssertEqual(keys.mutations, 3, "the App-key reopen only calls deletePendingKey")
+    }
+
+    func testMalformedAppKeyWithPendingKeyAndUnfinishedDatabaseFailsClosed() throws {
+        let appKey = Data(repeating: 1, count: 31)
+        let (paths, keys) = try unfinishedFirstCreation()
+        keys.appKey = appKey
+        let pending = keys.pendingKey
+        try addHistoricalSiblings(paths)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: paths.directory.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: paths.currentDatabase.path)
+        let before = try directoryBytes(paths.directory)
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+            XCTAssertEqual($0 as? VaultBootstrapError, .invalidKey)
+        }
+        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertEqual(try permissions(paths.directory), 0o755)
+        XCTAssertEqual(try permissions(paths.currentDatabase), 0o644)
+        XCTAssertEqual(keys.appKey, appKey)
+        XCTAssertEqual(keys.pendingKey, pending)
+        XCTAssertEqual(keys.mutations, 0)
+    }
+
+    func testAppKeyOpensLibraryWithoutCredentialRowsAndLeavesDifferentPendingKey() throws {
+        let appKey = Data(repeating: 1, count: 32)
+        let (paths, keys) = try unfinishedFirstCreation()
+        keys.appKey = appKey
+        let pending = try XCTUnwrap(keys.pendingKey)
+        XCTAssertNotEqual(pending, appKey)
+        try addHistoricalSiblings(paths)
+        let before = try directoryBytes(paths.directory)
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertEqual(VaultCrypto.keyToData(opened.key), appKey)
+        try opened.store.close()
+        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        XCTAssertEqual(keys.appKey, appKey)
+        XCTAssertEqual(keys.pendingKey, pending)
+        XCTAssertEqual(keys.mutations, 0, "the different pending key is neither used nor deleted")
+    }
+
+    func testPromotedKeyWithLeftoverPendingDuplicateOpensUnfinishedDatabaseAndDeletesIt() throws {
+        let (paths, keys) = try unfinishedFirstCreation()
+        keys.appKey = keys.pendingKey
+        let key = keys.appKey
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        try opened.store.close()
+        XCTAssertEqual(keys.appKey, key)
+        XCTAssertNil(keys.pendingKey)
+        XCTAssertEqual(keys.mutations, 1)
+    }
+
+    func testStalePendingKeyIsDeletedAfterAuthenticatedAppKeyOpen() throws {
+        let (paths, keys) = try fixtureLibrary()
+        let appKey = keys.appKey
+        keys.pendingKey = Data(repeating: 9, count: 32)
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        try opened.store.close()
+        XCTAssertEqual(keys.appKey, appKey)
+        XCTAssertNil(keys.pendingKey)
+        XCTAssertEqual(keys.mutations, 1)
+    }
+
+    func testSuccessfulOpenTightensPermissionsAndFailedOpenLeavesThem() throws {
+        let (paths, keys) = try fixtureLibrary()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: paths.directory.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: paths.currentDatabase.path)
+        let appKey = keys.appKey
+        keys.appKey = Data(repeating: 1, count: 32)
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys))
+        XCTAssertEqual(try permissions(paths.directory), 0o755)
+        XCTAssertEqual(try permissions(paths.currentDatabase), 0o644)
+
+        keys.appKey = appKey
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        try opened.store.close()
+        let before = try directoryBytes(paths.directory)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: paths.directory.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: paths.currentDatabase.path)
+        let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        try reopened.store.close()
+        XCTAssertEqual(try permissions(paths.directory), 0o700)
+        XCTAssertEqual(try permissions(paths.currentDatabase), 0o600)
+        XCTAssertEqual(try directoryBytes(paths.directory), before, "tightening changes metadata only")
+        XCTAssertEqual(keys.mutations, 2, "one best-effort deletePendingKey per successful open")
     }
 
     func testPendingKeyWithCredentialRowFailsWithoutChangingAnyFileOrKey() throws {
