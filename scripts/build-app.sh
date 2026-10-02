@@ -26,7 +26,6 @@ if [ "$MODE" = Release ]; then
   [ "$ASKKEY_RELEASES_ENABLED" = true ] || exit 1
   : "${ASKKEY_CODESIGN_IDENTITY:?AskKey Developer ID is required}"
   : "${ASKKEY_APPLE_TEAM_ID:?AskKey Apple Team is required}"
-  : "${ASKKEY_SPARKLE_PUBLIC_KEY:?AskKey Sparkle key is required}"
   : "${ASKKEY_ICLOUD_CONTAINER_IDENTIFIER:?AskKey iCloud container is required}"
   [ "$ASKKEY_CODESIGN_IDENTITY" != - ] || exit 1
   scripts/icloud-capability-gate.sh identifier "$ASKKEY_ICLOUD_CONTAINER_IDENTIFIER"
@@ -111,11 +110,6 @@ if [ "$MODE" = Local ]; then
   /usr/libexec/PlistBuddy -c "Add :AskKeyLocalTesting bool true" "$APP/Contents/Info.plist"
 fi
 if [ "$MODE" = Release ]; then
-  /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $ASKKEY_SPARKLE_PUBLIC_KEY" "$APP/Contents/Info.plist"
-  /usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://raw.githubusercontent.com/sudoHG/AskKey/main/appcast.xml" "$APP/Contents/Info.plist"
-  /usr/libexec/PlistBuddy -c "Add :SUEnableAutomaticChecks bool false" "$APP/Contents/Info.plist"
-  /usr/libexec/PlistBuddy -c "Add :SUAutomaticallyUpdate bool false" "$APP/Contents/Info.plist"
-  /usr/libexec/PlistBuddy -c "Add :SUAllowsAutomaticUpdates bool false" "$APP/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Add :AskKeyICloudContainerIdentifier string $ASKKEY_ICLOUD_CONTAINER_IDENTIFIER" "$APP/Contents/Info.plist"
 fi
 if [ "$CONFIG" = Debug ]; then
@@ -123,24 +117,6 @@ if [ "$CONFIG" = Debug ]; then
 fi
 cp LICENSE "$APP/Contents/Resources/LICENSE"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
-
-# Embed Sparkle: the executable links @rpath/Sparkle.framework unconditionally,
-# so without it dyld fails and the app never launches (the updater itself stays
-# inert in dev builds). Mirrors the embed step in .github/workflows/release.yml.
-SPARKLE_FW="$(find "$PRODUCTS" -maxdepth 2 -name Sparkle.framework -type d 2>/dev/null | head -1)"
-if [ -z "$SPARKLE_FW" ]; then
-  SPARKLE_FW="$(find .build/artifacts -path '*macos-arm64_x86_64/Sparkle.framework' -type d 2>/dev/null | head -1)"
-fi
-if [ -z "$SPARKLE_FW" ]; then
-  echo "Sparkle.framework not found" >&2
-  exit 1
-fi
-mkdir -p "$APP/Contents/Frameworks"
-ditto "$SPARKLE_FW" "$APP/Contents/Frameworks/Sparkle.framework"
-# The executable's LC_RPATH points at build dirs, so add the bundle's Frameworks
-# dir. Must run before codesign — it invalidates the signature.
-install_name_tool -add_rpath "@executable_path/../Frameworks" \
-  "$APP/Contents/MacOS/AskKeyApp" 2>/dev/null || true
 
 echo "==> Signing with $SIGN_IDENTITY …"
 SIGN_OPTIONS=(--force)

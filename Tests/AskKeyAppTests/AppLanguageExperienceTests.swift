@@ -565,7 +565,6 @@ final class AppLanguageExperienceTests: XCTestCase {
         let screenshot = try renderPNG(
             SettingsView()
                 .environment(viewModel)
-                .environment(SoftwareUpdater())
                 .environment(\.locale, viewModel.appLocale),
             size: CGSize(width: 1180, height: 720)
         )
@@ -832,7 +831,6 @@ final class AppLanguageExperienceTests: XCTestCase {
 
         let directory = screenshotDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let updater = SoftwareUpdater()
 
         viewModel.languageMode = "en"
         let englishOnboarding = try renderPNG(
@@ -844,7 +842,6 @@ final class AppLanguageExperienceTests: XCTestCase {
         let englishSettings = try renderPNG(
             FrozenSettingsPage()
                 .environment(viewModel)
-                .environment(updater)
                 .environment(\.locale, viewModel.appLocale),
             size: CGSize(width: 776, height: 620)
         )
@@ -859,7 +856,6 @@ final class AppLanguageExperienceTests: XCTestCase {
         let chineseSettings = try renderPNG(
             FrozenSettingsPage()
                 .environment(viewModel)
-                .environment(updater)
                 .environment(\.locale, viewModel.appLocale),
             size: CGSize(width: 776, height: 620)
         )

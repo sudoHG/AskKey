@@ -1,4 +1,4 @@
-.PHONY: run build test install release
+.PHONY: run build test install
 
 run:
 	scripts/build-app.sh Debug
@@ -19,6 +19,3 @@ install:
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable AskKeyDevLauncher" "$(HOME)/Applications/Ask Key Dev.app/Contents/Info.plist"
 	codesign --force --deep --sign - "$(HOME)/Applications/Ask Key Dev.app"
 	codesign --verify --strict --deep "$(HOME)/Applications/Ask Key Dev.app"
-
-release:
-	@scripts/release.sh $(TAG)

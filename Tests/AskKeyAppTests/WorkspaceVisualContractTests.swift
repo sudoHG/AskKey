@@ -264,11 +264,6 @@ final class WorkspaceVisualContractTests: XCTestCase {
         AppLanguage.current = "zh-Hans"
         XCTAssertEqual(FrozenSettingsContract.iCloudActions, ["立即备份", "查看恢复密钥…", "从备份恢复…"])
         XCTAssertEqual(FrozenSettingsContract.emptyLibraryAction, "新建第一份凭证")
-        XCTAssertEqual(FrozenSettingsContract.softwareUpdateAction, "检查更新")
-        XCTAssertEqual(
-            FrozenSettingsContract.softwareUpdateSubtitle(appVersion: "1.2.3"),
-            "当前版本 1.2.3 · 检查后确认再下载和安装。"
-        )
         XCTAssertEqual(FrozenSettingsContract.restoreConfirmationAction, "验证并恢复")
         XCTAssertEqual(FrozenSettingsContract.eraseICloudOption, "同时删除 iCloud 备份")
         XCTAssertEqual(
@@ -823,7 +818,7 @@ final class WorkspaceVisualContractTests: XCTestCase {
             callerName: "Cursor", callerPurpose: "更新服务器地址"
         )
 
-        try render(SettingsView().environment(empty).environment(SoftwareUpdater()), as: "01-welcome", in: directory)
+        try render(SettingsView().environment(empty), as: "01-welcome", in: directory)
         try render(
             FirstRunOnboardingView(
                 onCreateCredential: {},
@@ -837,7 +832,7 @@ final class WorkspaceVisualContractTests: XCTestCase {
         locked.isLocked = true
         locked.onboardingCredentialCount = 2
         locked.pendingApprovalCount = 2
-        try render(SettingsView().environment(locked).environment(SoftwareUpdater()), as: "02-locked", in: directory)
+        try render(SettingsView().environment(locked), as: "02-locked", in: directory)
         try render(manager(empty), as: "03-library-empty", in: directory)
         try render(manager(populated), as: "04-library-list", in: directory)
         try render(manager(populated, section: .ungrouped), as: "05-ungrouped", in: directory)

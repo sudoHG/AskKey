@@ -14,7 +14,6 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0"),
         .package(url: "https://github.com/P-H-C/phc-winner-argon2.git", revision: "f57e61e19229e23c4445b85494dbf7c07de721cb"),
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
     ],
     targets: [
         .target(
@@ -49,7 +48,6 @@ let package = Package(
             dependencies: [
                 "AskKeyBroker",
                 "AskKeyCore",
-                .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/AskKeyApp",
             resources: [
