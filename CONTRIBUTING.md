@@ -45,7 +45,7 @@ Process records never belong in the repository: logs, screenshots, result bundle
 
 ## Pull requests
 
-Use the [pull request template](.github/PULL_REQUEST_TEMPLATE.md). Link the task issue and fill every section, using "None" where appropriate:
+Use the [pull request template](.github/pull_request_template.md). Link the task issue and fill every section, using "None" where appropriate:
 
 - Summary of the problem and resulting behavior.
 - Diff stat and the paths changed.
