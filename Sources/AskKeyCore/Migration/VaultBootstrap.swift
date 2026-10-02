@@ -55,11 +55,14 @@ enum VaultBootstrap {
     /// Implements the opening decision table of #31. Every rejected state
     /// leaves every file and key-store value unchanged.
     ///
-    /// `beforeCreationRename` runs after a new library is complete at
-    /// `credentials-v2.db.creating` and before it is renamed into place.
+    /// Test seams: `beforeCreationRename` runs after a new library is
+    /// complete at `credentials-v2.db.creating` and before it is renamed into
+    /// place; `beforeDurabilitySync` runs before each file or directory is
+    /// synchronized ahead of pending-key promotion.
     static func openCurrent(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore,
-        beforeCreationRename: (URL) throws -> Void = { _ in }
+        beforeCreationRename: (URL) throws -> Void = { _ in },
+        beforeDurabilitySync: (URL) throws -> Void = { _ in }
     ) throws -> (store: VaultStore, key: SymmetricKey) {
         let state = try state(paths: paths)
         if let data = try loadKey(keyStore.loadAppKey, missing: .missingAppKey) {
@@ -91,10 +94,11 @@ enum VaultBootstrap {
             // A pending key without any current file is an interrupted first
             // creation before the database existed: resume with that key.
             return try createNewLibrary(paths: paths, keyStore: keyStore, pendingKey: pending.map(validatedKey),
-                                        beforeRename: beforeCreationRename)
+                                        beforeRename: beforeCreationRename, beforeSync: beforeDurabilitySync)
         case .current:
             guard let pending else { throw VaultBootstrapError.missingKey }
-            return try resumeUnfinishedFirstCreation(paths: paths, keyStore: keyStore, key: validatedKey(pending))
+            return try resumeUnfinishedFirstCreation(paths: paths, keyStore: keyStore, key: validatedKey(pending),
+                                                     beforeSync: beforeDurabilitySync)
         }
     }
 
@@ -127,8 +131,9 @@ enum VaultBootstrap {
     /// between is the unfinished first creation of rule 6.
     private static func createNewLibrary(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore, pendingKey: SymmetricKey?,
-        beforeRename: (URL) throws -> Void
+        beforeRename: (URL) throws -> Void, beforeSync: (URL) throws -> Void
     ) throws -> (store: VaultStore, key: SymmetricKey) {
+        let createdLevels = missingDirectoryLevels(paths.directory)
         try FileManager.default.createDirectory(at: paths.directory, withIntermediateDirectories: true,
                                                attributes: [.posixPermissions: 0o700])
         try removeCreationFiles(paths: paths)
@@ -162,21 +167,73 @@ enum VaultBootstrap {
             try? removeCreationFiles(paths: paths)
             throw error
         }
-        // The rename must be durable before the pending key is promoted. On
-        // failure the complete library and the pending key stay, and rule 6
-        // recovers them on the next launch.
-        try synchronize(paths.directory)
         let store = try VaultStore(path: paths.currentDatabase.path)
         do {
             store.bindCredentialAuthenticationKey(key)
             try tightenPermissions(paths: paths)
-            try keyStore.promotePendingKey()
-            try keyStore.deletePendingKey()
+            try makeDurableAndPromote(paths: paths, keyStore: keyStore, createdLevels: createdLevels,
+                                      beforeSync: beforeSync)
             return (store, key)
         } catch {
             try? store.close()
             throw error
         }
+    }
+
+    /// The single step that turns a pending key into the App key, shared by
+    /// first creation and rule 6 recovery. `credentials-v2.db`, the data
+    /// directory and the directories holding its entry chain are synchronized
+    /// with F_FULLFSYNC first; any failure throws before promotion, leaving
+    /// the complete library and the pending key for rule 6 on the next launch.
+    /// The App key therefore never exists before its library is durable.
+    ///
+    /// The parent of the data directory is always synchronized, because the
+    /// recovery path cannot know whether the interrupted creation created the
+    /// data directory. `createdLevels` (directories created by this call)
+    /// extends the chain to the parent of the topmost created directory.
+    /// Recovery thus covers an interrupted creation that created at most the
+    /// data directory itself, which is the release layout (`Application
+    /// Support` always exists). It does not resynchronize the parents of
+    /// intermediate directories that an interrupted creation also created,
+    /// such as `AskKey` above the development directory `AskKey/dev`.
+    private static func makeDurableAndPromote(
+        paths: VaultBootstrapPaths, keyStore: AppKeyStore, createdLevels: Int,
+        beforeSync: (URL) throws -> Void
+    ) throws {
+        for url in durableEntryChain(paths: paths, createdLevels: createdLevels) {
+            try beforeSync(url)
+            try synchronize(url)
+        }
+        try keyStore.promotePendingKey()
+        try keyStore.deletePendingKey()
+    }
+
+    /// `credentials-v2.db`, the data directory, and `max(1, createdLevels)`
+    /// of its ancestors, innermost first.
+    private static func durableEntryChain(paths: VaultBootstrapPaths, createdLevels: Int) -> [URL] {
+        var chain = [paths.currentDatabase, paths.directory]
+        var directory = paths.directory
+        for _ in 0..<max(1, createdLevels) {
+            let parent = directory.deletingLastPathComponent()
+            guard parent.path != directory.path else { break }
+            chain.append(parent)
+            directory = parent
+        }
+        return chain
+    }
+
+    /// Number of path levels, from `directory` upward, that do not exist yet.
+    private static func missingDirectoryLevels(_ directory: URL) -> Int {
+        var levels = 0
+        var url = directory
+        var status = stat()
+        while url.path.withCString({ lstat($0, &status) }) != 0, errno == ENOENT {
+            levels += 1
+            let parent = url.deletingLastPathComponent()
+            guard parent.path != url.path else { break }
+            url = parent
+        }
+        return levels
     }
 
     /// Removes only `credentials-v2.db.creating` and its SQLite sidecars.
@@ -215,7 +272,8 @@ enum VaultBootstrap {
     /// pending key is promoted only when the database is still exactly what
     /// `createNewLibrary` writes; there are no encrypted rows to authenticate.
     private static func resumeUnfinishedFirstCreation(
-        paths: VaultBootstrapPaths, keyStore: AppKeyStore, key: SymmetricKey
+        paths: VaultBootstrapPaths, keyStore: AppKeyStore, key: SymmetricKey,
+        beforeSync: (URL) throws -> Void
     ) throws -> (store: VaultStore, key: SymmetricKey) {
         try CurrentLibrarySnapshot.withCopy(of: paths.currentDatabase) { snapshot in
             let database = try DatabaseQueue(path: snapshot.path)
@@ -227,8 +285,9 @@ enum VaultBootstrap {
         do {
             store.bindCredentialAuthenticationKey(key)
             try tightenPermissions(paths: paths)
-            try keyStore.promotePendingKey()
-            try keyStore.deletePendingKey()
+            // The interrupted creation may have crashed before its rename was
+            // durable, so recovery repeats the full durability step.
+            try makeDurableAndPromote(paths: paths, keyStore: keyStore, createdLevels: 0, beforeSync: beforeSync)
             return (store, key)
         } catch {
             try? store.close()
