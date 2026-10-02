@@ -12,18 +12,22 @@ The project started as a fork of [Lokalite](https://github.com/RubenGlez/lokalit
 
 The codebase is being re-imported from a private legacy repository and restructured. Tracking issue: the pinned "Normalization roadmap" issue. Until that issue is closed:
 
-- All work happens through GitHub Issues and pull requests. See [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md).
+- All work happens through GitHub Issues and pull requests.
 - Structural tasks are **move-only**: no logic changes unless the issue explicitly asks for them. If you find a bug, open a new issue instead of fixing it in place.
 - iCloud backup and recovery were removed from v0.1 in #18. A redesigned backup needs its own issue.
 - Supported agent clients are Codex, Cursor and Grok CLI. Multica support was removed in #17; do not reintroduce it.
 
-## Roles
+## Maintainer's agent workflow
+
+This section applies only to agents run by the maintainer. If you are an outside contributor or an agent working for one: use your own Git identity, ignore the roles below, and follow [CONTRIBUTING.md](CONTRIBUTING.md). Everything else in this file applies to everyone.
+
+The maintainer's agents follow [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md); the planner also follows [docs/agents/planner.md](docs/agents/planner.md).
 
 | Role | Does | Does not |
 |---|---|---|
-| Planner (Claude) | Writes task issues, reviews PRs, merges, advances phases | Large implementation work |
+| Planner (Claude) | Writes task issues, reviews PRs, recommends merges, advances phases | Large implementation work; merging or pushing `main` without the maintainer's approval |
 | Executor (Codex) | Claims `ready-for-agent` issues, implements in a dedicated worktree, opens PRs with a receipt, addresses review comments | Merge PRs, push to `main`, change repository settings |
-| Maintainer | Makes decisions, completes `ready-for-human` issues, starts executor sessions | — |
+| Maintainer | Makes decisions, approves each merge and each push to `main`, completes `ready-for-human` issues, starts executor sessions | — |
 
 ## Safety boundaries (all agents)
 
@@ -33,7 +37,7 @@ Never, unless an issue labeled `ready-for-human` is being done by the maintainer
 - Touch `/Applications/Ask Key.app`, or install anything into `/Applications`.
 - Read or write the production keychain service `com.sudohg.askkey.vault`. Development builds use `com.sudohg.askkey.vault.dev`.
 - Use real credentials in tests. Use synthetic values only.
-- Merge PRs, push or force-push `main`, delete branches you did not create, or change repository settings, labels or protection rules.
+- Merge PRs, push or force-push `main`, delete branches or data you did not create, or change repository settings, visibility, label definitions or protection rules. Only the maintainer decides merges; an agent may merge or push `main` only after the maintainer explicitly approves that specific action.
 - Push to or modify the archived repository `sudoHG/AskKey-legacy`. Reading it locally as a reference is fine.
 
 ## Product identifiers (do not change)
@@ -44,7 +48,7 @@ Releases are disabled. Do not add signing, notarization, Sparkle or Homebrew rel
 
 ## Repository hygiene
 
-- **No process records in the repo.** Logs, screenshots, xcresult bundles, audit notes and progress journals go to `~/Coding/AskKey-workspace/evidence/<issue-number>/`. Progress is reported in the PR description.
+- **No process records, and no evidence directories.** Keep logs, screenshots and xcresult bundles only until their results are read, then delete them. The PR description carries the evidence: commands, counts, SHAs and CI links.
 - No absolute local paths (`/Users/...`, `/private/var/...`) in committed files. Use `FileManager` temporary directories in tests.
 - File and directory names are English.
 - Code, comments, docs and ADRs are written in English. User-facing UI strings live in `Localizable.xcstrings` (English and Simplified Chinese).
@@ -69,5 +73,6 @@ Run the development app only when an issue needs it; it uses the isolated `AskKe
 
 ## Where to read next
 
-- [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md): claiming, receipts, review
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute
+- [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md): the maintainer's agent workflow (claiming, receipts, review)
 - [docs/agents/triage-labels.md](docs/agents/triage-labels.md): label meanings
