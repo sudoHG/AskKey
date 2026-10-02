@@ -14,6 +14,7 @@ The codebase is being re-imported from a private legacy repository and restructu
 
 - All work happens through GitHub Issues and pull requests. See [docs/agents/issue-workflow.md](docs/agents/issue-workflow.md).
 - Structural tasks are **move-only**: no logic changes unless the issue explicitly asks for them. If you find a bug, open a new issue instead of fixing it in place.
+- iCloud backup and recovery are being removed from v0.1 (Phase 3). Do not extend them.
 - Supported agent clients are Codex, Cursor and Grok CLI. Multica support is being removed: the legacy Multica code arrives with the clean import (#6) and is deleted in Phase 3. Until then, keep it unchanged and do not add new Multica code.
 
 ## Roles
@@ -37,7 +38,7 @@ Never, unless an issue labeled `ready-for-human` is being done by the maintainer
 
 ## Product identifiers (do not change)
 
-Bundle ID `com.sudohg.askkey.app`, keychain service `com.sudohg.askkey.vault`, data directory `AskKey`, command `askkey`, MCP server name `askkey`, URL scheme `askkey://`, broker protocol version, iCloud backup snapshot format. Official install path is `/Applications/Ask Key.app` with the helper at `Contents/Helpers/askkey`.
+Bundle ID `com.sudohg.askkey.app`, keychain service `com.sudohg.askkey.vault`, data directory `AskKey`, command `askkey`, MCP server name `askkey`, URL scheme `askkey://`, broker protocol version. Official install path is `/Applications/Ask Key.app` with the helper at `Contents/Helpers/askkey`.
 
 Releases are disabled. Do not add signing, notarization, Sparkle or Homebrew release configuration unless an issue asks for it. Never reuse Lokalite's signing team, Sparkle keys or release entries.
 
