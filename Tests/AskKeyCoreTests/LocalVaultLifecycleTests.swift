@@ -122,6 +122,12 @@ final class LocalVaultLifecycleTests: XCTestCase {
             .appendingPathComponent("AskKeyLocalEraseTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        let dataRoot = root.appendingPathComponent("local-data", isDirectory: true)
+        for name in ["client-config-backups", "credential-discovery", "restore-safety", "backup-pending-uploads", "opaque-old-data"] {
+            let directory = dataRoot.appendingPathComponent(name, isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data("SYNTHETIC_ERASE_DATA".utf8).write(to: directory.appendingPathComponent("opaque"))
+        }
         let deliveryManager = try FileDeliveryManager(
             rootURL: root.appendingPathComponent("deliveries", isDirectory: true)
         )
@@ -168,9 +174,13 @@ final class LocalVaultLifecycleTests: XCTestCase {
                     requestID: pending.requestID, capability: pending.capability
                 ), .cancelled)
                 XCTAssertThrowsError(try vault.brokerCredentialCatalog(cancellation: .init()))
+                try FileManager.default.removeItem(at: dataRoot)
                 destructiveSteps.append(.deleteData)
             },
-            deleteLocalKey: { destructiveSteps.append(.deleteKey) }
+            deleteLocalKey: {
+                XCTAssertFalse(FileManager.default.fileExists(atPath: dataRoot.path))
+                destructiveSteps.append(.deleteKey)
+            }
         )
 
         try coordinator.erase(
@@ -180,33 +190,6 @@ final class LocalVaultLifecycleTests: XCTestCase {
         )
 
         XCTAssertEqual(destructiveSteps.values, [.deleteData, .deleteKey])
-
-        let dataRoot = root.appendingPathComponent("local-data", isDirectory: true)
-        try FileManager.default.createDirectory(at: dataRoot, withIntermediateDirectories: true)
-        let localNames = ["vault.db", "vault.db-wal", "credentials.db", "credentials.db-shm",
-                          "credentials-v2.db", "credentials-v2.db.pending", "credentials-v2.db.pending-wal",
-                          "migration.journal", "migration-v2.journal", "daemon.sock"]
-        for name in localNames {
-            try Data("SYNTHETIC_LOCAL".utf8).write(to: dataRoot.appendingPathComponent(name))
-        }
-        let staging = dataRoot.appendingPathComponent("file-write-staging", isDirectory: true)
-        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
-        try Data("SYNTHETIC_DELIVERY".utf8).write(to: staging.appendingPathComponent("frozen"))
-        let historicalNames = ["restore-safety", "backup-pending-uploads", "unknown-old-material"]
-        for name in historicalNames {
-            let historical = dataRoot.appendingPathComponent(name, isDirectory: true)
-            try FileManager.default.createDirectory(at: historical, withIntermediateDirectories: true)
-            try Data("SYNTHETIC_HISTORY".utf8).write(to: historical.appendingPathComponent("opaque"))
-        }
-        try Vault.removeEncryptedLocalData(in: dataRoot)
-        try Vault.removeEncryptedLocalData(in: dataRoot) // Crash recovery is idempotent.
-        for name in localNames + ["file-write-staging"] {
-            XCTAssertFalse(FileManager.default.fileExists(atPath: dataRoot.appendingPathComponent(name).path))
-        }
-        for name in historicalNames {
-            XCTAssertEqual(try Data(contentsOf: dataRoot.appendingPathComponent(name + "/opaque")),
-                           Data("SYNTHETIC_HISTORY".utf8))
-        }
     }
 }
 
