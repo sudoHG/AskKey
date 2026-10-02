@@ -51,8 +51,10 @@ final class AgentAccessTests: XCTestCase {
 
     func testDeniedAndExpiredRuntimeApprovalsFailWithoutResolvingCredentials() throws {
         for (decision, requestTTL) in [(BrokerApprovalDecision?.some(.deny), 300.0), (nil, 0.02)] {
+            let clock = AgentApprovalTestClock(Date())
             let approvals = BrokerApprovalStateMachine(
                 requestTTL: requestTTL,
+                clock: { clock.now },
                 authenticate: { _ in true }
             )
             let harness = try makeHarness(approvalRequests: approvals)
@@ -77,7 +79,7 @@ final class AgentAccessTests: XCTestCase {
                     decision: decision
                 )
             } else {
-                usleep(50_000)
+                clock.now = clock.now.addingTimeInterval(requestTTL)
             }
             XCTAssertThrowsError(
                 try harness.vault.brokerTextCredentials(for: request, cancellation: .init())
@@ -149,13 +151,16 @@ final class AgentAccessTests: XCTestCase {
     func testCredentialExpiryBetweenResolutionAndSpawnPreventsDelivery() throws {
         let harness = try makeHarness()
         try harness.vault.beginManagementSession(using: .allow)
+        // Persisted expiries use whole seconds; keep a full setup second.
+        let nextWholeSecond = Date().timeIntervalSince1970.rounded(.up)
+        let expiresAt = Date(timeIntervalSince1970: nextWholeSecond).addingTimeInterval(1)
         _ = try harness.vault.createTextCredential(
             .init(
                 name: "TOKEN",
                 value: "old",
                 environmentVariable: "TOKEN",
                 permission: .allowed,
-                expiresAt: Date().addingTimeInterval(1)
+                expiresAt: expiresAt
             ),
             using: .allow
         )
@@ -165,13 +170,22 @@ final class AgentAccessTests: XCTestCase {
             resolveCredentials: { request, cancellation in
                 try vaultBox.vault.brokerTextCredentials(for: request, cancellation: cancellation)
             },
-            beforeSystemSpawn: { usleep(1_100_000) }
+            beforeSystemSpawn: {
+                let deadline = ProcessInfo.processInfo.systemUptime + 2
+                while Date() < expiresAt,
+                      ProcessInfo.processInfo.systemUptime < deadline {
+                    Thread.sleep(forTimeInterval: 0.01)
+                }
+            }
         )
 
         XCTAssertThrowsError(try runtime.run(.init(
             command: ["/bin/sh", "-c", "printf spawned > '\(marker.path)'"],
             credentialNames: ["TOKEN"]
         ))) { error in
+            if !(error is BrokerProviderError) {
+                print("Unexpected expiry spawn-boundary error: \(error)")
+            }
             XCTAssertEqual(error as? BrokerProviderError, .requestRejected)
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
