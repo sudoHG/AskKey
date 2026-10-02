@@ -71,3 +71,23 @@ The PR template contains these sections. Fill all of them; write "None" when a s
 ## Maintainer tasks
 
 Issues labeled `ready-for-human` involve real data, the installed app, signing identities or account settings. Agents must not do them, even if they appear claimable.
+
+## Removal tasks
+
+Phase 3 issues remove whole capabilities. Unless the issue says otherwise:
+
+1. **Authority**: remove exactly what the **Remove** rows of [docs/features.md](../features.md) list for the issue's area. Every **Keep** behavior must survive.
+2. **Tests**: delete a test only if it exercises removed behavior exclusively. If a test mixes removed and kept behavior, delete only the removed assertions or setup. List every deleted test and every edited test in the receipt.
+3. **No collateral changes**: no refactoring, renaming, moving or reformatting beyond what the removal requires.
+4. **Strings**: remove `Localizable.xcstrings` entries that become unused (`scripts/sync-string-catalog.py` if it supports this; otherwise by hand, listed in the receipt).
+5. **Hygiene baseline**: regenerate with `python3 scripts/check_hygiene.py --write-baseline`. The baseline diff may only delete lines.
+6. **Standard acceptance** (in addition to the issue's own):
+   ```bash
+   swift build
+   swift test                                   # 0 failed; skips are a subset of the 5 baseline skips
+   swift test list | sort > /tmp/after.txt      # diff against origin/main shows only deletions,
+                                                # all inside test classes named in the receipt
+   python3 -m unittest discover -s Tests/Automation -v
+   python3 scripts/check_hygiene.py
+   bash scripts/run-e2e.sh                      # all remaining required flows pass, 0 skipped
+   ```
