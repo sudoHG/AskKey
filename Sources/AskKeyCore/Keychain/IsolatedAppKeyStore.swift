@@ -1,3 +1,4 @@
+#if DEBUG
 import CryptoKit
 import Darwin
 import Foundation
@@ -96,3 +97,4 @@ final class IsolatedAppKeyStore: AppKeyStore {
         }
     }
 }
+#endif

@@ -1,4 +1,5 @@
 import CryptoKit
+import Darwin
 import Foundation
 import GRDB
 
@@ -36,6 +37,8 @@ public enum VaultBootstrapError: Error, Equatable, LocalizedError {
 struct VaultBootstrapPaths {
     let directory: URL
     var currentDatabase: URL { directory.appendingPathComponent("credentials-v2.db") }
+    /// Owned by first creation only; never part of the opening decision.
+    var creatingDatabase: URL { directory.appendingPathComponent("credentials-v2.db.creating") }
 }
 
 enum VaultBootstrap {
@@ -51,8 +54,12 @@ enum VaultBootstrap {
 
     /// Implements the opening decision table of #31. Every rejected state
     /// leaves every file and key-store value unchanged.
+    ///
+    /// `beforeCreationRename` runs after a new library is complete at
+    /// `credentials-v2.db.creating` and before it is renamed into place.
     static func openCurrent(
-        paths: VaultBootstrapPaths, keyStore: AppKeyStore
+        paths: VaultBootstrapPaths, keyStore: AppKeyStore,
+        beforeCreationRename: (URL) throws -> Void = { _ in }
     ) throws -> (store: VaultStore, key: SymmetricKey) {
         let state = try state(paths: paths)
         if let data = try loadKey(keyStore.loadAppKey, missing: .missingAppKey) {
@@ -60,9 +67,25 @@ enum VaultBootstrap {
             // never replaced when its database is missing.
             guard state == .current else { throw VaultBootstrapError.missingDatabase }
             let key = try validatedKey(data)
-            try validateCurrentLibrary(paths: paths, key: key)
+            let authenticated = try validateCurrentLibrary(paths: paths, key: key)
+            if authenticated == 0,
+               let pending = try loadKey(keyStore.loadPendingKey, missing: .missingPendingKey),
+               pending != data {
+                // Without credential rows the App key cannot be authenticated,
+                // so a different pending key leaves it unclear which key owns
+                // the library. Keep both and fail closed.
+                throw VaultBootstrapError.invalidKey
+            }
             let store = try VaultStore(path: paths.currentDatabase.path, authenticationKey: key)
-            store.bindCredentialAuthenticationKey(key)
+            do {
+                store.bindCredentialAuthenticationKey(key)
+                try tightenPermissions(paths: paths)
+            } catch {
+                try? store.close()
+                throw error
+            }
+            // A crash between promotion and deletion leaves this duplicate.
+            try? keyStore.deletePendingKey()
             return (store, key)
         }
         let pending = try loadKey(keyStore.loadPendingKey, missing: .missingPendingKey)
@@ -70,7 +93,8 @@ enum VaultBootstrap {
         case .fresh:
             // A pending key without any current file is an interrupted first
             // creation before the database existed: resume with that key.
-            return try createNewLibrary(paths: paths, keyStore: keyStore, pendingKey: pending.map(validatedKey))
+            return try createNewLibrary(paths: paths, keyStore: keyStore, pendingKey: pending.map(validatedKey),
+                                        beforeRename: beforeCreationRename)
         case .current:
             guard let pending else { throw VaultBootstrapError.missingKey }
             return try resumeUnfinishedFirstCreation(paths: paths, keyStore: keyStore, key: validatedKey(pending))
@@ -87,9 +111,17 @@ enum VaultBootstrap {
         return VaultCrypto.keyFromData(data)
     }
 
+    /// Builds the library at `credentials-v2.db.creating` and renames it into
+    /// place only when complete, so the current path holds either nothing or a
+    /// complete baseline library. The pending key is promoted after the rename;
+    /// a crash in between is the unfinished first creation of rule 6.
     private static func createNewLibrary(
-        paths: VaultBootstrapPaths, keyStore: AppKeyStore, pendingKey: SymmetricKey?
+        paths: VaultBootstrapPaths, keyStore: AppKeyStore, pendingKey: SymmetricKey?,
+        beforeRename: (URL) throws -> Void
     ) throws -> (store: VaultStore, key: SymmetricKey) {
+        try FileManager.default.createDirectory(at: paths.directory, withIntermediateDirectories: true,
+                                               attributes: [.posixPermissions: 0o700])
+        try removeCreationFiles(paths: paths)
         let key: SymmetricKey
         if let pendingKey {
             key = pendingKey
@@ -97,14 +129,32 @@ enum VaultBootstrap {
             key = VaultCrypto.generateKey()
             try keyStore.savePendingKey(VaultCrypto.keyToData(key))
         }
-        try FileManager.default.createDirectory(at: paths.directory, withIntermediateDirectories: true,
-                                               attributes: [.posixPermissions: 0o700])
+        do {
+            let creating = try VaultStore(path: paths.creatingDatabase.path)
+            do {
+                try creating.db.writeWithoutTransaction { try $0.execute(sql: "PRAGMA wal_checkpoint(TRUNCATE)") }
+                try beforeRename(paths.creatingDatabase)
+                try creating.close()
+            } catch {
+                try? creating.close()
+                throw error
+            }
+            try FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                                 ofItemAtPath: paths.creatingDatabase.path)
+            try synchronize(paths.creatingDatabase)
+            // RENAME_EXCL: never replace a current database that appeared.
+            guard renamex_np(paths.creatingDatabase.path, paths.currentDatabase.path, UInt32(RENAME_EXCL)) == 0 else {
+                throw VaultBootstrapError.invalidState
+            }
+        } catch {
+            try? removeCreationFiles(paths: paths)
+            throw error
+        }
+        try? synchronize(paths.directory)
         let store = try VaultStore(path: paths.currentDatabase.path)
         do {
             store.bindCredentialAuthenticationKey(key)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600],
-                                                 ofItemAtPath: paths.currentDatabase.path)
-            try store.db.writeWithoutTransaction { try $0.execute(sql: "PRAGMA wal_checkpoint(TRUNCATE)") }
+            try tightenPermissions(paths: paths)
             try keyStore.promotePendingKey()
             try keyStore.deletePendingKey()
             return (store, key)
@@ -112,6 +162,30 @@ enum VaultBootstrap {
             try? store.close()
             throw error
         }
+    }
+
+    /// Removes only `credentials-v2.db.creating` and its SQLite sidecars.
+    private static func removeCreationFiles(paths: VaultBootstrapPaths) throws {
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            let path = paths.creatingDatabase.path + suffix
+            guard path.withCString({ Darwin.unlink($0) }) == 0 || errno == ENOENT else {
+                throw VaultBootstrapError.invalidState
+            }
+        }
+    }
+
+    private static func synchronize(_ url: URL) throws {
+        let descriptor = url.path.withCString { Darwin.open($0, O_RDONLY | O_NOFOLLOW | O_CLOEXEC) }
+        guard descriptor >= 0 else { throw VaultBootstrapError.invalidState }
+        defer { Darwin.close(descriptor) }
+        guard fsync(descriptor) == 0 else { throw VaultBootstrapError.invalidState }
+    }
+
+    /// Metadata only; runs after a library has been opened successfully.
+    private static func tightenPermissions(paths: VaultBootstrapPaths) throws {
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: paths.directory.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                             ofItemAtPath: paths.currentDatabase.path)
     }
 
     /// Recovers a crash between database creation and key promotion. The
@@ -129,8 +203,7 @@ enum VaultBootstrap {
                                    validation: requireUnfinishedFirstCreation)
         do {
             store.bindCredentialAuthenticationKey(key)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600],
-                                                 ofItemAtPath: paths.currentDatabase.path)
+            try tightenPermissions(paths: paths)
             try keyStore.promotePendingKey()
             try keyStore.deletePendingKey()
             return (store, key)
@@ -200,17 +273,20 @@ enum VaultBootstrap {
         }
     }
 
-    private static func validateCurrentLibrary(paths: VaultBootstrapPaths, key: SymmetricKey) throws {
+    /// Returns the number of credential rows authenticated with `key`.
+    private static func validateCurrentLibrary(paths: VaultBootstrapPaths, key: SymmetricKey) throws -> Int {
         try CurrentLibrarySnapshot.withCopy(of: paths.currentDatabase) { snapshot in
             // A WAL copy may need fresh SQLite bookkeeping. Only this private
             // copy is writable; reads still validate every credential row.
             let database = try DatabaseQueue(path: snapshot.path)
             defer { try? database.close() }
-            try database.read { db in
+            return try database.read { db in
                 _ = try CurrentLibrarySchema.opening(db)
-                for record in try CredentialRecord.fetchAll(db) {
+                let records = try CredentialRecord.fetchAll(db)
+                for record in records {
                     try CredentialRecordAuthentication.verify(record, using: key)
                 }
+                return records.count
             }
         }
     }

@@ -20,6 +20,7 @@ debug:Sources/AskKeyCore/ClientConfigFileIO.swift:1
 debug:Sources/AskKeyCore/CursorUserMCPAdapter.swift:2
 debug:Sources/AskKeyCore/E2EProcessFixture.swift:1
 debug:Sources/AskKeyCore/E2EVaultFixture.swift:1
+debug:Sources/AskKeyCore/Keychain/IsolatedAppKeyStore.swift:1
 debug:Sources/AskKeyCore/Keychain/KeychainStore.swift:3
 debug:Sources/AskKeyCore/Models/CredentialName.swift:1
 debug:Sources/AskKeyCore/RestrictedProcess.swift:3
