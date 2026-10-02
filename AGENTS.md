@@ -65,7 +65,7 @@ swift build
 swift test
 ```
 
-Push a task branch only after the local Acceptance passes. Never use GitHub CI as a substitute for local builds or tests. If local resources are busy, wait.
+Push a task branch only after the local Acceptance passes. Never use GitHub CI as a substitute for local builds or tests. If local resources are busy, wait. One exception: when the local desktop is occupied by another project's UI tests, the PR's CI `basic-ui-flows` job (same script, clean runner) may serve as the E2E acceptance; say so in the receipt.
 
 Run tests exactly like CI: do not set `ASKKEY_DEBUG_RUN_DIRECTORY`, `ASKKEY_BROKER_SOCKET` or other `ASKKEY_*` variables unless an issue says so. Several tests rely on the default runtime path resolution.
 

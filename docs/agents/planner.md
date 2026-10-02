@@ -12,3 +12,4 @@ Claude acts as the planner in this repository. Implementation is done by the exe
 - Never merge a PR or push `main` on your own. Report accepted PRs to the maintainer (in Chinese, batched when possible) and merge with squash only after explicit approval of those PRs. Rule-document changes also go through a PR.
 - Request changes with concrete, numbered instructions and the `changes-requested` label.
 - Delete review worktrees and temporary logs after reading their results.
+- Watch labels (`needs-review`, `needs-info`) and executor comments that address the planner. Answer questions in the issue so the issue stays the source of truth.
