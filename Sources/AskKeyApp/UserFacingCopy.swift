@@ -41,10 +41,7 @@ enum UserFacingCopy {
             return localized("Agent access is paused in the Ask Key app.")
         case .invalidFileCredential(let issue):
             return localized(fileIssueKey(issue))
-        case .databaseError, .keyDerivationFailed, .secretNotFound, .secretAlreadyExists,
-             .projectNotFound, .projectAlreadyExists, .projectContainsSecrets,
-             .environmentNotFound, .environmentAlreadyExists, .environmentContainsSecrets,
-             .invalidSecretName:
+        case .databaseError, .invalidSecretName:
             return localized("Ask Key could not complete this change.")
         default:
             if let description = error.errorDescription, AppLanguage.containsKey(description) {

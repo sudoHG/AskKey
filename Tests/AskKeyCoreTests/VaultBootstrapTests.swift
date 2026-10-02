@@ -70,7 +70,7 @@ final class VaultBootstrapTests: XCTestCase {
         keys.pendingKey = pending
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
-        XCTAssertEqual(try opened.store.fetchAllProjects().count, 1)
+        XCTAssertEqual(try opened.store.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM projects") }, 1)
         try opened.store.close()
         XCTAssertEqual(keys.appKey, pending)
         XCTAssertNil(keys.pendingKey)
@@ -112,7 +112,7 @@ final class VaultBootstrapTests: XCTestCase {
 
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
-        XCTAssertEqual(try opened.store.fetchAllProjects().count, 1)
+        XCTAssertEqual(try opened.store.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM projects") }, 1)
         try opened.store.close()
         XCTAssertEqual(keys.appKey, pending)
         XCTAssertNil(keys.pendingKey)
@@ -225,7 +225,7 @@ final class VaultBootstrapTests: XCTestCase {
         defer { try? store.close() }
         let quiesced = try store.quiescedCopy()
         defer { try? quiesced.close() }
-        XCTAssertEqual(try quiesced.fetchAllProjects().count, 1)
+        XCTAssertEqual(try quiesced.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM projects") }, 1)
         XCTAssertThrowsError(try quiesced.setConfigValue(key: "must_not_write", value: "blocked"))
     }
 
