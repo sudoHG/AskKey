@@ -88,6 +88,10 @@ make run
 
 `make run` builds a Debug app and starts it with separate development data, key material and socket, so it never touches an installed copy of AskKey. Use synthetic credentials when trying it out. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full requirements, UI test flow and pull request checks.
 
+## Documentation
+
+The [documentation index](docs/README.md) lists every guide and architecture decision. To find your way around the code, start with the [architecture guide](docs/architecture.md); [testing.md](docs/testing.md) explains the local checks and the desktop flows that run in CI.
+
 ## License and credits
 
 MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE). AskKey started as a fork of [Lokalite](https://github.com/RubenGlez/lokalite) by Ruben González Alonso; the product and most of the code have since been rewritten. The Chinese product name is 请旨.

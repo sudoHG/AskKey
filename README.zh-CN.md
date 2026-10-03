@@ -88,6 +88,10 @@ make run
 
 `make run` 会构建 Debug 版应用，并使用独立的开发数据、密钥材料和 socket 启动，不会碰已安装的 AskKey。试用时请使用合成凭证。完整要求、UI 测试流程和 PR 检查见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## 文档
+
+[文档索引](docs/README.md)列出了全部指南和架构决策。想了解代码结构，可以从[架构指南](docs/architecture.md)读起；[testing.md](docs/testing.md) 说明本地检查，以及在 CI 中运行的桌面流程。文档正文为英文。
+
 ## 许可证与致谢
 
 MIT 许可，见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。AskKey 最初是 [Lokalite](https://github.com/RubenGlez/lokalite)（作者 Ruben González Alonso）的 fork，之后产品形态和大部分代码已经重写。

@@ -1,6 +1,6 @@
 # Contributing to AskKey
 
-AskKey is under active restructuring before its first public release. Read the [feature inventory](docs/features.md) and use a scoped GitHub issue to agree on the intended change. If you use an AI agent, it must follow the general rules in [AGENTS.md](AGENTS.md); the issue workflow under `docs/agents/` is the maintainer's internal process and does not apply to outside contributions. Use your own Git identity.
+AskKey is being restructured before its first public release. Read the [architecture guide](docs/architecture.md), the [architecture decisions](docs/adr/) and the [feature inventory](docs/features.md), and use a scoped GitHub issue to agree on the intended change. The [documentation index](docs/README.md) lists everything else. If you use an AI agent, it must follow the general rules in [AGENTS.md](AGENTS.md); the issue workflow under `docs/agents/` is the maintainer's internal process and does not apply to outside contributions. Use your own Git identity.
 
 ## Requirements
 
@@ -29,19 +29,27 @@ bash scripts/run-e2e.sh
 
 The script builds a separate E2E application and creates isolated synthetic runtime data. It requires XcodeGen and a macOS desktop session. Review the generated report: incomplete, failed or skipped required flows do not count as a passing result. Do not substitute the installed application or real client credentials for the test fixtures.
 
-Check repository hygiene before submitting a pull request:
+Run the repository checks before submitting a pull request. CI runs the first three on every pull request:
 
 ```bash
 python3 scripts/check_hygiene.py
+python3 scripts/check_module_deps.py
+bash scripts/check_release_symbols.sh
 ```
 
-The checker compares tracked files with a shrinking baseline. Stage new files before running it so they are included. Do not add baseline exceptions to hide new violations. Change the baseline only when the issue authorizes it; an approved cleanup may remove existing entries, not add new ones.
+- `check_hygiene.py` enforces fixed rules with no baseline: the 600-line limit for Swift files, no test support in `Sources/`, restricted `#if DEBUG`, no local absolute paths, English file names and English text outside the localization catalog and its approved exceptions. Stage new files before running it so they are scanned.
+- `check_module_deps.py` checks imports against the allowed dependency directions in the [architecture guide](docs/architecture.md#allowed-dependency-directions).
+- `check_release_symbols.sh` builds the release app and fails if E2E or test-support names appear in the binary.
+
+For a pull request that only moves or splits code, also run `python3 scripts/check_move_only.py origin/main` and include its result. It fails when lines are added that are not type or extension headers.
+
+[docs/testing.md](docs/testing.md) describes every check and test suite in detail.
 
 ## Changes and evidence
 
 Keep changes within the issue's scope. Structural tasks are move-only unless the issue explicitly permits behavior changes; preserve every Keep behavior in the feature inventory. Write code, comments and documentation in English. Put user-facing English and Simplified Chinese strings in `Localizable.xcstrings`. New third-party dependencies require an issue that approves them.
 
-Process records never belong in the repository: logs, screenshots, result bundles, audit notes and progress journals must be kept in the external evidence workspace described in [AGENTS.md](AGENTS.md). The UI runner produces ignored output; move evidence outside the checkout before delivery and never include generated records or sensitive data in a commit. Report progress and validation in the pull request description.
+Process records never belong in the repository: logs, screenshots, result bundles, audit notes and progress journals are deleted once their results are read. The UI runner writes to an ignored output directory; never commit generated records or sensitive data. Report commands, counts, SHAs and CI links in the pull request description instead.
 
 ## Pull requests
 

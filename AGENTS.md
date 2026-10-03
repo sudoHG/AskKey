@@ -10,7 +10,7 @@ The project started as a fork of [Lokalite](https://github.com/RubenGlez/lokalit
 
 ## Current status: normalization
 
-The codebase is being re-imported from a private legacy repository and restructured. Tracking issue: the pinned "Normalization roadmap" issue. Until that issue is closed:
+The codebase was re-imported from a private legacy repository and restructured. Tracking issue: the pinned "Normalization roadmap" issue (#1). The restructuring phases are complete apart from the last Phase 7 follow-up (#83, moving remaining user-facing literals into the localization catalog). What remains is Phase 8: an audit of the roadmap criteria (#88) and the maintainer's verification of the normalized build on their own machine (#89–#91), then the normalization-only rules below are retired (#92). Until the roadmap issue is closed:
 
 - All work happens through GitHub Issues and pull requests.
 - Structural tasks are **move-only**: no logic changes unless the issue explicitly asks for them. If you find a bug, open a new issue instead of fixing it in place.
