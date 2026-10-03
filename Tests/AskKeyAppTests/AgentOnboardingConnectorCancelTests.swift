@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyApp
 @testable import AskKeyCore
 
-final class AgentOnboardingConnectorCancelTests: XCTestCase {
+final class AgentOnboardingConnectorCancelTests: AskKeyAppTestCase {
     func testCodexCheckCancelGoesThroughConnectorAndKillsProcessGroup() async throws {
         try await runConnectorCancel(client: .codex, placeCursorConfig: false)
     }

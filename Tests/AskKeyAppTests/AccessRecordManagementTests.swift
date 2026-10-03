@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class AccessRecordManagementTests: XCTestCase {
+final class AccessRecordManagementTests: AskKeyAppTestCase {
     func testAppLoadsRecordsOnlyInsideManagementSession() {
         let recorder = AccessRecordAppRecorder()
         let viewModel = VaultViewModel(

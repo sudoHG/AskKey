@@ -34,6 +34,7 @@ def list_hooks(cli, cwd, overrides):
         [cli, "app-server", "--disable", "plugins", "--disable", "apps", *overrides],
         cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL, start_new_session=True, bufsize=0,
+        env={key: value for key, value in os.environ.items() if not key.startswith("ASKKEY_")},
     )
     try:
         for request in [
@@ -57,8 +58,8 @@ def list_hooks(cli, cwd, overrides):
 
 
 def relay(helper, log_path, missing_socket):
-    environment = dict(os.environ, ASKKEY_BROKER_SOCKET=missing_socket)
-    environment.pop("ASKKEY_DEBUG_RUN_DIRECTORY", None)
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("ASKKEY_")}
+    environment["ASKKEY_BROKER_SOCKET"] = str(Path(missing_socket).resolve())
     process = subprocess.Popen([helper, "mcp"], stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                env=environment, bufsize=0)
@@ -117,7 +118,7 @@ def main():
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
     with tempfile.TemporaryDirectory(prefix="ak-pretool-", dir="/tmp") as directory:
-        cwd = Path(directory)
+        cwd = Path(directory).resolve()
         baseline = list_hooks(args.codex, cwd, [])
         if baseline["errors"] or any(h["isManaged"] for h in baseline["hooks"]):
             raise RuntimeError("Cannot isolate this probe from managed or invalid hooks")
@@ -164,7 +165,9 @@ def main():
                    + " probe@example.invalid true。它只打印固定标记，不会联网，不要预先检查文件。"
                    "若工具返回前置处理要求，完成后继续同一条命令。只报告实际执行结果。"]
         with open(output / "model.jsonl", "w") as stdout, open(output / "model.stderr", "w") as stderr:
-            process = subprocess.Popen(command, cwd=cwd, stdout=stdout, stderr=stderr, start_new_session=True)
+            process = subprocess.Popen(command, cwd=cwd, stdout=stdout, stderr=stderr, start_new_session=True,
+                                       env={key: value for key, value in os.environ.items()
+                                            if not key.startswith("ASKKEY_")})
             timed_out = False
             try:
                 process.wait(timeout=120)

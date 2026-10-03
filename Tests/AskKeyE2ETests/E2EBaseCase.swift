@@ -1,3 +1,4 @@
+import Darwin
 import XCTest
 
 class E2EBaseCase: XCTestCase {
@@ -10,7 +11,12 @@ class E2EBaseCase: XCTestCase {
         let environment = ProcessInfo.processInfo.environment
         let path = try XCTUnwrap(environment["ASKKEY_E2E_APP"])
         let rootPath = try XCTUnwrap(environment["ASKKEY_E2E_ROOT"])
-        let root = URL(fileURLWithPath: rootPath, isDirectory: true)
+        let resolvedRoot = URL(fileURLWithPath: rootPath, isDirectory: true).resolvingSymlinksInPath()
+        // Foundation abbreviates /private/tmp to /tmp; retain physical ancestors.
+        let physicalRoot = try XCTUnwrap(realpath(resolvedRoot.path, nil))
+        defer { free(physicalRoot) }
+        let root = URL(fileURLWithPath: String(cString: physicalRoot), isDirectory: true)
+        XCTAssertEqual(rootPath, root.path)
         XCTAssertEqual(root.deletingLastPathComponent().path, "/private/tmp")
         XCTAssertTrue(root.lastPathComponent.hasPrefix("ak-e2e-"))
         let appURL = URL(fileURLWithPath: path).resolvingSymlinksInPath()

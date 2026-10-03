@@ -8,7 +8,7 @@ import AskKeyCore
 /// CR-06: `editor(id)` must not become “New Credential” when the list refresh
 /// can no longer find that object.
 @MainActor
-final class ReviewEditorMissingCredentialTests: XCTestCase {
+final class ReviewEditorMissingCredentialTests: AskKeyAppTestCase {
     override func setUp() {
         super.setUp()
         AppLanguage.systemLanguages = { ["zh-Hans"] }

@@ -112,7 +112,7 @@ final class HelperMCPTests: XCTestCase {
     }
 
     func testMCPUsageContractExplainsCredentialWorkflow() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-contract-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -209,7 +209,7 @@ final class HelperMCPTests: XCTestCase {
     }
 
     func testMCPRunApprovalResumesWithSameOperationAndReplaysWithoutRerun() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-run-approval-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -326,7 +326,7 @@ final class HelperMCPTests: XCTestCase {
     }
 
     func testMCPConnectionStatusTracksBrokerDisconnectAndReconnect() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-mc-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -374,7 +374,7 @@ final class HelperMCPTests: XCTestCase {
     }
 
     func testMCPConnectionStatusReportsProtocolIncompatibility() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-mv-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -399,7 +399,7 @@ final class HelperMCPTests: XCTestCase {
     }
 
     func testMCPConnectionStatusRejectsMismatchedHealthVersion() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-mh-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -425,7 +425,7 @@ final class HelperMCPTests: XCTestCase {
     }
 
     func testMCPToolReportsBrokerDisconnectWithoutResponse() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-md-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -452,7 +452,7 @@ final class HelperMCPTests: XCTestCase {
 
     func testMCPBoundsFramesAndRecoversFromBrokerFailureWithoutReturningTargetOutput() throws {
         let suffix = UUID().uuidString.prefix(8)
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-\(ProcessInfo.processInfo.processIdentifier)-\(suffix)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -575,7 +575,7 @@ final class HelperMCPTests: XCTestCase {
     }
 
     func testMCPRunForwardsCallerDeclarationWithoutReturningSecrets() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-decl-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -622,7 +622,7 @@ final class HelperMCPTests: XCTestCase {
     }
 
     func testMCPMixedComponentsRoundTripPreservesPayloadReferencesAndOperationIdentity() throws {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-mix-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -751,8 +751,7 @@ final class HelperMCPTests: XCTestCase {
         let process = Process()
         process.executableURL = try helperExecutable()
         process.arguments = ["mcp"]
-        var environment = ProcessInfo.processInfo.environment
-        environment.removeValue(forKey: "ASKKEY_DEBUG_RUN_DIRECTORY")
+        var environment = helperTestEnvironment(overrides: [:])
         environment["ASKKEY_BROKER_SOCKET"] = socketPath
         environment["ASKKEY_UNRELATED_TEST_VALUE"] = "must-not-cross-helper-boundary"
         process.environment = environment

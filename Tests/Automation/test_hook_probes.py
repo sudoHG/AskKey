@@ -57,6 +57,46 @@ def rpc_process(body):
 
 
 class HookProbeTests(unittest.TestCase):
+    def test_fixture_environment_clears_unknown_askkey_variables_and_resolves_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            link = root / "linked"
+            real = root / "real"
+            real.mkdir()
+            link.symlink_to(real, target_is_directory=True)
+            with patch.dict(os.environ, {"ASKKEY_FUTURE_OVERRIDE": "ambient", "LC_ALL": "ambient"}):
+                environment = command._safe_environment(
+                    debug_state=link, missing_broker=link / "missing.sock")
+                child = subprocess.run(
+                    [sys.executable, "-c", "import json, os; keys = ('ASKKEY_FUTURE_OVERRIDE', "
+                     "'ASKKEY_DEBUG_RUN_DIRECTORY', 'ASKKEY_BROKER_SOCKET', 'LC_ALL'); "
+                     "print(json.dumps({key: os.environ[key] for key in keys if key in os.environ}))"],
+                    env=environment, capture_output=True, text=True, check=True)
+            observed = json.loads(child.stdout)
+            self.assertNotIn("ASKKEY_FUTURE_OVERRIDE", observed)
+            self.assertEqual(observed["ASKKEY_DEBUG_RUN_DIRECTORY"], str(real.resolve()))
+            self.assertEqual(observed["ASKKEY_BROKER_SOCKET"], str(real.resolve() / "missing.sock"))
+            self.assertEqual(observed["LC_ALL"], "C")
+
+    def test_native_helper_relay_clears_ambient_askkey_variables(self):
+        with rpc_executable("""
+            for line in sys.stdin:
+                request = json.loads(line)
+                result = {'keys': sorted(key for key in os.environ if key.startswith('ASKKEY_')),
+                          'socket': os.environ.get('ASKKEY_BROKER_SOCKET')}
+                print(json.dumps({'id': request['id'], 'result': result}), flush=True)
+        """) as executable:
+            output = io.StringIO()
+            socket = executable.parent / "missing.sock"
+            with patch.dict(os.environ, {"ASKKEY_DEBUG_RUN_DIRECTORY": "ambient",
+                                         "ASKKEY_FUTURE_OVERRIDE": "ambient"}), \
+                    patch.object(sys, "stdin", io.StringIO('{"id":1,"method":"initialize"}\n')), \
+                    patch.object(sys, "stdout", output):
+                native.relay(str(executable), str(executable.parent / "events.jsonl"), str(socket))
+            response = json.loads(output.getvalue())
+            self.assertEqual(response["result"], {"keys": ["ASKKEY_BROKER_SOCKET"],
+                                                 "socket": str(socket.resolve())})
+
     def test_owned_group_permission_denial_requires_only_exited_members(self):
         pid = 43210
         own_zombie = f"{pid} {os.getpid()} {pid} Z\n"

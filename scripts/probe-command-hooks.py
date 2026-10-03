@@ -188,12 +188,12 @@ def _safe_environment(*, debug_state: Path, missing_broker: Path,
     }
     environment = {
         key: value for key, value in inherited.items()
-        if key not in secret_names and not key.endswith("_TOKEN")
+        if key not in secret_names and not key.endswith("_TOKEN") and not key.startswith("ASKKEY_")
     }
     environment["PATH"] = inherited.get("PATH", "/usr/bin:/bin")
     environment["LC_ALL"] = "C"
-    environment["ASKKEY_DEBUG_RUN_DIRECTORY"] = str(debug_state)
-    environment["ASKKEY_BROKER_SOCKET"] = str(missing_broker)
+    environment["ASKKEY_DEBUG_RUN_DIRECTORY"] = str(debug_state.resolve())
+    environment["ASKKEY_BROKER_SOCKET"] = str(missing_broker.resolve())
     if grok_home is not None:
         environment["GROK_HOME"] = str(grok_home)
         # The real HOME is deliberately preserved.  These child-only

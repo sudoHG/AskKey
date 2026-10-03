@@ -2,7 +2,7 @@ import CoreGraphics
 import XCTest
 @testable import AskKeyApp
 
-final class AgentApprovalScreenSessionTests: XCTestCase {
+final class AgentApprovalScreenSessionTests: AskKeyAppTestCase {
     private var interactiveSession: [String: Any] {
         [kCGSessionOnConsoleKey: true, kCGSessionLoginDoneKey: true, kCGSessionUserIDKey: 501]
     }

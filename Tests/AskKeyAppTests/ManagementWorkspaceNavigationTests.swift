@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyApp
 import AskKeyCore
 
-final class ManagementWorkspaceNavigationTests: XCTestCase {
+final class ManagementWorkspaceNavigationTests: AskKeyAppTestCase {
     @MainActor
     func testLockedWorkspaceSidebarSelectsRoutesWithoutAuthentication() async {
         for destination in [

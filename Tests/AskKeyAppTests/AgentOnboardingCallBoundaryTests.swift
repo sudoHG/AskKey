@@ -7,7 +7,7 @@ import XCTest
 /// the Agent access page starts previews, and preview failures write
 /// `VaultViewModel.errorMessage`.
 @MainActor
-final class AgentOnboardingCallBoundaryTests: XCTestCase {
+final class AgentOnboardingCallBoundaryTests: AskKeyAppTestCase {
     func testCoordinatorAppearAndExplainDoNotStartChecks() async {
         let probe = OnboardingCheckProbe()
         let coordinator = AgentOnboardingCoordinator(operations: probe.operations)

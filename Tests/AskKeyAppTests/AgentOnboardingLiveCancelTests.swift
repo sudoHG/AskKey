@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyApp
 @testable import AskKeyCore
 
-final class AgentOnboardingLiveCancelTests: XCTestCase {
+final class AgentOnboardingLiveCancelTests: AskKeyAppTestCase {
     func testLiveOperationsTaskLocalCancelStopsSleepProcessGroup() async throws {
         try await runLiveCancel(explicitRequestCancel: false)
     }

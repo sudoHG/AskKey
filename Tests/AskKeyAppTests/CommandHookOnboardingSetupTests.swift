@@ -5,7 +5,7 @@ import AskKeyBroker
 import AskKeyCore
 @testable import AskKeyApp
 
-final class CommandHookOnboardingSetupTests: XCTestCase {
+final class CommandHookOnboardingSetupTests: AskKeyAppTestCase {
 #if DEBUG
     func testCursorConnectorCheckPreviewAndApplyConfigureMCPAndDiscoveryHook() throws {
         let fixture = try CursorCommandFixture()
@@ -156,10 +156,10 @@ private final class CursorCommandFixture {
     let mcpURL: URL
     let hooksURL: URL
     let broker: BrokerSocketServer
-    private let previousBrokerSocket: String?
+    private var environment: AskKeyTestEnvironment?
 
     init() throws {
-        root = URL(fileURLWithPath: "/private/tmp", isDirectory: true).appendingPathComponent(
+        root = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true)).appendingPathComponent(
             "ak-ch-\(String(UUID().uuidString.prefix(8)))",
             isDirectory: true
         )
@@ -187,8 +187,7 @@ private final class CursorCommandFixture {
             )
         }
         let socket = root.appendingPathComponent("broker.sock").path
-        previousBrokerSocket = ProcessInfo.processInfo.environment["ASKKEY_BROKER_SOCKET"]
-        setenv("ASKKEY_BROKER_SOCKET", socket, 1)
+        environment = AskKeyTestEnvironment(overrides: ["ASKKEY_BROKER_SOCKET": socket])
         broker = BrokerSocketServer(
             socketPath: socket,
             handler: .init(catalog: { _ in [] }, requestStatus: { _, _ in nil })
@@ -196,7 +195,8 @@ private final class CursorCommandFixture {
         do {
             try broker.start()
         } catch {
-            restoreBrokerSocketEnvironment()
+            environment = nil
+            try? FileManager.default.removeItem(at: root)
             throw error
         }
     }
@@ -215,15 +215,8 @@ private final class CursorCommandFixture {
 
     func close() {
         broker.stop()
-        restoreBrokerSocketEnvironment()
+        environment = nil
         try? FileManager.default.removeItem(at: root)
     }
 
-    private func restoreBrokerSocketEnvironment() {
-        if let previousBrokerSocket {
-            setenv("ASKKEY_BROKER_SOCKET", previousBrokerSocket, 1)
-        } else {
-            unsetenv("ASKKEY_BROKER_SOCKET")
-        }
-    }
 }

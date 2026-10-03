@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class AgentAccessMenuSessionTests: XCTestCase {
+final class AgentAccessMenuSessionTests: AskKeyAppTestCase {
     private var suiteName = ""
     private var defaults: UserDefaults!
 

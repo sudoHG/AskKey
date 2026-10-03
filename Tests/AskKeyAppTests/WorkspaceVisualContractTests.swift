@@ -6,7 +6,7 @@ import AskKeyBroker
 @testable import AskKeyCore
 @testable import AskKeyApp
 
-final class WorkspaceVisualContractTests: XCTestCase {
+final class WorkspaceVisualContractTests: AskKeyAppTestCase {
     override func setUp() {
         super.setUp()
         AppLanguage.current = "zh-Hans"
@@ -587,6 +587,7 @@ final class WorkspaceVisualContractTests: XCTestCase {
     @MainActor
     func testFrozenPrototypePagesRenderAsTaskBuildEvidence() throws {
         let directory = evidenceDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let empty = makePreviewViewModel()
         let populated = makePreviewViewModel()
@@ -1040,10 +1041,8 @@ final class WorkspaceVisualContractTests: XCTestCase {
     }
 
     private func evidenceDirectory() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("visual-evidence/candidate-full", isDirectory: true)
+        FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("AskKeyWorkspaceUI-\(UUID().uuidString)", isDirectory: true)
     }
 
     @MainActor

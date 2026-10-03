@@ -3,7 +3,7 @@ import XCTest
 @testable import AskKeyApp
 
 @MainActor
-final class AgentOnboardingCompletionTests: XCTestCase {
+final class AgentOnboardingCompletionTests: AskKeyAppTestCase {
     private var previousLanguage = "en"
 
     override func setUp() {

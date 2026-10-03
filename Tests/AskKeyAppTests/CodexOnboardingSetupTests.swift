@@ -4,7 +4,7 @@ import AskKeyBroker
 import AskKeyCore
 @testable import AskKeyApp
 
-final class CodexOnboardingSetupTests: XCTestCase {
+final class CodexOnboardingSetupTests: AskKeyAppTestCase {
     func testWorkingMCPWithoutNativeDiscoveryDoesNotCompleteOnboarding() throws {
         let fixture = try CodexSetupFixture()
         defer { fixture.close() }

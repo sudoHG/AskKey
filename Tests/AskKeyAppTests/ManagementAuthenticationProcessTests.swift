@@ -6,7 +6,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class ManagementAuthenticationProcessTests: XCTestCase {
+final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
     func testPackagedSubprocessUsesManualLanguageAndDevicePasswordPolicy() throws {
         XCTAssertEqual(
             ManagementAuthenticationSubprocess.policy,
@@ -195,7 +195,7 @@ final class ManagementAuthenticationProcessTests: XCTestCase {
     private func describePackagedAuthentication(
         presentation: ManagementAuthenticationPresentation
     ) throws -> ManagementAuthenticationDescription {
-        let root = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let root = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("aka-runtime-\(UUID().uuidString.prefix(8))", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let app = root.appendingPathComponent("Ask Key.app", isDirectory: true)
@@ -227,6 +227,7 @@ final class ManagementAuthenticationProcessTests: XCTestCase {
             language: presentation.language,
             describeOnly: true
         )
+        process.environment = appTestEnvironment()
         let input = Pipe()
         let output = Pipe()
         let errors = Pipe()
@@ -267,7 +268,7 @@ final class ManagementAuthenticationProcessTests: XCTestCase {
     }
 
     private func makeIgnoringTerminationExecutable() throws -> URL {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("aka-stubborn-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let executable = directory.appendingPathComponent("stubborn-auth")

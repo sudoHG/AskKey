@@ -597,6 +597,7 @@ final class CursorUserMCPAdapterTests: XCTestCase {
 }
 
 private struct Harness {
+    private let environment = AskKeyTestEnvironment()
     let root: URL
     let home: URL
     let backupDirectory: URL
@@ -616,7 +617,7 @@ private struct Harness {
         helperURL: URL? = nil
     ) throws {
         let suffix = UUID().uuidString.prefix(8)
-        let root = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let root = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("ak-cursor-\(ProcessInfo.processInfo.processIdentifier)-\(suffix)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let home = root.appendingPathComponent("home", isDirectory: true)

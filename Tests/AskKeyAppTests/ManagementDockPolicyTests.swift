@@ -2,7 +2,7 @@ import AppKit
 import XCTest
 @testable import AskKeyApp
 
-final class ManagementDockPolicyTests: XCTestCase {
+final class ManagementDockPolicyTests: AskKeyAppTestCase {
     func testLoginLaunchStaysAccessoryUntilTheUserOpensManagement() {
         var policy = ManagementDockPolicy()
 

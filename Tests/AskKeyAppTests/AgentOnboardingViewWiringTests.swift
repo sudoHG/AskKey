@@ -6,7 +6,7 @@ import XCTest
 /// View/coordinator call-boundary evidence for 331-404 B1 / A01.
 /// The same new-contract assertions RED on the isolated ef90 replay.
 @MainActor
-final class AgentOnboardingViewWiringTests: XCTestCase {
+final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
     func testEF90AppearReplayViolatesNewContract() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("askkey-331-404-ef90-\(UUID().uuidString)", isDirectory: true)
@@ -206,11 +206,9 @@ final class AgentOnboardingViewWiringTests: XCTestCase {
         errorMessage: String?,
         failures: [String]
     ) throws {
-        let directory = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("331-404-supplement-evidence/b1", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("AskKeyOnboardingReplay-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let payload: [String: Any] = [
             "previewCalls": previewCalls,

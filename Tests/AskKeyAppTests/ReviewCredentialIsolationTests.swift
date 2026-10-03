@@ -4,7 +4,7 @@ import AskKeyCore
 
 /// ARC-05: management writes must follow the same injected workspace as reads.
 @MainActor
-final class ReviewCredentialIsolationTests: XCTestCase {
+final class ReviewCredentialIsolationTests: AskKeyAppTestCase {
     func testInjectedMutationsNeverReachSharedVault() throws {
         let box = MemoryCredentialBox()
         let defaults = UserDefaults(suiteName: "ReviewCredentialIsolation-\(UUID().uuidString)")!

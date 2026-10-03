@@ -5,7 +5,7 @@ import XCTest
 /// Debug App: `focusable-contrast` (bare `.focusable()` blocks Space) and
 /// keyboard-check / keyboard-cancel. XCTest hosts return AX `-25208`.
 @MainActor
-final class AgentOnboardingKeyboardActivationTests: XCTestCase {
+final class AgentOnboardingKeyboardActivationTests: AskKeyAppTestCase {
     func testOnboardingActionButtonsForwardSpaceAndReturn() throws {
         let source = try String(
             contentsOf: repoRoot().appendingPathComponent(

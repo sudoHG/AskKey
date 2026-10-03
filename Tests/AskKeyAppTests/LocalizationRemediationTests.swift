@@ -8,7 +8,7 @@ import XCTest
 /// Independent RED for the 331-393 / 331-394 incremental findings.
 /// These assert runtime behavior, not “source contains @Observable”.
 @MainActor
-final class LocalizationRemediationTests: XCTestCase {
+final class LocalizationRemediationTests: AskKeyAppTestCase {
     override func setUp() {
         super.setUp()
         AppLanguage.systemLanguages = { ["en-US"] }
