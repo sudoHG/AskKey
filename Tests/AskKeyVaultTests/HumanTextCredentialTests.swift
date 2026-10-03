@@ -430,7 +430,7 @@ final class HumanTextCredentialTests: XCTestCase {
             "Sources/AskKeyAppKit/Views/CredentialManagementView.swift",
             "Sources/AskKeyAppKit/Views/VaultPopover.swift",
         ] {
-            let viewSource = try String(contentsOf: root.appendingPathComponent(relative), encoding: .utf8)
+            let viewSource = try CredentialManagementSource.read(from: root, relative: relative)
             XCTAssertFalse(viewSource.contains("Project"), "\(relative) still names Project")
             XCTAssertFalse(viewSource.contains("Environments"), "\(relative) still names Environments")
             XCTAssertFalse(viewSource.localizedCaseInsensitiveContains("strict"), "\(relative) still names strict")

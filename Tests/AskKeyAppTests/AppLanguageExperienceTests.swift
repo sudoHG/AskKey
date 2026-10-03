@@ -296,11 +296,9 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
     }
 
     func testCredentialWorkspaceHasNoFolderAssociationAndGroupsOwnCreationActions() throws {
-        let source = try String(
-            contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
-            ),
-            encoding: .utf8
+        let source = try CredentialManagementSource.read(
+            from: repoRoot(),
+            relative: "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
         )
 
         XCTAssertFalse(source.contains("folderAssociations"))
@@ -340,11 +338,9 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
     }
 
     func testAgentClientsUsePlainLanguageAutomaticConnection() throws {
-        let source = try String(
-            contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
-            ),
-            encoding: .utf8
+        let source = try CredentialManagementSource.read(
+            from: repoRoot(),
+            relative: "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
         )
         XCTAssertTrue(source.contains("AgentOnboardingView()"))
         XCTAssertFalse(source.contains("预览用户级配置差异"))
@@ -710,7 +706,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
             "Sources/AskKeyAppKit/Views/FirstRunOnboardingView.swift",
         ]
         for relative in files {
-            let source = try String(contentsOf: root.appendingPathComponent(relative), encoding: .utf8)
+            let source = try CredentialManagementSource.read(from: root, relative: relative)
             XCTAssertFalse(source.contains("Text(\"AskKey\")"), "\(relative) still uses technical AskKey as brand")
             XCTAssertFalse(source.contains("Window(\"AskKey\""), "\(relative) still titles the window AskKey")
             XCTAssertFalse(source.contains("Welcome to AskKey"), "\(relative) still greets with AskKey")
@@ -736,9 +732,9 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
             XCTAssertTrue(onboarding.contains(needle), "onboarding is missing \(needle)")
         }
 
-        let settings = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/CredentialManagementView.swift"),
-            encoding: .utf8
+        let settings = try CredentialManagementSource.read(
+            from: root,
+            relative: "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
         )
         XCTAssertTrue(settings.contains("Language"))
         XCTAssertTrue(settings.contains("zh-Hans"))

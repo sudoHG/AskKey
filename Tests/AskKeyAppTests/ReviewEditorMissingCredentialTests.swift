@@ -139,13 +139,12 @@ final class ReviewEditorMissingCredentialTests: AskKeyAppTestCase {
     }
 
     func testProductionUnavailablePageUsesOrdinarySwiftUIControls() throws {
-        let source = try String(
-            contentsOf: URL(fileURLWithPath: #filePath)
+        let source = try CredentialManagementSource.read(
+            from: URL(fileURLWithPath: #filePath)
                 .deletingLastPathComponent()
                 .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("Sources/AskKeyAppKit/Views/CredentialManagementView.swift"),
-            encoding: .utf8
+                .deletingLastPathComponent(),
+            relative: "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
         )
         XCTAssertFalse(source.contains("EditorAvailabilityProbe"))
         XCTAssertFalse(source.contains("EditorReturnButton"))

@@ -1,0 +1,246 @@
+import AppKit
+import SwiftUI
+import AskKeyBroker
+import AskKeyVault
+
+extension CredentialManagementView {
+    var filteredCredentials: [ManagedTextCredential] {
+        vault.credentials.filter { credential in
+            switch selectedSection {
+            case .all: break
+            case .accessRecords, .recycleBin, .agentAccess: return false
+            case .ungrouped:
+                if credential.groupName != nil { return false }
+            case .named(let name):
+                if credential.groupName != name { return false }
+            }
+            if searchText.isEmpty { return true }
+            let query = searchText.lowercased()
+            return credential.name.lowercased().contains(query)
+                || (credential.groupName?.lowercased().contains(query) ?? false)
+                || credential.usageInstructions.lowercased().contains(query)
+        }
+    }
+
+    @ViewBuilder
+    var credentialDetail: some View {
+        if selectedCredentialID != nil {
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    selectedCredentialID = nil
+                } label: {
+                    Label(sectionTitle, systemImage: "arrow.left")
+                        .font(.system(size: 12.5, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.brand)
+                .padding(.horizontal, 28)
+                .padding(.top, 20)
+                credentialInspector
+            }
+            .background(Theme.windowBackground)
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(sectionTitle)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(Theme.text)
+                    Text(sectionSubtitle)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Theme.textMuted)
+                }
+                Spacer()
+                if selectedSection.showsCredentialImport {
+                    BorderedActionButton(action: {
+                        route = .fileImport
+                    }) {
+                        Label(
+                            selectedSection.importDestinationGroup == nil
+                                ? appLocalized("Import from File")
+                                : FrozenCollectionCopy.importAction,
+                            systemImage: "square.and.arrow.down"
+                        )
+                    }
+                }
+                Button(action: {
+                    route = .templateChooser
+                }) {
+                    Label(
+                        selectedSection.importDestinationGroup == nil
+                            ? appLocalized("New Credential")
+                            : FrozenCollectionCopy.newCredentialAction,
+                        systemImage: "plus"
+                    )
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(height: Theme.controlHeight)
+                        .padding(.horizontal, 10)
+                        .background(Theme.brand, in: .rect(cornerRadius: 7))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("credential-new")
+                if case .named(let name) = selectedSection {
+                    if deletingGroupName == name {
+                        Button(FrozenDangerActions.groupConfirmationTitle, role: .destructive) {
+                            deletingGroupName = nil
+                            vault.deleteCredentialGroup(name)
+                            selectedSection = .ungrouped
+                        }
+                        .buttonStyle(FrozenDangerButtonStyle())
+                        Button(appLocalized("Keep")) { deletingGroupName = nil }
+                    } else {
+                        Button(FrozenCollectionCopy.deleteAction, role: .destructive) {
+                            deletingGroupName = name
+                        }
+                            .buttonStyle(.bordered)
+                            .foregroundStyle(Theme.red)
+                            .tint(Theme.red)
+                    }
+                }
+            }
+            if deletingGroupName != nil {
+                inlineWarning(appLocalized("Deleting a group does not delete credentials. Its credentials become ungrouped."))
+            }
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, 24)
+            .padding(.bottom, 16)
+
+            if FrozenCollectionCopy.showsSearch(
+                section: selectedSection,
+                hasCredentials: !vault.credentials.isEmpty
+            ) {
+                HStack(spacing: 7) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(Theme.textDim)
+                    TextField(appLocalized("Search credentials…"), text: $searchText)
+                        .textFieldStyle(.plain)
+                        .focused($searchFocused)
+                }
+                .padding(.horizontal, 10)
+                .frame(width: 300, height: 28)
+                .background(Theme.neutral(0.055), in: .rect(cornerRadius: 7))
+                .padding(.horizontal, 28)
+                .padding(.bottom, 14)
+            }
+
+            if filteredCredentials.isEmpty {
+                emptyState
+            } else {
+                credentialList
+            }
+            }
+            .background(Theme.windowBackground)
+        }
+    }
+
+    func credentialDetailPage(id: String) -> some View {
+        credentialDetail.onAppear { selectedCredentialID = id }
+    }
+
+    private var sectionTitle: String {
+        switch selectedSection {
+        case .all: return appLocalized("All credentials")
+        case .ungrouped: return appLocalized(CredentialManagementCopy.ungrouped)
+        case .named(let name): return name
+        default: return appLocalized(CredentialManagementCopy.credential)
+        }
+    }
+
+    private var sectionSubtitle: String {
+        switch selectedSection {
+        case .named:
+            return FrozenCollectionCopy.groupSubtitle
+        case .ungrouped:
+            return appLocalized("Groups are for organization only and do not change authorization.")
+        default:
+            return appLocalized("Each credential is delivered and authorized as one complete set.")
+        }
+    }
+
+    private var emptyState: some View {
+        WorkspaceEmptyState(
+            title: emptyTitle,
+            message: emptyMessage,
+            systemImage: "archivebox",
+            actionTitle: emptyActionTitle,
+            action: { route = .templateChooser }
+        )
+    }
+
+    private var emptyTitle: String {
+        CredentialEmptyPresentation.title(section: selectedSection, searchText: searchText)
+    }
+
+    private var emptyMessage: String {
+        CredentialEmptyPresentation.message(section: selectedSection, searchText: searchText)
+    }
+
+    private var emptyActionTitle: String? {
+        CredentialEmptyPresentation.action(section: selectedSection, searchText: searchText)
+    }
+
+    private var credentialList: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(filteredCredentials) { credential in
+                Button {
+                    selectedCredentialID = credential.id
+                } label: {
+                    HStack(spacing: 12) {
+                        Text(String(credential.name.prefix(1)).uppercased())
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Theme.brand)
+                            .frame(width: 32, height: 32)
+                            .background(Theme.brand.opacity(0.1), in: .rect(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(credential.name)
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundStyle(Theme.text)
+                            HStack(spacing: 6) {
+                                ForEach(
+                                    CredentialListPresentation(credential: credential).tags,
+                                    id: \.self
+                                ) { tag in
+                                    credentialTag(
+                                        tag,
+                                        accent: tag == credential.permission.prototypeTitle
+                                    )
+                                }
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.textDim)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                    .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("credential-\(credential.id)")
+                .contextMenu {
+                    Button(appLocalized("Edit")) {
+                        route = .editor(template: .custom, credentialID: credential.id)
+                    }
+                    .accessibilityIdentifier("credential-list-edit-\(credential.id)")
+                    Button(appLocalized("Delete"), role: .destructive) {
+                        selectedCredentialID = credential.id
+                        deletingCredential = credential
+                    }
+                    .accessibilityIdentifier("credential-list-delete-\(credential.id)")
+                }
+            }
+        }
+        }
+        .padding(.horizontal, 28)
+        .padding(.bottom, 28)
+    }
+
+}

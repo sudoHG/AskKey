@@ -67,9 +67,9 @@ final class LocalVaultLifecycleViewModelTests: AskKeyAppTestCase {
     func testSettingsKeepLocalEraseAndCloudDeletionSeparateAndHonest() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/CredentialManagementView.swift"),
-            encoding: .utf8
+        let source = try CredentialManagementSource.read(
+            from: root,
+            relative: "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
         )
 
         XCTAssertTrue(source.contains("Erase Local Data"))

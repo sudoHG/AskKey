@@ -272,7 +272,7 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
     }
 
     private func source(_ relative: String) throws -> String {
-        try String(contentsOf: repoRoot().appendingPathComponent(relative), encoding: .utf8)
+        try CredentialManagementSource.read(from: repoRoot(), relative: relative)
     }
 
     private func repoRoot() -> URL {
