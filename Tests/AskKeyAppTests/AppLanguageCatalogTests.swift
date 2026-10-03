@@ -8,6 +8,20 @@ import XCTest
 
 @MainActor
 final class AppLanguageCatalogTests: AppLanguageExperienceTestSupport {
+    func testPopoverQuitEntryUsesStandardTerminationAndLocalizedCopy() throws {
+        let source = try String(
+            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/Views/VaultPopover.swift"),
+            encoding: .utf8
+        )
+        let quitEntry = #"Divider\(\)\.padding\(\.horizontal, 10\)\s*"#
+            + #"menuEntry\(appLocalized\("Quit Ask Key"\), systemImage: "power"\) \{\s*"#
+            + #"closePopover\(\)\s*NSApp\.terminate\(nil\)\s*\}\s*"#
+            + #"\.accessibilityIdentifier\("menubar-quit"\)"#
+        XCTAssertNotNil(source.range(of: quitEntry, options: .regularExpression))
+        XCTAssertEqual(AppLanguage.localized("Quit Ask Key", language: "en"), "Quit Ask Key")
+        XCTAssertEqual(AppLanguage.localized("Quit Ask Key", language: "zh-Hans"), "退出请旨")
+    }
+
     func testManagementAuthenticationCopyMatchesTheSelectedLanguage() {
         XCTAssertEqual(
             AppLanguage.localized(CredentialManagementCopy.manageReason, language: "en"),
