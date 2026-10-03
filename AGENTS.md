@@ -51,7 +51,7 @@ Releases are disabled. Do not add signing, notarization, Sparkle or Homebrew rel
 - **No process records, and no evidence directories.** Keep logs, screenshots and xcresult bundles only until their results are read, then delete them. The PR description carries the evidence: commands, counts, SHAs and CI links.
 - No absolute local paths (`/Users/...`, `/private/var/...`) in committed files. Use `FileManager` temporary directories in tests.
 - File and directory names are English.
-- Code, comments, docs and ADRs are written in English. User-facing UI strings live in `Localizable.xcstrings` (English and Simplified Chinese).
+- Code, comments, docs, ADRs, commit messages, issue and PR titles and PR bodies are written in English, even when an agent's global configuration defaults to another language. Conversation with the maintainer may use any language. User-facing UI strings live in `Localizable.xcstrings` (English and Simplified Chinese).
 - Test fixtures, E2E hooks, probes and debug observers do not belong in `Sources/`. (Being enforced progressively during normalization.)
 - Source files stay under 600 lines; `Localizable.xcstrings` is exempt. (Being enforced progressively during normalization.)
 - No new third-party dependencies without an issue that approves them.
