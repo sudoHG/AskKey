@@ -108,7 +108,7 @@ final class CurrentSchemaTests: XCTestCase {
     }
 }
 
-final class VaultConfigurationTests: XCTestCase {
+final class VaultConfigurationTests: AskKeyCoreTestCase {
     func testDebugBuildUsesDevelopmentStorage() {
         #if DEBUG
         XCTAssertTrue(VaultConfiguration.isDevelopmentBuild)

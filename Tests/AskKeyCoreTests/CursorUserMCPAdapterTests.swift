@@ -4,7 +4,7 @@ import XCTest
 import AskKeyBroker
 @testable import AskKeyCore
 
-final class CursorUserMCPAdapterTests: XCTestCase {
+final class CursorUserMCPAdapterTests: AskKeyCoreTestCase {
     private func makeHarness(
         replaceConfig: ((URL, URL) throws -> Void)? = nil,
         removeConfig: ((URL) throws -> Void)? = nil,
@@ -597,7 +597,6 @@ final class CursorUserMCPAdapterTests: XCTestCase {
 }
 
 private struct Harness {
-    private let environment = AskKeyTestEnvironment()
     let root: URL
     let home: URL
     let backupDirectory: URL

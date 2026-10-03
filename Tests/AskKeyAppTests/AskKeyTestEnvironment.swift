@@ -12,6 +12,7 @@ class AskKeyAppTestCase: XCTestCase {
     }
 
     override func tearDown() {
+        environment?.restore()
         environment = nil
         super.tearDown()
     }
@@ -21,6 +22,7 @@ class AskKeyAppTestCase: XCTestCase {
 /// read the environment internally. Tests using this scope run serially.
 final class AskKeyTestEnvironment {
     private let original: [String: String]
+    private var restored = false
 
     init(overrides: [String: String] = [:]) {
         original = ProcessInfo.processInfo.environment.filter { $0.key.hasPrefix("ASKKEY_") }
@@ -28,12 +30,16 @@ final class AskKeyTestEnvironment {
         for (key, value) in overrides { setenv(key, value, 1) }
     }
 
-    deinit {
+    func restore() {
+        guard !restored else { return }
+        restored = true
         for key in ProcessInfo.processInfo.environment.keys where key.hasPrefix("ASKKEY_") {
             unsetenv(key)
         }
         for (key, value) in original { setenv(key, value, 1) }
     }
+
+    deinit { restore() }
 }
 
 func appTestEnvironment() -> [String: String] {
