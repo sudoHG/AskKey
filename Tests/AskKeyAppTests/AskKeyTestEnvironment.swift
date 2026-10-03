@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 import XCTest
 
+@MainActor
 class AskKeyAppTestCase: XCTestCase {
     private var environment: AskKeyTestEnvironment?
 
