@@ -12,8 +12,6 @@ size:Sources/AskKeyIntegrations/CommandDiscoveryHookConfiguration.swift
 size:Sources/AskKeyIntegrations/CursorUserMCPAdapter.swift
 size:Sources/AskKeyIntegrations/GrokCLIAdapter.swift
 size:Sources/AskKeySystem/RestrictedProcess.swift
-size:Sources/AskKeyVault/AgentTextWriteGovernance.swift
-size:Sources/AskKeyVault/Vault+TextCredentials.swift
 size:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
 size:Tests/AskKeyAppTests/AppLanguageExperienceTests.swift
 size:Tests/AskKeyAppTests/WorkspaceVisualContractTests.swift
