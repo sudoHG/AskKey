@@ -183,7 +183,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
         }
         let executable = URL(fileURLWithPath: path).resolvingSymlinksInPath()
         try assertCodexMCPAddGetJSONContract(executable: executable,
-                                           expectedVersion: version, harness: Harness())
+                                           expectedVersion: version, harness: makeHarness())
     }
 
     private func assertCodexMCPAddGetJSONContract(executable: URL, expectedVersion: String,

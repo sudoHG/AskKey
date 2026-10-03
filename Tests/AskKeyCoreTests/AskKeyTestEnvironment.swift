@@ -28,9 +28,10 @@ final class AskKeyTestEnvironment {
     private let original: [String: String]
     private var restored = false
 
-    init() {
+    init(overrides: [String: String] = [:]) {
         original = ProcessInfo.processInfo.environment.filter { $0.key.hasPrefix("ASKKEY_") }
         for key in original.keys { unsetenv(key) }
+        for (key, value) in overrides { setenv(key, value, 1) }
     }
 
     func originalValue(for key: String) -> String? { original[key] }

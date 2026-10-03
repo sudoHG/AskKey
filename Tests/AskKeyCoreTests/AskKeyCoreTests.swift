@@ -109,6 +109,23 @@ final class CurrentSchemaTests: XCTestCase {
 }
 
 final class VaultConfigurationTests: AskKeyCoreTestCase {
+#if DEBUG
+    func testExplicitDebugDirectoryUsesIsolatedStorage() throws {
+        let candidate = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AskKeyConfiguration-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: candidate, withIntermediateDirectories: false,
+                                               attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: candidate) }
+        let root = try physicalTestDirectory(candidate)
+        let environment = AskKeyTestEnvironment(overrides: ["ASKKEY_DEBUG_RUN_DIRECTORY": root.path])
+        defer { environment.restore() }
+
+        XCTAssertEqual(VaultConfiguration.debugRunDirectory?.path, root.path)
+        XCTAssertTrue(VaultConfiguration.keychainService.hasPrefix("com.sudohg.askkey.vault.dev.run."))
+        XCTAssertEqual(VaultConfiguration.vaultFileURL.path, root.appendingPathComponent("core/vault.db").path)
+    }
+#endif
+
     func testDebugBuildUsesDevelopmentStorage() {
         #if DEBUG
         XCTAssertTrue(VaultConfiguration.isDevelopmentBuild)
