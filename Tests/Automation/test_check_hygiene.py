@@ -35,6 +35,7 @@ class HygieneTests(unittest.TestCase):
 
     def test_size_boundary_and_scope(self):
         self.write("Sources/AtLimit.swift", "// line\n" * 600)
+        self.write("Tests/AtLimit.swift", "// line\n" * 600)
         self.write("Sources/OverLimit.swift", "// line\n" * 601)
         self.write("Tests/OverLimit.swift", "// line\n" * 601)
         self.write("scripts/Outside.swift", "// line\n" * 601)
@@ -124,9 +125,11 @@ struct Ordinary {}
         self.assertEqual(hygiene.violations(self.root), {
             "multica:docs/AGENTS.md", "local-path:docs/AGENTS.md"})
 
-    def test_baseline_content_is_exempt_and_has_no_self_reference(self):
-        self.write(hygiene.BASELINE, "multica:docs/client.txt\nlocal-path:/Users/synthetic\n")
-        self.assertEqual(hygiene.violations(self.root), set())
+    def test_obsolete_baseline_has_no_pattern_exemption(self):
+        name = "scripts/hygiene-baseline.txt"
+        self.write(name, "multica:docs/client.txt\nlocal-path:/Users/synthetic\n")
+        self.assertEqual(hygiene.violations(self.root), {
+            "multica:" + name, "local-path:" + name})
 
     def test_binary_multica_is_checked_but_local_path_is_text_only(self):
         path = self.write("assets/image.bin", "")
@@ -155,73 +158,56 @@ struct Ordinary {}
         target.unlink()
         self.assertEqual(hygiene.violations(self.root), set())
 
-    def test_write_baseline_is_sorted_stable_and_check_passes(self):
-        self.write("docs/z.txt", "Multica\n")
+    def test_clean_repository_passes_without_a_baseline(self):
         self.write("Sources/AskKeyBroker/DebugRunDirectory.swift", "#if DEBUG\n#endif\n")
-        self.write(hygiene.BASELINE, "")
-        generated = self.run_check("--write-baseline")
-        self.assertEqual(generated.returncode, 0, generated.stderr)
-        first = (self.root / hygiene.BASELINE).read_text()
-        self.assertEqual(first, "multica:docs/z.txt\n")
-        self.assertEqual(self.run_check("--write-baseline").returncode, 0)
-        self.assertEqual((self.root / hygiene.BASELINE).read_text(), first)
+        self.write("Sources/AtLimit.swift", "// line\n" * 600)
+        self.write("Tests/AtLimit.swift", "// line\n" * 600)
         checked = self.run_check()
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        self.assertIn("Hygiene rules passed", checked.stdout)
+        self.assertFalse((self.root / "scripts/hygiene-baseline.txt").exists())
 
-    def test_new_violation_fails_with_path_only_diagnostic(self):
-        self.write(hygiene.BASELINE, "")
+    def test_violation_fails_with_path_only_diagnostic(self):
         self.write("docs/client.txt", "Multica synthetic value\n")
         result = self.run_check()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("new violation: multica:docs/client.txt", result.stdout)
+        self.assertEqual(result.stdout, "violation: multica:docs/client.txt\n")
         self.assertNotIn("synthetic value", result.stdout)
 
-    def test_fixed_entry_requires_baseline_removal(self):
-        self.write("docs/client.txt", "ordinary client\n")
-        self.write(hygiene.BASELINE, "multica:docs/client.txt\n")
+    def test_violation_diagnostics_are_sorted(self):
+        self.write("docs/z.txt", "Multica\n")
+        self.write("docs/a.txt", "/Users/synthetic\n")
         result = self.run_check()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("fixed, remove from baseline: multica:docs/client.txt", result.stdout)
-        self.write(hygiene.BASELINE, "")
-        self.assertEqual(self.run_check().returncode, 0)
+        self.assertEqual(result.stdout.splitlines(), [
+            "violation: local-path:docs/a.txt", "violation: multica:docs/z.txt"])
 
-    def test_baseline_cannot_exempt_fixed_production_rules(self):
-        for entry, contents in [
-                ("debug:Sources/client.swift:1", "#if DEBUG\n#endif\n"),
-                ("test-support:Sources/client.swift", "struct SampleFixture {}\n")]:
+    def test_obsolete_baseline_cannot_suppress_any_fixed_rule(self):
+        for name, contents, entry in [
+                ("Sources/client.swift", "// line\n" * 601, "size:Sources/client.swift"),
+                ("Tests/client.swift", "// line\n" * 601, "size:Tests/client.swift"),
+                ("Sources/client.swift", "#if DEBUG\n#endif\n", "debug:Sources/client.swift:1"),
+                ("Sources/client.swift", "struct SampleFixture {}\n", "test-support:Sources/client.swift"),
+                ("Tests/client.swift", "/Users/synthetic\n", "local-path:Tests/client.swift"),
+                ("Tests/fixture-\u6d4b.txt", "synthetic\n", "non-ascii-name:Tests/fixture-\u6d4b.txt"),
+                ("docs/client.txt", "Multica\n", "multica:docs/client.txt")]:
             with self.subTest(entry=entry):
-                self.write(hygiene.BASELINE, entry + "\n")
-                self.write("Sources/client.swift", contents)
+                self.write("scripts/hygiene-baseline.txt", entry + "\n")
+                self.write(name, contents)
                 result = self.run_check()
                 self.assertEqual(result.returncode, 1)
-                self.assertIn("new violation: " + entry, result.stdout)
-                self.assertIn("fixed, remove from baseline: " + entry, result.stdout)
+                self.assertIn("violation: " + entry, result.stdout)
 
-    def test_stale_fixed_rule_baseline_entries_require_removal(self):
-        name = "Sources/AskKeyBroker/DebugRunDirectory.swift"
-        entries = f"debug:{name}:1\ntest-support:Sources/removed.swift\n"
-        self.write(hygiene.BASELINE, entries)
-        self.write(name, "#if DEBUG\n#endif\n")
+    def test_clean_repository_ignores_stale_baseline_entries(self):
+        self.write("scripts/hygiene-baseline.txt", "size:Sources/removed.swift\n")
         result = self.run_check()
-        self.assertEqual(result.returncode, 1)
-        for entry in entries.splitlines():
-            self.assertIn("fixed, remove from baseline: " + entry, result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_write_baseline_cannot_record_fixed_rule_violations(self):
-        for contents in ["#if DEBUG\n#endif\n", "struct SampleFixture {}\n"]:
-            with self.subTest(contents=contents):
-                self.write(hygiene.BASELINE, "size:Sources/old.swift\n")
-                self.write("Sources/client.swift", contents)
-                result = self.run_check("--write-baseline")
-                self.assertEqual(result.returncode, 1)
-                self.assertIn("fixed-rule violation", result.stderr)
-                self.assertEqual((self.root / hygiene.BASELINE).read_text(),
-                                 "size:Sources/old.swift\n")
-
-    def test_missing_baseline_is_a_failure(self):
-        result = self.run_check()
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("Missing baseline", result.stderr)
+    def test_write_baseline_option_is_rejected_without_writing(self):
+        result = self.run_check("--write-baseline")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unrecognized arguments: --write-baseline", result.stderr)
+        self.assertFalse((self.root / "scripts/hygiene-baseline.txt").exists())
 
 
 if __name__ == "__main__":

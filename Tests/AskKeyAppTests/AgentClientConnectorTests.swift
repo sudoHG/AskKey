@@ -11,7 +11,7 @@ import AskKeyBroker
 final class AgentClientConnectorTests: AgentClientConnectorTestSupport {
 #if DEBUG
     func testDebugClientE2ERequestRequiresAnIsolatedHome() throws {
-        let actualHome = URL(fileURLWithPath: "/Users/example", isDirectory: true)
+        let actualHome = URL(fileURLWithPath: "/synthetic-home", isDirectory: true)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("askkey-e2e-\(UUID().uuidString)", isDirectory: true)
         let isolatedHome = root.appendingPathComponent("home", isDirectory: true)
