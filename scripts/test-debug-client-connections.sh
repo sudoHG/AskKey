@@ -8,7 +8,7 @@ if [ "$available_kib" -lt "$minimum_kib" ]; then
   exit 1
 fi
 
-swift test --filter CodexUserMCPAdapterTests
-swift test --filter CursorUserMCPAdapterTests
-swift test --filter GrokCLIAdapterTests
-swift test --filter AgentClientConnectorTests
+swift test --filter '(CodexCLIContractTests|CodexConnectionLifecycleTests|CodexTOMLValidationTests)/'
+swift test --filter '(CursorConfigSafetyTests|CursorBackupRollbackTests|CursorConnectionProtocolTests|CursorHomeIsolationTests)/'
+swift test --filter '(GrokCLIConfigurationTests|GrokCLIProcessLifecycleTests|GrokCLIConnectionTests)/'
+swift test --filter '(AgentClientConnectorTests|AgentClientConnectionPolicyTests|AgentApprovalPrivacyTests|AgentClientConnectionExecutionTests|CredentialEditorComponentTests|AgentClientConnectionRecoveryTests|AgentClientConfigurationPresenceTests)/'
