@@ -1,4 +1,4 @@
-import AskKeyCore
+import AskKeyVault
 
 /// Optional startup services are installed explicitly by the executable.
 /// The ordinary app uses production defaults without consulting environment flags.

@@ -3,7 +3,7 @@ import Foundation
 import UserNotifications
 import XCTest
 @testable import AskKeyAppKit
-@testable import AskKeyCore
+@testable import AskKeyVault
 
 private struct SyntheticNotificationAddFailure: Error {}
 

@@ -1,6 +1,6 @@
 import Foundation
 import CryptoKit
-import AskKeyCore
+import AskKeyVault
 
 final class AppPreferences {
     private let defaults: UserDefaults

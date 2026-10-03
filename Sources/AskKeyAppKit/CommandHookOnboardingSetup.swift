@@ -1,5 +1,6 @@
 import Foundation
-import AskKeyCore
+import AskKeyIntegrations
+import AskKeySystem
 
 struct CommandDiscoverySetupContext {
     let client: CommandDiscoveryClient

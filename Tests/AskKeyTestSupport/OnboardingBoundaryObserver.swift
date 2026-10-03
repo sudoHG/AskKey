@@ -1,5 +1,5 @@
 import Foundation
-import AskKeyCore
+import AskKeySystem
 
 /// Test-owned recording of the runtime boundaries observed during a scenario.
 package enum OnboardingBoundaryObserver {

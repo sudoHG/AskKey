@@ -2,7 +2,7 @@ import AppKit
 import LocalAuthentication
 import SwiftUI
 import AskKeyBroker
-import AskKeyCore
+import AskKeyVault
 
 /// Owns the subscription without making a cleanup worker wait for the UI thread.
 final class FileCleanupFailureObservation {

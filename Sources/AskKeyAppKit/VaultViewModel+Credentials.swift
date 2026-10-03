@@ -1,5 +1,5 @@
 import SwiftUI
-import AskKeyCore
+import AskKeyVault
 
 extension VaultViewModel {
     @discardableResult

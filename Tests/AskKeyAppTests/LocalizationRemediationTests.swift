@@ -3,7 +3,7 @@ import SwiftUI
 import XCTest
 @testable import AskKeyAppKit
 @testable import AskKeyBroker
-@testable import AskKeyCore
+@testable import AskKeyVault
 
 /// Independent RED for the 331-393 / 331-394 incremental findings.
 /// These assert runtime behavior, not “source contains @Observable”.

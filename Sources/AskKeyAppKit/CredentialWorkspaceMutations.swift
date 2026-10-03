@@ -1,5 +1,5 @@
 import Foundation
-import AskKeyCore
+import AskKeyVault
 
 struct CredentialWorkspaceMutations {
     var loadWorkspace: () throws -> (

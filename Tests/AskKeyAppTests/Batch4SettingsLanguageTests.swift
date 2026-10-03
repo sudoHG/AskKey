@@ -5,7 +5,7 @@ import AskKeyBroker
 import UserNotifications
 import XCTest
 @testable import AskKeyAppKit
-@testable import AskKeyCore
+@testable import AskKeyVault
 
 @MainActor
 final class Batch4SettingsLanguageTests: AskKeyAppTestCase {

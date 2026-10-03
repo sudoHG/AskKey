@@ -1,7 +1,7 @@
 import AppKit
 import Darwin
 import LocalAuthentication
-import AskKeyCore
+import AskKeyVault
 
 enum ManagementAuthenticationAction: CaseIterable {
     case manage, reveal, pause, resume

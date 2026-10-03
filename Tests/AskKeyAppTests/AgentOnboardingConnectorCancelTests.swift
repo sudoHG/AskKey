@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 import XCTest
 @testable import AskKeyAppKit
-@testable import AskKeyCore
+@testable import AskKeyIntegrations
 
 final class AgentOnboardingConnectorCancelTests: AskKeyAppTestCase {
     func testCodexCheckCancelGoesThroughConnectorAndKillsProcessGroup() async throws {

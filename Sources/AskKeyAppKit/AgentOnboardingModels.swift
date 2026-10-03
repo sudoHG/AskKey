@@ -1,5 +1,5 @@
 import Foundation
-import AskKeyCore
+import AskKeyIntegrations
 
 enum AgentOnboardingPhase: String, Equatable, Sendable {
     case idle

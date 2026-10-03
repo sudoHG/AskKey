@@ -1,7 +1,7 @@
 import AppKit
 import AskKeyAppKit
 import AskKeyBroker
-import AskKeyCore
+import AskKeyVault
 import Foundation
 import Darwin
 

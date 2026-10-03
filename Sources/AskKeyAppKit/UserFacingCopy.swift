@@ -1,5 +1,5 @@
 import Foundation
-import AskKeyCore
+import AskKeyVault
 
 enum UserFacingCopy {
     static func message(for error: Error) -> String {

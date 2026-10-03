@@ -1,6 +1,6 @@
 import Foundation
 import UserNotifications
-import AskKeyCore
+import AskKeyVault
 
 enum ExpiryReminderNotificationCopy {
     static func title(language: String = AppLanguage.current) -> String {

@@ -2,7 +2,9 @@ import Darwin
 import Foundation
 import XCTest
 @testable import AskKeyAppKit
-@testable import AskKeyCore
+@testable import AskKeyIntegrations
+@testable import AskKeySystem
+@testable import AskKeyVault
 import AskKeyTestSupport
 
 final class AgentOnboardingBoundaryEvidenceTests: AskKeyAppTestCase {

@@ -1,6 +1,7 @@
 import Foundation
 import AskKeyBroker
-import AskKeyCore
+import AskKeyIntegrations
+import AskKeyVault
 
 package enum AgentClient: String, CaseIterable, Identifiable, Sendable {
     case codex = "Codex"

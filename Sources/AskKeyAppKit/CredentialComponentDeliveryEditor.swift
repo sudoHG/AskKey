@@ -1,5 +1,5 @@
 import SwiftUI
-import AskKeyCore
+import AskKeyVault
 
 struct CredentialComponentDeliveryEditor: View {
     @Binding var component: CredentialComponentDraft

@@ -25,10 +25,10 @@ DEBUG_ALLOWLIST = {
     "Sources/AskKeyAppKit/AskKeyApp.swift",  # Require the packaged development run directory.
     "Sources/AskKeyBroker/BrokerProtocol.swift",  # Development broker socket namespace.
     "Sources/AskKeyBroker/DebugRunDirectory.swift",  # Validate the development run directory.
-    "Sources/AskKeyCore/Keychain/IsolatedAppKeyStore.swift",  # File-backed development keys.
-    "Sources/AskKeyCore/Keychain/KeychainStore.swift",  # Reject keychain I/O in isolated runs.
-    "Sources/AskKeyCore/Vault.swift",  # Select the isolated development key store.
-    "Sources/AskKeyCore/VaultConfiguration.swift",  # Development data and keychain namespace.
+    "Sources/AskKeyVault/Keychain/IsolatedAppKeyStore.swift",  # File-backed development keys.
+    "Sources/AskKeyVault/Keychain/KeychainStore.swift",  # Reject keychain I/O in isolated runs.
+    "Sources/AskKeyVault/Vault.swift",  # Select the isolated development key store.
+    "Sources/AskKeyVault/VaultConfiguration.swift",  # Development data and keychain namespace.
     "Sources/AskKeyHelper/main.swift",  # Resolve the development host app.
 }
 FIXED_CHECKS = ("test-support:", "debug:")

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import XCTest
 @testable import AskKeyAppKit
-import AskKeyCore
+import AskKeyVault
 
 final class ManagementWorkspaceNavigationTests: AskKeyAppTestCase {
     @MainActor

@@ -1,5 +1,5 @@
 import XCTest
-import AskKeyCore
+import AskKeyVault
 @testable import AskKeyAppKit
 
 /// ARC-05: management writes must follow the same injected workspace as reads.
