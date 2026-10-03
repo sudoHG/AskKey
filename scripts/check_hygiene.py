@@ -206,8 +206,8 @@ def violations(root):
             entries.add(f"non-ascii-name:{name}")
         data = tracked_bytes(path)
         text = text_content(data) if data is not None else None
-        if (text is not None and name.startswith(("Sources/", "Tests/")) and path.suffix == ".swift"
-                and path.name != "Localizable.xcstrings" and len(text.splitlines()) > 600):
+        if (text is not None and path.suffix in {".swift", ".py", ".sh", ".c", ".h"}
+                and len(text.splitlines()) > 600):
             entries.add(f"size:{name}")
         if text is not None and has_unapproved_cjk(name, text):
             entries.add(f"cjk:{name}")

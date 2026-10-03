@@ -37,7 +37,7 @@ python3 scripts/check_module_deps.py
 bash scripts/check_release_symbols.sh
 ```
 
-- `check_hygiene.py` enforces fixed rules with no baseline: the 600-line limit for Swift files, no test support in `Sources/`, restricted `#if DEBUG`, no local absolute paths, English file names and English text outside the localization catalog and its approved exceptions. Stage new files before running it so they are scanned.
+- `check_hygiene.py` enforces fixed rules with no baseline: the 600-line limit for every tracked `.swift`, `.py`, `.sh`, `.c` and `.h` file anywhere in the repository, no test support in `Sources/`, restricted `#if DEBUG`, no local absolute paths, English file names and English text outside the localization catalog and its approved exceptions. Stage new files before running it so they are scanned.
 - `check_module_deps.py` checks imports against the allowed dependency directions in the [architecture guide](docs/architecture.md#allowed-dependency-directions).
 - `check_release_symbols.sh` builds the release app and fails if E2E or test-support names appear in the binary.
 
