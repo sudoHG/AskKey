@@ -5,12 +5,6 @@ size:Sources/AskKeyBroker/BrokerProtocol.swift
 size:Sources/AskKeyBroker/BrokerSocket.swift
 size:Sources/AskKeyBroker/FileWriteCoordinator.swift
 size:Sources/AskKeyHelper/main.swift
-size:Sources/AskKeyIntegrations/CodexDiscoveryHookConfiguration.swift
-size:Sources/AskKeyIntegrations/CodexUserMCPAdapter.swift
-size:Sources/AskKeyIntegrations/CommandDiscoveryHookConfiguration.swift
-size:Sources/AskKeyIntegrations/CursorUserMCPAdapter.swift
-size:Sources/AskKeyIntegrations/GrokCLIAdapter.swift
-size:Sources/AskKeySystem/RestrictedProcess.swift
 size:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
 size:Tests/AskKeyAppTests/AppLanguageExperienceTests.swift
 size:Tests/AskKeyAppTests/WorkspaceVisualContractTests.swift
