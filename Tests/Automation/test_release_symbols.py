@@ -47,6 +47,11 @@ set -euo pipefail
 [[ "${INSPECTION_FAIL-}" != strings ]] || exit 25
 cat "$STRINGS_OUTPUT_FILE"
 """)
+            self.write_command(tools / "grep", """#!/usr/bin/env bash
+set -euo pipefail
+[[ "${INSPECTION_FAIL-}" != grep ]] || exit 2
+exec /usr/bin/grep "$@"
+""")
 
             env = os.environ.copy()
             env.update({
@@ -89,7 +94,7 @@ cat "$STRINGS_OUTPUT_FILE"
         self.assertEqual(result.returncode, 23)
 
     def test_inspection_failure_is_not_hidden(self):
-        for command, status in (("nm", 24), ("strings", 25)):
+        for command, status in (("nm", 24), ("strings", 25), ("grep", 2)):
             with self.subTest(command=command):
                 self.assertEqual(self.run_check(inspection_failure=command).returncode, status)
 

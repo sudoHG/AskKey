@@ -34,11 +34,18 @@ for forbidden in \
   'E2E Broker Credential' \
   configureE2EAuthentication
 do
-  if grep -Fq -- "$forbidden" "$inspection_dir/nm.txt" \
-    || grep -Fq -- "$forbidden" "$inspection_dir/strings.txt"; then
-    echo "FAIL: release app binary contains forbidden E2E symbol or string: $forbidden" >&2
-    exit 1
-  fi
+  for inspection_file in "$inspection_dir/nm.txt" "$inspection_dir/strings.txt"; do
+    if grep -Fq -- "$forbidden" "$inspection_file"; then
+      echo "FAIL: release app binary contains forbidden E2E symbol or string: $forbidden" >&2
+      exit 1
+    else
+      filter_status=$?
+      if [[ "$filter_status" -ne 1 ]]; then
+        echo "FAIL: release binary filter failed with status $filter_status" >&2
+        exit "$filter_status"
+      fi
+    fi
+  done
 done
 
 echo "PASS: release app binary contains no forbidden E2E symbols or strings"
