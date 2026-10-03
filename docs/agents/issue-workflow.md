@@ -72,6 +72,16 @@ The PR template contains these sections. Fill all of them; write "None" when a s
 
 Changes to rule documents also go through a PR.
 
+## Reviewer when the planner is unavailable
+
+When the planner is offline, the maintainer may start a separate Codex session as reviewer. That session must not be the one that implemented the PR.
+
+- Follow the review steps above and in [planner.md](planner.md) (CI → receipt → deterministic checks → line-by-line only for `risk:security` and listed deviations; `check_move_only.py` for move-only PRs).
+- Do not write code, push to the task branch, merge, or change an issue's Scope or Acceptance. Request changes with numbered points and the `changes-requested` label; the executor fixes them.
+- Report the verdict to the maintainer in Chinese: accepted or not, and the evidence (CI run, counts, checks run). The maintainer approves and merges.
+- If an issue is unclear or a PR needs a decision outside its Scope, add `needs-info` and leave it for the planner or the maintainer instead of deciding.
+- Start the verdict comment on the PR with `Review (stand-in reviewer):` so the planner can tell these reviews apart later.
+
 ## Maintainer tasks
 
 Issues labeled `ready-for-human` involve real data, the installed app, signing identities or account settings. Agents must not do them, even if they appear claimable.
