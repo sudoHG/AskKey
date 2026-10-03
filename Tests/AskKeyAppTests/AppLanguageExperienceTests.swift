@@ -284,10 +284,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
     }
 
     func testAgentApprovalUsesDirectConfirmationUnlessTheScreenIsLocked() throws {
-        let source = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/AskKeyApp.swift"),
-            encoding: .utf8
-        )
+        let source = try AskKeyAppSource.read(from: repoRoot())
 
         XCTAssertTrue(source.contains("presentPendingApproval"))
         XCTAssertTrue(source.contains("AgentApprovalPrivacyPolicy"))
@@ -330,10 +327,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         XCTAssertTrue(workspaceSource.contains("purgeRecycledTextCredentials"))
         XCTAssertTrue(defaultAdapterSource.contains("credentialMutations.loadWorkspace"))
         XCTAssertFalse(defaultAdapterSource.contains("loadCredentialWorkspace:"))
-        let appSource = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/AskKeyApp.swift"),
-            encoding: .utf8
-        )
+        let appSource = try AskKeyAppSource.read(from: repoRoot())
         XCTAssertTrue(appSource.contains("purgeExpiredRecycledCredentials"))
     }
 

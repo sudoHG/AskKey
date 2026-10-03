@@ -22,7 +22,7 @@ DEBUG = re.compile(r"#if\s+DEBUG\b")
 DEBUG_ALLOWLIST = {
     "Sources/AskKeyAppKit/AgentClientConnector.swift",  # Isolated client configuration home.
     "Sources/AskKeyAppKit/AppPreferences.swift",  # Isolated preferences suite.
-    "Sources/AskKeyAppKit/AskKeyApp.swift",  # Require the packaged development run directory.
+    "Sources/AskKeyAppKit/App/AppRuntimeState.swift",  # Require the packaged development run directory.
     "Sources/AskKeyBroker/BrokerProtocol.swift",  # Development broker socket namespace.
     "Sources/AskKeyBroker/DebugRunDirectory.swift",  # Validate the development run directory.
     "Sources/AskKeyVault/Keychain/IsolatedAppKeyStore.swift",  # File-backed development keys.
