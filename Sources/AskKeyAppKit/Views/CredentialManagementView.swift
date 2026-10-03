@@ -253,9 +253,7 @@ struct CredentialWorkspaceSidebar: View {
         .padding(.bottom, bottomPadding)
         .accessibilityIdentifier(identifier)
         .accessibilityValue(selected ? "selected" : "")
-#if DEBUG
-        .debugPress(identifier, action: { activateRoute(destination) })
-#endif
+        .registerAction(identifier, action: { activateRoute(destination) })
     }
 
     private func activateRoute(_ destination: CredentialWorkspaceRoute) {

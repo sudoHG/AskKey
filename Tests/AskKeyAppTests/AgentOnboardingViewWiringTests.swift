@@ -1,6 +1,8 @@
 import AppKit
+import Observation
 import SwiftUI
 import XCTest
+import AskKeyTestSupport
 @testable import AskKeyAppKit
 
 /// View/coordinator call-boundary evidence for 331-404 B1 / A01.
@@ -52,12 +54,14 @@ final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
 
     func testCurrentViewAppearAndExplainHoldNewContract() {
         let probe = WiringProbe()
+        let driver = OnboardingViewDriver()
         let vault = makeIsolatedVault()
         vault.onboarding = AgentOnboardingCoordinator(operations: probe.operations)
 
         let host = NSHostingView(
             rootView: AgentOnboardingView()
                 .environment(vault)
+                .environment(\.viewActionRegistration, driver.registration)
                 .frame(width: 720, height: 860)
         )
         host.frame = NSRect(x: 0, y: 0, width: 720, height: 860)
@@ -66,7 +70,7 @@ final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
 
         for client in AgentClient.allCases {
             XCTAssertTrue(
-                DebugAccessibility.press(
+                driver.press(
                     identifier: "onboarding-review-\(client.proofID)",
                     in: host
                 ),
@@ -85,6 +89,7 @@ final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
 
     func testSidebarEnterExitAndExpandDoNotStartChecks() {
         let probe = WiringProbe()
+        let driver = OnboardingViewDriver()
         let vault = makeIsolatedVault()
         vault.onboarding = AgentOnboardingCoordinator(operations: probe.operations)
         let box = RouteBox()
@@ -95,36 +100,24 @@ final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
                 route: box.routeBinding
             )
             .environment(vault)
+            .environment(\.viewActionRegistration, driver.registration)
             .frame(width: 960, height: 720)
         )
         host.frame = NSRect(x: 0, y: 0, width: 960, height: 720)
         host.layoutSubtreeIfNeeded()
         pump()
 
-        var usedSidebar = false
-        var usedReview = false
         for _ in 0..<10 {
-            if DebugAccessibility.press(identifier: "sidebar-agent", in: host) {
-                usedSidebar = true
-            } else {
-                box.section = .agentAccess
-                box.route = .agentAccess
-            }
+            XCTAssertTrue(driver.press(identifier: "sidebar-agent", in: host))
             pump()
             for client in AgentClient.allCases {
-                if DebugAccessibility.press(
+                XCTAssertTrue(driver.press(
                     identifier: "onboarding-review-\(client.proofID)",
                     in: host
-                ) {
-                    usedReview = true
-                } else {
-                    vault.onboarding.explain(client)
-                }
+                ))
             }
             pump()
-            if !DebugAccessibility.press(identifier: "sidebar-settings", in: host) {
-                box.route = .settings
-            }
+            XCTAssertTrue(driver.press(identifier: "sidebar-settings", in: host))
             pump()
         }
 
@@ -136,20 +129,18 @@ final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
         XCTAssertEqual(failures, [], failures.joined(separator: "; "))
         XCTAssertEqual(probe.checkCount, 0)
         XCTAssertEqual(probe.applyCount, 0)
-        XCTAssertTrue(
-            usedSidebar || box.route == .settings || box.route == .agentAccess,
-            "sidebar enter/exit must be exercised"
-        )
-        _ = usedReview
+        XCTAssertEqual(box.route, .settings)
     }
 
     func testReviewDoesNotStartCheckUntilExplicitCheckButton() async {
         let probe = WiringProbe()
+        let driver = OnboardingViewDriver()
         let vault = makeIsolatedVault()
         vault.onboarding = AgentOnboardingCoordinator(operations: probe.operations)
         let host = NSHostingView(
             rootView: AgentOnboardingView()
                 .environment(vault)
+                .environment(\.viewActionRegistration, driver.registration)
                 .frame(width: 720, height: 860)
         )
         host.frame = NSRect(x: 0, y: 0, width: 720, height: 860)
@@ -157,14 +148,14 @@ final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
         pump()
 
         XCTAssertTrue(
-            DebugAccessibility.press(identifier: "onboarding-review-cursor", in: host)
+            driver.press(identifier: "onboarding-review-cursor", in: host)
         )
         pump()
         XCTAssertEqual(probe.checkCount, 0)
         XCTAssertEqual(vault.onboarding.expandedClient, .cursor)
 
         XCTAssertTrue(
-            DebugAccessibility.press(identifier: "onboarding-check-cursor", in: host)
+            driver.press(identifier: "onboarding-check-cursor", in: host)
         )
         await waitUntil { probe.checkCount >= 1 }
         XCTAssertEqual(probe.checkCount, 1)
@@ -239,6 +230,7 @@ final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
 }
 
 @MainActor
+@Observable
 private final class RouteBox {
     var section: CredentialWorkspaceSection = .all
     var route: CredentialWorkspaceRoute = .library

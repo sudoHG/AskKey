@@ -1,17 +1,13 @@
 debug:Sources/AskKeyAppKit/AgentClientConnector.swift:5
-debug:Sources/AskKeyAppKit/AgentOnboardingDebugSupport.swift:1
-debug:Sources/AskKeyAppKit/AgentOnboardingRealUIInput.swift:1
 debug:Sources/AskKeyAppKit/AgentOnboardingRuntime.swift:1
 debug:Sources/AskKeyAppKit/AppPreferences.swift:1
-debug:Sources/AskKeyAppKit/AskKeyApp.swift:12
+debug:Sources/AskKeyAppKit/AskKeyApp.swift:11
 debug:Sources/AskKeyAppKit/ManagementAuthenticationProcess.swift:2
 debug:Sources/AskKeyAppKit/OnboardingTerminationGate.swift:2
 debug:Sources/AskKeyAppKit/VaultViewModel+Credentials.swift:7
-debug:Sources/AskKeyAppKit/VaultViewModel.swift:3
-debug:Sources/AskKeyAppKit/Views/AgentOnboardingView.swift:5
-debug:Sources/AskKeyAppKit/Views/CredentialManagementView.swift:8
+debug:Sources/AskKeyAppKit/VaultViewModel.swift:2
+debug:Sources/AskKeyAppKit/Views/CredentialManagementView.swift:7
 debug:Sources/AskKeyAppKit/Views/FirstRunOnboardingView.swift:1
-debug:Sources/AskKeyAppKit/Views/SettingsView.swift:1
 debug:Sources/AskKeyBroker/BrokerProtocol.swift:1
 debug:Sources/AskKeyBroker/DebugRunDirectory.swift:1
 debug:Sources/AskKeyCore/ClientConfigFileIO.swift:1
@@ -24,7 +20,6 @@ debug:Sources/AskKeyCore/Vault.swift:1
 debug:Sources/AskKeyCore/VaultConfiguration.swift:1
 debug:Sources/AskKeyHelper/main.swift:1
 local-path:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
-size:Sources/AskKeyAppKit/AgentOnboardingDebugSupport.swift
 size:Sources/AskKeyAppKit/AskKeyApp.swift
 size:Sources/AskKeyAppKit/Views/CredentialManagementView.swift
 size:Sources/AskKeyBroker/ApprovalStateMachine.swift
@@ -54,7 +49,5 @@ size:Tests/AskKeyCoreTests/CursorUserMCPAdapterTests.swift
 size:Tests/AskKeyCoreTests/GrokCLIAdapterTests.swift
 size:Tests/AskKeyCoreTests/HumanFileCredentialTests.swift
 size:Tests/AskKeyCoreTests/RuntimeApprovalBoundaryTests.swift
-test-support:Sources/AskKeyAppKit/AgentOnboardingDebugSupport.swift
-test-support:Sources/AskKeyAppKit/AgentOnboardingRealUIInput.swift
 test-support:Sources/AskKeyCore/CodexUserMCPAdapter.swift
 test-support:Sources/AskKeyCore/FileImport.swift
