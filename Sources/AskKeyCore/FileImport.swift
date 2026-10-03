@@ -32,19 +32,19 @@ public enum FileImport {
         }
     }
 
-    enum FreezeProbe: Equatable {
+    enum FreezeCheckpoint: Equatable {
         case afterPathCheck
         case afterOpen
     }
 
     public static func freeze(url: URL) throws -> FrozenFile {
-        try freeze(url: url, probe: { _ in })
+        try freeze(url: url, checkpoint: { _ in })
     }
 
-    static func freeze(url: URL, probe: (FreezeProbe) throws -> Void) throws -> FrozenFile {
+    static func freeze(url: URL, checkpoint: (FreezeCheckpoint) throws -> Void) throws -> FrozenFile {
         let expected = try identity(at: url)
         try rejectIfNotImportable(expected)
-        try probe(.afterPathCheck)
+        try checkpoint(.afterPathCheck)
 
         let fd = url.path.withCString { path in
             // A path that passed lstat can still be replaced before open. Keep
@@ -62,7 +62,7 @@ public enum FileImport {
         guard opened == expected else {
             throw VaultError.invalidFileCredential(.replacedDuringRead)
         }
-        try probe(.afterOpen)
+        try checkpoint(.afterOpen)
 
         let bytes = try read(fd: fd)
         let after = try identity(fd: fd)

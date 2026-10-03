@@ -120,16 +120,12 @@ final class ManagementWorkspaceNavigationTests: AskKeyAppTestCase {
     }
 
     @MainActor
-    func testVisualProofStartsAtTheLockedWorkspace() {
-        let previous = ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF"]
-        setenv("ASKKEY_VISUAL_PROOF", "1", 1)
-        defer {
-            if let previous {
-                setenv("ASKKEY_VISUAL_PROOF", previous, 1)
-            } else {
-                unsetenv("ASKKEY_VISUAL_PROOF")
-            }
-        }
+    func testConfiguredRuntimeStartsAtTheLockedWorkspace() {
+        let previous = AppRuntimeState.configuration
+        defer { AppRuntimeState.configuration = previous }
+        AppRuntimeState.configuration = AppRuntimeConfiguration(
+            makeViewModel: { self.makeViewModel { nil } }
+        )
         let viewModel = AppRuntimeState.makeVaultViewModel()
 
         XCTAssertTrue(viewModel.isLocked)

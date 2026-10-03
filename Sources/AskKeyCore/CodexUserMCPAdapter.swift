@@ -205,7 +205,7 @@ public struct CodexApplyResult: Equatable, Sendable {
     public let diff: CodexConfigDiff
 }
 
-struct CodexApplyProbe {
+struct CodexApplyLifecycle {
     var afterBackup: () throws -> Void = {}
     var afterWrite: () throws -> Void = {}
     var beforeRestore: () throws -> Void = {}
@@ -232,7 +232,7 @@ public final class CodexUserMCPAdapter: @unchecked Sendable {
     public let command: CodexMCPCommand
     public let signing: CodexHelperSigning
     public let requiresCredentialDiscovery: Bool
-    var probe = CodexApplyProbe()
+    var lifecycle = CodexApplyLifecycle()
     private let mutationLock = NSLock()
 
     public init(
@@ -282,11 +282,11 @@ public final class CodexUserMCPAdapter: @unchecked Sendable {
         try prepareBackup(original)
         var replacementDigest: Data?
         do {
-            try probe.afterBackup()
+            try lifecycle.afterBackup()
             let replacement = try writeDesired(original: original)
             replacementDigest = Data(SHA256.hash(data: replacement))
             try updateBackupReplacementDigest(replacementDigest)
-            try probe.afterWrite()
+            try lifecycle.afterWrite()
             try readBackAskKey()
             try verifyConnection()
             try removeBackupFile()
@@ -294,7 +294,7 @@ public final class CodexUserMCPAdapter: @unchecked Sendable {
         } catch {
             let failure = error
             do {
-                try probe.beforeRestore()
+                try lifecycle.beforeRestore()
                 try restore(original, replacementDigest: replacementDigest)
                 try removeBackupFile()
             } catch {

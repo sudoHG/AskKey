@@ -379,7 +379,7 @@ final class WorkspaceVisualContractTests: AskKeyAppTestCase {
     func testEraseConfirmationStartsEmptyWithFrozenLabelAndPlaceholder() {
         XCTAssertEqual(FrozenEraseConfirmationPresentation.label, "输入「抹除」以确认")
         XCTAssertEqual(FrozenEraseConfirmationPresentation.placeholder, "抹除")
-        XCTAssertEqual(FrozenEraseConfirmationPresentation.proofInitialText, "")
+        XCTAssertEqual(FrozenEraseConfirmationPresentation.initialText, "")
 
         AppLanguage.current = "en"
         XCTAssertEqual(FrozenEraseConfirmationPresentation.label, "Type ERASE to confirm")
@@ -702,7 +702,6 @@ final class WorkspaceVisualContractTests: AskKeyAppTestCase {
             manager(deleted, section: .recycleBin, route: .recycleBin),
             as: "17c-detail-delete-result", in: directory
         )
-        populated.isVisualProof = true
         try render(
             manager(populated, route: .settings),
             as: "18-settings", in: directory

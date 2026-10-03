@@ -3,6 +3,7 @@ import Foundation
 import XCTest
 @testable import AskKeyAppKit
 @testable import AskKeyCore
+import AskKeyTestSupport
 
 final class AgentOnboardingBoundaryEvidenceTests: AskKeyAppTestCase {
     private var recorder: OnboardingBoundaryObserver.Recorder!
@@ -98,6 +99,7 @@ final class AgentOnboardingBoundaryEvidenceTests: AskKeyAppTestCase {
     }
 
     func testExplicitCheckThroughLiveOperationsIncrementsObservedBoundary() async throws {
+        OnboardingBoundaryObserver.beginPageWindow()
         let home = try makeDirectory("boundary-check")
         defer { try? FileManager.default.removeItem(at: home) }
         let support = home.appendingPathComponent("support", isDirectory: true)
@@ -245,8 +247,8 @@ final class AgentOnboardingBoundaryEvidenceTests: AskKeyAppTestCase {
                 maximumOutputBytes: 64
             )
         )
-        OnboardingBoundaryObserver.probeRejectedKeychain()
-        try OnboardingBoundaryObserver.probeCursorHelperLaunch()
+        XCTAssertFalse(KeychainQuery.systemKeychainAllowed)
+        try launchIsolatedCursorHelper()
         let directory = try makeDirectory("boundary-write")
         defer { try? FileManager.default.removeItem(at: directory) }
         let target = directory.appendingPathComponent("config.toml")
@@ -257,6 +259,23 @@ final class AgentOnboardingBoundaryEvidenceTests: AskKeyAppTestCase {
             exclusive: true,
             temporaryPrefix: ".askkey-e1-"
         )
+    }
+
+    private func launchIsolatedCursorHelper() throws {
+        let directory = try makeDirectory("cursor-helper")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let helper = directory.appendingPathComponent("cursor-helper")
+        try Data("#!/bin/sh\nexit 0\n".utf8).write(to: helper)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helper.path)
+        let adapter = CursorUserMCPAdapter(
+            homeDirectory: directory,
+            backupDirectory: directory.appendingPathComponent("backup", isDirectory: true),
+            helperURL: helper,
+            brokerSocketPath: directory.appendingPathComponent("broker.sock").path,
+            signing: .development
+        )
+        _ = try adapter.apply()
+        _ = try adapter.status()
     }
 
     private func makeDirectory(_ label: String) throws -> URL {

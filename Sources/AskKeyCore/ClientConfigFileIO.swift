@@ -86,9 +86,7 @@ enum ClientConfigFileIO {
         prefix: String,
         didCreate: ((URL) -> Void)? = nil
     ) throws -> URL {
-#if DEBUG
-        OnboardingBoundaryObserver.note(.configWrite)
-#endif
+        RuntimeOperationEvents.publish(.configWrite)
         let temporary = directory.appendingPathComponent("\(prefix)\(UUID().uuidString)")
         let fd = temporary.path.withCString { path in
             Darwin.open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, S_IRUSR | S_IWUSR)

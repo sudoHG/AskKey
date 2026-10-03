@@ -11,14 +11,6 @@ enum AppRuntimeState {
     private(set) static var normalRuntimeInitialized = false
     static var configuration = AppRuntimeConfiguration.production
 
-    static var visualProofEnabled: Bool {
-#if DEBUG
-        ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF"] == "1"
-#else
-        false
-#endif
-    }
-
     static func makeVaultViewModel() -> VaultViewModel {
 #if DEBUG
         if Bundle.main.object(forInfoDictionaryKey: "AskKeyRequiresDebugRunDirectory") as? Bool == true,
@@ -32,133 +24,9 @@ enum AppRuntimeState {
 #endif
         normalRuntimeInitialized = true
         if let makeViewModel = configuration.makeViewModel { return makeViewModel() }
-#if DEBUG
-        if visualProofEnabled { return makeVisualProofViewModel() }
-#endif
         return VaultViewModel()
     }
 
-#if DEBUG
-    private static func makeVisualProofViewModel() -> VaultViewModel {
-        guard let defaults = UserDefaults(suiteName: "AskKeyVisualProof") else {
-            // The fixed internal suite name is valid; proof must stop instead of polluting app defaults.
-            preconditionFailure("AskKey visual proof defaults suite is unavailable")
-        }
-        let proofLanguage = ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF_LANGUAGE"] ?? "zh-Hans"
-        defaults.set(proofLanguage, forKey: "languageMode")
-        defaults.set("light", forKey: "appearanceMode")
-        defaults.set(true, forKey: "hasCompletedOnboarding")
-        let proofRoute = ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF_ROUTE"]
-        let proofAuth = ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF_AUTH"] ?? "allow"
-        final class VisualProofAuthBox: @unchecked Sendable {
-            var onFail: (@MainActor () -> Void)?
-        }
-        let authBox = VisualProofAuthBox()
-        let events = [CredentialAccessEvent(
-            timestamp: Date(),
-            credentialID: "prod",
-            operation: .runtimeRead,
-            result: .allowed,
-            callerHint: "Codex",
-            declaredPurpose: "发布新版本"
-        )]
-        let model = VaultViewModel(
-            runtimeFileCleanupFailures: { false },
-            accessRecords: CredentialAccessRecordMutations(list: { events }, clear: { _ in }),
-            eraseLocalLibrary: { _, _, _ in },
-            unlockVault: {},
-            beginManagementSession: { _ in },
-            authenticateDeviceOwner: { _ in
-                switch proofAuth {
-                case "cancel":
-                    return nil
-                case "fail":
-                    authBox.onFail?()
-                    return nil
-                default:
-                    return .allow
-                }
-            },
-            preferences: AppPreferences(defaults: defaults),
-            loginItem: LoginItemController(
-                isEnabled: { proofRoute != "settings-login-off" },
-                setEnabled: { _ in }
-            ),
-            credentialMutations: .readOnly { ([], [], [], false) }
-        )
-        model.isVisualProof = true
-        authBox.onFail = { [weak model] in
-            model?.errorMessage = appLocalized("System authentication failed.")
-        }
-        model.hasCompletedOnboarding = true
-        model.isLocked = true
-        model.hasManagementSession = false
-        model.credentials = [
-            .visualProof(
-                id: "prod",
-                name: "生产环境 API",
-                componentNames: ["API_KEY", "API_ENDPOINT"],
-                groupName: "发布"
-            ),
-            .visualProof(
-                id: "ssh",
-                name: "部署服务器",
-                componentNames: ["SSH_HOST"]
-            ),
-        ]
-        model.recycledCredentials = [
-            .visualProof(
-                id: "old",
-                name: "旧数据库账号",
-                componentNames: ["DB_HOST", "DB_PASSWORD"],
-                deletedAt: Date().addingTimeInterval(-5 * 24 * 60 * 60)
-            )
-        ]
-        model.storedCredentialGroups = ["发布", "空分组"]
-        model.credentialAccessRecords = events
-        model.pendingApprovalCount = 2
-        model.visualProofPendingRequests = [
-            .init(
-                operationID: "preview-read",
-                credentialID: "prod",
-                targetID: "prod",
-                operation: .read,
-                payloadDigest: "redacted",
-                credentialName: "生产环境 API",
-                callerName: "Codex",
-                callerPurpose: "发布新版本"
-            ),
-            .init(
-                operationID: "preview-modify",
-                credentialID: "ssh",
-                targetID: "ssh",
-                operation: .modify,
-                payloadDigest: "redacted",
-                credentialName: "部署服务器",
-                callerName: "Cursor",
-                callerPurpose: "更新服务器地址"
-            ),
-        ]
-        model.timedAllowanceEnabled = proofRoute != "approval-timed-disabled"
-        if proofRoute == "empty" || proofRoute == "welcome" || proofRoute == "welcome-login-off" {
-            model.credentials = []
-            model.recycledCredentials = []
-            model.storedCredentialGroups = []
-        }
-        if proofRoute == "recycle-empty" {
-            model.recycledCredentials = []
-        }
-        if proofRoute == "welcome" || proofRoute == "welcome-login-off" {
-            model.pendingApprovalCount = 0
-            model.visualProofPendingRequests = []
-            model.hasCompletedOnboarding = false
-        } else if proofRoute == "locked" {
-            model.isLocked = true
-            model.hasManagementSession = false
-        }
-        return model
-    }
-#endif
 }
 
 enum AppLaunchSource: Equatable {
@@ -488,13 +356,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             didStart()
             return
         }
-        if AppRuntimeState.visualProofEnabled {
-            setupWindowBehavior()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-                self?.performVisualProofClicks()
-            }
-            return
-        }
         recycleBinCleanupTimer = Timer.scheduledTimer(withTimeInterval: 60 * 60, repeats: true) { _ in
             guard !Vault.shared.isLocked else { return }
             do {
@@ -530,9 +391,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        OnboardingTerminationGate.shouldTerminate(hasInFlightWrite: vault.onboarding.hasInFlightWrite) {
-            vault.onboarding.writeSettledHandler = $0
-        }
+        OnboardingTerminationGate.shouldTerminate(
+            hasInFlightWrite: vault.onboarding.hasInFlightWrite,
+            arm: { vault.onboarding.writeSettledHandler = $0 }
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -980,12 +842,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         panel.setContentSize(contentSize)
         panel.contentViewController?.view.frame = NSRect(origin: .zero, size: contentSize)
         panel.center()
-        if AppRuntimeState.visualProofEnabled {
-            panel.makeKeyAndOrderFront(nil)
-            if let view = panel.contentViewController?.view {
-                captureVisualProof(view: view)
-            }
-        }
         privacyTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
             MainActor.assumeIsolated {
                 let requestEnded = pending.map {
@@ -999,280 +855,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         }
         panel.level = .modalPanel
         panel.makeKeyAndOrderFront(nil)
-    }
-
-    private func performVisualProofClicks() {
-#if DEBUG
-        guard let window = NSApp.windows.first(where: {
-            $0.identifier?.rawValue == "settings"
-        }), let view = window.contentView else {
-            NSLog("AskKey visual proof failed: management window is unavailable")
-            return
-        }
-        let route = ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF_ROUTE"] ?? "locked"
-        if route != "locked", !route.hasPrefix("welcome"), !vault.hasManagementSession {
-            Task { [weak self] in
-                await self?.vault.unlockForManagement()
-                if self?.vault.hasManagementSession == true {
-                    self?.performVisualProofClicks()
-                    return
-                }
-                let auth = ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF_AUTH"]
-                if auth == "cancel" || auth == "fail" {
-                    self?.captureVisualProof(view: view)
-                }
-            }
-            return
-        }
-#if DEBUG
-        if (route == "approval" || route == "approval-timed-disabled"),
-           let request = vault.visualProofPendingRequests.first {
-            _ = runFrozenApprovalPanel(
-                request: request,
-                expiresAt: Date().addingTimeInterval(300)
-            )
-            return
-        }
-#endif
-        let fallbackPoints: [String: NSPoint] = [
-            "group": .init(x: 100, y: 490),
-            "group-empty": .init(x: 100, y: 450),
-            "ungrouped": .init(x: 100, y: 410),
-            "recycle": .init(x: 100, y: 370),
-            "pending": .init(x: 100, y: 135),
-            "approval": .init(x: 100, y: 135),
-            "records": .init(x: 100, y: 100),
-            "agent": .init(x: 100, y: 75),
-            "detail": .init(x: 520, y: 500),
-            "chooser": .init(x: 900, y: 550),
-            "import": .init(x: 780, y: 550),
-        ]
-        window.makeKeyAndOrderFront(nil)
-        let proofModifiers: NSEvent.ModifierFlags = [.command, .option]
-        let sequences: [String: [(String, UInt16, NSEvent.ModifierFlags)]] = [
-            "group": [("1", 18, proofModifiers)],
-            "group-confirm": [("1", 18, proofModifiers), ("d", 2, proofModifiers)],
-            "group-empty": [("2", 19, proofModifiers)],
-            "ungrouped": [("3", 20, proofModifiers)],
-            "recycle": [("4", 21, proofModifiers)],
-            "chooser": [("n", 45, proofModifiers)],
-            "import": [("i", 34, proofModifiers)],
-            "editor": [("n", 45, proofModifiers), ("6", 22, proofModifiers)],
-            "editor-expanded": [("n", 45, proofModifiers), ("6", 22, proofModifiers), ("e", 14, proofModifiers)],
-            "editor-custom-visible": [("n", 45, proofModifiers), ("6", 22, proofModifiers), ("f", 3, proofModifiers)],
-            "editor-protected": [("n", 45, proofModifiers), ("0", 29, proofModifiers), ("f", 3, proofModifiers)],
-            "editor-protected-revealed": [("n", 45, proofModifiers), ("0", 29, proofModifiers), ("f", 3, proofModifiers), ("r", 15, proofModifiers)],
-            "editor-more-open": [("n", 45, proofModifiers), ("6", 22, proofModifiers), ("f", 3, proofModifiers)],
-            "editor-more-closed": [("n", 45, proofModifiers), ("6", 22, proofModifiers), ("f", 3, proofModifiers)],
-            "editor-save": [("n", 45, proofModifiers), ("6", 22, proofModifiers), ("s", 1, proofModifiers)],
-            "import-preview": [("i", 34, proofModifiers), ("p", 35, proofModifiers)],
-            "import-conflict": [("i", 34, proofModifiers), ("c", 8, proofModifiers)],
-            "import-save": [("i", 34, proofModifiers), ("s", 1, proofModifiers)],
-            "detail-delete": [("v", 9, proofModifiers), ("x", 7, proofModifiers)],
-            "detail-delete-confirm": [("v", 9, proofModifiers), ("d", 2, proofModifiers)],
-            "detail-edit": [("v", 9, proofModifiers), ("j", 38, proofModifiers)],
-            "recycle-empty": [("4", 21, proofModifiers)],
-            "settings-erase": [(",", 43, .command), ("x", 7, proofModifiers)],
-            "settings-record-clear": [(",", 43, .command), ("c", 8, proofModifiers)],
-        ]
-        if let sequence = sequences[route] {
-            runVisualProofSequence(sequence, index: 0, route: route, window: window)
-            return
-        }
-        if route == "settings" || route == "settings-warning" || route == "settings-login-off" {
-            guard sendVisualProofKey(",", keyCode: 43, modifiers: .command, to: window) else {
-                return
-            }
-            scheduleVisualProofAfterFirstAction(route: route, window: window)
-            return
-        }
-        guard let fallbackPoint = fallbackPoints[route],
-              view.bounds.contains(fallbackPoint) else {
-            captureVisualProof(view: view)
-            return
-        }
-        guard sendVisualProofClick(at: fallbackPoint, to: window) else {
-            NSLog("AskKey visual proof failed: click event could not be delivered for \(route)")
-            return
-        }
-        scheduleVisualProofAfterFirstAction(route: route, window: window)
-#endif
-    }
-
-    private func runVisualProofSequence(
-        _ sequence: [(String, UInt16, NSEvent.ModifierFlags)],
-        index: Int,
-        route: String,
-        window: NSWindow
-    ) {
-#if DEBUG
-        guard index < sequence.count else {
-            guard route != "approval", let view = window.contentView else { return }
-            if route == "editor-more-open" || route == "editor-more-closed" {
-                let rowTrailingPoint = NSPoint(x: 850, y: 210)
-                guard sendVisualProofClick(at: rowTrailingPoint, to: window) else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
-                    guard let self else { return }
-                    if route == "editor-more-closed" {
-                        guard self.sendVisualProofClick(at: rowTrailingPoint, to: window) else {
-                            return
-                        }
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                        self.captureVisualProof(view: view)
-                    }
-                }
-                return
-            }
-            captureVisualProof(view: view)
-            return
-        }
-        let key = sequence[index]
-        guard sendVisualProofKey(key.0, keyCode: key.1, modifiers: key.2, to: window) else {
-            return
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self, weak window] in
-            guard let self, let window else { return }
-            self.runVisualProofSequence(
-                sequence,
-                index: index + 1,
-                route: route,
-                window: window
-            )
-        }
-#endif
-    }
-
-    private func scheduleVisualProofAfterFirstAction(route: String, window: NSWindow) {
-#if DEBUG
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak window] in
-            guard let self, let window, let view = window.contentView else { return }
-            if route == "settings-warning" {
-                guard self.sendVisualProofKey(
-                    "d",
-                    keyCode: 2,
-                    modifiers: [.command, .option],
-                    to: window
-                ) else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.captureVisualProof(view: view)
-                }
-                return
-            }
-            if route == "approval" {
-                _ = self.sendVisualProofKey(
-                    "\r",
-                    keyCode: 36,
-                    modifiers: [],
-                    to: window
-                )
-            } else {
-                self.captureVisualProof(view: view)
-            }
-        }
-#endif
-    }
-
-    @discardableResult
-    private func sendVisualProofKey(
-        _ characters: String,
-        keyCode: UInt16,
-        modifiers: NSEvent.ModifierFlags,
-        to window: NSWindow
-    ) -> Bool {
-#if DEBUG
-        let timestamp = ProcessInfo.processInfo.systemUptime
-        guard let down = NSEvent.keyEvent(
-            with: .keyDown,
-            location: .zero,
-            modifierFlags: modifiers,
-            timestamp: timestamp,
-            windowNumber: window.windowNumber,
-            context: nil,
-            characters: characters,
-            charactersIgnoringModifiers: characters,
-            isARepeat: false,
-            keyCode: keyCode
-        ), let up = NSEvent.keyEvent(
-            with: .keyUp,
-            location: .zero,
-            modifierFlags: modifiers,
-            timestamp: timestamp,
-            windowNumber: window.windowNumber,
-            context: nil,
-            characters: characters,
-            charactersIgnoringModifiers: characters,
-            isARepeat: false,
-            keyCode: keyCode
-        ) else { return false }
-        if window.performKeyEquivalent(with: down) { return true }
-        NSApp.sendEvent(down)
-        NSApp.sendEvent(up)
-        return true
-#else
-        return false
-#endif
-    }
-
-    @discardableResult
-    private func sendVisualProofClick(at point: NSPoint, to window: NSWindow) -> Bool {
-#if DEBUG
-        let timestamp = ProcessInfo.processInfo.systemUptime
-        guard let down = NSEvent.mouseEvent(
-            with: .leftMouseDown,
-            location: point,
-            modifierFlags: [],
-            timestamp: timestamp,
-            windowNumber: window.windowNumber,
-            context: nil,
-            eventNumber: 0,
-            clickCount: 1,
-            pressure: 1
-        ), let up = NSEvent.mouseEvent(
-            with: .leftMouseUp,
-            location: point,
-            modifierFlags: [],
-            timestamp: timestamp,
-            windowNumber: window.windowNumber,
-            context: nil,
-            eventNumber: 0,
-            clickCount: 1,
-            pressure: 0
-        ) else { return false }
-        window.sendEvent(down)
-        window.sendEvent(up)
-        return true
-#else
-        return false
-#endif
-    }
-
-    private func captureVisualProof(view: NSView) {
-#if DEBUG
-        guard let path = ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF_OUTPUT"] else {
-            NSLog("AskKey visual proof failed: output path is missing")
-            return
-        }
-        guard !view.bounds.isEmpty else {
-            NSLog("AskKey visual proof failed: capture view is empty")
-            return
-        }
-        view.layoutSubtreeIfNeeded()
-        guard let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
-            NSLog("AskKey visual proof failed: bitmap representation is unavailable")
-            return
-        }
-        view.cacheDisplay(in: view.bounds, to: representation)
-        guard let data = representation.representation(using: .png, properties: [:]) else {
-            NSLog("AskKey visual proof failed: PNG encoding failed")
-            return
-        }
-        do {
-            try data.write(to: URL(fileURLWithPath: path), options: .atomic)
-        } catch {
-            NSLog("AskKey visual proof capture failed: \(error.localizedDescription)")
-        }
-#endif
     }
 
     nonisolated private static func screenState() -> AgentApprovalScreenState {

@@ -6,16 +6,8 @@ import XCTest
 @testable import AskKeyCore
 
 final class AgentOnboardingEvidenceCloseTests: AskKeyAppTestCase {
-    override func tearDown() {
-        OnboardingTerminationGate.reply = nil
-        super.tearDown()
-    }
-
     func testTerminateLaterApplyFailureRepliesExactlyOnceThroughAppGate() async {
         let replies = LockedMutationCount()
-        OnboardingTerminationGate.reply = { _ in
-            replies.add()
-        }
         let gate = CloseApplyGate()
         let probe = RepairCloseProbe()
         probe.checkHandler = { client, _ in
@@ -41,9 +33,11 @@ final class AgentOnboardingEvidenceCloseTests: AskKeyAppTestCase {
             try? await Task.sleep(nanoseconds: 10_000_000)
         }
         let decision = await MainActor.run {
-            OnboardingTerminationGate.shouldTerminate(hasInFlightWrite: coordinator.hasInFlightWrite) {
-                coordinator.writeSettledHandler = $0
-            }
+            OnboardingTerminationGate.shouldTerminate(
+                hasInFlightWrite: coordinator.hasInFlightWrite,
+                arm: { coordinator.writeSettledHandler = $0 },
+                reply: { _ in replies.add() }
+            )
         }
         XCTAssertEqual(decision, .terminateLater)
         gate.release()

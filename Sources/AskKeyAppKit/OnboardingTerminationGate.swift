@@ -1,24 +1,15 @@
 import AppKit
 
 enum OnboardingTerminationGate {
-#if DEBUG
-    static var reply: (@MainActor (Bool) -> Void)?
-#endif
-
     @MainActor
     static func shouldTerminate(
         hasInFlightWrite: Bool,
-        arm: (@escaping () -> Void) -> Void
+        arm: (@escaping () -> Void) -> Void,
+        reply: @escaping @MainActor (Bool) -> Void = { NSApp.reply(toApplicationShouldTerminate: $0) }
     ) -> NSApplication.TerminateReply {
         if hasInFlightWrite {
             arm {
-#if DEBUG
-                if let reply {
-                    reply(true)
-                    return
-                }
-#endif
-                NSApp.reply(toApplicationShouldTerminate: true)
+                reply(true)
             }
             return .terminateLater
         }
