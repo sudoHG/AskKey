@@ -4,9 +4,28 @@ import XCTest
 import AskKeyBroker
 @testable import AskKeyCore
 
-final class CodexUserMCPAdapterTests: XCTestCase {
+final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
+    private var harnesses: [Harness] = []
+
+    override func tearDown() {
+        for harness in harnesses { harness.close() }
+        harnesses.removeAll()
+        super.tearDown()
+    }
+
+    private func makeHarness(
+        cli: FakeCodexCLI.Kind = .missing,
+        brokerHealth: String = "ok",
+        trustHelper: Bool = true,
+        helperOverride: URL? = nil
+    ) throws -> Harness {
+        let harness = try Harness(cli: cli, brokerHealth: brokerHealth,
+                                  trustHelper: trustHelper, helperOverride: helperOverride)
+        harnesses.append(harness)
+        return harness
+    }
     func testDisabledMCPDoesNotReportConnectedEvenWhenTheHelperWorks() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         _ = try harness.adapter.apply()
         let config = try harness.configText() + "enabled = false\n"
         try harness.writeConfig(config, mode: 0o600)
@@ -29,7 +48,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
         """
         try Data(script.utf8).write(to: helper)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helper.path)
-        let harness = try Harness(helperOverride: helper)
+        let harness = try makeHarness(helperOverride: helper)
         _ = try harness.adapter.apply()
         XCTAssertEqual(harness.adapter.status(), .connected)
         let discovery = CodexUserMCPAdapter(
@@ -54,7 +73,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testCodex153PreviewAndApplyUseVerifiedOfficialContract() throws {
-        let harness = try Harness(cli: .supported("0.153.4", rewriteWithoutComments: false))
+        let harness = try makeHarness(cli: .supported("0.153.4", rewriteWithoutComments: false))
         XCTAssertNoThrow(try harness.adapter.preview())
         XCTAssertEqual(try harness.adapter.apply().status, .connected)
         XCTAssertTrue(harness.cli.addCalled)
@@ -69,7 +88,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     private func assertCodexProcessVersionAllowsPreviewAndApply(_ version: String) throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         let fixture = try CodexProcessFixture(harness: harness, versionOutput: "codex-cli \(version)")
         let command = ProcessCodexMCPCommand.make(executable: fixture.executable)
         let adapter = harness.makeAdapter(command: command)
@@ -92,7 +111,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
             ("codex-cli 0.153.4\n", "0.153.4"),
             ("0.153.4\n", "0.153.4"),
         ] {
-            let harness = try Harness()
+            let harness = try makeHarness()
             let fixture = try CodexProcessFixture(harness: harness, versionOutput: versionOutput)
             let command = ProcessCodexMCPCommand.make(executable: fixture.executable)
             XCTAssertEqual(command.status(), .supported(version: version), versionOutput)
@@ -115,7 +134,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
             "codex-cli 0.157.0",
             "codex-cli nightly",
         ] {
-            let harness = try Harness()
+            let harness = try makeHarness()
             let fixture = try CodexProcessFixture(harness: harness, versionOutput: versionOutput)
             let command = ProcessCodexMCPCommand.make(executable: fixture.executable)
             let adapter = harness.makeAdapter(command: command)
@@ -142,16 +161,15 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testCodexMCPAddGetJSONContractUsesIsolatedConfiguration() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         let fixture = try CodexProcessFixture(harness: harness)
         try assertCodexMCPAddGetJSONContract(executable: fixture.executable,
                                            expectedVersion: "0.154.0", harness: harness)
     }
 
     func testInstalledCodexMCPAddGetJSONContractUsesIsolatedConfiguration() throws {
-        let environment = ProcessInfo.processInfo.environment
-        let configuredPath = environment["ASKKEY_TEST_CODEX_EXECUTABLE"]
-        let configuredVersion = environment["ASKKEY_TEST_CODEX_EXPECTED_VERSION"]
+        let configuredPath = requestedEnvironmentValue("ASKKEY_TEST_CODEX_EXECUTABLE")
+        let configuredVersion = requestedEnvironmentValue("ASKKEY_TEST_CODEX_EXPECTED_VERSION")
         if configuredPath == nil && configuredVersion == nil {
             throw XCTSkip("Set ASKKEY_TEST_CODEX_EXECUTABLE and ASKKEY_TEST_CODEX_EXPECTED_VERSION for the installed CLI contract")
         }
@@ -165,7 +183,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
         }
         let executable = URL(fileURLWithPath: path).resolvingSymlinksInPath()
         try assertCodexMCPAddGetJSONContract(executable: executable,
-                                           expectedVersion: version, harness: Harness())
+                                           expectedVersion: version, harness: makeHarness())
     }
 
     private func assertCodexMCPAddGetJSONContract(executable: URL, expectedVersion: String,
@@ -213,7 +231,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testEmptyConfigWritesAskKeyAndConnectsThroughHelperAndBroker() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         let result = try harness.adapter.apply()
 
         XCTAssertEqual(result.status, .connected)
@@ -227,7 +245,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testComplexTOMLKeepsCommentsOtherServersAndMode() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         let original = """
         # keep this comment
         model = "gpt-5"
@@ -265,14 +283,14 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testIllegalConfigAndUnsafeFilesFailClosed() throws {
-        let illegal = try Harness()
+        let illegal = try makeHarness()
         try illegal.writeConfig("{ this is not toml\n[[[", mode: 0o600)
         XCTAssertThrowsError(try illegal.adapter.apply()) { error in
             XCTAssertEqual(error as? CodexUserMCPError, .illegalConfig)
         }
         XCTAssertEqual(try illegal.configText(), "{ this is not toml\n[[[")
 
-        let link = try Harness()
+        let link = try makeHarness()
         let target = link.root.appendingPathComponent("real.toml")
         try Data("model = \"ok\"\n".utf8).write(to: target)
         try FileManager.default.createSymbolicLink(at: link.configURL, withDestinationURL: target)
@@ -281,7 +299,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
         }
         XCTAssertEqual(try String(contentsOf: target, encoding: .utf8), "model = \"ok\"\n")
 
-        let fifo = try Harness()
+        let fifo = try makeHarness()
         XCTAssertEqual(mkfifo(fifo.configURL.path, 0o600), 0)
         XCTAssertThrowsError(try fifo.adapter.apply()) { error in
             XCTAssertEqual(error as? CodexUserMCPError, .unsafeConfigFile)
@@ -289,7 +307,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testUnknownCodexVersionFailsClosed() throws {
-        let harness = try Harness(cli: .unknown("nightly-mystery"))
+        let harness = try makeHarness(cli: .unknown("nightly-mystery"))
         try harness.writeConfig("model = \"keep\"\n", mode: 0o600)
         XCTAssertThrowsError(try harness.adapter.apply()) { error in
             XCTAssertEqual(error as? CodexUserMCPError, .unknownCodexVersion)
@@ -300,7 +318,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testSupportedOfficialCLIIsTriedThenCommentsArePreserved() throws {
-        let harness = try Harness(cli: .supported("0.42.0", rewriteWithoutComments: true))
+        let harness = try makeHarness(cli: .supported("0.42.0", rewriteWithoutComments: true))
         try harness.writeConfig("""
         # keep
         [mcp_servers.other]
@@ -316,14 +334,14 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testMissingOfficialCLIUsesLosslessTOML() throws {
-        let harness = try Harness(cli: .missing)
+        let harness = try makeHarness(cli: .missing)
         XCTAssertEqual(try harness.adapter.apply().status, .connected)
         XCTAssertFalse(harness.cli.addCalled)
         XCTAssertTrue(try harness.configText().contains("[mcp_servers.askkey]"))
     }
 
     func testBackupPermissionsRollbackAndSuccessfulDelete() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
         harness.adapter.probe.afterWrite = { throw CodexUserMCPError.connectionFailed("interrupted") }
 
@@ -342,7 +360,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testRollbackFailureIsVisibleAndKeepsTheBackup() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
         harness.adapter.probe.afterWrite = {
             throw CodexUserMCPError.connectionFailed("verification")
@@ -358,7 +376,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testBackupCleanupFailureDuringRollbackIsVisible() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
         defer { try? FileManager.default.setAttributes(
             [.posixPermissions: 0o700],
@@ -380,7 +398,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testExternalRewriteAfterApplyIsPreservedWhenVerificationFails() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
         let concurrent = "model = \"concurrent\"\n"
         harness.adapter.probe.afterWrite = {
@@ -407,7 +425,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testExternalDeleteAfterApplyIsNotRecreatedByRollback() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
         harness.adapter.probe.afterWrite = {
             try FileManager.default.removeItem(at: harness.configURL)
@@ -420,7 +438,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testBackupIsSingle07000600CopyDuringApply() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o644)
         var sawBackup = false
         harness.adapter.probe.afterBackup = {
@@ -440,7 +458,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testProtocolFailureRollsBackAndIsNotConnected() throws {
-        let harness = try Harness(helperOverride: URL(fileURLWithPath: "/usr/bin/true"))
+        let harness = try makeHarness(helperOverride: URL(fileURLWithPath: "/usr/bin/true"))
         try harness.writeConfig("model = \"keep\"\n", mode: 0o600)
         XCTAssertThrowsError(try harness.adapter.apply()) { error in
             XCTAssertEqual(error as? CodexUserMCPError, .connectionFailed("protocol"))
@@ -453,7 +471,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     func testStatusReturnsWhenHelperIgnoresTermination() throws {
         let helper = try makeIgnoringTerminationExecutable()
         defer { try? FileManager.default.removeItem(at: helper.deletingLastPathComponent()) }
-        let harness = try Harness(helperOverride: helper)
+        let harness = try makeHarness(helperOverride: helper)
         try harness.writeConfig("""
         [mcp_servers.askkey]
         command = "\(helper.path)"
@@ -478,7 +496,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testApplyRollsBackWhenBrokerHealthFailsAndStatusIsNotConnected() throws {
-        let harness = try Harness(brokerHealth: "down")
+        let harness = try makeHarness(brokerHealth: "down")
         try harness.writeConfig("model = \"keep\"\n", mode: 0o600)
         XCTAssertThrowsError(try harness.adapter.apply()) { error in
             XCTAssertEqual(error as? CodexUserMCPError, .connectionFailed("broker"))
@@ -488,7 +506,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testExistingConfigDoesNotCountAsConnectedWhenHelperOrBrokerFails() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         XCTAssertEqual(try harness.adapter.apply().status, .connected)
         harness.stopBroker()
         XCTAssertNotEqual(harness.adapter.status(), .connected)
@@ -496,7 +514,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testUntrustedHelperDoesNotReportConnected() throws {
-        let harness = try Harness(trustHelper: false)
+        let harness = try makeHarness(trustHelper: false)
         try harness.writeConfig("""
         [mcp_servers.askkey]
         command = "/tmp/not-askkey"
@@ -508,7 +526,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testConcurrentApplyDoesNotOverlapBackupMutation() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o600)
         let state = NSLock()
         var inflight = 0
@@ -546,7 +564,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
             "[server]\nkey = 1\n[server]\nkey = 2\n",
         ]
         for text in samples {
-            let harness = try Harness()
+            let harness = try makeHarness()
             try harness.writeConfig(text, mode: 0o600)
             XCTAssertThrowsError(try harness.adapter.apply()) { error in
                 XCTAssertEqual(error as? CodexUserMCPError, .illegalConfig, text)
@@ -558,7 +576,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testLegacyRawBackupFailsClosedWithoutOverwritingCurrentConfig() throws {
-        let harness = try Harness(brokerHealth: "down")
+        let harness = try makeHarness(brokerHealth: "down")
         try harness.writeConfig("model = \"dirty\"\n", mode: 0o600)
         try FileManager.default.createDirectory(
             at: harness.backupDirectory,
@@ -577,7 +595,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testRedactedDiffHidesSingleQuotedBareAndOtherServerSecrets() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("""
         TOKEN = '\(Harness.secret)'
         BARE = \(Harness.secret)
@@ -596,7 +614,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
             "[foo]\nbar = 1\n[foo.bar]\nx = 2\n",
         ]
         for text in samples {
-            let harness = try Harness()
+            let harness = try makeHarness()
             try harness.writeConfig(text, mode: 0o600)
             XCTAssertThrowsError(try harness.adapter.apply()) { error in
                 XCTAssertEqual(error as? CodexUserMCPError, .illegalConfig, text)
@@ -608,7 +626,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testLegalMultilineValueWithEqualsStillConnects() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("""
         note = \"\"\"
         a = b
@@ -620,7 +638,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testDottedKeyParentCannotBeRedefinedAsExplicitTable() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         let original = "a.b = 1\n[a]\nc = 2\n"
         try harness.writeConfig(original, mode: 0o600)
         XCTAssertThrowsError(try harness.adapter.apply()) { error in
@@ -630,7 +648,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testLegalMultilineArrayAndImplicitParentTableAreMerged() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         let original = """
         notify = [
           "/usr/bin/true",
@@ -651,7 +669,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testMultilineStringSecretsAreRedacted() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         try harness.writeConfig("""
         TOKEN = \"\"\"
         \(Harness.secret)
@@ -672,7 +690,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
             "foo. = 1\n",
         ]
         for text in samples {
-            let harness = try Harness()
+            let harness = try makeHarness()
             try harness.writeConfig(text, mode: 0o600)
             XCTAssertThrowsError(try harness.adapter.apply()) { error in
                 XCTAssertEqual(error as? CodexUserMCPError, .illegalConfig, text)
@@ -684,7 +702,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testArrayOfTablesAndQuotedKeyDoNotBlockAskKey() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         let original = """
         "a.b" = 1
         a.b = 2
@@ -711,7 +729,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
             "a = 1\n[[a]]\nx = 2\n",
         ]
         for text in samples {
-            let harness = try Harness()
+            let harness = try makeHarness()
             try harness.writeConfig(text, mode: 0o600)
             XCTAssertThrowsError(try harness.adapter.apply()) { error in
                 XCTAssertEqual(error as? CodexUserMCPError, .illegalConfig, text)
@@ -723,7 +741,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testNestedArrayOfTablesCanConnect() throws {
-        let harness = try Harness()
+        let harness = try makeHarness()
         let original = """
         [[fruits]]
         name = "apple"
@@ -745,7 +763,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
     }
 
     func testUnsupportedOfficialCLIVersionFailsClosed() throws {
-        let harness = try Harness(cli: .supported("99.0.0", rewriteWithoutComments: false))
+        let harness = try makeHarness(cli: .supported("99.0.0", rewriteWithoutComments: false))
         try harness.writeConfig("model = \"keep\"\n", mode: 0o600)
         XCTAssertThrowsError(try harness.adapter.apply()) { error in
             XCTAssertEqual(error as? CodexUserMCPError, .unknownCodexVersion)
@@ -845,7 +863,6 @@ private func scopedCodexOutput(_ executable: URL, arguments: [String], config: U
 }
 
 private final class Harness {
-    private let environment = AskKeyTestEnvironment()
     static let secret = "ghp_live_token_do_not_log"
 
     let root: URL
@@ -931,10 +948,14 @@ private final class Harness {
         )
     }
 
-    deinit {
+    func close() {
+        // Probes can retain their fixture. Break those cycles before cleanup.
+        adapter.probe = CodexApplyProbe()
         server?.stop()
         try? FileManager.default.removeItem(at: root)
     }
+
+    deinit { close() }
 
     func stopBroker() {
         server?.stop()

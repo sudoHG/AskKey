@@ -4,7 +4,7 @@ import Foundation
 import XCTest
 @testable import AskKeyCore
 
-final class GrokCLIAdapterTests: XCTestCase {
+final class GrokCLIAdapterTests: AskKeyCoreTestCase {
     func testRedactedDiffCoversCompactAndMultilineInlineEnvironmentTables() {
         let before = """
         [mcp_servers.first]
@@ -853,7 +853,6 @@ final class GrokCLIAdapterTests: XCTestCase {
 }
 
 private final class Fixture {
-    private let environment = AskKeyTestEnvironment()
     let directory: URL
     let grokHome: URL
     let isolatedHome: URL
