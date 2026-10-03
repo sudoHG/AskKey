@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Compare Swift line multisets with a base ref to verify move-only refactors."""
+"""Compare Swift line multisets with a base ref to verify move-only refactors.
+
+Only new type and extension headers are allowed. Unmatched function, property,
+initializer, and case declarations are other additions and fail the check.
+Access-only changes are reported and allowed; missing removed lines fail.
+"""
 
 import argparse
 from collections import Counter, defaultdict, deque
@@ -18,9 +23,9 @@ MODIFIERS = (
     r"nonisolated|isolated|distributed|indirect|lazy|weak|unowned|borrowing|consuming)"
     r"(?:\([^)]*\))?\s+|@\w+(?:\.\w+)*(?:\([^)]*\))?\s+)*)"
 )
-DECLARATION = re.compile(
+TYPE_HEADER = re.compile(
     MODIFIERS +
-    r"(?:extension|struct|class|enum|protocol|actor|func|var|let)\s+\S"
+    r"(?:extension|struct|class|enum|protocol|actor)\s+\S"
 )
 ACCESS_DECLARATION = re.compile(
     MODIFIERS + r"(?:extension|struct|class|enum|protocol|actor|func|var|let|"
@@ -54,7 +59,7 @@ class Line:
 
     def is_header(self):
         code = self.code.strip()
-        if not DECLARATION.match(code) or ";" in code:
+        if not TYPE_HEADER.match(code) or ";" in code:
             return False
         # A declaration with an inline body also adds executable code.
         _, brace, body = code.partition("{")

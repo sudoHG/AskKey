@@ -59,7 +59,7 @@ class MoveOnlyTests(unittest.TestCase):
         result = self.check()
         self.assertEqual(result.returncode, 1)
         self.assertIn("Sources/Value.swift:3: let number = 10", result.stdout)
-        self.assertIn("Declaration headers (1)", result.stdout)
+        self.assertIn("Other added lines (1)", result.stdout)
         self.assertIn("missing=1", result.stdout)
 
     def test_added_statement_fails(self):
@@ -170,12 +170,52 @@ class MoveOnlyTests(unittest.TestCase):
     def test_additions_are_grouped_as_declaration_headers(self):
         self.base({"Sources/A.swift": "perform()\n"})
         headers = ["extension Value {", "struct Value {", "final class Value {",
-                   "enum Value {", "protocol Value {", "actor Value {", "func run() {",
-                   "static var value: Int", "let value = 1"]
+                   "enum Value {", "protocol Value {", "actor Value {"]
         self.write("Sources/A.swift", "perform()\n" + "\n".join(headers) + "\n")
         result = self.check()
         self.assert_pass(result)
-        self.assertIn("Declaration headers (9)", result.stdout)
+        self.assertIn("Declaration headers (6)", result.stdout)
+
+    def test_appended_let_declaration_fails(self):
+        self.base({"Sources/A.swift": "perform()\n"})
+        self.write("Sources/A.swift", "perform()\nlet x = 42\n")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Sources/A.swift:2: let x = 42", result.stdout)
+        self.assertIn("missing=0, declaration headers=0, access-only=0, other=1", result.stdout)
+
+    def test_appended_empty_function_fails(self):
+        self.base({"Sources/A.swift": "perform()\n"})
+        self.write("Sources/A.swift", "perform()\nfunc f() {}\n")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Sources/A.swift:2: func f() {}", result.stdout)
+        self.assertIn("other=1", result.stdout)
+
+    def test_new_extension_header_for_moved_method_passes(self):
+        self.base({"Sources/Foo.swift": "struct Foo {\nfunc run() {\nperform()\n}\n}\n"})
+        self.write("Sources/Foo.swift", "struct Foo {\n}\n")
+        self.write("Sources/Foo+Run.swift", "@MainActor extension Foo: Runnable {\n"
+                   "func run() {\nperform()\n}\n}\n")
+        result = self.check()
+        self.assert_pass(result)
+        self.assertIn("declaration headers=1", result.stdout)
+
+    def test_unmatched_non_type_declarations_are_other(self):
+        self.base({"Sources/A.swift": "perform()\n"})
+        additions = ["var value: Int", "init() {}", "case added", "package func run() {"]
+        self.write("Sources/A.swift", "perform()\n" + "\n".join(additions) + "\n")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("declaration headers=0", result.stdout)
+        self.assertIn("other=4", result.stdout)
+
+    def test_help_describes_only_type_and_extension_headers_as_allowed(self):
+        result = subprocess.run([sys.executable, str(SCRIPT), "--help"], cwd=self.root,
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Only new type and extension headers are allowed", result.stdout)
+        self.assertIn("other additions and fail", result.stdout)
 
     def test_inline_body_and_multiple_statements_are_other_additions(self):
         self.base({"Sources/A.swift": "perform()\n"})
