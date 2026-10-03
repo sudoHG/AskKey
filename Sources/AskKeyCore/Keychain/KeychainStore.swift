@@ -3,6 +3,7 @@ import Security
 
 enum KeychainQuery {
     static var systemKeychainAllowed: Bool {
+        RuntimeOperationEvents.publish(.keychain)
         #if DEBUG
         if ProcessInfo.processInfo.environment["ASKKEY_DEBUG_RUN_DIRECTORY"] != nil { return false }
         #endif
@@ -30,9 +31,6 @@ enum KeychainStore {
     // identifier). The protection boundary is the unlocked user session;
     // user-presence checks happen at the app layer via LocalAuthentication.
     static func save(_ data: Data) throws {
-#if DEBUG
-        OnboardingBoundaryObserver.note(.keychain)
-#endif
         guard KeychainQuery.systemKeychainAllowed else {
             throw VaultError.keychainWriteFailed(errSecInteractionNotAllowed)
         }
@@ -62,9 +60,6 @@ enum KeychainStore {
     }
 
     static func load() throws -> Data {
-#if DEBUG
-        OnboardingBoundaryObserver.note(.keychain)
-#endif
         guard KeychainQuery.systemKeychainAllowed else {
             throw VaultError.keychainReadFailed(errSecInteractionNotAllowed)
         }

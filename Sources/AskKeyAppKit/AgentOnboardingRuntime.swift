@@ -25,13 +25,11 @@ package enum AgentOnboardingRuntime {
             check: { client, cancellation in
                 try await Task.detached {
                     try RestrictedProcessCancellation.withValue({ cancellation.isCancelled }) {
-                        try withBoundaryActive {
-                            if cancellation.isCancelled { throw AgentOnboardingFailure.cancelled }
-                            do {
-                                return try runCheck(client)
-                            } catch {
-                                throw mappedCheckError(error, cancelled: cancellation.isCancelled)
-                            }
+                        if cancellation.isCancelled { throw AgentOnboardingFailure.cancelled }
+                        do {
+                            return try runCheck(client)
+                        } catch {
+                            throw mappedCheckError(error, cancelled: cancellation.isCancelled)
                         }
                     }
                 }.value
@@ -39,26 +37,14 @@ package enum AgentOnboardingRuntime {
             apply: { client, plan, cancellation in
                 try await Task.detached {
                     try RestrictedProcessCancellation.withValue({ cancellation.isCancelled }) {
-                        try withBoundaryActive {
-                            if cancellation.isCancelled { throw AgentOnboardingFailure.cancelled }
-                            return try runApply(client, plan)
-                        }
+                        if cancellation.isCancelled { throw AgentOnboardingFailure.cancelled }
+                        return try runApply(client, plan)
                     }
                 }.value
             },
             authenticate: authenticate,
             revalidateWriteSession: revalidateWriteSession
         )
-    }
-
-    private static func withBoundaryActive<T>(_ body: () throws -> T) rethrows -> T {
-#if DEBUG
-        try OnboardingBoundaryObserver.$active.withValue(true) {
-            try body()
-        }
-#else
-        try body()
-#endif
     }
 
     private static func mappedCheckError(_ error: Error, cancelled: Bool) -> Error {

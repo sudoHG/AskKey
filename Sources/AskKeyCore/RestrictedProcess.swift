@@ -3,138 +3,7 @@ import Foundation
 import Darwin
 #endif
 
-#if DEBUG
-/// DEBUG-only onboarding observation. Not compiled into Release Core.
-/// `note` records when a check/apply task set `active`, or when an isolated
-/// page window is open.
-public enum OnboardingBoundaryObserver {
-    public enum Kind: String, Sendable {
-        case cli
-        case keychain
-        case configWrite
-        case cursorHelper
-    }
 
-    @TaskLocal public static var active = false
-
-    private static let windowLock = NSLock()
-    private static var pageWindow = false
-
-    public static func beginPageWindow() {
-        windowLock.withLock { pageWindow = true }
-    }
-
-    public static func endPageWindow() {
-        windowLock.withLock { pageWindow = false }
-    }
-
-    public static var isPageWindowActive: Bool {
-        windowLock.withLock { pageWindow }
-    }
-
-    public static let emptySnapshot: [String: Int] = [
-        "cli": 0, "keychain": 0, "configWrite": 0, "cursorHelper": 0
-    ]
-
-    public final class Recorder: @unchecked Sendable {
-        private let lock = NSLock()
-        private var counts: [Kind: Int] = [:]
-
-        public init() {}
-
-        public func add(_ kind: Kind) {
-            lock.withLock { counts[kind, default: 0] += 1 }
-        }
-
-        public func count(_ kind: Kind) -> Int {
-            lock.withLock { counts[kind, default: 0] }
-        }
-
-        public var snapshot: [String: Int] {
-            lock.withLock {
-                [
-                    "cli": counts[.cli, default: 0],
-                    "keychain": counts[.keychain, default: 0],
-                    "configWrite": counts[.configWrite, default: 0],
-                    "cursorHelper": counts[.cursorHelper, default: 0]
-                ]
-            }
-        }
-
-        public func reset() {
-            lock.withLock { counts = [:] }
-        }
-    }
-
-    private static let lock = NSLock()
-    private static var installed: Recorder?
-
-    public static func install(_ recorder: Recorder?) {
-        lock.withLock { installed = recorder }
-    }
-
-    public static func note(_ kind: Kind) {
-        guard active || isPageWindowActive else { return }
-        lock.withLock { installed }?.add(kind)
-    }
-
-    public static func count(_ kind: Kind) -> Int {
-        lock.withLock { installed?.count(kind) ?? 0 }
-    }
-
-    public static var snapshot: [String: Int] {
-        lock.withLock { installed?.snapshot ?? emptySnapshot }
-    }
-
-    public static func probeRejectedKeychain() {
-        do { _ = try KeychainStore.load() } catch {}
-    }
-
-    public static func probeIsolatedCLI() throws {
-        _ = try RestrictedProcess.run(
-            RestrictedProcess.Request(
-                executable: URL(fileURLWithPath: "/usr/bin/true"),
-                arguments: [],
-                environment: ["PATH": "/usr/bin:/bin"],
-                timeout: 2,
-                maximumOutputBytes: 64
-            )
-        )
-    }
-
-    public static func probeIsolatedConfigWrite() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-e1-probe-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        try ClientConfigFileIO.publishAtomically(
-            Data("x = 1\n".utf8),
-            to: directory.appendingPathComponent("config.toml"),
-            mode: 0o600,
-            exclusive: true,
-            temporaryPrefix: ".askkey-e1-"
-        )
-    }
-
-    public static func probeCursorHelperLaunch() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("askkey-cursor-probe-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let helper = directory.appendingPathComponent("cursor-helper")
-        try Data("#!/bin/sh\nexit 0\n".utf8).write(to: helper)
-        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helper.path)
-        let adapter = CursorUserMCPAdapter(
-            homeDirectory: directory,
-            backupDirectory: directory.appendingPathComponent("backup", isDirectory: true),
-            helperURL: helper,
-            brokerSocketPath: directory.appendingPathComponent("broker.sock").path,
-            signing: .development
-        )
-        adapter.probeHelperProcessForEvidence()
-    }
-}
-#endif
 
 /// Shared posix_spawn + private process-group + CLOEXEC + wait + group cleanup.
 /// Codex and Grok keep their own timeouts, cwd, stderr, input timing, overflow,
@@ -330,9 +199,7 @@ package enum RestrictedProcess {
         guard spawned == 0, pid > 1, pid != getpid() else {
             throw Failure.capturedSpawn(spawned == 0 ? EIO : spawned)
         }
-#if DEBUG
-        OnboardingBoundaryObserver.note(.cli)
-#endif
+        RuntimeOperationEvents.publish(.cli)
 
         var reaped = false
         defer {
@@ -868,9 +735,7 @@ extension RestrictedProcess {
         guard spawned == 0, pid > 1, pid != getpid() else {
             throw InteractiveFailure.capturedSpawn(spawned == 0 ? EIO : spawned)
         }
-#if DEBUG
-        OnboardingBoundaryObserver.note(.cli)
-#endif
+        RuntimeOperationEvents.publish(.cli)
 
         // Keep only the parent ends. CLOEXEC ensures that the child did not
         // inherit any duplicate parent descriptors.

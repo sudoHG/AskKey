@@ -10,8 +10,6 @@ let package = Package(
         .library(name: "AskKeyCore", targets: ["AskKeyCore"]),
         .executable(name: "askkey", targets: ["AskKeyHelper"]),
         .executable(name: "AskKeyApp", targets: ["AskKeyApp"]),
-        .library(name: "AskKeyTestSupport", targets: ["AskKeyTestSupport"]),
-        .executable(name: "AskKeyE2EApp", targets: ["AskKeyE2EApp"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0"),

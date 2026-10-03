@@ -158,9 +158,7 @@ package struct AgentClientConnector: Sendable {
     private let home: URL
     private let installationHome: URL
     private let supportDirectoryOverride: URL?
-#if DEBUG
     private let helperURLOverride: URL?
-#endif
 
     package init(
         home: URL? = nil,
@@ -171,11 +169,7 @@ package struct AgentClientConnector: Sendable {
         self.home = home ?? Self.defaultClientHome
         self.installationHome = installationHome ?? home ?? FileManager.default.homeDirectoryForCurrentUser
         self.supportDirectoryOverride = supportDirectory
-#if DEBUG
         self.helperURLOverride = helperURL
-#else
-        _ = helperURL
-#endif
     }
 
     private static var defaultClientHome: URL {
@@ -332,11 +326,9 @@ package struct AgentClientConnector: Sendable {
     }
 
     private func resolvedHelperURL() throws -> URL {
-#if DEBUG
         if let helperURLOverride {
             return helperURLOverride
         }
-#endif
         return try OfficialInstallTopology.resolvedHelperURL(
             bundleURL: Bundle.main.bundleURL,
             isDevelopmentBuild: VaultConfiguration.isDevelopmentBuild
@@ -371,11 +363,7 @@ package struct AgentClientConnector: Sendable {
     }
 
     private var isolatedSigning: CodexHelperSigning {
-#if DEBUG
         helperURLOverride == nil ? .executable : .development
-#else
-        .executable
-#endif
     }
 
     var codexExecutable: URL {

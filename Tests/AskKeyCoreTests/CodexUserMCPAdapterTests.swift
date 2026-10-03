@@ -343,7 +343,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
     func testBackupPermissionsRollbackAndSuccessfulDelete() throws {
         let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
-        harness.adapter.probe.afterWrite = { throw CodexUserMCPError.connectionFailed("interrupted") }
+        harness.adapter.lifecycle.afterWrite = { throw CodexUserMCPError.connectionFailed("interrupted") }
 
         XCTAssertThrowsError(try harness.adapter.apply()) { error in
             XCTAssertEqual(error as? CodexUserMCPError, .connectionFailed("interrupted"))
@@ -352,7 +352,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
         XCTAssertEqual(try harness.configMode(), 0o640)
         XCTAssertFalse(harness.backupExists)
 
-        harness.adapter.probe.afterWrite = {}
+        harness.adapter.lifecycle.afterWrite = {}
         XCTAssertEqual(try harness.adapter.apply().status, .connected)
         XCTAssertFalse(harness.backupExists)
         XCTAssertTrue(try harness.configText().contains("[mcp_servers.askkey]"))
@@ -362,10 +362,10 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
     func testRollbackFailureIsVisibleAndKeepsTheBackup() throws {
         let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
-        harness.adapter.probe.afterWrite = {
+        harness.adapter.lifecycle.afterWrite = {
             throw CodexUserMCPError.connectionFailed("verification")
         }
-        harness.adapter.probe.beforeRestore = {
+        harness.adapter.lifecycle.beforeRestore = {
             throw CocoaError(.fileWriteNoPermission)
         }
 
@@ -382,7 +382,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
             [.posixPermissions: 0o700],
             ofItemAtPath: harness.backupDirectory.path
         ) }
-        harness.adapter.probe.afterWrite = {
+        harness.adapter.lifecycle.afterWrite = {
             try FileManager.default.setAttributes(
                 [.posixPermissions: 0o500],
                 ofItemAtPath: harness.backupDirectory.path
@@ -401,7 +401,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
         let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
         let concurrent = "model = \"concurrent\"\n"
-        harness.adapter.probe.afterWrite = {
+        harness.adapter.lifecycle.afterWrite = {
             try harness.writeConfig(concurrent, mode: 0o600)
             throw CodexUserMCPError.connectionFailed("verification")
         }
@@ -412,7 +412,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
         XCTAssertEqual(try harness.configText(), concurrent)
         XCTAssertTrue(harness.backupExists)
 
-        harness.adapter.probe.afterWrite = {
+        harness.adapter.lifecycle.afterWrite = {
             throw CodexUserMCPError.connectionFailed("verification")
         }
         XCTAssertThrowsError(try harness.adapter.apply()) { error in
@@ -427,7 +427,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
     func testExternalDeleteAfterApplyIsNotRecreatedByRollback() throws {
         let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o640)
-        harness.adapter.probe.afterWrite = {
+        harness.adapter.lifecycle.afterWrite = {
             try FileManager.default.removeItem(at: harness.configURL)
             throw CodexUserMCPError.connectionFailed("verification")
         }
@@ -441,7 +441,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
         let harness = try makeHarness()
         try harness.writeConfig("model = \"original\"\n", mode: 0o644)
         var sawBackup = false
-        harness.adapter.probe.afterBackup = {
+        harness.adapter.lifecycle.afterBackup = {
             sawBackup = true
             XCTAssertEqual(try harness.backupMode(), 0o600)
             XCTAssertEqual(try harness.backupDirectoryMode(), 0o700)
@@ -531,7 +531,7 @@ final class CodexUserMCPAdapterTests: AskKeyCoreTestCase {
         let state = NSLock()
         var inflight = 0
         var maxInflight = 0
-        harness.adapter.probe.afterBackup = {
+        harness.adapter.lifecycle.afterBackup = {
             state.lock()
             inflight += 1
             maxInflight = max(maxInflight, inflight)
@@ -950,7 +950,7 @@ private final class Harness {
 
     func close() {
         // Probes can retain their fixture. Break those cycles before cleanup.
-        adapter.probe = CodexApplyProbe()
+        adapter.lifecycle = CodexApplyLifecycle()
         server?.stop()
         try? FileManager.default.removeItem(at: root)
     }

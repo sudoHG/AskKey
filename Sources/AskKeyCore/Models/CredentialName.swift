@@ -173,37 +173,6 @@ public struct ManagedTextCredential: Equatable, Sendable, Identifiable {
     public var isUngrouped: Bool { groupName == nil }
 }
 
-#if DEBUG
-public extension ManagedTextCredential {
-    static func visualProof(
-        id: String,
-        name: String,
-        componentNames: [String],
-        groupName: String? = nil,
-        permission: CredentialPermission = .ask,
-        deletedAt: Date? = nil
-    ) -> Self {
-        .init(
-            id: id,
-            name: name,
-            value: nil,
-            usageInstructions: "仅用于批准的发布流程",
-            privateNotes: nil,
-            groupName: groupName,
-            environmentVariable: nil,
-            permission: permission,
-            expiresAt: nil,
-            payloadKind: .bundle,
-            originalFilename: nil,
-            byteSize: nil,
-            contentDigest: nil,
-            fileBytes: nil,
-            components: componentNames.map { .init(name: $0, value: nil) },
-            deletedAt: deletedAt
-        )
-    }
-}
-#endif
 
 public enum CredentialComponentValue: Codable, Equatable, Sendable {
     case text(String)
