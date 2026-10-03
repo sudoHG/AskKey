@@ -96,3 +96,14 @@ Phase 3 issues remove whole capabilities. Unless the issue says otherwise:
    # E2E: the PR's CI basic-ui-flows job must pass (all remaining required flows, 0 skipped).
    # Do not run scripts/run-e2e.sh locally; see AGENTS.md.
    ```
+
+## Split tasks
+
+Phase 6 issues split modules and long files. Unless the issue says otherwise:
+
+1. **Move only**: code moves between files or modules without behavior changes. No renames of types, members or files beyond what the issue lists; no reformatting; no comment rewrites.
+2. **File layout**: one primary type per file, named after the type. Extensions that group one concern go to `Type+Concern.swift` next to the type. Keep each file at or under 600 lines.
+3. **Access**: widen access only as far as the split requires (`private` → `fileprivate` is not enough across files, so use internal; across modules use `package`, never `public` unless the symbol was already public). List every widened symbol in the receipt.
+4. **Verification**: run `python3 scripts/check_move_only.py origin/main` and paste its summary. Every non-trivial line removed must reappear; any added line that is not a header, import, access modifier or brace must be explained in the receipt.
+5. **Hygiene baseline**: `size:` entries for split files disappear; nothing new is added.
+6. **Acceptance** (in addition to the issue's own): `swift build`, `swift test` with the same test list as main and 0 failed, Automation tests, hygiene, and green CI including `basic-ui-flows`.
