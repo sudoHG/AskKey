@@ -1,14 +1,31 @@
-#if DEBUG && ASKKEY_E2E_TESTING
 import AppKit
+import AskKeyAppKit
 import AskKeyBroker
 import AskKeyCore
 import Foundation
 import Darwin
 
-/// Compiled only into the separate optimized E2E bundle. UI actions are never
+/// Linked only by the separate optimized E2E executable. UI actions are never
 /// synthesized here: the independent XCTest runner clicks the actual controls.
 @MainActor
-enum E2EAppRuntime {
+package enum E2EAppRuntime {
+    package static func configuration() -> AppRuntimeConfiguration {
+        prepareIsolation()
+        Vault.configureShared(VaultE2EFixture.makeVault())
+        if ProcessInfo.processInfo.environment["ASKKEY_CLIENT_E2E"] != nil {
+            return AppRuntimeConfiguration(startClient: DebugClientE2ERunner.startIfRequested)
+        }
+        return AppRuntimeConfiguration(
+            makeViewModel: makeViewModel,
+            prepareServices: configureE2EAuthentication,
+            didStart: startScenario,
+            willStop: stop
+        )
+    }
+
+    private static func configureE2EAuthentication() {
+        Vault.shared.approvalRequests.configureAuthentication { _ in true }
+    }
     static func prepareIsolation() {
         let environment = ProcessInfo.processInfo.environment
         guard Bundle.main.bundleIdentifier == "com.sudohg.askkey.app.e2e",
@@ -114,22 +131,8 @@ enum E2EAppRuntime {
 
     static func makeViewModel() -> VaultViewModel {
         let directory = runDirectory
-        let preferences = AppPreferences()
-        preferences.languageMode = ProcessInfo.processInfo.environment["ASKKEY_E2E_LANGUAGE"] ?? "zh-Hans"
-        preferences.appearanceMode = "light"
-        preferences.hasCompletedOnboarding = true
-        preferences.readApprovalAuthenticationEnabled = true
-        let model = VaultViewModel(
-            unlockVault: {},
-            authenticateDeviceOwner: { _ in .allow },
-            preferences: preferences,
-            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in })
-        )
-        model.isLocked = true
-        model.hasManagementSession = false
-        model.showsLockedWorkbench = true
         let selectedScenario = scenario
-        model.onboarding.operations = AgentOnboardingRuntime.boundOperations(
+        let operations = AgentOnboardingRuntime.boundOperations(
             runCheck: { client in
                 if selectedScenario == "failure" { throw AgentOnboardingFailure.verificationFailed }
                 if selectedScenario == "cancel" {
@@ -161,6 +164,17 @@ enum E2EAppRuntime {
             runApply: { _, _ in throw AgentOnboardingFailure.planChanged },
             authenticate: { .confirmed }
         )
+        let model = VaultViewModel.configured(
+            languageMode: ProcessInfo.processInfo.environment["ASKKEY_E2E_LANGUAGE"] ?? "zh-Hans",
+            appearanceMode: "light", completedOnboarding: true,
+            readApprovalAuthenticationEnabled: true,
+            unlockVault: {}, authenticateDeviceOwner: { _ in .allow },
+            loginItemIsEnabled: { false }, setLoginItemEnabled: { _ in },
+            onboardingOperations: operations
+        )
+        model.isLocked = true
+        model.hasManagementSession = false
+        model.showsLockedWorkbench = true
         return model
     }
 
@@ -173,4 +187,3 @@ enum E2EAppRuntime {
 
     static func stop() { driver?.stop() }
 }
-#endif

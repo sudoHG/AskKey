@@ -9,6 +9,7 @@ import AskKeyCore
 @MainActor
 enum AppRuntimeState {
     private(set) static var normalRuntimeInitialized = false
+    static var configuration = AppRuntimeConfiguration.production
 
     static var visualProofEnabled: Bool {
 #if DEBUG
@@ -21,9 +22,6 @@ enum AppRuntimeState {
     }
 
     static func makeVaultViewModel() -> VaultViewModel {
-#if DEBUG && ASKKEY_E2E_TESTING
-        E2EAppRuntime.prepareIsolation()
-#endif
 #if DEBUG
         if Bundle.main.object(forInfoDictionaryKey: "AskKeyRequiresDebugRunDirectory") as? Bool == true,
            VaultConfiguration.debugRunDirectory == nil {
@@ -35,9 +33,7 @@ enum AppRuntimeState {
         }
 #endif
         normalRuntimeInitialized = true
-#if DEBUG && ASKKEY_E2E_TESTING
-        return E2EAppRuntime.makeViewModel()
-#endif
+        if let makeViewModel = configuration.makeViewModel { return makeViewModel() }
 #if DEBUG
         if visualProofEnabled { return makeVisualProofViewModel() }
 #endif
@@ -405,6 +401,12 @@ package struct AskKeyApp: App {
 
     package init() {}
 
+    @MainActor package static func run(configuration: AppRuntimeConfiguration? = nil) {
+        precondition(!AppRuntimeState.normalRuntimeInitialized)
+        AppRuntimeState.configuration = configuration ?? .production
+        Self.main()
+    }
+
     package var body: some Scene {
         MenuBarExtra(isInserted: .constant(!ManagementAuthenticationSubprocess.isActive)) {
             VaultPopover(onOpenManagement: appDelegate.openManagementWindow)
@@ -479,15 +481,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         if launchSource == .active {
             managementWindow?.makeKeyAndOrderFront(nil)
         }
-#if DEBUG && ASKKEY_E2E_TESTING
-        setupWindowBehavior()
-        setupStatusItemMenu()
-        setupApprovalQueue()
-        Vault.shared.approvalRequests.configureAuthentication { _ in true }
-        startBroker()
-        E2EAppRuntime.startScenario()
-        return
-#endif
+        if let didStart = AppRuntimeState.configuration.didStart {
+            setupWindowBehavior()
+            setupStatusItemMenu()
+            setupApprovalQueue()
+            AppRuntimeState.configuration.prepareServices?()
+            startBroker()
+            didStart()
+            return
+        }
         if AppRuntimeState.visualProofEnabled {
             setupWindowBehavior()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
@@ -526,9 +528,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             do { try Vault.shared.purgeExpiredRecycledCredentials() }
             catch { vault.errorMessage = "Ask Key could not clean up expired recycled credentials." }
         }
-#if DEBUG
-        if DebugClientE2ERunner.startIfRequested() { return }
-#endif
+        if AppRuntimeState.configuration.startClient?() == true { return }
         setupHotkey()
         setupWindowBehavior()
         setupStatusItemMenu()
@@ -554,9 +554,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     func applicationWillTerminate(_ notification: Notification) {
         guard !ManagementAuthenticationSubprocess.isActive else { return }
-        #if DEBUG && ASKKEY_E2E_TESTING
-        E2EAppRuntime.stop()
-        #endif
+        AppRuntimeState.configuration.willStop?()
         brokerServer?.stop()
         recycleBinCleanupTimer?.invalidate()
         if let screenUnlockObserver {
@@ -595,14 +593,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             return
         }
         vault.refreshAgentAccessPauseState()
-#if !(DEBUG && ASKKEY_E2E_TESTING)
-        CredentialExpiryReminderController.shared.onAuthorizationFailure = { [weak self] message in
-            Task { @MainActor [weak self] in
-                self?.vault.errorMessage = message
+        if AppRuntimeState.configuration.didStart == nil {
+            CredentialExpiryReminderController.shared.onAuthorizationFailure = { [weak self] message in
+                Task { @MainActor [weak self] in
+                    self?.vault.errorMessage = message
+                }
             }
+            CredentialExpiryReminderController.shared.start()
         }
-        CredentialExpiryReminderController.shared.start()
-#endif
         let fileWrites: BrokerFileWriteCoordinator
         let socketURL: URL
         do {

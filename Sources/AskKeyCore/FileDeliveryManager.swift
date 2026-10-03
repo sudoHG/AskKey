@@ -40,6 +40,10 @@ public final class FileDelivery: @unchecked Sendable {
 
 public final class FileDeliveryManager: @unchecked Sendable {
     public static let maximumTTL: TimeInterval = 5 * 60
+    package static func configured(rootURL: URL) throws -> FileDeliveryManager {
+        try FileDeliveryManager(rootURL: rootURL)
+    }
+
     typealias CleanupScheduler = @Sendable (TimeInterval, @escaping @Sendable () -> Void) -> Void
 
     private struct Entry {

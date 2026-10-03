@@ -28,7 +28,7 @@ enum AgentChangeStatus: String, Equatable, Sendable {
     case restoreFailed
 }
 
-enum AgentKnownOutcome: String, Equatable, Sendable {
+package enum AgentKnownOutcome: String, Equatable, Sendable {
     case notConfigured
     case configuredUnverified
     case verifiedConnected
@@ -42,11 +42,11 @@ struct AgentLastKnownResult: Equatable, Sendable {
     var discovery: CredentialDiscoveryReadiness? = nil
 }
 
-enum CredentialDiscoveryReadiness: Equatable, Sendable {
+package enum CredentialDiscoveryReadiness: Equatable, Sendable {
     case enabled, configured, missing, disabled, untrusted, unavailable
 }
 
-enum AgentOnboardingFailure: Error, Equatable, Sendable {
+package enum AgentOnboardingFailure: Error, Equatable, Sendable {
     case cancelled
     case permissionDenied
     case unsupportedVersion
@@ -65,7 +65,7 @@ enum AgentOnboardingFailure: Error, Equatable, Sendable {
     case discoverySetupCancelled
 }
 
-enum AgentAuthenticationOutcome: Equatable, Sendable {
+package enum AgentAuthenticationOutcome: Equatable, Sendable {
     case confirmed
     case cancelled
     case failed
@@ -84,7 +84,7 @@ final class AgentCheckCancellation: @unchecked Sendable {
     }
 }
 
-struct AgentOnboardingPlan: Equatable, Sendable {
+package struct AgentOnboardingPlan: Equatable, Sendable {
     var client: AgentClient
     var createdAt: Date
     var targetIdentity: String
@@ -96,15 +96,25 @@ struct AgentOnboardingPlan: Equatable, Sendable {
     var commandHookPlan: CommandDiscoveryHookPlan? = nil
 }
 
-struct AgentCheckReport: Equatable, Sendable {
+package struct AgentCheckReport: Equatable, Sendable {
     var outcome: AgentKnownOutcome
     var targetSummary: String
     var plan: AgentOnboardingPlan?
     var failure: AgentOnboardingFailure?
     var discovery: CredentialDiscoveryReadiness? = nil
+
+    package init(outcome: AgentKnownOutcome, targetSummary: String,
+                 plan: AgentOnboardingPlan?, failure: AgentOnboardingFailure?,
+                 discovery: CredentialDiscoveryReadiness? = nil) {
+        self.outcome = outcome
+        self.targetSummary = targetSummary
+        self.plan = plan
+        self.failure = failure
+        self.discovery = discovery
+    }
 }
 
-struct AgentApplyReport: Equatable, Sendable {
+package struct AgentApplyReport: Equatable, Sendable {
     var outcome: AgentKnownOutcome
     var changeStatus: AgentChangeStatus
     var failure: AgentOnboardingFailure?
@@ -140,7 +150,7 @@ struct AgentClientOnboardingSession: Equatable, Sendable {
     )
 }
 
-struct AgentOnboardingOperations: Sendable {
+package struct AgentOnboardingOperations: Sendable {
     var check: @Sendable (AgentClient, AgentCheckCancellation) async throws -> AgentCheckReport
     var apply: @Sendable (AgentClient, AgentOnboardingPlan, AgentCheckCancellation) async throws -> AgentApplyReport
     var authenticate: @MainActor @Sendable () async -> AgentAuthenticationOutcome

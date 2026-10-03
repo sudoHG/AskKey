@@ -27,6 +27,9 @@ jobs:
       - name: Test
         run: swift test
 
+      - name: Check release binary for E2E symbols
+        run: bash scripts/check_release_symbols.sh
+
       - name: Check optimized cancellation runtime
         run: bash scripts/test-cancellation-runtime.sh
 

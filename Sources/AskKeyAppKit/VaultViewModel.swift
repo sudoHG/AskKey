@@ -39,8 +39,8 @@ enum SettingsEntryState: Equatable {
 
 @Observable
 @MainActor
-final class VaultViewModel {
-    var isLocked = true
+package final class VaultViewModel {
+    package var isLocked = true
     var onboarding = AgentOnboardingCoordinator()
     var errorMessage: String?
     /// Set by the popover to hand the "new credential" action over to the manager
@@ -52,7 +52,7 @@ final class VaultViewModel {
     var recycledCredentials: [ManagedTextCredential] = []
     var storedCredentialGroups: [String] = []
     var credentialAccessRecords: [CredentialAccessEvent] = []
-    var hasManagementSession = false
+    package var hasManagementSession = false
     var isAgentAccessPaused = false
     var revealedCredential: ManagedTextCredential?
     var pendingApprovalCount = 0
@@ -169,7 +169,7 @@ final class VaultViewModel {
         Locale(identifier: AppLanguage.resolve(mode: languageMode))
     }
 
-    var showsLockedWorkbench = false
+    package var showsLockedWorkbench = false
 
     var settingsEntryState: SettingsEntryState {
         if showsLockedWorkbench { return .locked }

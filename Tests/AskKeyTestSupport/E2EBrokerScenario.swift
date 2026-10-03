@@ -1,4 +1,3 @@
-#if DEBUG && ASKKEY_E2E_TESTING
 import AskKeyBroker
 import CryptoKit
 import Darwin
@@ -390,4 +389,3 @@ final class E2EBrokerScenario {
 
     private func fail(_ error: Error) { try? report("failure.json", ["error": String(describing: error)]) }
 }
-#endif

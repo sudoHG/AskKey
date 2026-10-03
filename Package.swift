@@ -10,6 +10,8 @@ let package = Package(
         .library(name: "AskKeyCore", targets: ["AskKeyCore"]),
         .executable(name: "askkey", targets: ["AskKeyHelper"]),
         .executable(name: "AskKeyApp", targets: ["AskKeyApp"]),
+        .library(name: "AskKeyTestSupport", targets: ["AskKeyTestSupport"]),
+        .executable(name: "AskKeyE2EApp", targets: ["AskKeyE2EApp"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0"),
@@ -65,6 +67,18 @@ let package = Package(
             path: "Tests/AskKeyBrokerTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "AskKeyTestSupport",
+            dependencies: ["AskKeyAppKit", "AskKeyCore", "AskKeyBroker"],
+            path: "Tests/AskKeyTestSupport",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .executableTarget(
+            name: "AskKeyE2EApp",
+            dependencies: ["AskKeyAppKit", "AskKeyTestSupport"],
+            path: "Tests/AskKeyE2EApp",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
         .testTarget(
             name: "AskKeyCoreTests",
             dependencies: ["AskKeyBroker", "AskKeyCore", "AskKeyHelper"],
@@ -74,7 +88,7 @@ let package = Package(
         ),
         .testTarget(
             name: "AskKeyAppTests",
-            dependencies: ["AskKeyAppKit", "AskKeyCore"],
+            dependencies: ["AskKeyAppKit", "AskKeyCore", "AskKeyTestSupport"],
             path: "Tests/AskKeyAppTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
