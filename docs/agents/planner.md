@@ -13,3 +13,5 @@ Claude acts as the planner in this repository. Implementation is done by the exe
 - Request changes with concrete, numbered instructions and the `changes-requested` label.
 - Delete review worktrees and temporary logs after reading their results.
 - Watch labels (`needs-review`, `needs-info`) and executor comments that address the planner. Answer questions in the issue so the issue stays the source of truth.
+- Write every remaining issue of the current and next phase before going offline, so the executor and the stand-in reviewer (see issue-workflow.md → Reviewer when the planner is unavailable) can continue without you.
+- When you come back, read PRs merged after stand-in reviews and open follow-up issues for anything that should have been caught.
