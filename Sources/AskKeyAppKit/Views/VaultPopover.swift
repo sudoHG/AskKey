@@ -59,6 +59,12 @@ struct VaultPopover: View {
                     vault.retryBrokerRecovery()
                 }
             }
+            Divider().padding(.horizontal, 10)
+            menuEntry(appLocalized("Quit Ask Key"), systemImage: "power") {
+                closePopover()
+                NSApp.terminate(nil)
+            }
+            .accessibilityIdentifier("menubar-quit")
         }
         .padding(.vertical, 8)
         .frame(width: 260)
