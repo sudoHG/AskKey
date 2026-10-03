@@ -15,8 +15,13 @@ import subprocess
 import sys
 
 ACCESS = re.compile(r"\b(?:private|fileprivate|internal|package|public)\b[ \t]*")
-STRING_START = re.compile(r'\#*(?:"""|")')
-IMPORT = re.compile(r"^(?:@\w+(?:\([^)]*\))?\s+)*import\b")
+LITERAL_START = re.compile(r'\#*(?:"""|")|\#+/')
+IDENTIFIER = r"(?:[A-Za-z_]\w*|`[^`]+`)"
+IMPORT = re.compile(
+    r"^(?:(?:@\w+(?:\([^)]*\))?|private|fileprivate|internal|package|public)\s+)*"
+    r"import\s+(?:(?:typealias|struct|class|enum|protocol|let|var|func)\s+)?" +
+    IDENTIFIER + r"(?:\s*\.\s*" + IDENTIFIER + r")*\s*;?\s*$"
+)
 MODIFIERS = (
     r"^(?P<modifiers>(?:(?:private|fileprivate|internal|package|public)(?:\(set\))?\s+|"
     r"(?:static|class|final|open|override|required|convenience|mutating|nonmutating|"
@@ -67,7 +72,7 @@ class Line:
 
 
 def normalized_lines(path, text):
-    """Ignore comment-only lines without discarding text inside Swift literals."""
+    """Ignore comment-only lines, preserving strings and hash-delimited regexes."""
     result = []
     depth, closing, escape = 0, None, None
     for number, raw in enumerate(text.splitlines(), 1):
@@ -98,7 +103,7 @@ def normalized_lines(path, text):
             elif line.startswith("/*", offset):
                 depth = 1
                 offset += 2
-            elif match := STRING_START.match(line, offset):
+            elif match := LITERAL_START.match(line, offset):
                 token = match.group()
                 hashes = len(token) - len(token.lstrip("#"))
                 closing = token[hashes:] + "#" * hashes

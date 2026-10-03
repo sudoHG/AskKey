@@ -159,6 +159,30 @@ class MoveOnlyTests(unittest.TestCase):
                 self.write("Sources/A.swift", 'let value = ##"""\n' + content + '\n"""##\n')
                 self.assertEqual(self.check().returncode, 1)
 
+    def test_multiline_raw_regex_content_is_not_a_comment(self):
+        self.base({"Sources/A.swift": "let pattern = #/\n//before\n/#\n"})
+        self.write("Sources/A.swift", "let pattern = #/\n//after\n/#\n")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Sources/A.swift:2: //before", result.stdout)
+        self.assertIn("missing=1", result.stdout)
+
+    def test_access_level_and_attributed_import_lines_are_ignored(self):
+        self.base({"Sources/A.swift": "import Foundation\nperform()\n"})
+        for prefix in ["private", "fileprivate", "internal", "package", "public",
+                       "@preconcurrency public"]:
+            with self.subTest(prefix=prefix):
+                self.write("Sources/A.swift", prefix + " import Foundation\nperform()\n")
+                self.assert_pass(self.check())
+
+    def test_import_followed_by_an_added_statement_fails(self):
+        self.base({"Sources/A.swift": "import Foundation\nperform()\n"})
+        self.write("Sources/A.swift", "import Foundation; extra()\nperform()\n")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Sources/A.swift:1: import Foundation; extra()", result.stdout)
+        self.assertIn("other=1", result.stdout)
+
     def test_access_like_case_and_escaped_identifier_changes_fail(self):
         self.base({"Sources/A.swift": "let choice = .private\nlet `private` = 1\n"})
         self.write("Sources/A.swift", "let choice = .public\nlet `public` = 1\n")
@@ -191,6 +215,17 @@ class MoveOnlyTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("Sources/A.swift:2: func f() {}", result.stdout)
         self.assertIn("other=1", result.stdout)
+
+    def test_implicit_string_return_bodies_are_other_additions(self):
+        self.base({"Sources/A.swift": "perform()\n"})
+        self.write("Sources/A.swift", 'perform()\nfunc value() -> String { "new" }\n'
+                   'var label: String { "Hello" }\n')
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('func value() -> String { "new" }', result.stdout)
+        self.assertIn('var label: String { "Hello" }', result.stdout)
+        self.assertIn("declaration headers=0", result.stdout)
+        self.assertIn("other=2", result.stdout)
 
     def test_new_extension_header_for_moved_method_passes(self):
         self.base({"Sources/Foo.swift": "struct Foo {\nfunc run() {\nperform()\n}\n}\n"})
