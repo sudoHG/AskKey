@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep tracked repository hygiene violations within a shrinking baseline."""
+"""Enforce production boundaries and keep remaining hygiene debt in a shrinking baseline."""
 
 import argparse
 from collections import Counter
@@ -19,6 +19,19 @@ MULTICA_EXCEPTIONS = {"docs/features.md"}
 TEST_SUPPORT = re.compile(r"E2E|Fixture|Probe|RestartProof|DebugSupport|RealUIInput")
 DECLARATION = re.compile(r"\b(?:class|struct|enum|actor|protocol|typealias)\s+([A-Za-z_][A-Za-z_0-9]*)")
 DEBUG = re.compile(r"#if\s+DEBUG\b")
+DEBUG_ALLOWLIST = {
+    "Sources/AskKeyAppKit/AgentClientConnector.swift",  # Isolated client configuration home.
+    "Sources/AskKeyAppKit/AppPreferences.swift",  # Isolated preferences suite.
+    "Sources/AskKeyAppKit/AskKeyApp.swift",  # Require the packaged development run directory.
+    "Sources/AskKeyBroker/BrokerProtocol.swift",  # Development broker socket namespace.
+    "Sources/AskKeyBroker/DebugRunDirectory.swift",  # Validate the development run directory.
+    "Sources/AskKeyCore/Keychain/IsolatedAppKeyStore.swift",  # File-backed development keys.
+    "Sources/AskKeyCore/Keychain/KeychainStore.swift",  # Reject keychain I/O in isolated runs.
+    "Sources/AskKeyCore/Vault.swift",  # Select the isolated development key store.
+    "Sources/AskKeyCore/VaultConfiguration.swift",  # Development data and keychain namespace.
+    "Sources/AskKeyHelper/main.swift",  # Resolve the development host app.
+}
+FIXED_CHECKS = ("test-support:", "debug:")
 SWIFT_NON_CODE = re.compile(
     r'//[^\n]*|/\*|(?:\#+)?"""|(?:\#+)?"', re.MULTILINE
 )
@@ -105,7 +118,7 @@ def violations(root):
                     TEST_SUPPORT.search(type_name) for type_name in declaration_names(text))):
                 entries.add(f"test-support:{name}")
             count = len(DEBUG.findall(text)) if text is not None else 0
-            if count:
+            if count and name not in DEBUG_ALLOWLIST:
                 entries.add(f"debug:{name}:{count}")
         if name != "AGENTS.md":
             if text is not None and ("/Users/" in text or "/private/var/" in text):
@@ -117,38 +130,27 @@ def violations(root):
 
 
 def compare(current, baseline):
-    def debug_counts(entries):
-        counts = {}
-        for entry in entries:
-            if entry.startswith("debug:"):
-                name, _, count = entry[6:].rpartition(":")
-                counts[name] = int(count)
-        return counts
-
-    current_plain = {entry for entry in current if not entry.startswith("debug:")}
-    baseline_plain = {entry for entry in baseline if not entry.startswith("debug:")}
-    new = current_plain - baseline_plain
-    fixed = baseline_plain - current_plain
-    actual_counts, recorded_counts = debug_counts(current), debug_counts(baseline)
-    for name in actual_counts.keys() | recorded_counts.keys():
-        actual, recorded = actual_counts.get(name, 0), recorded_counts.get(name, 0)
-        if actual > recorded:
-            new.add(f"debug:{name}:{actual}")
-        elif actual < recorded:
-            fixed.add(f"debug:{name}:{recorded}")
+    recorded_debt = {entry for entry in baseline if not entry.startswith(FIXED_CHECKS)}
+    new = current - recorded_debt
+    fixed = (baseline - current) | {entry for entry in baseline if entry.startswith(FIXED_CHECKS)}
     return new, fixed
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write-baseline", action="store_true",
-                        help="replace the baseline with sorted current violations")
+                        help="replace remaining hygiene debt; fixed production rules cannot be baselined")
     args = parser.parse_args()
     root = Path(subprocess.check_output(
         ["git", "rev-parse", "--show-toplevel"], text=True).strip())
     current = violations(root)
     baseline_path = root / BASELINE
     if args.write_baseline:
+        forbidden = {entry for entry in current if entry.startswith(FIXED_CHECKS)}
+        if forbidden:
+            for entry in sorted(forbidden):
+                print(f"fixed-rule violation: {entry}", file=sys.stderr)
+            return 1
         baseline_path.parent.mkdir(parents=True, exist_ok=True)
         baseline_path.write_text("".join(entry + "\n" for entry in sorted(current)), encoding="utf-8")
         print(f"Wrote {len(current)} baseline entries.")
@@ -165,7 +167,7 @@ def main():
     if new or fixed:
         return 1
     counts = Counter(entry.split(":", 1)[0] for entry in current)
-    print(f"Hygiene baseline matches ({len(current)} entries): " + ", ".join(
+    print(f"Hygiene rules match ({len(current)} baseline entries): " + ", ".join(
         f"{check}={counts.get(check, 0)}" for check in
         ["size", "test-support", "debug", "local-path", "non-ascii-name", "multica"]))
     return 0

@@ -78,7 +78,9 @@ exec /usr/bin/grep "$@"
 
     def test_forbidden_symbols_and_strings_are_rejected(self):
         for output_kind in ("nm_output", "strings_output"):
-            for forbidden in ("AskKeyTestSupport", "configureE2EAuthentication"):
+            for forbidden in ("AskKeyTestSupport", "configureE2EAuthentication",
+                              "OnboardingBoundaryObserver", "probeHelperProcessForEvidence",
+                              "ASKKEY_VISUAL_PROOF", "ASKKEY_DEBUG_AUTHENTICATION"):
                 with self.subTest(output_kind=output_kind, forbidden=forbidden):
                     result = self.run_check(**{output_kind: f"prefix_{forbidden}_suffix\n"})
                     self.assertNotEqual(result.returncode, 0)

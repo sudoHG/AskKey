@@ -25,6 +25,10 @@ for forbidden in \
   VaultE2EFixture \
   E2EProcessFixture \
   DebugClientE2E \
+  OnboardingBoundaryObserver \
+  probeHelperProcessForEvidence \
+  ASKKEY_VISUAL_PROOF \
+  ASKKEY_DEBUG_AUTHENTICATION \
   AskKeyE2ETesting \
   ASKKEY_CLIENT_E2E \
   ASKKEY_E2E_ROOT \

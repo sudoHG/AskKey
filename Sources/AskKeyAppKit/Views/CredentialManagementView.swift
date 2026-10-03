@@ -221,7 +221,6 @@ struct CredentialWorkspaceSidebar: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(sidebarIdentifier(for: section))
         .accessibilityValue(selected ? "selected" : "")
-        .visualProofShortcut(sidebarProofKey(for: section))
     }
 
     private func routeButton(
@@ -318,15 +317,6 @@ struct CredentialWorkspaceSidebar: View {
         }
     }
 
-    private func sidebarProofKey(for section: CredentialWorkspaceSection) -> KeyEquivalent {
-        switch section {
-        case .named("发布"): return "1"
-        case .named: return "2"
-        case .ungrouped: return "3"
-        case .recycleBin: return "4"
-        default: return "5"
-        }
-    }
 }
 
 struct CredentialManagementView: View {
@@ -436,21 +426,6 @@ struct CredentialManagementView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.windowBackground)
         .environment(\.locale, vault.appLocale)
-#if DEBUG
-        .overlay {
-            if vault.isVisualProof {
-                Button("") {
-                    NotificationCenter.default.post(
-                        name: .presentNextAgentApproval,
-                        object: "preview-read"
-                    )
-                }
-                .visualProofShortcut("a")
-                .frame(width: 0, height: 0)
-                .opacity(0)
-            }
-        }
-#endif
         .onAppear {
             if !previewMode { vault.reloadCredentials() }
             if let id = previewCredentialDeleteConfirmationID {
@@ -565,7 +540,6 @@ struct CredentialManagementView: View {
                             systemImage: "square.and.arrow.down"
                         )
                     }
-                    .visualProofShortcut("i")
                 }
                 Button(action: {
                     route = .templateChooser
@@ -584,7 +558,6 @@ struct CredentialManagementView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("credential-new")
-                .visualProofShortcut("n")
                 if case .named(let name) = selectedSection {
                     if deletingGroupName == name {
                         Button(FrozenDangerActions.groupConfirmationTitle, role: .destructive) {
@@ -601,7 +574,6 @@ struct CredentialManagementView: View {
                             .buttonStyle(.bordered)
                             .foregroundStyle(Theme.red)
                             .tint(Theme.red)
-                            .visualProofShortcut("d")
                     }
                 }
             }
@@ -1058,7 +1030,6 @@ struct CredentialManagementView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("credential-\(credential.id)")
-                .visualProofShortcut(credential.id == "prod" ? "v" : "0")
                 .contextMenu {
                     Button(appLocalized("Edit")) {
                         route = .editor(template: .custom, credentialID: credential.id)
@@ -1127,26 +1098,11 @@ struct CredentialManagementView: View {
                                 route = .editor(template: .custom, credentialID: credential.id)
                             }
                             .accessibilityIdentifier("credential-edit-\(credential.id)")
-                            .visualProofShortcut("j")
                             Button(appLocalized("Delete…"), role: .destructive) { deletingCredential = credential }
                                 .foregroundStyle(Theme.red)
                                 .tint(Theme.red)
                                 .accessibilityIdentifier("credential-delete-\(credential.id)")
-                                .visualProofShortcut("d")
                         }
-#if DEBUG
-                        if vault.isVisualProof {
-                            Button("") {
-                                vault.deleteTextCredential(credential)
-                                selectedSection = .recycleBin
-                                selectedCredentialID = nil
-                                route = .recycleBin
-                            }
-                            .visualProofShortcut("x")
-                            .frame(width: 0, height: 0)
-                            .opacity(0)
-                        }
-#endif
                     }
 
                     if deletingCredential?.id == credential.id {
@@ -1428,7 +1384,6 @@ struct FrozenTemplateChooserPage: View {
                             .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                         }
                         .buttonStyle(.plain)
-                        .visualProofShortcut(template == .custom ? "6" : "0")
                     }
                 }
                 .padding(.top, 20)
@@ -1571,34 +1526,6 @@ struct FrozenFileImportPage: View {
                             .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
-#if DEBUG
-                if vault.isVisualProof {
-                    HStack {
-                        Button("") {
-                            source = "API_KEY=redacted\nAPI_ENDPOINT=https://api.example.com"
-                            preview = EnvFileFormat.parse(source)
-                        }
-                        .visualProofShortcut("p")
-                        Button("") {
-                            source = "API_KEY=redacted\nAPI_ENDPOINT=https://api.example.com"
-                            preview = EnvFileFormat.parse(source)
-                            name = "生产环境 API"
-                        }
-                        .visualProofShortcut("c")
-                        Button("") {
-                            if preview.isEmpty {
-                                source = "API_KEY=redacted\nAPI_ENDPOINT=https://api.example.com"
-                                preview = EnvFileFormat.parse(source)
-                            }
-                            name = "导入的环境变量"
-                            save()
-                        }
-                        .visualProofShortcut("s")
-                    }
-                    .frame(width: 0, height: 0)
-                    .opacity(0)
-                }
-#endif
             }
             .padding(28)
         }
@@ -1772,7 +1699,7 @@ struct FrozenSettingsPage: View {
             initialValue: initialReadAuthenticationConfirmation
         )
         _showingErase = State(initialValue: initialEraseConfirmation)
-        _eraseWord = State(initialValue: FrozenEraseConfirmationPresentation.proofInitialText)
+        _eraseWord = State(initialValue: FrozenEraseConfirmationPresentation.initialText)
         _confirmingAccessRecordClear = State(initialValue: initialAccessRecordClearConfirmation)
         _settingsScrollTarget = State(initialValue: initialEraseConfirmation
             ? "settings-erase"
@@ -1808,7 +1735,6 @@ struct FrozenSettingsPage: View {
                         }
                     }
                     .accessibilityIdentifier("settings-read-auth-action")
-                    .visualProofReadAuthenticationShortcut()
                 }
                 if let warning = readAuthentication.warning,
                    let confirmationTitle = readAuthentication.confirmationTitle {
@@ -1915,7 +1841,6 @@ struct FrozenSettingsPage: View {
                         }
                         .foregroundStyle(Theme.red)
                         .tint(Theme.red)
-                        .visualProofShortcut("c")
                         .disabled(vault.credentialAccessRecords.isEmpty)
                     }
                 }
@@ -1988,20 +1913,6 @@ struct FrozenSettingsPage: View {
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.red.opacity(0.3)))
                 .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                 .id("settings-erase")
-#if DEBUG
-                if vault.isVisualProof {
-                    HStack {
-                        Button("") {
-                            showingErase = true
-                            eraseWord = FrozenEraseConfirmationPresentation.proofInitialText
-                            settingsScrollTarget = "settings-erase"
-                        }
-                        .visualProofShortcut("x")
-                    }
-                    .frame(width: 0, height: 0)
-                    .opacity(0)
-                }
-#endif
             }
             .padding(28)
         }
@@ -2457,26 +2368,6 @@ extension CredentialTemplate {
     }
 }
 
-private extension View {
-    @ViewBuilder
-    func visualProofReadAuthenticationShortcut() -> some View {
-#if DEBUG
-        keyboardShortcut("d", modifiers: [.command, .option])
-#else
-        self
-#endif
-    }
-
-    @ViewBuilder
-    func visualProofShortcut(_ key: KeyEquivalent) -> some View {
-#if DEBUG
-        keyboardShortcut(key, modifiers: [.command, .option])
-#else
-        self
-#endif
-    }
-}
-
 struct FrozenReadAuthenticationPresentation: Equatable {
     let actionTitle: String
     let warning: String?
@@ -2617,7 +2508,7 @@ enum FrozenEraseConfirmationPresentation {
             : LocalVaultEraseLanguage.english.confirmationText
     }
     static var placeholder: String { confirmationText }
-    static let proofInitialText = ""
+    static let initialText = ""
 
     static func accepts(_ text: String) -> Bool {
         text == confirmationText
@@ -2963,48 +2854,6 @@ struct CredentialEditorView: View {
                         .accessibilityIdentifier("credential-editor-save")
                 }
                 .padding(.top, 4)
-#if DEBUG
-                if vault.isVisualProof {
-                    HStack {
-                        Button("") {
-                            moreExpanded.toggle()
-                        }
-                            .visualProofShortcut("e")
-                        Button("") {
-                            name = "新建凭证"
-                            if template == .custom {
-                                components = [CredentialComponentDraft(
-                                    name: "访问密钥",
-                                    text: "可见文字值"
-                                )]
-                            } else {
-                                for index in components.indices where components[index].kind == .text {
-                                    components[index].text = components[index].isSecret
-                                        ? "protected-value"
-                                        : "https://api.example.com"
-                                }
-                            }
-                        }
-                        .visualProofShortcut("f")
-                        Button("") {
-                            guard let id = components.first(where: \.isSecret)?.id else { return }
-                            toggleComponentReveal(id)
-                        }
-                        .visualProofShortcut("r")
-                        Button("") {
-                            name = "新建的自定义凭证"
-                            components = [CredentialComponentDraft(
-                                name: "访问密钥",
-                                text: "redacted"
-                            )]
-                            save()
-                        }
-                        .visualProofShortcut("s")
-                    }
-                    .frame(width: 0, height: 0)
-                    .opacity(0)
-                }
-#endif
             }
             .padding(28)
         }

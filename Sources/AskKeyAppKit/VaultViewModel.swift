@@ -66,25 +66,8 @@ package final class VaultViewModel {
         // Register the observable queue signal even when a nonempty list does
         // not render the count, so cancelled rows cannot remain on screen.
         _ = pendingApprovalCount
-#if DEBUG
-        if isVisualProof { return visualProofPendingApprovals }
-#endif
         return Vault.shared.approvalRequests.pendingRequests()
     }
-#if DEBUG
-    var isVisualProof = false
-    var visualProofPendingRequests: [BrokerApprovalOperationRequest] = []
-    var visualProofPendingApprovals: [BrokerPendingApproval] {
-        visualProofPendingRequests.map {
-            BrokerPendingApproval(
-                requestID: $0.operationID,
-                capability: "visual-proof",
-                request: $0,
-                expiresAt: Date().addingTimeInterval(300)
-            )
-        }
-    }
-#endif
     var onboardingCredentialCount = 0
     var onboardingLaunchAtLoginEnabled = true
 

@@ -37,17 +37,6 @@ enum ManagementAuthenticationAction: CaseIterable {
     }
 }
 
-enum DebugAuthentication {
-    static var isEnabled: Bool {
-#if DEBUG
-        ProcessInfo.processInfo.environment["ASKKEY_DEBUG_AUTHENTICATION"] == "allow"
-            && VaultConfiguration.debugRunDirectory != nil
-#else
-        false
-#endif
-    }
-}
-
 package struct ManagementAuthenticationPresentation: Equatable, Sendable {
     let title: String
     let reason: String
@@ -198,14 +187,6 @@ enum ManagementAuthenticationSubprocess {
             writeAndTerminate(ManagementAuthenticationResponse(outcome: .failed))
             return true
         }
-#if DEBUG
-        // The real parser, bounds, parent identity and localized bundle title have
-        // already been checked. Only the OS authentication result is substituted.
-        if DebugAuthentication.isEnabled {
-            writeAndTerminate(ManagementAuthenticationResponse(outcome: .authenticated))
-            return true
-        }
-#endif
         let context = LAContext()
         var policyError: NSError?
         guard context.canEvaluatePolicy(policy, error: &policyError) else {

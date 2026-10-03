@@ -249,13 +249,6 @@ public struct CursorUserMCPAdapter {
         return status
     }
 
-#if DEBUG
-    /// Isolated evidence only: start the same Foundation Process helper
-    /// `status()` uses, without requiring an askkey config first.
-    public func probeHelperProcessForEvidence() {
-        _ = probeMCP()
-    }
-#endif
 
     public func rollback() throws {
         try withBackupLock { try rollbackLocked() }
@@ -536,9 +529,7 @@ public struct CursorUserMCPAdapter {
         process.standardError = FileHandle.nullDevice
         do {
             try process.run()
-#if DEBUG
-            OnboardingBoundaryObserver.note(.cursorHelper)
-#endif
+            RuntimeOperationEvents.publish(.cursorHelper)
         } catch {
             return false
         }

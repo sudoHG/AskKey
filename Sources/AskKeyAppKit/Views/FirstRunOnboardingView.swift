@@ -20,12 +20,7 @@ struct FirstRunOnboardingView: View {
         if let initialLaunchAtLoginEnabled {
             launchAtLoginEnabled = initialLaunchAtLoginEnabled
         } else {
-#if DEBUG
-            launchAtLoginEnabled = ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF_ROUTE"]
-                != "welcome-login-off"
-#else
             launchAtLoginEnabled = true
-#endif
         }
         _launchAtLoginEnabled = State(initialValue: launchAtLoginEnabled)
     }
@@ -108,7 +103,7 @@ struct FirstRunOnboardingView: View {
         .environment(\.locale, vault.appLocale)
         .accessibilityIdentifier("first-run-onboarding")
         .onAppear {
-            if !hasExplicitLoginChoice && !AppRuntimeState.visualProofEnabled {
+            if !hasExplicitLoginChoice {
                 launchAtLoginEnabled = vault.onboardingLaunchAtLoginEnabled
             }
         }

@@ -16,9 +16,6 @@ extension VaultViewModel {
 
     @discardableResult
     func reloadCredentialAccessRecords() -> Bool {
-#if DEBUG
-        if isVisualProof { return true }
-#endif
         guard !isLocked, hasManagementSession else {
             credentialAccessRecords = []
             return false
@@ -70,9 +67,6 @@ extension VaultViewModel {
 
     @discardableResult
     func reloadCredentials() -> Bool {
-#if DEBUG
-        if isVisualProof { return true }
-#endif
         refreshAgentAccessPauseState()
         guard !isLocked, hasManagementSession else {
             credentials = []
@@ -121,23 +115,6 @@ extension VaultViewModel {
     }
 
     func moveCredential(_ credential: ManagedTextCredential, toGroup groupName: String?) {
-#if DEBUG
-        if isVisualProof {
-            guard let index = credentials.firstIndex(where: { $0.id == credential.id }) else {
-                presentError(VaultError.credentialNotFound(credential.id))
-                return
-            }
-            credentials[index] = .visualProof(
-                id: credential.id,
-                name: credential.name,
-                componentNames: credential.components.map(\.name),
-                groupName: groupName,
-                permission: credential.permission,
-                deletedAt: credential.deletedAt
-            )
-            return
-        }
-#endif
         renewSession()
         renewManagementSession()
         do {
@@ -152,23 +129,6 @@ extension VaultViewModel {
         _ credential: ManagedTextCredential,
         permission: CredentialPermission
     ) {
-#if DEBUG
-        if isVisualProof {
-            guard let index = credentials.firstIndex(where: { $0.id == credential.id }) else {
-                presentError(VaultError.credentialNotFound(credential.id))
-                return
-            }
-            credentials[index] = .visualProof(
-                id: credential.id,
-                name: credential.name,
-                componentNames: credential.components.map(\.name),
-                groupName: credential.groupName,
-                permission: permission,
-                deletedAt: credential.deletedAt
-            )
-            return
-        }
-#endif
         renewSession()
         renewManagementSession()
         do {
@@ -208,19 +168,6 @@ extension VaultViewModel {
     }
 
     func restoreRecycledCredential(_ credential: ManagedTextCredential) {
-#if DEBUG
-        if isVisualProof {
-            recycledCredentials.removeAll { $0.id == credential.id }
-            credentials.append(.visualProof(
-                id: credential.id,
-                name: credential.name,
-                componentNames: credential.components.map(\.name),
-                groupName: credential.groupName,
-                permission: credential.permission
-            ))
-            return
-        }
-#endif
         renewSession()
         renewManagementSession()
         do {
@@ -317,18 +264,6 @@ extension VaultViewModel {
 
     @discardableResult
     func addBundleCredential(_ input: BundleCredentialInput) -> Bool {
-#if DEBUG
-        if isVisualProof {
-            credentials.append(.visualProof(
-                id: UUID().uuidString,
-                name: input.name,
-                componentNames: input.components.map(\.name),
-                groupName: input.groupName,
-                permission: input.permission
-            ))
-            return true
-        }
-#endif
         renewSession()
         renewManagementSession()
         do {
@@ -416,20 +351,6 @@ extension VaultViewModel {
     }
 
     func deleteTextCredential(_ credential: ManagedTextCredential) {
-#if DEBUG
-        if isVisualProof {
-            credentials.removeAll { $0.id == credential.id }
-            recycledCredentials.insert(.visualProof(
-                id: credential.id,
-                name: credential.name,
-                componentNames: credential.components.map(\.name),
-                groupName: credential.groupName,
-                permission: credential.permission,
-                deletedAt: Date()
-            ), at: 0)
-            return
-        }
-#endif
         renewSession()
         renewManagementSession()
         do {
