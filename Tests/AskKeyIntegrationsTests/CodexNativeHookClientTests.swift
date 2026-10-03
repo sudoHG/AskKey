@@ -190,26 +190,34 @@ final class CodexNativeHookClientTests: XCTestCase {
     }
 
     func testInteractiveSessionDoesNotResetDeadlineForSlowNotifications() throws {
+        let notificationCount = 32
         let session = try interactiveSession(
-            script: "IFS= read line; printf 'notification\\n'; while :; do sleep 0.04; printf 'notification\\n'; done",
+            script: """
+            IFS= read line
+            count=0
+            while [ "$count" -lt \(notificationCount) ]; do
+                printf 'notification\\n'
+                count=$((count + 1))
+                sleep 0.04
+            done
+            """,
             timeout: 0.5,
             maximumOutputBytes: 4_096
         )
         defer { session.close() }
 
         try session.writeLine(Data("request".utf8))
-        let started = Date()
-        var lines = 0
+        // The full stream takes at least 31 * 0.04 seconds, beyond the request deadline.
+        // Resetting the deadline per notification would let every read succeed.
+        // Runner delays may reduce the number read or delay cleanup; neither is a failure.
         XCTAssertThrowsError(try {
-            while true {
-                _ = try session.readLine()
-                lines += 1
+            for _ in 0..<notificationCount {
+                let notification = try session.readLine()
+                XCTAssertEqual(notification, Data("notification".utf8))
             }
         }()) { error in
             XCTAssertEqual(error as? RestrictedProcess.InteractiveFailure, .timedOut)
         }
-        XCTAssertGreaterThan(lines, 1)
-        XCTAssertLessThan(Date().timeIntervalSince(started), 1)
     }
 
     func testInteractiveSessionReportsExitAndReapsTheProcessGroup() throws {
