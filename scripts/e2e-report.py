@@ -18,13 +18,13 @@ required = json.loads((gate.ROOT / "Tests/UI/required-flows.json").read_text())
 gate.validate_results(summary, tree, required)
 source = (output / "source-fingerprint.txt").read_text().strip()
 if source != gate.fingerprint():
-    raise SystemExit("源码在测试期间发生变化，本轮仅供诊断，不生成交付凭证。")
+    raise SystemExit("Source changed during testing; this run is diagnostic only and produces no delivery receipt.")
 report = (
-    "# 基础流程自动验收\n\n"
-    f"通过 {passed} 项，失败 {failed} 项，跳过 {skipped} 项。\n\n"
-    "对象：独立隔离包；操作由 XCUITest 通过可见控件执行。\n"
-    "此结果不代表真实 Touch ID 或外部客户端环境已通过验收。\n\n"
-    "操作记录、失败详情与截图见同目录的 basic-flows.xcresult。\n"
+    "# Basic flow automated acceptance\n\n"
+    f"Passed {passed}, failed {failed}, skipped {skipped}.\n\n"
+    "Target: a separate isolated bundle; XCUITest operates visible controls.\n"
+    "This result does not verify real Touch ID or external client environments.\n\n"
+    "See basic-flows.xcresult in the same directory for actions, failure details, and screenshots.\n"
 )
 (output / "acceptance-result.md").write_text(report)
 receipt = {

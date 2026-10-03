@@ -178,7 +178,7 @@ final class ReadDeclarationAndAuditTests: XCTestCase {
             cancellation: .init()
         )
         guard case .approvalRequired = spoofedAsk else {
-            return XCTFail("spoofed declarations must not skip 请旨")
+            return XCTFail("spoofed declarations must not skip approval")
         }
         XCTAssertEqual(approvals.pendingRequests().first?.request.callerName, "Ask Key")
         XCTAssertEqual(approvals.pendingRequests().first?.displayCredentialName, "Ask")

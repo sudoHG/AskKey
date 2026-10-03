@@ -27,7 +27,7 @@ def validate_results(summary, tree, required):
             or summary.get("expectedFailures", 0)
             or missing or summary.get("result") != "Passed"
             or any(case.get("result") != "Passed" for case in cases)):
-        raise ValueError(f"基础流程未完整通过；missing={missing}, summary={summary.get('result')}")
+        raise ValueError(f"Required flows did not all pass; missing={missing}, summary={summary.get('result')}")
 
 
 def load_results(output):
@@ -40,7 +40,7 @@ def load_results(output):
         ], text=True, timeout=30)
         actual = json.loads(raw)
         if actual != json.loads((output / name).read_text()):
-            raise ValueError(f"{name} 与原始 xcresult 不一致")
+            raise ValueError(f"{name} does not match the original xcresult")
         results.append(actual)
     return results
 
@@ -70,20 +70,20 @@ def fingerprint():
 def verify():
     latest = ROOT / "Tests/UI/output/passing-receipt.json"
     if not latest.is_file():
-        raise SystemExit("缺少基础 E2E 通过记录；请先运行 bash scripts/run-e2e.sh。")
+        raise SystemExit("No passing basic E2E receipt; first run bash scripts/run-e2e.sh.")
     receipt = json.loads(latest.read_text())
     if receipt.get("sourceFingerprint") != fingerprint():
-        raise SystemExit("源码已改变，E2E 记录过期；请重新运行基础流程。")
+        raise SystemExit("Source changed; the E2E receipt is stale. Rerun the basic flows.")
     output = pathlib.Path(receipt["output"])
     for name, expected in receipt["evidenceHashes"].items():
         path = output / name
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-            raise SystemExit(f"E2E 证据缺失或改变：{name}")
+            raise SystemExit(f"E2E evidence is missing or changed: {name}")
     if not (output / "basic-flows.xcresult").is_dir():
-        raise SystemExit("缺少原始 xcresult。")
+        raise SystemExit("The original xcresult is missing.")
     summary, tree = load_results(output)
     validate_results(summary, tree, json.loads((ROOT / "Tests/UI/required-flows.json").read_text()))
-    print(f"基础 E2E 门槛通过：{output}")
+    print(f"Basic E2E gate passed: {output}")
 
 
 if __name__ == "__main__":

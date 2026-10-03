@@ -21,7 +21,7 @@
         {
           "glass" : false,
           "image-name" : "AppIcon.png",
-          "name" : "AskKey-琥珀门禁卡-透明",
+          "name" : "AskKey-Amber-Access-Card-Transparent",
           "position" : {
             "scale" : 0.8,
             "translation-in-points" : [
@@ -31,7 +31,7 @@
           }
         }
       ],
-      "name" : "琥珀门禁卡",
+      "name" : "Amber Access Card",
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.75

@@ -56,7 +56,7 @@ enum CommandDiscoveryHook {
                 "permissionDecision": "deny", "permissionDecisionReason": reminder]]
         }
         return ["permission": "deny", "agent_message": reminder,
-                "user_message": "Ask Key：连接前先查询凭证目录。"]
+                "user_message": "Ask Key：连接前先查询凭证目录。"] // i18n-literal: Preserve the existing Cursor discovery reminder until #83.
     }
 
     static func allow(client: String) -> [String: Any] {

@@ -121,7 +121,7 @@ enum CredentialTemplate: String, CaseIterable {
         case "DB_PORT": return appLocalized("Port")
         case "DB_PASSWORD": return appLocalized("Password")
         case "DB_CERT": return appLocalized("Certificate File")
-        case "FILE", "文件": return appLocalized("File")
+        case "FILE", "文件": return appLocalized("File") // i18n-literal: Preserve the Chinese storage-field compatibility alias.
         default: return storageName
         }
     }

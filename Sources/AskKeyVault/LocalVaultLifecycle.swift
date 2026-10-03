@@ -100,7 +100,7 @@ public enum LocalVaultEraseLanguage: Sendable {
 
     public var confirmationText: String {
         switch self {
-        case .simplifiedChinese: return "抹除"
+        case .simplifiedChinese: return "抹除" // i18n-literal: Preserve the Chinese erase-confirmation input until #83.
         case .english: return "ERASE"
         }
     }

@@ -171,7 +171,7 @@ struct FrozenFileImportPage: View {
             if url.lastPathComponent == ".env" || url.pathExtension.lowercased() == "env" {
                 let imported = try FrozenEnvImport.load(url: url)
                 source = imported.text
-                if name == "导入的环境变量" { name = url.deletingPathExtension().lastPathComponent }
+                if name == "导入的环境变量" { name = url.deletingPathExtension().lastPathComponent } // i18n-literal: Preserve the existing imported-credential name comparison.
                 preview = imported.pairs
                 if preview.isEmpty {
                     vault.errorMessage = appLocalized("The .env file contains no key-value pairs.")

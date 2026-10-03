@@ -90,7 +90,7 @@ final class CredentialE2ETests: E2EBaseCase {
         line: UInt = #line
     ) {
         // The MenuBarExtra title follows the host language during scene creation
-        // ("DEV" or "开发版"), before the isolated fixture sets its language.
+        // ("DEV" or its localized equivalent), before the isolated fixture sets its language.
         // Query only this application's single status item, not localized copy.
         let statusItems = app.statusItems
         let statusItem = statusItems.firstMatch

@@ -74,7 +74,7 @@ final class CurrentLibraryOpeningRaceTests: XCTestCase {
     }
 
     func testExistingLibraryPathEscapesURIQueryCharacters() throws {
-        let paths = VaultBootstrapPaths(directory: try temporaryDirectory().appendingPathComponent("library ?&#% 中文"))
+        let paths = VaultBootstrapPaths(directory: try temporaryDirectory().appendingPathComponent("library ?&#% 中文")) // i18n-literal: Exercise Unicode and URI query characters in a library path.
         try FileManager.default.createDirectory(at: paths.directory, withIntermediateDirectories: false)
         try FileManager.default.copyItem(at: fixture("library.db"), to: paths.currentDatabase)
         let keys = MemoryAppKeyStore(appKey: try Data(contentsOf: fixture("library.key")))
