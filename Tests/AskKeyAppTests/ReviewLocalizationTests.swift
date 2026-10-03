@@ -1,7 +1,7 @@
 import XCTest
 @testable import AskKeyApp
 
-final class ReviewLocalizationTests: XCTestCase {
+final class ReviewLocalizationTests: AskKeyAppTestCase {
     func testReviewedManagementActionsHaveChineseTranslations() {
         let previous = AppLanguage.current
         defer { AppLanguage.current = previous }

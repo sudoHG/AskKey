@@ -6,7 +6,7 @@ import AskKeyBroker
 @testable import AskKeyCore
 
 @MainActor
-final class AgentClientConnectorTests: XCTestCase {
+final class AgentClientConnectorTests: AskKeyAppTestCase {
 #if DEBUG
     func testDebugClientE2ERequestRequiresAnIsolatedHome() throws {
         let actualHome = URL(fileURLWithPath: "/Users/example", isDirectory: true)

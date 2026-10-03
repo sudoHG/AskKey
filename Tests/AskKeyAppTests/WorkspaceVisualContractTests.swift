@@ -6,7 +6,7 @@ import AskKeyBroker
 @testable import AskKeyCore
 @testable import AskKeyApp
 
-final class WorkspaceVisualContractTests: XCTestCase {
+final class WorkspaceVisualContractTests: AskKeyAppTestCase {
     override func setUp() {
         super.setUp()
         AppLanguage.current = "zh-Hans"

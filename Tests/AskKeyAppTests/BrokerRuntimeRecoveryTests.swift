@@ -5,7 +5,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class BrokerRuntimeRecoveryTests: XCTestCase {
+final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
     private var suiteName = ""
     private var defaults: UserDefaults!
 

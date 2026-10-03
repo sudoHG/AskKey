@@ -5,7 +5,7 @@ import AskKeyBroker
 import AskKeyCore
 @testable import AskKeyApp
 
-final class CommandHookOnboardingSetupTests: XCTestCase {
+final class CommandHookOnboardingSetupTests: AskKeyAppTestCase {
 #if DEBUG
     func testCursorConnectorCheckPreviewAndApplyConfigureMCPAndDiscoveryHook() throws {
         let fixture = try CursorCommandFixture()

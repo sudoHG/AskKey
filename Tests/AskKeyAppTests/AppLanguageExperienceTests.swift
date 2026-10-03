@@ -7,7 +7,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class AppLanguageExperienceTests: XCTestCase {
+final class AppLanguageExperienceTests: AskKeyAppTestCase {
     private var suiteName = ""
     private var defaults: UserDefaults!
 

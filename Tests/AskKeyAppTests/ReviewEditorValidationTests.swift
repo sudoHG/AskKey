@@ -2,7 +2,7 @@ import XCTest
 import AskKeyCore
 @testable import AskKeyApp
 
-final class ReviewEditorValidationTests: XCTestCase {
+final class ReviewEditorValidationTests: AskKeyAppTestCase {
     func testBlankCustomRowsDoNotPreventSavingCompleteRows() throws {
         let complete = CredentialComponentDraft(name: "TOKEN", text: "value")
         for rows in [[CredentialComponentDraft(), complete], [complete, CredentialComponentDraft()], [complete, CredentialComponentDraft(kind: .file)]] {

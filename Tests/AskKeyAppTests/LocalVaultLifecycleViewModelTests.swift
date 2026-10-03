@@ -3,7 +3,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class LocalVaultLifecycleViewModelTests: XCTestCase {
+final class LocalVaultLifecycleViewModelTests: AskKeyAppTestCase {
     func testAppErasePassesTheSelectedEnglishLanguageToCore() async {
         let recorder = AppEraseRecorder()
         let defaults = UserDefaults(suiteName: "EnglishErase-\(UUID().uuidString)") ?? .standard

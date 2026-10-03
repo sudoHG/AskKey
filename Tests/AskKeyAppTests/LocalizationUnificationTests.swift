@@ -4,7 +4,7 @@ import XCTest
 
 /// RED/GREEN contract for 331-392: one String Catalog, one lookup, no mixed chrome.
 @MainActor
-final class LocalizationUnificationTests: XCTestCase {
+final class LocalizationUnificationTests: AskKeyAppTestCase {
     private let chromeKeys = [
         "Credential Library",
         "All credentials",

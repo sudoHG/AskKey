@@ -5,7 +5,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class AgentOnboardingReviewRepairTests: XCTestCase {
+final class AgentOnboardingReviewRepairTests: AskKeyAppTestCase {
     override func tearDown() {
         super.tearDown()
     }

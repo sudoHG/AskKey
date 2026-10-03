@@ -6,7 +6,7 @@ import XCTest
 /// View/coordinator call-boundary evidence for 331-404 B1 / A01.
 /// The same new-contract assertions RED on the isolated ef90 replay.
 @MainActor
-final class AgentOnboardingViewWiringTests: XCTestCase {
+final class AgentOnboardingViewWiringTests: AskKeyAppTestCase {
     func testEF90AppearReplayViolatesNewContract() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("askkey-331-404-ef90-\(UUID().uuidString)", isDirectory: true)

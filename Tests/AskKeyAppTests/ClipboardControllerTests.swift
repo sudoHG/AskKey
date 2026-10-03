@@ -3,7 +3,7 @@ import XCTest
 @testable import AskKeyApp
 
 @MainActor
-final class ClipboardControllerTests: XCTestCase {
+final class ClipboardControllerTests: AskKeyAppTestCase {
     func testClipboardCleanupIsFixedAtSixtySeconds() {
         let defaults = UserDefaults(suiteName: "AskKeyTests.\(UUID().uuidString)")!
         defaults.set(15.0, forKey: "clipboardClearSeconds")

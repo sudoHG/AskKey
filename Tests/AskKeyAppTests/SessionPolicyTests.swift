@@ -3,7 +3,7 @@ import XCTest
 @testable import AskKeyApp
 
 @MainActor
-final class SessionPolicyTests: XCTestCase {
+final class SessionPolicyTests: AskKeyAppTestCase {
     func testQueuedExpirationCannotExpireRenewedSession() async throws {
         let scheduler = ManualSessionScheduler()
         let policy = scheduler.makePolicy()

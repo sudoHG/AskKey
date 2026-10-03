@@ -8,7 +8,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class Batch4SettingsLanguageTests: XCTestCase {
+final class Batch4SettingsLanguageTests: AskKeyAppTestCase {
     func testLockedReminderPresentationIsGenericInBothLanguages() {
         for language in ["en", "zh-Hans"] {
             switch AgentApprovalPrivacyPolicy.plan(screenState: .locked, language: language) {

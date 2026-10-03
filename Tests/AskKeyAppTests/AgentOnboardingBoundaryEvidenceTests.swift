@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyApp
 @testable import AskKeyCore
 
-final class AgentOnboardingBoundaryEvidenceTests: XCTestCase {
+final class AgentOnboardingBoundaryEvidenceTests: AskKeyAppTestCase {
     private var recorder: OnboardingBoundaryObserver.Recorder!
 
     override func setUp() {

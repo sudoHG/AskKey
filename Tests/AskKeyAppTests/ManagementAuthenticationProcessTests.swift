@@ -6,7 +6,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class ManagementAuthenticationProcessTests: XCTestCase {
+final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
     func testPackagedSubprocessUsesManualLanguageAndDevicePasswordPolicy() throws {
         XCTAssertEqual(
             ManagementAuthenticationSubprocess.policy,

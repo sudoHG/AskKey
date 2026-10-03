@@ -2,7 +2,7 @@ import XCTest
 import AskKeyCore
 @testable import AskKeyApp
 
-final class ReviewEnvImportTests: XCTestCase {
+final class ReviewEnvImportTests: AskKeyAppTestCase {
     func testMalformedPastedEnvReportsLineNumberWithoutExposingValues() throws {
         let previous = AppLanguage.current
         defer { AppLanguage.current = previous }

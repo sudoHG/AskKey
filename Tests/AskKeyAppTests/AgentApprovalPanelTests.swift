@@ -2,7 +2,7 @@ import AppKit
 import XCTest
 @testable import AskKeyApp
 
-final class AgentApprovalPanelTests: XCTestCase {
+final class AgentApprovalPanelTests: AskKeyAppTestCase {
     @MainActor
     func testApprovalPanelUsesForegroundModalBehavior() {
         _ = NSApplication.shared

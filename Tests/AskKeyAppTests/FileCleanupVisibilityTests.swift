@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyCore
 
 @MainActor
-final class FileCleanupVisibilityTests: XCTestCase {
+final class FileCleanupVisibilityTests: AskKeyAppTestCase {
     func testBackgroundCleanupReturnsWhileMainActorWaitsAndEventuallyShowsError() async throws {
         let viewModel = VaultViewModel(runtimeFileCleanupFailures: { false })
         let root = FileManager.default.temporaryDirectory

@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyApp
 
 /// Audit-only tests in an isolated source snapshot. No authentication is invoked.
-final class AuditApplicationContractTests: XCTestCase {
+final class AuditApplicationContractTests: AskKeyAppTestCase {
     func testAllLiveAuthenticationReasonsAreAcceptedBySubprocess() {
         let productionReasons = [
             "Approve this Agent credential request",

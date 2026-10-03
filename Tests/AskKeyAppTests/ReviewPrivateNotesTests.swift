@@ -4,7 +4,7 @@ import XCTest
 import AskKeyCore
 @testable import AskKeyApp
 
-final class ReviewPrivateNotesTests: XCTestCase {
+final class ReviewPrivateNotesTests: AskKeyAppTestCase {
     @MainActor
     func testRedactedPrivateNotesCannotAcceptEditsUntilRevealed() throws {
         _ = NSApplication.shared

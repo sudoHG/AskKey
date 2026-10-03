@@ -1,5 +1,20 @@
 import Darwin
 import Foundation
+import XCTest
+
+class AskKeyAppTestCase: XCTestCase {
+    private var environment: AskKeyTestEnvironment?
+
+    override func setUp() {
+        super.setUp()
+        environment = AskKeyTestEnvironment()
+    }
+
+    override func tearDown() {
+        environment = nil
+        super.tearDown()
+    }
+}
 
 /// Scope process-global overrides to fixtures that call production APIs which
 /// read the environment internally. Tests using this scope run serially.

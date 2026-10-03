@@ -4,7 +4,7 @@ import XCTest
 @testable import AskKeyApp
 
 @MainActor
-final class AgentOnboardingIsolationUITests: XCTestCase {
+final class AgentOnboardingIsolationUITests: AskKeyAppTestCase {
     func testIsolatedStatesRenderOrdinaryUIWithoutPrototypeChrome() throws {
         let directory = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
             .appendingPathComponent("AskKeyOnboardingUI-\(UUID().uuidString)", isDirectory: true)

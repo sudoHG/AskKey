@@ -8,7 +8,7 @@ import XCTest
 private struct SyntheticNotificationAddFailure: Error {}
 
 @MainActor
-final class ExpiryReminderAsyncBoundaryTests: XCTestCase {
+final class ExpiryReminderAsyncBoundaryTests: AskKeyAppTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     func testOutOfOrderPermissionCompletionDoesNotDeliverDeletedCredential() async throws {

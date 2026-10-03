@@ -5,7 +5,7 @@ import XCTest
 @testable import AskKeyApp
 @testable import AskKeyCore
 
-final class AgentOnboardingEvidenceCloseTests: XCTestCase {
+final class AgentOnboardingEvidenceCloseTests: AskKeyAppTestCase {
     override func tearDown() {
         OnboardingTerminationGate.reply = nil
         super.tearDown()
