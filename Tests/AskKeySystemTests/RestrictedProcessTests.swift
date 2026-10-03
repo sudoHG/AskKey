@@ -401,10 +401,26 @@ final class RestrictedProcessTests: XCTestCase {
     }
 
     func testRestrictedProcessUsesSpawnSetupReturnCodesNotAmbientErrno() throws {
-        let source = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeySystem/RestrictedProcess.swift"),
-            encoding: .utf8
-        )
+        let sourceFiles = [
+            "ByteAccumulator.swift",
+            "RestrictedProcess+Cancellation.swift",
+            "RestrictedProcess+Failure.swift",
+            "RestrictedProcess+InteractiveFailure.swift",
+            "RestrictedProcess+InteractiveRequest.swift",
+            "RestrictedProcess+InteractiveSession.swift",
+            "RestrictedProcess+InteractiveSpawn.swift",
+            "RestrictedProcess+Output.swift",
+            "RestrictedProcess+Request.swift",
+            "RestrictedProcess+Result.swift",
+            "RestrictedProcess+Spawn.swift",
+            "RestrictedProcess.swift",
+        ]
+        let source = try sourceFiles.map { file in
+            try String(
+                contentsOf: repoRoot().appendingPathComponent("Sources/AskKeySystem/\(file)"),
+                encoding: .utf8
+            )
+        }.joined(separator: "\n")
         XCTAssertTrue(source.contains("posix_spawnattr_setflags"))
         XCTAssertTrue(source.contains("posix_spawn_file_actions_adddup2"))
         XCTAssertFalse(
