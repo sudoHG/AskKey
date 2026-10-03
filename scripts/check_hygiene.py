@@ -23,13 +23,13 @@ DEBUG_ALLOWLIST = {
     "Sources/AskKeyAppKit/AgentClientConnector.swift",  # Isolated client configuration home.
     "Sources/AskKeyAppKit/AppPreferences.swift",  # Isolated preferences suite.
     "Sources/AskKeyAppKit/App/AppRuntimeState.swift",  # Require the packaged development run directory.
-    "Sources/AskKeyBroker/BrokerProtocol.swift",  # Development broker socket namespace.
+    "Sources/AskKeyBroker/BrokerConfiguration.swift",  # Development broker socket namespace.
     "Sources/AskKeyBroker/DebugRunDirectory.swift",  # Validate the development run directory.
     "Sources/AskKeyVault/Keychain/IsolatedAppKeyStore.swift",  # File-backed development keys.
     "Sources/AskKeyVault/Keychain/KeychainStore.swift",  # Reject keychain I/O in isolated runs.
     "Sources/AskKeyVault/Vault.swift",  # Select the isolated development key store.
     "Sources/AskKeyVault/VaultConfiguration.swift",  # Development data and keychain namespace.
-    "Sources/AskKeyHelper/main.swift",  # Resolve the development host app.
+    "Sources/AskKeyHelper/OpenHostApplication.swift",  # Resolve the development host app.
 }
 FIXED_CHECKS = ("test-support:", "debug:")
 SWIFT_NON_CODE = re.compile(
