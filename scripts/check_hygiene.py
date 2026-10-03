@@ -18,6 +18,7 @@ PATTERN_EXCEPTIONS = {
 MULTICA_EXCEPTIONS = {"docs/features.md"}
 CJK_ALLOWLIST = {
     "Sources/AskKeyAppKit/Resources/Localizable.xcstrings",  # English and Simplified Chinese UI catalog.
+    "Sources/AskKeyHelper/Resources/Localizable.xcstrings",  # English and Simplified Chinese helper copy (#83).
     "README.zh-CN.md",  # Simplified Chinese README.
     "docs/glossary.md",  # Chinese UI terms alongside English glossary prose (#67).
     "Sources/AskKeyAppKit/Resources/zh-Hans.lproj/InfoPlist.strings",  # Localized product name.
@@ -40,6 +41,7 @@ CJK_ALLOWLIST = {
     "Tests/AskKeyAppTests/WorkspaceInteractionTests.swift",  # Chinese workspace and approval labels.
     "Tests/AskKeyAppTests/WorkspacePrototypeContractTests.swift",  # Chinese UI contracts and visual fixtures.
     "Tests/AskKeyAppTests/WorkspaceVisualContractTests.swift",  # Chinese window-title assertions.
+    "Tests/AskKeyIntegrationsTests/HelperLocalizationTests.swift",  # Chinese helper localization assertions (#83).
     "Tests/AskKeyE2ETests/AskKeyE2ETests.swift",  # Chinese onboarding controls and completion messages.
     "Tests/AskKeyE2ETests/CredentialE2ETests.swift",  # Chinese visible credential controls.
     "Tests/AskKeyVaultTests/CredentialManagementVocabularyTests.swift",  # Chinese file-label assertions.

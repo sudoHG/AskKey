@@ -53,6 +53,7 @@ let package = Package(
             name: "AskKeyHelper",
             dependencies: ["AskKeyBroker"],
             path: "Sources/AskKeyHelper",
+            resources: [.copy("Resources/Localizable.xcstrings")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(

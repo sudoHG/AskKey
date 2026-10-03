@@ -106,6 +106,9 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
     }
 
     func testTimedAllowanceActionFollowsTheSetting() {
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        AppLanguage.current = "zh-Hans"
         XCTAssertEqual(
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
             ["仅本次", "允许 30 分钟", "拒绝"]
@@ -114,6 +117,24 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
             ["仅本次", "拒绝"]
         )
+        let writeActions: [(BrokerApprovalOperation, String, String)] = [
+            (.create, "批准创建", "Approve Creation"),
+            (.modify, "批准修改", "Approve Change"),
+            (.delete, "批准删除", "Approve Deletion"),
+        ]
+        for (operation, chinese, _) in writeActions {
+            XCTAssertEqual(FrozenApprovalActions.titles(operation: operation, timedAllowanceEnabled: true),
+                           [chinese, "拒绝"])
+        }
+        AppLanguage.current = "en"
+        XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
+                       ["Allow Once", "Allow for 30 Minutes", "Deny"])
+        XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
+                       ["Allow Once", "Deny"])
+        for (operation, _, english) in writeActions {
+            XCTAssertEqual(FrozenApprovalActions.titles(operation: operation, timedAllowanceEnabled: true),
+                           [english, "Deny"])
+        }
     }
 
     @MainActor

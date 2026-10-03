@@ -5,7 +5,7 @@ import AskKeyVault
 
 enum RecycleBinPresentation {
     static func credentialMarker(name: String) -> String {
-        name.first.map(String.init) ?? "凭" // i18n-literal: Preserve the existing empty-name credential marker until #83.
+        name.first.map(String.init) ?? appLocalized("C")
     }
 
     static func remainingDaysCopy(deletedAt: Date?, now: Date) -> String {

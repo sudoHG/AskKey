@@ -69,6 +69,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
 cp "$PRODUCTS/$APP_PRODUCT" "$APP/Contents/MacOS/AskKeyApp"
 cp "$CLI" "$APP/Contents/Helpers/askkey"
+cp -R "$(dirname "$CLI")/AskKey_AskKeyHelper.bundle" "$APP/Contents/Helpers/"
 cp -R "$PRODUCTS"/*.bundle "$APP/Contents/Resources/" 2>/dev/null || true
 # SwiftUI's literal localization lookup uses the main app bundle. SwiftPM keeps
 # target resources in a nested bundle, so expose its language directories at
