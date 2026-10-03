@@ -1,15 +1,1 @@
 local-path:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
-size:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
-size:Tests/AskKeyAppTests/AppLanguageExperienceTests.swift
-size:Tests/AskKeyAppTests/WorkspaceVisualContractTests.swift
-size:Tests/AskKeyBrokerTests/ApprovalStateMachineTests.swift
-size:Tests/AskKeyBrokerTests/BrokerProtocolTests.swift
-size:Tests/AskKeyBrokerTests/FileWriteCoordinatorTests.swift
-size:Tests/AskKeyBrokerTests/HelperApprovalWaitTests.swift
-size:Tests/AskKeyBrokerTests/HelperMCPTests.swift
-size:Tests/AskKeyIntegrationsTests/CodexUserMCPAdapterTests.swift
-size:Tests/AskKeyIntegrationsTests/CursorUserMCPAdapterTests.swift
-size:Tests/AskKeyIntegrationsTests/GrokCLIAdapterTests.swift
-size:Tests/AskKeyVaultTests/AgentTextWriteGovernanceTests.swift
-size:Tests/AskKeyVaultTests/HumanFileCredentialTests.swift
-size:Tests/AskKeyVaultTests/RuntimeApprovalBoundaryTests.swift
