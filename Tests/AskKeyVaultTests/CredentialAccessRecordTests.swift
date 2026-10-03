@@ -71,8 +71,54 @@ final class CredentialAccessRecordTests: XCTestCase {
             "Sources/AskKeyBroker/BrokerProtocol.swift",
             "Sources/AskKeyHelper/main.swift",
         ]
+        let sourcePaths: [String: [String]] = [
+            "Sources/AskKeyBroker/BrokerProtocol.swift": [
+                "Sources/AskKeyBroker/AgentTextWriteAction.swift",
+                "Sources/AskKeyBroker/AgentTextWriteRequest.swift",
+                "Sources/AskKeyBroker/AgentTextWriteRequestOutcome.swift",
+                "Sources/AskKeyBroker/AgentTextWriteResult.swift",
+                "Sources/AskKeyBroker/AgentTextWriteSubmission.swift",
+                "Sources/AskKeyBroker/BrokerCancellation.swift",
+                "Sources/AskKeyBroker/BrokerCancellationError.swift",
+                "Sources/AskKeyBroker/BrokerCatalogItem.swift",
+                "Sources/AskKeyBroker/BrokerCatalogPayloadKind.swift",
+                "Sources/AskKeyBroker/BrokerConfiguration.swift",
+                "Sources/AskKeyBroker/BrokerErrorCode.swift",
+                "Sources/AskKeyBroker/BrokerFileWriteBeginRequest.swift",
+                "Sources/AskKeyBroker/BrokerFileWriteChunkRequest.swift",
+                "Sources/AskKeyBroker/BrokerFileWriteFreezeRequest.swift",
+                "Sources/AskKeyBroker/BrokerFileWritePayload.swift",
+                "Sources/AskKeyBroker/BrokerFileWriteRequest.swift",
+                "Sources/AskKeyBroker/BrokerHealth.swift",
+                "Sources/AskKeyBroker/BrokerLimits.swift",
+                "Sources/AskKeyBroker/BrokerPayload.swift",
+                "Sources/AskKeyBroker/BrokerProtocolVersion.swift",
+                "Sources/AskKeyBroker/BrokerProviderError.swift",
+                "Sources/AskKeyBroker/BrokerRequest.swift",
+                "Sources/AskKeyBroker/BrokerRequestHandler.swift",
+                "Sources/AskKeyBroker/BrokerRequestRegistry.swift",
+                "Sources/AskKeyBroker/BrokerRequestRegistryError.swift",
+                "Sources/AskKeyBroker/BrokerRequestState.swift",
+                "Sources/AskKeyBroker/BrokerResponse.swift",
+                "Sources/AskKeyBroker/BrokerVersion.swift",
+            ],
+            "Sources/AskKeyHelper/main.swift": [
+                "Sources/AskKeyHelper/ConnectionStatus.swift",
+                "Sources/AskKeyHelper/ExpectedFileWriteResponse.swift",
+                "Sources/AskKeyHelper/HelperError.swift",
+                "Sources/AskKeyHelper/MCPCommand.swift",
+                "Sources/AskKeyHelper/MCPFrameRead.swift",
+                "Sources/AskKeyHelper/MCPResponses.swift",
+                "Sources/AskKeyHelper/MCPToolDefinitions.swift",
+                "Sources/AskKeyHelper/MCPTools.swift",
+                "Sources/AskKeyHelper/OpenHostApplication.swift",
+                "Sources/AskKeyHelper/main.swift",
+            ],
+        ]
         for path in paths {
-            let source = try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
+            let source = try sourcePaths[path, default: [path]].map { sourcePath in
+                try String(contentsOf: root.appendingPathComponent(sourcePath), encoding: .utf8)
+            }.joined(separator: "\n")
             XCTAssertFalse(source.contains("credential_access_records"), path)
             XCTAssertFalse(source.contains("listCredentialAccessRecords"), path)
             XCTAssertFalse(source.contains("clearCredentialAccessRecords"), path)

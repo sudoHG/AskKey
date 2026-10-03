@@ -1,9 +1,4 @@
 local-path:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
-size:Sources/AskKeyBroker/ApprovalStateMachine.swift
-size:Sources/AskKeyBroker/BrokerProtocol.swift
-size:Sources/AskKeyBroker/BrokerSocket.swift
-size:Sources/AskKeyBroker/FileWriteCoordinator.swift
-size:Sources/AskKeyHelper/main.swift
 size:Tests/AskKeyAppTests/AgentClientConnectorTests.swift
 size:Tests/AskKeyAppTests/AppLanguageExperienceTests.swift
 size:Tests/AskKeyAppTests/WorkspaceVisualContractTests.swift
