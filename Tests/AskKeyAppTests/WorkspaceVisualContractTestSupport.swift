@@ -103,15 +103,15 @@ class WorkspaceVisualContractTestSupport: AskKeyAppTestCase {
         deletedAt: Date? = nil
     ) -> ManagedTextCredential {
         let componentNames: [String]
-        if name.contains("部署") {
+        if name.contains("部署") { // i18n-literal: Match Chinese synthetic deployment names in visual fixtures.
             componentNames = ["SSH_HOST"]
-        } else if name.contains("数据库") {
+        } else if name.contains("数据库") { // i18n-literal: Match Chinese synthetic database names in visual fixtures.
             componentNames = ["DB_HOST", "DB_PASSWORD"]
         } else {
             componentNames = ["API_KEY", "API_ENDPOINT"]
         }
         return ManagedTextCredential(
-            id: id, name: name, value: nil, usageInstructions: "仅用于批准的发布流程",
+            id: id, name: name, value: nil, usageInstructions: "仅用于批准的发布流程", // i18n-literal: Preserve the Chinese visual fixture's synthetic usage text.
             privateNotes: nil, groupName: group, environmentVariable: nil,
             permission: .ask, expiresAt: nil, payloadKind: .bundle,
             originalFilename: nil, byteSize: nil, contentDigest: nil, fileBytes: nil,

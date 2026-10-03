@@ -2,7 +2,7 @@
 
 A macOS menu bar app that keeps your credentials encrypted on your Mac and lets AI agents use them only after you approve.
 
-English | [简体中文](README.zh-CN.md)
+English | [Simplified Chinese](README.zh-CN.md)
 
 > **Status:** AskKey is being restructured before its first public release. There is no installer yet; build it from source. Version 0.1 has no backup or recovery, so keep the originals of your credentials somewhere else.
 

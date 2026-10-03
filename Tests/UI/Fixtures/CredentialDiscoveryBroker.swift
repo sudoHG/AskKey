@@ -145,7 +145,7 @@ private enum FixtureError: Error {
 }
 
 private enum FixtureConstants {
-    static let credentialName = "家庭 NAS"
+    static let credentialName = "家庭 NAS" // i18n-literal: Preserve the synthetic Unicode credential name used by the discovery fixture.
     static let credentialID = "fixture-family-nas"
     static let environmentVariable = "NAS_TEST_TOKEN"
     static let syntheticToken = "fixture-only-synthetic-nas-token"
@@ -221,9 +221,9 @@ private final class FixtureState: @unchecked Sendable {
                 credentialID: FixtureConstants.credentialID,
                 name: FixtureConstants.credentialName,
                 payloadKind: .text,
-                usageInstructions: "检查这个家庭 NAS 的 SSH 密钥状态时，请直接运行 "
+                usageInstructions: "To check the SSH key status of this family NAS, run "
                     + inspectionExecutable.path
-                    + "，不要添加任何参数；Ask Key 会将凭证通过环境变量 NAS_TEST_TOKEN 提供给它，程序的输出就是检查结果。",
+                    + " directly without arguments. Ask Key supplies the credential through the NAS_TEST_TOKEN environment variable; the program output is the inspection result.",
                 environmentVariable: FixtureConstants.environmentVariable,
                 expired: false
             )

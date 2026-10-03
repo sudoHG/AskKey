@@ -78,7 +78,7 @@ class E2EGateTests(unittest.TestCase):
                 source.write_text("let fixture = 2\n")
                 self.assertNotEqual(gate.fingerprint(), original_fingerprint)
                 # Reject stale source before consulting any result-bundle fields.
-                with self.assertRaisesRegex(SystemExit, "源码已改变，E2E 记录过期"):
+                with self.assertRaisesRegex(SystemExit, "Source changed; the E2E receipt is stale"):
                     gate.verify()
 
     def test_sidecar_json_must_match_original_result_bundle(self):
@@ -99,7 +99,7 @@ class E2EGateTests(unittest.TestCase):
                 with patch.object(gate.subprocess, "check_output", side_effect=[
                     json.dumps(actual_summary), json.dumps(actual_tree)
                 ]):
-                    with self.assertRaisesRegex(ValueError, f"{mismatched} 与原始 xcresult 不一致"):
+                    with self.assertRaisesRegex(ValueError, f"{mismatched} does not match the original xcresult"):
                         gate.load_results(output)
 
 

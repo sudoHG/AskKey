@@ -70,7 +70,7 @@ final class AgentFileCredentialGovernanceTests: HumanFileCredentialTestSupport {
         try Data("ssh-ed25519 AAAA fixture-key".utf8).write(to: source)
         let created = try harness.vault.createFileCredential(
             FileCredentialInput(
-                name: "最终单文件协议",
+                name: "最终单文件协议", // i18n-literal: Preserve the synthetic Unicode credential name.
                 snapshot: try FileImport.freeze(url: source)
             ),
             using: .allow
@@ -97,8 +97,8 @@ final class AgentFileCredentialGovernanceTests: HumanFileCredentialTestSupport {
             capability: upload.capability
         )
         let pending = try XCTUnwrap(harness.vault.approvalRequests.pendingRequests().first)
-        XCTAssertEqual(pending.trustedCredentialName, "最终单文件协议")
-        XCTAssertEqual(pending.displayCredentialName, "最终单文件协议")
+        XCTAssertEqual(pending.trustedCredentialName, "最终单文件协议") // i18n-literal: Assert the unchanged trusted Unicode fixture name.
+        XCTAssertEqual(pending.displayCredentialName, "最终单文件协议") // i18n-literal: Assert the unchanged displayed Unicode fixture name.
         XCTAssertNil(pending.request.credentialName)
         XCTAssertEqual(pending.request.credentialID, created.id)
         XCTAssertEqual(pending.request.targetID, created.id)
@@ -106,7 +106,7 @@ final class AgentFileCredentialGovernanceTests: HumanFileCredentialTestSupport {
         XCTAssertEqual(retried.requestID, approval.requestID)
         XCTAssertEqual(retried.capability, approval.capability)
         XCTAssertEqual(harness.vault.approvalRequests.pendingRequests().first?.request, pending.request)
-        XCTAssertEqual(harness.vault.approvalRequests.pendingRequests().first?.displayCredentialName, "最终单文件协议")
+        XCTAssertEqual(harness.vault.approvalRequests.pendingRequests().first?.displayCredentialName, "最终单文件协议") // i18n-literal: Preserve the Unicode display name across a retry.
         let summary = try coordinator.summary(requestID: approval.requestID)
         _ = try coordinator.decide(
             requestID: approval.requestID,
@@ -129,7 +129,7 @@ final class AgentFileCredentialGovernanceTests: HumanFileCredentialTestSupport {
         let source = harness.directory.appendingPathComponent("fixture.pem")
         try Data("synthetic-key".utf8).write(to: source)
         let created = try harness.vault.createFileCredential(
-            FileCredentialInput(name: "可信文件名称", snapshot: try FileImport.freeze(url: source)),
+            FileCredentialInput(name: "可信文件名称", snapshot: try FileImport.freeze(url: source)), // i18n-literal: Preserve the trusted synthetic Unicode credential name.
             using: .allow
         )
         let request = BrokerApprovalOperationRequest(
@@ -157,7 +157,7 @@ final class AgentFileCredentialGovernanceTests: HumanFileCredentialTestSupport {
         )
         let pending = try XCTUnwrap(harness.vault.approvalRequests.pendingRequests().first)
         XCTAssertEqual(pending.request, request)
-        XCTAssertEqual(pending.displayCredentialName, "可信文件名称")
+        XCTAssertEqual(pending.displayCredentialName, "可信文件名称") // i18n-literal: Assert that caller metadata cannot replace the Unicode name.
         XCTAssertEqual(try harness.vault.approvalRequests.status(
             requestID: ticket.requestID, capability: ticket.capability, operationRequest: request
         ), .pending)
@@ -166,7 +166,7 @@ final class AgentFileCredentialGovernanceTests: HumanFileCredentialTestSupport {
         let harness = try makeManagedHarness()
         let request = BrokerApprovalOperationRequest(
             operationID: "create-display-metadata", credentialID: "new-file",
-            targetID: "新建文件名称", operation: .create,
+            targetID: "新建文件名称", operation: .create, // i18n-literal: Preserve the synthetic Unicode creation target.
             payloadDigest: String(repeating: "b", count: 64)
         )
         _ = try harness.vault.submitFileWriteApprovalIfCurrent(
@@ -174,7 +174,7 @@ final class AgentFileCredentialGovernanceTests: HumanFileCredentialTestSupport {
         )
         let pending = try XCTUnwrap(harness.vault.approvalRequests.pendingRequests().first)
         XCTAssertNil(pending.trustedCredentialName)
-        XCTAssertEqual(pending.displayCredentialName, "新建文件名称")
+        XCTAssertEqual(pending.displayCredentialName, "新建文件名称") // i18n-literal: Assert the unchanged Unicode creation target name.
         XCTAssertEqual(pending.request, request)
     }
     func testDigestReadAndApprovalSubmitBlockAnInterveningMutation() throws {

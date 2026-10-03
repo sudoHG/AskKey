@@ -78,7 +78,7 @@ final class GrokCLIConnectionTests: GrokCLIAdapterTests {
             XCTAssertTrue(
                 lowered.contains("no such file")
                     || lowered.contains("enoent")
-                    || reason.contains("无此文件")
+                    || reason.contains("无此文件") // i18n-literal: Recognize the localized POSIX missing-file error.
                     || reason.contains("\(ENOENT)"),
                 "spawn failure must keep the captured POSIX reason, got \(reason)"
             )

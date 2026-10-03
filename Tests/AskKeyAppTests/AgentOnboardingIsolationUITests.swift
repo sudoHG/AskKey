@@ -63,10 +63,10 @@ private struct IsolatedOnboardingScenario {
     var sessions: [AgentClient: AgentClientOnboardingSession]
 
     static let all: [IsolatedOnboardingScenario] = [
-        .init(id: "01-first-visit", title: "首次进入，尚未检查", expanded: nil, sessions: [:]),
+        .init(id: "01-first-visit", title: "First visit, not checked", expanded: nil, sessions: [:]),
         .init(
             id: "03-ready-to-confirm",
-            title: "本机 Codex 待确认范围",
+            title: "Local Codex scope awaiting confirmation",
             expanded: .codex,
             sessions: [
                 .codex: AgentClientOnboardingSession(
@@ -91,7 +91,7 @@ private struct IsolatedOnboardingScenario {
         ),
         .init(
             id: "04-success",
-            title: "已验证连接",
+            title: "Verified connection",
             expanded: nil,
             sessions: [
                 .codex: AgentClientOnboardingSession(
@@ -108,7 +108,7 @@ private struct IsolatedOnboardingScenario {
         ),
         .init(
             id: "06-restore-failed",
-            title: "恢复失败，保留备份并阻止普通重试",
+            title: "Restore failed; preserve the backup and block ordinary retries",
             expanded: .cursor,
             sessions: [
                 .cursor: AgentClientOnboardingSession(

@@ -117,6 +117,93 @@ struct Ordinary {}
         self.write("Sources/UntrackedFixture.swift", "#if DEBUG\nMultica /Users/synthetic\n", tracked=False)
         self.assertEqual(hygiene.violations(self.root), set())
 
+    def test_cjk_scripts_are_rejected_in_tracked_text(self):
+        for name, value in [("han", "\u4e2d"), ("extended-han", "\U00020000"),
+                            ("hiragana", "\u3042"), ("katakana", "\u30a2"),
+                            ("hangul", "\ud55c"), ("jamo", "\u1100"), ("stroke", "\u31c0"),
+                            ("halfwidth-hangul", "\uffa1"), ("fullwidth-punctuation", "\uff1a")]:
+            self.write(f"docs/{name}.txt", value + "\n")
+        self.write("docs/english.txt", "English, caf\u00e9, and \U0001f600\n")
+        self.assertEqual(hygiene.violations(self.root), {
+            f"cjk:docs/{name}.txt" for name in
+            ["han", "extended-han", "hiragana", "katakana", "hangul", "jamo",
+             "stroke", "halfwidth-hangul", "fullwidth-punctuation"]})
+
+    def test_cjk_exemptions_use_exact_paths_and_keep_other_rules(self):
+        self.write("Sources/AskKeyAppKit/Resources/Localizable.xcstrings", "\u4e2d /Users/synthetic\n")
+        self.write("README.zh-CN.md", "\u4e2d\n")
+        self.write("docs/glossary.md", "\u4e2d\n")
+        self.write("Sources/AskKeyAppKit/Resources/zh-Hans.lproj/InfoPlist.strings", "\u4e2d\n")
+        self.write("Tests/AskKeyAppTests/AppLanguageCatalogTests.swift", "\u4e2d\n")
+        for name in ["docs/README.zh-CN.md", "docs/nested/glossary.md",
+                     "Sources/Nested/Localizable.xcstrings", "Tests/Nested/AppLanguageCatalogTests.swift",
+                     "Sources/Nested/zh-Hans.lproj/InfoPlist.strings"]:
+            self.write(name, "\u4e2d\n")
+        self.assertEqual(hygiene.violations(self.root), {
+            "local-path:Sources/AskKeyAppKit/Resources/Localizable.xcstrings",
+            "cjk:docs/README.zh-CN.md", "cjk:docs/nested/glossary.md",
+            "cjk:Sources/Nested/Localizable.xcstrings", "cjk:Tests/Nested/AppLanguageCatalogTests.swift",
+            "cjk:Sources/Nested/zh-Hans.lproj/InfoPlist.strings"})
+
+    def test_cjk_markers_with_reasons_allow_only_swift_and_python_lines(self):
+        self.write("Tests/Literal.swift", 'let value = "\u4e2d" // i18n-literal: Unicode input.\n')
+        self.write("Tests/Interpolation.swift", 'let value = "\\(identity("\u4e2d"))" // i18n-literal: Unicode input.\n')
+        self.write("Tests/Regex.swift", 'let value = #/\u4e2d/# // i18n-literal: Unicode input.\n')
+        self.write("Tests/Multiline.swift", 'let value = """\n\\(\nidentity("\u4e2d") // i18n-literal: Unicode input.\n)\n"""\n')
+        self.write("scripts/literal.py", 'value = "\u4e2d" # i18n-literal: Unicode input.\n')
+        self.write("docs/literal.md", '\u4e2d # i18n-literal: Unicode input.\n')
+        self.assertEqual(hygiene.violations(self.root), {"cjk:docs/literal.md"})
+
+    def test_cjk_marker_requires_a_reason_and_does_not_cover_other_lines(self):
+        self.write("Tests/Empty.swift", 'let value = "\u4e2d" // i18n-literal:   \n')
+        self.write("scripts/empty.py", 'value = "\u4e2d" # i18n-literal:\n')
+        self.write("Tests/Other.swift", 'let value = "\u4e2d" // i18n-literal: Unicode input.\n// \u6587\n')
+        self.write("Tests/Reason.swift", 'let value = "\u4e2d" // i18n-literal: \u6587\n')
+        self.assertEqual(hygiene.violations(self.root), {
+            "cjk:Tests/Empty.swift", "cjk:scripts/empty.py",
+            "cjk:Tests/Other.swift", "cjk:Tests/Reason.swift"})
+
+    def test_marker_text_in_strings_and_block_comments_is_not_a_line_comment(self):
+        self.write("Tests/String.swift", 'let value = "\u4e2d // i18n-literal: not a comment"\n')
+        self.write("Tests/Raw.swift", 'let value = #"\u4e2d // i18n-literal: not a comment"#\n')
+        self.write("Tests/Block.swift", '/* \u4e2d // i18n-literal: not a line comment */\n')
+        self.write("Tests/Multiline.swift", 'let value = """\n\u4e2d // i18n-literal: not a comment\n"""\n')
+        self.write("Tests/Interpolation.swift", 'let value = "\\(identity("\u4e2d // i18n-literal: not a comment"))"\n')
+        self.write("Tests/RawInterpolation.swift", 'let value = #"\\#(identity("\u4e2d // i18n-literal: not a comment"))"#\n')
+        self.write("Tests/Regex.swift", 'let value = #/\u4e2d // i18n-literal: not a comment/#\n')
+        self.write("scripts/string.py", 'value = "\u4e2d # i18n-literal: not a comment"\n')
+        self.write("scripts/multiline.py", 'value = """\n\u4e2d # i18n-literal: not a comment\n"""\n')
+        self.assertEqual(hygiene.violations(self.root), {
+            "cjk:Tests/String.swift", "cjk:Tests/Raw.swift", "cjk:Tests/Block.swift",
+            "cjk:Tests/Multiline.swift", "cjk:Tests/Interpolation.swift", "cjk:Tests/RawInterpolation.swift",
+            "cjk:Tests/Regex.swift", "cjk:scripts/string.py", "cjk:scripts/multiline.py"})
+
+    def test_brand_token_does_not_allow_other_cjk_on_the_same_line(self):
+        self.write("docs/brand.txt", "\u8bf7\u65e8\n")
+        self.write("docs/other.txt", "\u8bf7\u65e8\u4e2d\n")
+        self.assertEqual(hygiene.violations(self.root), {"cjk:docs/other.txt"})
+
+    def test_cjk_is_checked_in_rule_files_bom_text_and_symlink_text(self):
+        for name in ["AGENTS.md", "scripts/check_hygiene.py", "Tests/Automation/test_check_hygiene.py"]:
+            self.write(name, "\u4e2d\n")
+        for encoding in ["utf-16", "utf-32"]:
+            path = self.write(f"docs/{encoding}.txt", "")
+            path.write_bytes("\u4e2d".encode(encoding))
+        self.write("untracked.txt", "\u4e2d\n", tracked=False)
+        link = self.root / "link.txt"
+        link.symlink_to("missing-\u4e2d.txt")
+        subprocess.run(["git", "add", "--", link.name], cwd=self.root, check=True, capture_output=True)
+        self.assertEqual(hygiene.violations(self.root), {
+            "cjk:AGENTS.md", "cjk:scripts/check_hygiene.py", "cjk:Tests/Automation/test_check_hygiene.py",
+            "cjk:docs/utf-16.txt", "cjk:docs/utf-32.txt", "cjk:link.txt"})
+
+    def test_cjk_diagnostic_does_not_disclose_file_contents(self):
+        self.write("docs/input.txt", "\u4e2d synthetic private value\n")
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "violation: cjk:docs/input.txt\n")
+        self.assertNotIn("synthetic private value", result.stdout)
+
     def test_rule_file_exceptions_are_exact_paths(self):
         contents = "multica /Users/synthetic /private/var/synthetic\n"
         for name in ["AGENTS.md", "scripts/check_hygiene.py", "Tests/Automation/test_check_hygiene.py"]:

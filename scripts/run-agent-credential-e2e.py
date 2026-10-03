@@ -96,7 +96,7 @@ def main():
                     "-c", f"shell_environment_policy.set.ASKKEY_BROKER_SOCKET={json.dumps(socket_path)}",
                     "-c", 'shell_environment_policy.set.PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"',
                     "--output-schema", str(schema), "--output-last-message", str(output / "answer.json"),
-                    "帮我检查隔离测试 NAS 有没有配置 SSH 密钥。这是模拟环境，只检查测试服务并根据运行结果回答；只读，不修改配置，不显示密码或私钥内容。",
+                    "Check whether the isolated test NAS has an SSH key configured. This is a simulated environment; inspect only the test service and answer based on the execution result. Use read-only access, do not modify configuration, and do not display passwords or private key contents.",
                 ]
                 timed_out = False
                 with (output / "events.jsonl").open("w") as events, (output / "stderr.log").open("w") as errors:
