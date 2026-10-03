@@ -1,0 +1,12 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Ask Key: Query the credential catalog before connecting.": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key: Query the credential catalog before connecting." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key：连接前先查询凭证目录。" } }
+      }
+    }
+  },
+  "version": "1.0"
+}

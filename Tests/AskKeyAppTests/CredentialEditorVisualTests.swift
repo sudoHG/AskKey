@@ -39,6 +39,11 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
         )
         XCTAssertEqual(RecycleBinPresentation.credentialMarker(name: "旧数据库账号"), "旧")
         XCTAssertEqual(RecycleBinPresentation.credentialMarker(name: ""), "凭")
+        let previous = AppLanguage.current
+        AppLanguage.current = "en"
+        XCTAssertEqual(RecycleBinPresentation.credentialMarker(name: ""), "C")
+        XCTAssertEqual(RecycleBinPresentation.credentialMarker(name: "旧数据库账号"), "旧")
+        AppLanguage.current = previous
         XCTAssertEqual(
             FrozenDangerActions.confirmationTitles,
             ["确认删除分组", "移到回收站", "确认清空"]
