@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import AskKeyBroker
-import AskKeyCore
+import AskKeyVault
 
 enum CredentialWorkspaceSection: Hashable {
     case all

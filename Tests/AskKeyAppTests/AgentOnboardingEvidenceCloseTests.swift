@@ -3,7 +3,6 @@ import Darwin
 import Foundation
 import XCTest
 @testable import AskKeyAppKit
-@testable import AskKeyCore
 
 final class AgentOnboardingEvidenceCloseTests: AskKeyAppTestCase {
     func testTerminateLaterApplyFailureRepliesExactlyOnceThroughAppGate() async {

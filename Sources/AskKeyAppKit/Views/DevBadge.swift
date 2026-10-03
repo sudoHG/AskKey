@@ -1,5 +1,5 @@
 import SwiftUI
-import AskKeyCore
+import AskKeyVault
 
 /// A small "DEV" pill rendered only in development builds, so the dev app is
 /// never mistaken for the installed production app (they use separate vaults).

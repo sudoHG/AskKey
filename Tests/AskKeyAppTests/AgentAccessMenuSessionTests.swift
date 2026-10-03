@@ -1,7 +1,7 @@
 import AppKit
 import XCTest
 @testable import AskKeyAppKit
-@testable import AskKeyCore
+@testable import AskKeyVault
 
 @MainActor
 final class AgentAccessMenuSessionTests: AskKeyAppTestCase {

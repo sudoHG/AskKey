@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import AskKeyCore
 
 func appLocalized(_ key: String, language: String? = nil) -> String {
     AppLanguage.localized(key, language: language ?? AppLanguage.current)

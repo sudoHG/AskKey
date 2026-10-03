@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import AskKeyAppKit
 @testable import AskKeyBroker
-@testable import AskKeyCore
+@testable import AskKeyVault
 
 @MainActor
 final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {

@@ -1,5 +1,6 @@
 import Foundation
-import AskKeyCore
+import AskKeySystem
+import AskKeyVault
 
 public enum E2EProcessFixture {
     public static func runSlowCommand(in directory: URL) throws {

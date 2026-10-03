@@ -1,5 +1,6 @@
 import Foundation
-import AskKeyCore
+import AskKeyIntegrations
+import AskKeySystem
 
 /// Product setup includes both the MCP connection and native discovery hook.
 /// Hook availability is guidance readiness; it never grants credential access.

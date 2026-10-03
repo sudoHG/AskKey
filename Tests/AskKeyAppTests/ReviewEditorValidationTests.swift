@@ -1,5 +1,5 @@
 import XCTest
-import AskKeyCore
+import AskKeyVault
 @testable import AskKeyAppKit
 
 final class ReviewEditorValidationTests: AskKeyAppTestCase {

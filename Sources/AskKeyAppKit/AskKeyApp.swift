@@ -4,7 +4,7 @@ import CoreServices
 import SwiftUI
 @preconcurrency import UserNotifications
 import AskKeyBroker
-import AskKeyCore
+import AskKeyVault
 
 @MainActor
 enum AppRuntimeState {

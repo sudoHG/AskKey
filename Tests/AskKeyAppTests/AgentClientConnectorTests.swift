@@ -3,7 +3,8 @@ import Foundation
 import XCTest
 @testable import AskKeyAppKit
 import AskKeyBroker
-@testable import AskKeyCore
+@testable import AskKeyIntegrations
+@testable import AskKeyVault
 @testable import AskKeyTestSupport
 
 @MainActor

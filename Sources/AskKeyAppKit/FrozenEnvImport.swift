@@ -1,5 +1,5 @@
 import Foundation
-import AskKeyCore
+import AskKeyVault
 
 /// One import boundary shared by the standalone importer and credential editor.
 enum FrozenEnvImport {

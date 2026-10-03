@@ -7,7 +7,9 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "AskKeyBroker", targets: ["AskKeyBroker"]),
-        .library(name: "AskKeyCore", targets: ["AskKeyCore"]),
+        .library(name: "AskKeyVault", targets: ["AskKeyVault"]),
+        .library(name: "AskKeySystem", targets: ["AskKeySystem"]),
+        .library(name: "AskKeyIntegrations", targets: ["AskKeyIntegrations"]),
         .executable(name: "askkey", targets: ["AskKeyHelper"]),
         .executable(name: "AskKeyApp", targets: ["AskKeyApp"]),
     ],
@@ -27,12 +29,24 @@ let package = Package(
             publicHeadersPath: "include"
         ),
         .target(
-            name: "AskKeyCore",
+            name: "AskKeySystem",
+            path: "Sources/AskKeySystem",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .target(
+            name: "AskKeyIntegrations",
+            dependencies: ["AskKeySystem", "AskKeyBroker"],
+            path: "Sources/AskKeyIntegrations",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .target(
+            name: "AskKeyVault",
             dependencies: [
+                "AskKeySystem",
                 "AskKeyBroker",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
-            path: "Sources/AskKeyCore",
+            path: "Sources/AskKeyVault",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
@@ -45,7 +59,9 @@ let package = Package(
             name: "AskKeyAppKit",
             dependencies: [
                 "AskKeyBroker",
-                "AskKeyCore",
+                "AskKeyVault",
+                "AskKeySystem",
+                "AskKeyIntegrations",
             ],
             path: "Sources/AskKeyAppKit",
             resources: [
@@ -67,7 +83,7 @@ let package = Package(
         ),
         .target(
             name: "AskKeyTestSupport",
-            dependencies: ["AskKeyAppKit", "AskKeyCore", "AskKeyBroker"],
+            dependencies: ["AskKeyAppKit", "AskKeyVault", "AskKeySystem", "AskKeyBroker"],
             path: "Tests/AskKeyTestSupport",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -77,16 +93,33 @@ let package = Package(
             path: "Tests/AskKeyE2EApp",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "AskKeyUnitTestSupport",
+            path: "Tests/AskKeyUnitTestSupport",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
         .testTarget(
-            name: "AskKeyCoreTests",
-            dependencies: ["AskKeyBroker", "AskKeyCore", "AskKeyHelper"],
-            path: "Tests/AskKeyCoreTests",
+            name: "AskKeySystemTests",
+            dependencies: ["AskKeySystem"],
+            path: "Tests/AskKeySystemTests",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .testTarget(
+            name: "AskKeyIntegrationsTests",
+            dependencies: ["AskKeyBroker", "AskKeySystem", "AskKeyIntegrations", "AskKeyHelper", "AskKeyUnitTestSupport"],
+            path: "Tests/AskKeyIntegrationsTests",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .testTarget(
+            name: "AskKeyVaultTests",
+            dependencies: ["AskKeyBroker", "AskKeyVault", "AskKeyHelper", "AskKeyUnitTestSupport"],
+            path: "Tests/AskKeyVaultTests",
             resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
             name: "AskKeyAppTests",
-            dependencies: ["AskKeyAppKit", "AskKeyCore", "AskKeyTestSupport"],
+            dependencies: ["AskKeyAppKit", "AskKeyVault", "AskKeySystem", "AskKeyIntegrations", "AskKeyTestSupport"],
             path: "Tests/AskKeyAppTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

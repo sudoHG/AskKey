@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 import XCTest
 @testable import AskKeyAppKit
-@testable import AskKeyCore
+@testable import AskKeyIntegrations
 
 @MainActor
 final class AgentOnboardingReviewRepairTests: AskKeyAppTestCase {

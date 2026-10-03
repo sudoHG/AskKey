@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import Vision
 import XCTest
-import AskKeyCore
+import AskKeyVault
 @testable import AskKeyAppKit
 
 /// CR-06: `editor(id)` must not become “New Credential” when the list refresh

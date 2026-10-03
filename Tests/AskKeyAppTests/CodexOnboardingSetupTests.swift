@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 import AskKeyBroker
-import AskKeyCore
+import AskKeyIntegrations
 @testable import AskKeyAppKit
 
 final class CodexOnboardingSetupTests: AskKeyAppTestCase {

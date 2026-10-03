@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-import AskKeyCore
+import AskKeyVault
 @testable import AskKeyAppKit
 
 final class ReviewPrivateNotesTests: AskKeyAppTestCase {

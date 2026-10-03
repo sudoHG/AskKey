@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 import AskKeyBroker
-import AskKeyCore
+import AskKeyVault
 
 /// Real, process-restartable storage used only by the isolated E2E app build.
 /// The key is deliberately fixed test material; it is never a production key.

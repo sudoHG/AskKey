@@ -3,7 +3,7 @@ import CryptoKit
 import AppKit
 import SwiftUI
 import AskKeyBroker
-@testable import AskKeyCore
+@testable import AskKeyVault
 @testable import AskKeyAppKit
 
 final class WorkspaceVisualContractTests: AskKeyAppTestCase {
