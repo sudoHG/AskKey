@@ -26,27 +26,6 @@ struct AgentOnboardingView: View {
         .background(Theme.windowBackground)
         .onAppear { vault.onboarding.appear() }
         .onDisappear { vault.onboarding.disappear() }
-#if DEBUG
-        .onAppear {
-            for client in AgentClient.allCases {
-                DebugPressRegistry.register("onboarding-review-\(client.proofID)") {
-                    vault.onboarding.explain(client)
-                }
-                DebugPressRegistry.register("onboarding-check-\(client.proofID)") {
-                    Task { await vault.onboarding.startCheck(client) }
-                }
-                DebugPressRegistry.register("onboarding-cancel-\(client.proofID)") {
-                    vault.onboarding.cancelCheck(client)
-                }
-                DebugPressRegistry.register("onboarding-confirm-\(client.proofID)") {
-                    Task { await vault.onboarding.confirm(client) }
-                }
-                DebugPressRegistry.register("onboarding-not-now-\(client.proofID)") {
-                    vault.onboarding.collapse()
-                }
-            }
-        }
-#endif
     }
 
     private func clientGroup(title: String, clients: [AgentClient]) -> some View {
@@ -87,12 +66,10 @@ struct AgentOnboardingView: View {
                 .disabled(session.attempt.phase.isInFlight && !expanded)
                 .accessibilityIdentifier("onboarding-review-\(client.proofID)")
                 .onboardingActivateWithKeyboard { toggleReview(client, expanded: expanded) }
-#if DEBUG
-                .debugPress(
+                .registerAction(
                     "onboarding-review-\(client.proofID)",
                     action: { toggleReview(client, expanded: expanded) }
                 )
-#endif
             }
             if expanded {
                 expandedSection(client, session: session)
@@ -213,24 +190,20 @@ struct AgentOnboardingView: View {
                 .disabled(session.attempt.changeStatus == .restoreFailed)
                 .accessibilityIdentifier("onboarding-confirm-\(client.proofID)")
                 .onboardingActivateWithKeyboard { Task { await onboarding.confirm(client) } }
-#if DEBUG
-                .debugPress(
+                .registerAction(
                     "onboarding-confirm-\(client.proofID)",
                     action: { Task { await onboarding.confirm(client) } }
                 )
-#endif
                 Button(appLocalized("Not now")) {
                     onboarding.collapse()
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("onboarding-not-now-\(client.proofID)")
                 .onboardingActivateWithKeyboard { onboarding.collapse() }
-#if DEBUG
-                .debugPress(
+                .registerAction(
                     "onboarding-not-now-\(client.proofID)",
                     action: { onboarding.collapse() }
                 )
-#endif
             } else if session.attempt.phase == .checking
                         || !session.attempt.phase.isWriteInFlight {
                 checkOrCancelButton(client, session: session)
@@ -269,15 +242,13 @@ struct AgentOnboardingView: View {
                 Task { await onboarding.startCheck(client) }
             }
         }
-#if DEBUG
-        .debugPress(identifier, action: {
+        .registerAction(identifier, action: {
             if checking {
                 onboarding.cancelCheck(client)
             } else {
                 Task { await onboarding.startCheck(client) }
             }
         })
-#endif
         .id("onboarding-primary-\(client.proofID)")
     }
 

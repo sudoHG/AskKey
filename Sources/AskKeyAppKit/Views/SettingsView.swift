@@ -67,21 +67,6 @@ struct SettingsView: View {
                 route: $workspaceRoute
             )
             .environment(vault)
-#if DEBUG
-            .onAppear {
-                DebugPressRegistry.register("sidebar-agent") {
-                    workspaceSection = .agentAccess
-                    workspaceRoute = .agentAccess
-                }
-                DebugPressRegistry.register("sidebar-settings") {
-                    workspaceRoute = .settings
-                }
-                DebugPressRegistry.register("sidebar-records") {
-                    workspaceSection = .accessRecords
-                    workspaceRoute = .accessRecords
-                }
-            }
-#endif
         }
     }
 

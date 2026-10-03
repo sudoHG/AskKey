@@ -296,12 +296,6 @@ package final class VaultViewModel {
     }
 
     func attachOnboardingRuntime() {
-#if DEBUG
-        if let stub = AgentOnboardingDebugSupport.operationsIfRequested() {
-            onboarding.operations = stub
-            return
-        }
-#endif
         onboarding.operations = AgentOnboardingRuntime.liveOperations(
             authenticate: { [weak self] in
                 await self?.authenticateForOnboardingWrite() ?? .failed

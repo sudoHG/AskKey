@@ -14,8 +14,6 @@ enum AppRuntimeState {
     static var visualProofEnabled: Bool {
 #if DEBUG
         ProcessInfo.processInfo.environment["ASKKEY_VISUAL_PROOF"] == "1"
-            || ProcessInfo.processInfo.environment["ASKKEY_ONBOARDING_PROOF"] == "1"
-            || ProcessInfo.processInfo.environment["ASKKEY_ONBOARDING_RESTART_PROOF"] == "1"
 #else
         false
 #endif
@@ -493,21 +491,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         if AppRuntimeState.visualProofEnabled {
             setupWindowBehavior()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-#if DEBUG
-                if AgentOnboardingDebugSupport.isRequested {
-                    guard let self else { return }
-                    let window = self.managementWindow ?? NSApp.windows.first {
-                        $0.identifier?.rawValue == "settings"
-                    }
-                    guard let window else {
-                        NSLog("AskKey onboarding proof failed: management window is unavailable")
-                        NSApp.terminate(nil)
-                        return
-                    }
-                    Task { await AgentOnboardingDebugDriver.run(window: window, vault: self.vault) }
-                    return
-                }
-#endif
                 self?.performVisualProofClicks()
             }
             return

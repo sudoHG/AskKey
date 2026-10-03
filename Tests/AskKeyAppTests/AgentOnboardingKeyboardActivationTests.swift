@@ -1,9 +1,7 @@
 import XCTest
 @testable import AskKeyAppKit
 
-/// Source control for 331-404 B3. Behavioral RED/GREEN lives in the isolated
-/// Debug App: `focusable-contrast` (bare `.focusable()` blocks Space) and
-/// keyboard-check / keyboard-cancel. XCTest hosts return AX `-25208`.
+/// Preserve keyboard activation and focus identity in the production view.
 @MainActor
 final class AgentOnboardingKeyboardActivationTests: AskKeyAppTestCase {
     func testOnboardingActionButtonsForwardSpaceAndReturn() throws {
