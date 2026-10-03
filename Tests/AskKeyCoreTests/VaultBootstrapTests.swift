@@ -150,26 +150,31 @@ final class VaultBootstrapTests: XCTestCase {
 
     func testCreationSynchronizesLibraryAndEntryChainBeforePromotion() throws {
         let root = try temporaryDirectory()
-        let paths = VaultBootstrapPaths(directory: root.appendingPathComponent("SYNTHETIC-a/SYNTHETIC-b"))
+        let paths = VaultBootstrapPaths(directory: root.appendingPathComponent("SYNTHETIC-a/SYNTHETIC-b"),
+                                        durabilityRoot: root)
         let keys = MemoryAppKeyStore()
         var synchronized: [URL] = []
-        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, beforeDurabilitySync: { url in
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, synchronize: { target in
             XCTAssertNil(keys.appKey, "synchronized before promotion")
-            synchronized.append(url)
+            try VaultBootstrap.synchronize(target)
+            synchronized.append(target.url)
         })
         try opened.store.close()
         XCTAssertEqual(synchronized.map(\.standardizedFileURL.path), [
-            paths.currentDatabase, paths.directory, paths.directory.deletingLastPathComponent(), root,
+            paths.creatingDatabase, paths.currentDatabase, paths.directory, paths.directory.deletingLastPathComponent(), root,
         ].map(\.standardizedFileURL.path), "both created levels and their parents")
         XCTAssertNotNil(keys.appKey)
 
         synchronized = []
         let existing = VaultBootstrapPaths(directory: try temporaryDirectory())
         let reopened = try VaultBootstrap.openCurrent(paths: existing, keyStore: MemoryAppKeyStore(),
-                                                      beforeDurabilitySync: { synchronized.append($0) })
+                                                      synchronize: {
+            try VaultBootstrap.synchronize($0)
+            synchronized.append($0.url)
+        })
         try reopened.store.close()
         XCTAssertEqual(synchronized.map(\.standardizedFileURL.path), [
-            existing.currentDatabase, existing.directory, existing.directory.deletingLastPathComponent(),
+            existing.creatingDatabase, existing.currentDatabase, existing.directory, existing.directory.deletingLastPathComponent(),
         ].map(\.standardizedFileURL.path), "the parent is synchronized even when the directory existed")
     }
 
@@ -179,8 +184,9 @@ final class VaultBootstrapTests: XCTestCase {
             let paths = VaultBootstrapPaths(directory: root.appendingPathComponent("SYNTHETIC-data"))
             let target = ["database": paths.currentDatabase, "directory": paths.directory, "parent": root][failing]!
             let keys = MemoryAppKeyStore()
-            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, beforeDurabilitySync: {
-                if $0.standardizedFileURL.path == target.standardizedFileURL.path { throw InjectedCreationFailure() }
+            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, synchronize: {
+                if $0.url.standardizedFileURL.path == target.standardizedFileURL.path { throw InjectedCreationFailure() }
+                try VaultBootstrap.synchronize($0)
             }), failing) { XCTAssertTrue($0 is InjectedCreationFailure, failing) }
             XCTAssertNil(keys.appKey, failing)
             let pending = try XCTUnwrap(keys.pendingKey, failing)
@@ -205,9 +211,10 @@ final class VaultBootstrapTests: XCTestCase {
             let target = ["database": paths.currentDatabase, "directory": paths.directory,
                           "parent": paths.directory.deletingLastPathComponent()][failing]!
             var synchronized: [String] = []
-            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, beforeDurabilitySync: {
-                synchronized.append($0.standardizedFileURL.path)
-                if $0.standardizedFileURL.path == target.standardizedFileURL.path { throw InjectedCreationFailure() }
+            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, synchronize: {
+                synchronized.append($0.url.standardizedFileURL.path)
+                if $0.url.standardizedFileURL.path == target.standardizedFileURL.path { throw InjectedCreationFailure() }
+                try VaultBootstrap.synchronize($0)
             }), failing) { XCTAssertTrue($0 is InjectedCreationFailure, failing) }
             XCTAssertEqual(synchronized.last, target.standardizedFileURL.path, failing)
             XCTAssertNil(keys.appKey, failing)
@@ -365,15 +372,24 @@ final class VaultBootstrapTests: XCTestCase {
         var synchronized: [String] = []
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, beforeCreationRename: { _ in
             XCTFail("recovery must not create a new library")
-        }, beforeDurabilitySync: { synchronized.append($0.standardizedFileURL.path) })
+        }, synchronize: {
+            XCTAssertNil(keys.appKey)
+            try VaultBootstrap.synchronize($0)
+            synchronized.append($0.url.standardizedFileURL.path)
+        })
         XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
         XCTAssertEqual(try opened.store.db.read {
             try String.fetchAll($0, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid")
         }, [CurrentLibrarySchema.baselineIdentifier, CurrentLibrarySchema.dropLegacyTablesIdentifier])
         XCTAssertFalse(try opened.store.db.read { try $0.tableExists("projects") })
         try opened.store.close()
-        XCTAssertEqual(synchronized, [paths.currentDatabase, paths.directory,
-                                      paths.directory.deletingLastPathComponent()].map(\.standardizedFileURL.path))
+        var expected = [paths.currentDatabase, paths.directory]
+        var directory = paths.directory
+        while directory.standardizedFileURL.path != paths.durabilityRoot.standardizedFileURL.path {
+            directory = directory.deletingLastPathComponent()
+            expected.append(directory)
+        }
+        XCTAssertEqual(synchronized, expected.map(\.standardizedFileURL.path))
         XCTAssertEqual(keys.appKey, pending)
         XCTAssertNil(keys.pendingKey)
         XCTAssertEqual(keys.mutations, 2, "only promotion and deletion")
