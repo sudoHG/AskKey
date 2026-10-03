@@ -728,7 +728,7 @@ final class HumanFileCredentialTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         for relative in ["Sources/AskKeyAppKit/Views/CredentialManagementView.swift"] {
-            let viewSource = try String(contentsOf: root.appendingPathComponent(relative), encoding: .utf8)
+            let viewSource = try CredentialManagementSource.read(from: root, relative: relative)
             XCTAssertTrue(
                 viewSource.contains("CredentialManagementCopy.file") || viewSource.contains("\"文件\""),
                 "\(relative) should surface the frozen file label"
