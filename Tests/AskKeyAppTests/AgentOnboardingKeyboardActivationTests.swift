@@ -1,5 +1,5 @@
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 /// Source control for 331-404 B3. Behavioral RED/GREEN lives in the isolated
 /// Debug App: `focusable-contrast` (bare `.focusable()` blocks Space) and
@@ -9,7 +9,7 @@ final class AgentOnboardingKeyboardActivationTests: AskKeyAppTestCase {
     func testOnboardingActionButtonsForwardSpaceAndReturn() throws {
         let source = try String(
             contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyApp/Views/AgentOnboardingView.swift"
+                "Sources/AskKeyAppKit/Views/AgentOnboardingView.swift"
             ),
             encoding: .utf8
         )

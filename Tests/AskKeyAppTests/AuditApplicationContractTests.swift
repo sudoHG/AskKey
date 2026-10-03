@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 /// Audit-only tests in an isolated source snapshot. No authentication is invoked.
 final class AuditApplicationContractTests: AskKeyAppTestCase {

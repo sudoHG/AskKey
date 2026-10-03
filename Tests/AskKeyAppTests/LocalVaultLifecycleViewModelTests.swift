@@ -1,5 +1,5 @@
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyCore
 
 @MainActor
@@ -68,7 +68,7 @@ final class LocalVaultLifecycleViewModelTests: AskKeyAppTestCase {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/CredentialManagementView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/CredentialManagementView.swift"),
             encoding: .utf8
         )
 

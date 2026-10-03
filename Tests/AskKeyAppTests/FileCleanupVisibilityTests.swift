@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyCore
 
 @MainActor

@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 import AskKeyBroker
 import AskKeyCore
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 final class CodexOnboardingSetupTests: AskKeyAppTestCase {
     func testWorkingMCPWithoutNativeDiscoveryDoesNotCompleteOnboarding() throws {

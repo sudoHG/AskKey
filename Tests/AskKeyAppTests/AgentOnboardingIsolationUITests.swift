@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 @MainActor
 final class AgentOnboardingIsolationUITests: AskKeyAppTestCase {

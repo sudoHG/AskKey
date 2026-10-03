@@ -2,7 +2,7 @@ import Foundation
 import Darwin
 import LocalAuthentication
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyCore
 
 @MainActor
@@ -257,7 +257,7 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
 
     private func copyInfoLocalization(_ language: String, to resources: URL) throws {
         let source = repoRoot()
-            .appendingPathComponent("Sources/AskKeyApp/Resources")
+            .appendingPathComponent("Sources/AskKeyAppKit/Resources")
             .appendingPathComponent("\(language).lproj/InfoPlist.strings")
         let destination = resources.appendingPathComponent("\(language).lproj", isDirectory: true)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
@@ -299,7 +299,7 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
             .appendingPathComponent("AskKeyIsolatedProducts-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: isolated, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: isolated) }
-        let resources = isolated.appendingPathComponent("AskKey_AskKeyApp.bundle", isDirectory: true)
+        let resources = isolated.appendingPathComponent("AskKey_AskKeyAppKit.bundle", isDirectory: true)
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
 
         let found = try BuildProductLocator.locateRuntimeDependencies(searchRoots: [isolated])
@@ -311,7 +311,7 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
             .appendingPathComponent("AskKeyLocator-\(UUID().uuidString)", isDirectory: true)
         let isolated = root.appendingPathComponent("scratch", isDirectory: true)
         let decoyBuild = root.appendingPathComponent(".build", isDirectory: true)
-            .appendingPathComponent("AskKey_AskKeyApp.bundle", isDirectory: true)
+            .appendingPathComponent("AskKey_AskKeyAppKit.bundle", isDirectory: true)
         try FileManager.default.createDirectory(at: isolated, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: decoyBuild, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
@@ -328,7 +328,7 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
         if let resourceBundle = found {
             try FileManager.default.copyItem(
                 at: resourceBundle,
-                to: resources.appendingPathComponent("AskKey_AskKeyApp.bundle")
+                to: resources.appendingPathComponent("AskKey_AskKeyAppKit.bundle")
             )
         }
     }
@@ -348,7 +348,7 @@ enum BuildProductLocator {
         var resourceBundle: URL?
         for root in searchRoots {
             guard FileManager.default.fileExists(atPath: root.path) else { continue }
-            let directResources = root.appendingPathComponent("AskKey_AskKeyApp.bundle")
+            let directResources = root.appendingPathComponent("AskKey_AskKeyAppKit.bundle")
             if resourceBundle == nil, FileManager.default.fileExists(atPath: directResources.path) {
                 resourceBundle = directResources
             }
@@ -359,7 +359,7 @@ enum BuildProductLocator {
             ) else { continue }
             for case let url as URL in enumerator {
                 if resourceBundle == nil,
-                   url.lastPathComponent == "AskKey_AskKeyApp.bundle" {
+                   url.lastPathComponent == "AskKey_AskKeyAppKit.bundle" {
                     resourceBundle = url
                     enumerator.skipDescendants()
                 }

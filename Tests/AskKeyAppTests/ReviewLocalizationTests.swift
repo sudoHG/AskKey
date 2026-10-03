@@ -1,5 +1,5 @@
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 final class ReviewLocalizationTests: AskKeyAppTestCase {
     func testReviewedManagementActionsHaveChineseTranslations() {

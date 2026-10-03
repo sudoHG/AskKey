@@ -400,11 +400,12 @@ enum ManagementWindowConfiguration {
     }
 }
 
-@main
-struct AskKeyApp: App {
+package struct AskKeyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
-    var body: some Scene {
+    package init() {}
+
+    package var body: some Scene {
         MenuBarExtra(isInserted: .constant(!ManagementAuthenticationSubprocess.isActive)) {
             VaultPopover(onOpenManagement: appDelegate.openManagementWindow)
                 .environment(appDelegate.vault)

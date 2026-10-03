@@ -72,7 +72,7 @@ cp -R "$PRODUCTS"/*.bundle "$APP/Contents/Resources/" 2>/dev/null || true
 # target resources in a nested bundle, so expose its language directories at
 # the app root as well. The menu bar icon also loads from the main bundle so a
 # missing SwiftPM resource bundle can never abort application launch.
-ASKKEY_RESOURCES="$PRODUCTS/AskKey_AskKeyApp.bundle/Contents/Resources"
+ASKKEY_RESOURCES="$PRODUCTS/AskKey_AskKeyAppKit.bundle/Contents/Resources"
 if [ ! -f "$ASKKEY_RESOURCES/MenuBarIcon.png" ]; then
   echo "AskKey app resources not found" >&2
   exit 1

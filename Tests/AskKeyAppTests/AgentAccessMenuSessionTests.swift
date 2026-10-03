@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyCore
 
 @MainActor
@@ -143,7 +143,7 @@ final class AgentAccessMenuSessionTests: AskKeyAppTestCase {
 
     func testLockDoesNotCloseVisibleWindows() throws {
         let source = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyApp/VaultViewModel.swift"),
+            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/VaultViewModel.swift"),
             encoding: .utf8
         )
         XCTAssertFalse(

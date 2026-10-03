@@ -3,7 +3,7 @@ import Darwin
 import XCTest
 import AskKeyBroker
 import AskKeyCore
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 final class CommandHookOnboardingSetupTests: AskKeyAppTestCase {
 #if DEBUG

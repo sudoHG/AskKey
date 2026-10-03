@@ -427,8 +427,8 @@ final class HumanTextCredentialTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         for relative in [
-            "Sources/AskKeyApp/Views/CredentialManagementView.swift",
-            "Sources/AskKeyApp/Views/VaultPopover.swift",
+            "Sources/AskKeyAppKit/Views/CredentialManagementView.swift",
+            "Sources/AskKeyAppKit/Views/VaultPopover.swift",
         ] {
             let viewSource = try String(contentsOf: root.appendingPathComponent(relative), encoding: .utf8)
             XCTAssertFalse(viewSource.contains("Project"), "\(relative) still names Project")

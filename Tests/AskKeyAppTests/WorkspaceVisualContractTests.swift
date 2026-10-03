@@ -4,7 +4,7 @@ import AppKit
 import SwiftUI
 import AskKeyBroker
 @testable import AskKeyCore
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 final class WorkspaceVisualContractTests: AskKeyAppTestCase {
     override func setUp() {

@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CATALOG = ROOT / "Sources" / "AskKeyApp" / "Resources" / "Localizable.xcstrings"
+CATALOG = ROOT / "Sources" / "AskKeyAppKit" / "Resources" / "Localizable.xcstrings"
 
 
 def escape(text: str) -> str:
