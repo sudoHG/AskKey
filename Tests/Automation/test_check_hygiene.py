@@ -42,7 +42,25 @@ class HygieneTests(unittest.TestCase):
         self.write("Sources/Other.txt", "line\n" * 601)
         self.write("Sources/Localizable.xcstrings", "line\n" * 601)
         self.assertEqual(hygiene.violations(self.root), {
-            "size:Sources/OverLimit.swift", "size:Tests/OverLimit.swift"})
+            "size:Sources/OverLimit.swift", "size:Tests/OverLimit.swift",
+            "size:scripts/Outside.swift"})
+
+    def test_python_size_boundary_outside_sources_and_tests(self):
+        self.write("scripts/at_limit.py", "# line\n" * 600)
+        self.write("scripts/over_limit.py", "# line\n" * 601)
+        self.assertEqual(hygiene.violations(self.root), {"size:scripts/over_limit.py"})
+
+    def test_shell_size_boundary_outside_sources_and_tests(self):
+        self.write("tools/at_limit.sh", "# line\n" * 600)
+        self.write("tools/over_limit.sh", "# line\n" * 601)
+        self.assertEqual(hygiene.violations(self.root), {"size:tools/over_limit.sh"})
+
+    def test_c_and_header_size_boundary_anywhere_in_repository(self):
+        for suffix in ("c", "h"):
+            self.write(f"tools/at_limit.{suffix}", "// line\n" * 600)
+            self.write(f"over_limit.{suffix}", "// line\n" * 601)
+        self.assertEqual(hygiene.violations(self.root), {
+            "size:over_limit.c", "size:over_limit.h"})
 
     def test_support_paths_and_declared_types(self):
         expected = set()
