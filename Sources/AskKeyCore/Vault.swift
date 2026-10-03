@@ -313,7 +313,8 @@ public final class Vault {
     }
 
     private var bootstrapPaths: VaultBootstrapPaths {
-        .init(directory: VaultConfiguration.applicationSupportDirectory)
+        .init(directory: VaultConfiguration.applicationSupportDirectory,
+              durabilityRoot: VaultConfiguration.bootstrapDurabilityRoot)
     }
 
     private func openBootstrappedLibrary() throws {

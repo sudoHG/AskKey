@@ -36,9 +36,27 @@ public enum VaultBootstrapError: Error, Equatable, LocalizedError {
 
 struct VaultBootstrapPaths {
     let directory: URL
+    let durabilityRoot: URL
+
+    init(directory: URL, durabilityRoot: URL? = nil) {
+        self.directory = directory
+        self.durabilityRoot = durabilityRoot ?? directory.deletingLastPathComponent()
+    }
+
     var currentDatabase: URL { directory.appendingPathComponent("credentials-v2.db") }
     /// Owned by first creation only; never part of the opening decision.
     var creatingDatabase: URL { directory.appendingPathComponent("credentials-v2.db.creating") }
+}
+
+enum VaultBootstrapSyncTarget {
+    case file(URL)
+    case directory(URL)
+
+    var url: URL {
+        switch self {
+        case .file(let url), .directory(let url): return url
+        }
+    }
 }
 
 enum VaultBootstrap {
@@ -57,13 +75,15 @@ enum VaultBootstrap {
     ///
     /// Test seams: `beforeCreationRename` runs after a new library is
     /// complete at `credentials-v2.db.creating` and before it is renamed into
-    /// place; `beforeDurabilitySync` runs before each file or directory is
-    /// synchronized ahead of pending-key promotion.
+    /// place; `synchronize` performs the actual file or directory sync, so a
+    /// caller can wrap the real operation and observe its calls and failures.
     static func openCurrent(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore,
         beforeCreationRename: (URL) throws -> Void = { _ in },
-        beforeDurabilitySync: (URL) throws -> Void = { _ in }
+        synchronize: (VaultBootstrapSyncTarget) throws -> Void = VaultBootstrap.synchronize
     ) throws -> (store: VaultStore, key: SymmetricKey) {
+        // Reject an invalid boundary before any file or key-store mutation.
+        _ = try durableEntryChain(paths: paths)
         let state = try state(paths: paths)
         if let data = try loadKey(keyStore.loadAppKey, missing: .missingAppKey) {
             // An App key is authoritative: no pending-key fallback, and it is
@@ -94,11 +114,11 @@ enum VaultBootstrap {
             // A pending key without any current file is an interrupted first
             // creation before the database existed: resume with that key.
             return try createNewLibrary(paths: paths, keyStore: keyStore, pendingKey: pending.map(validatedKey),
-                                        beforeRename: beforeCreationRename, beforeSync: beforeDurabilitySync)
+                                        beforeRename: beforeCreationRename, synchronize: synchronize)
         case .current:
             guard let pending else { throw VaultBootstrapError.missingKey }
             return try resumeUnfinishedFirstCreation(paths: paths, keyStore: keyStore, key: validatedKey(pending),
-                                                     beforeSync: beforeDurabilitySync)
+                                                     synchronize: synchronize)
         }
     }
 
@@ -131,9 +151,8 @@ enum VaultBootstrap {
     /// between is the unfinished first creation of rule 6.
     private static func createNewLibrary(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore, pendingKey: SymmetricKey?,
-        beforeRename: (URL) throws -> Void, beforeSync: (URL) throws -> Void
+        beforeRename: (URL) throws -> Void, synchronize: (VaultBootstrapSyncTarget) throws -> Void
     ) throws -> (store: VaultStore, key: SymmetricKey) {
-        let createdLevels = missingDirectoryLevels(paths.directory)
         try FileManager.default.createDirectory(at: paths.directory, withIntermediateDirectories: true,
                                                attributes: [.posixPermissions: 0o700])
         try removeCreationFiles(paths: paths)
@@ -156,7 +175,7 @@ enum VaultBootstrap {
             }
             try FileManager.default.setAttributes([.posixPermissions: 0o600],
                                                  ofItemAtPath: paths.creatingDatabase.path)
-            try synchronize(paths.creatingDatabase)
+            try synchronize(.file(paths.creatingDatabase))
             // RENAME_EXCL: never replace a current database that appeared.
             // A file system without RENAME_EXCL support (ENOTSUP) fails closed
             // by design; APFS and HFS+ support it.
@@ -171,8 +190,7 @@ enum VaultBootstrap {
         do {
             store.bindCredentialAuthenticationKey(key)
             try tightenPermissions(paths: paths)
-            try makeDurableAndPromote(paths: paths, keyStore: keyStore, createdLevels: createdLevels,
-                                      beforeSync: beforeSync)
+            try makeDurableAndPromote(paths: paths, keyStore: keyStore, synchronize: synchronize)
             return (store, key)
         } catch {
             try? store.close()
@@ -187,53 +205,36 @@ enum VaultBootstrap {
     /// the complete library and the pending key for rule 6 on the next launch.
     /// The App key therefore never exists before its library is durable.
     ///
-    /// The parent of the data directory is always synchronized, because the
-    /// recovery path cannot know whether the interrupted creation created the
-    /// data directory. `createdLevels` (directories created by this call)
-    /// extends the chain to the parent of the topmost created directory.
-    /// Recovery thus covers an interrupted creation that created at most the
-    /// data directory itself, which is the release layout (`Application
-    /// Support` always exists). It does not resynchronize the parents of
-    /// intermediate directories that an interrupted creation also created,
-    /// such as `AskKey` above the development directory `AskKey/dev`.
+    /// Every ancestor through the Application Support or isolation root is
+    /// synchronized on both creation and recovery. An interrupted attempt may
+    /// have created any intermediate level, even when this attempt creates none.
     private static func makeDurableAndPromote(
-        paths: VaultBootstrapPaths, keyStore: AppKeyStore, createdLevels: Int,
-        beforeSync: (URL) throws -> Void
+        paths: VaultBootstrapPaths, keyStore: AppKeyStore,
+        synchronize: (VaultBootstrapSyncTarget) throws -> Void
     ) throws {
-        for url in durableEntryChain(paths: paths, createdLevels: createdLevels) {
-            try beforeSync(url)
-            try synchronize(url)
+        for target in try durableEntryChain(paths: paths) {
+            try synchronize(target)
         }
         try keyStore.promotePendingKey()
         try keyStore.deletePendingKey()
     }
 
-    /// `credentials-v2.db`, the data directory, and `max(1, createdLevels)`
-    /// of its ancestors, innermost first.
-    private static func durableEntryChain(paths: VaultBootstrapPaths, createdLevels: Int) -> [URL] {
-        var chain = [paths.currentDatabase, paths.directory]
-        var directory = paths.directory
-        for _ in 0..<max(1, createdLevels) {
+    /// The database and every directory through the declared root, innermost
+    /// first. Keep lexical paths so a symlinked ancestor is opened as a directory.
+    private static func durableEntryChain(paths: VaultBootstrapPaths) throws -> [VaultBootstrapSyncTarget] {
+        var directory = paths.directory.standardizedFileURL
+        let root = paths.durabilityRoot.standardizedFileURL
+        guard directory.pathComponents.starts(with: root.pathComponents) else {
+            throw VaultBootstrapError.invalidState
+        }
+        var chain: [VaultBootstrapSyncTarget] = [.file(paths.currentDatabase), .directory(directory)]
+        while directory.path != root.path {
             let parent = directory.deletingLastPathComponent()
-            guard parent.path != directory.path else { break }
-            chain.append(parent)
+            guard parent.path != directory.path else { throw VaultBootstrapError.invalidState }
+            chain.append(.directory(parent))
             directory = parent
         }
         return chain
-    }
-
-    /// Number of path levels, from `directory` upward, that do not exist yet.
-    private static func missingDirectoryLevels(_ directory: URL) -> Int {
-        var levels = 0
-        var url = directory
-        var status = stat()
-        while url.path.withCString({ lstat($0, &status) }) != 0, errno == ENOENT {
-            levels += 1
-            let parent = url.deletingLastPathComponent()
-            guard parent.path != url.path else { break }
-            url = parent
-        }
-        return levels
     }
 
     /// Removes only `credentials-v2.db.creating` and its SQLite sidecars.
@@ -248,8 +249,13 @@ enum VaultBootstrap {
         }
     }
 
-    private static func synchronize(_ url: URL) throws {
-        let descriptor = url.path.withCString { Darwin.open($0, O_RDONLY | O_NOFOLLOW | O_CLOEXEC) }
+    static func synchronize(_ target: VaultBootstrapSyncTarget) throws {
+        let flags: Int32
+        switch target {
+        case .file: flags = O_RDONLY | O_NOFOLLOW | O_CLOEXEC
+        case .directory: flags = O_RDONLY | O_DIRECTORY | O_CLOEXEC
+        }
+        let descriptor = target.url.path.withCString { Darwin.open($0, flags) }
         guard descriptor >= 0 else { throw VaultBootstrapError.invalidState }
         defer { Darwin.close(descriptor) }
         // F_FULLFSYNC flushes the drive cache; plain fsync is only a fallback
@@ -273,7 +279,7 @@ enum VaultBootstrap {
     /// `createNewLibrary` writes; there are no encrypted rows to authenticate.
     private static func resumeUnfinishedFirstCreation(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore, key: SymmetricKey,
-        beforeSync: (URL) throws -> Void
+        synchronize: (VaultBootstrapSyncTarget) throws -> Void
     ) throws -> (store: VaultStore, key: SymmetricKey) {
         try CurrentLibrarySnapshot.withCopy(of: paths.currentDatabase) { snapshot in
             let database = try DatabaseQueue(path: snapshot.path)
@@ -287,7 +293,7 @@ enum VaultBootstrap {
             try tightenPermissions(paths: paths)
             // The interrupted creation may have crashed before its rename was
             // durable, so recovery repeats the full durability step.
-            try makeDurableAndPromote(paths: paths, keyStore: keyStore, createdLevels: 0, beforeSync: beforeSync)
+            try makeDurableAndPromote(paths: paths, keyStore: keyStore, synchronize: synchronize)
             return (store, key)
         } catch {
             try? store.close()

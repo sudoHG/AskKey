@@ -88,6 +88,10 @@ public enum VaultConfiguration {
         return userApplicationSupportDirectory.appendingPathComponent(applicationSupportSubdirectory)
     }
 
+    static var bootstrapDurabilityRoot: URL {
+        runtimeIsolationDirectory ?? userApplicationSupportDirectory
+    }
+
     private static var userApplicationSupportDirectory: URL {
         FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)
