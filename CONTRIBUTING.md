@@ -21,7 +21,7 @@ swift test
 
 Run these commands with the same defaults as CI. Do not set `ASKKEY_DEBUG_RUN_DIRECTORY`, `ASKKEY_BROKER_SOCKET` or other `ASKKEY_*` variables unless the task explicitly requires them; some tests depend on default runtime path resolution. Use synthetic values and isolated test data only. Do not access production credential data or the production keychain, and do not modify the installed application.
 
-For desktop UI changes, run the required UI flows when the task calls for them:
+CI runs the required desktop UI flows on every pull request. Running them locally takes over the desktop (mouse, keyboard and window focus) for several minutes, so do it only when you need to debug a UI failure:
 
 ```bash
 bash scripts/run-e2e.sh

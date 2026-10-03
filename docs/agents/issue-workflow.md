@@ -93,5 +93,6 @@ Phase 3 issues remove whole capabilities. Unless the issue says otherwise:
                                                 # all inside test classes named in the receipt
    python3 -m unittest discover -s Tests/Automation -v
    python3 scripts/check_hygiene.py
-   bash scripts/run-e2e.sh                      # all remaining required flows pass, 0 skipped
+   # E2E: the PR's CI basic-ui-flows job must pass (all remaining required flows, 0 skipped).
+   # Do not run scripts/run-e2e.sh locally; see AGENTS.md.
    ```
