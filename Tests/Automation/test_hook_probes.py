@@ -68,7 +68,9 @@ class HookProbeTests(unittest.TestCase):
                 environment = command._safe_environment(
                     debug_state=link, missing_broker=link / "missing.sock")
                 child = subprocess.run(
-                    [sys.executable, "-c", "import json, os; print(json.dumps(dict(os.environ)))"],
+                    [sys.executable, "-c", "import json, os; keys = ('ASKKEY_FUTURE_OVERRIDE', "
+                     "'ASKKEY_DEBUG_RUN_DIRECTORY', 'ASKKEY_BROKER_SOCKET', 'LC_ALL'); "
+                     "print(json.dumps({key: os.environ[key] for key in keys if key in os.environ}))"],
                     env=environment, capture_output=True, text=True, check=True)
             observed = json.loads(child.stdout)
             self.assertNotIn("ASKKEY_FUTURE_OVERRIDE", observed)
@@ -80,7 +82,8 @@ class HookProbeTests(unittest.TestCase):
         with rpc_executable("""
             for line in sys.stdin:
                 request = json.loads(line)
-                result = {key: value for key, value in os.environ.items() if key.startswith('ASKKEY_')}
+                result = {'keys': sorted(key for key in os.environ if key.startswith('ASKKEY_')),
+                          'socket': os.environ.get('ASKKEY_BROKER_SOCKET')}
                 print(json.dumps({'id': request['id'], 'result': result}), flush=True)
         """) as executable:
             output = io.StringIO()
@@ -91,7 +94,8 @@ class HookProbeTests(unittest.TestCase):
                     patch.object(sys, "stdout", output):
                 native.relay(str(executable), str(executable.parent / "events.jsonl"), str(socket))
             response = json.loads(output.getvalue())
-            self.assertEqual(response["result"], {"ASKKEY_BROKER_SOCKET": str(socket.resolve())})
+            self.assertEqual(response["result"], {"keys": ["ASKKEY_BROKER_SOCKET"],
+                                                 "socket": str(socket.resolve())})
 
     def test_owned_group_permission_denial_requires_only_exited_members(self):
         pid = 43210
