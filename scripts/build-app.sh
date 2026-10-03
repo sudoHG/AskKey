@@ -47,6 +47,8 @@ if [ "$MODE" = Local ]; then SHORT_VERSION="0.1.0"; fi
 DD="${ASKKEY_DERIVED_DATA:-.derivedData/local-app}"
 PRODUCTS="$DD/Build/Products/$CONFIG"
 APP=".build/AskKeyApp.app"
+APP_PRODUCT="AskKeyApp"
+if [ "$MODE" = E2E ]; then APP_PRODUCT="AskKeyE2EApp"; fi
 CLI=".build/$([ "$CONFIG" = Release ] && echo release || echo debug)/askkey"
 
 echo "==> Building CLI ($CONFIG)…"
@@ -56,16 +58,16 @@ else swift build --product askkey >/dev/null; fi
 echo "==> Building app with xcodebuild ($CONFIG)…"
 APP_BUILD_SETTINGS=("CODE_SIGNING_ALLOWED=NO")
 if [ "$MODE" = E2E ]; then
-  APP_BUILD_SETTINGS+=("SWIFT_OPTIMIZATION_LEVEL=-O" 'OTHER_SWIFT_FLAGS=$(inherited) -DASKKEY_E2E_TESTING')
+  APP_BUILD_SETTINGS+=("SWIFT_OPTIMIZATION_LEVEL=-O")
 fi
-xcodebuild build -scheme AskKeyApp -configuration "$CONFIG" \
+xcodebuild build -scheme "$APP_PRODUCT" -configuration "$CONFIG" \
   -derivedDataPath "$DD" -destination "platform=macOS" \
   "${APP_BUILD_SETTINGS[@]}"
 
 echo "==> Assembling $APP …"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
-cp "$PRODUCTS/AskKeyApp" "$APP/Contents/MacOS/AskKeyApp"
+cp "$PRODUCTS/$APP_PRODUCT" "$APP/Contents/MacOS/AskKeyApp"
 cp "$CLI" "$APP/Contents/Helpers/askkey"
 cp -R "$PRODUCTS"/*.bundle "$APP/Contents/Resources/" 2>/dev/null || true
 # SwiftUI's literal localization lookup uses the main app bundle. SwiftPM keeps

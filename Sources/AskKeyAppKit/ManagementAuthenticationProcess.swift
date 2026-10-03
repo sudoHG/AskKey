@@ -48,7 +48,7 @@ enum DebugAuthentication {
     }
 }
 
-struct ManagementAuthenticationPresentation: Equatable, Sendable {
+package struct ManagementAuthenticationPresentation: Equatable, Sendable {
     let title: String
     let reason: String
     let language: String

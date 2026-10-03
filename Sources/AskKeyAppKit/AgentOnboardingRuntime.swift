@@ -1,7 +1,7 @@
 import Foundation
 import AskKeyCore
 
-enum AgentOnboardingRuntime {
+package enum AgentOnboardingRuntime {
     static func liveOperations(
         connector: AgentClientConnector = AgentClientConnector(),
         authenticate: @escaping @MainActor @Sendable () async -> AgentAuthenticationOutcome,
@@ -15,7 +15,7 @@ enum AgentOnboardingRuntime {
         )
     }
 
-    static func boundOperations(
+    package static func boundOperations(
         runCheck: @escaping @Sendable (AgentClient) throws -> AgentCheckReport,
         runApply: @escaping @Sendable (AgentClient, AgentOnboardingPlan) throws -> AgentApplyReport,
         authenticate: @escaping @MainActor @Sendable () async -> AgentAuthenticationOutcome,

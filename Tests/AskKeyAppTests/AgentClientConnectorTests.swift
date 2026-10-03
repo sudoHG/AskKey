@@ -4,6 +4,7 @@ import XCTest
 @testable import AskKeyAppKit
 import AskKeyBroker
 @testable import AskKeyCore
+@testable import AskKeyTestSupport
 
 @MainActor
 final class AgentClientConnectorTests: AskKeyAppTestCase {

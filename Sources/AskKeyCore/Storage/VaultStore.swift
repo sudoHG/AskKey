@@ -3,7 +3,7 @@ import CryptoKit
 import GRDB
 import AskKeyBroker
 
-final class VaultStore {
+package final class VaultStore {
     let db: DatabaseQueue
     let brokerCatalogReadGate = BrokerCatalogReadGate(limit: BrokerLimits.maximumConcurrentRequests)
     private let path: String
@@ -34,7 +34,7 @@ final class VaultStore {
 
     /// `validation` runs on the private preflight copy and again on the opened
     /// connection before any migration-table write.
-    init(path: String, authenticationKey: SymmetricKey? = nil,
+    package init(path: String, authenticationKey: SymmetricKey? = nil,
          validation: (Database) throws -> Void = { _ in }) throws {
         self.path = path
         let exists = try CurrentLibrarySnapshot.regularFileExists(URL(fileURLWithPath: path))

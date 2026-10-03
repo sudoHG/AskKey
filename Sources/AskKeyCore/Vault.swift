@@ -5,11 +5,25 @@ import Security
 import AskKeyBroker
 
 public final class Vault {
-#if DEBUG && ASKKEY_E2E_TESTING
-    public static let shared = VaultE2EFixture.makeVault()
-#else
-    public static let shared = Vault()
-#endif
+    private static let sharedLock = NSLock()
+    private static var sharedInstance: Vault?
+    private static var sharedWasResolved = false
+
+    public static var shared: Vault {
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        if sharedInstance == nil { sharedInstance = Vault() }
+        sharedWasResolved = true
+        return sharedInstance!
+    }
+
+    /// An executable may supply its store once, before any shared consumers start.
+    package static func configureShared(_ vault: Vault) {
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        precondition(!sharedWasResolved && sharedInstance == nil)
+        sharedInstance = vault
+    }
     private static let defaultFileDeliveryManager = FileDeliveryManagerRegistry()
     public let brokerRequests = BrokerRequestRegistry()
     public let approvalRequests: BrokerApprovalStateMachine
@@ -66,7 +80,7 @@ public final class Vault {
     /// Test seam: build a Vault over an explicit store (and optional key) so
     /// credential logic can be exercised without the real vault file or
     /// Keychain. Not used in production code.
-    init(
+    package init(
         store: VaultStore,
         key: SymmetricKey? = nil,
         now: @escaping () -> Date = Date.init,

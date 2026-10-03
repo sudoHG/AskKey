@@ -1,8 +1,7 @@
-#if DEBUG && ASKKEY_E2E_TESTING
-
 import CryptoKit
 import Foundation
 import AskKeyBroker
+import AskKeyCore
 
 /// Real, process-restartable storage used only by the isolated E2E app build.
 /// The key is deliberately fixed test material; it is never a production key.
@@ -40,7 +39,7 @@ enum VaultE2EFixture {
                 }
             }
             let store = try VaultStore(path: databaseURL.path)
-            let fileDeliveryManager = try FileDeliveryManager(
+            let fileDeliveryManager = try FileDeliveryManager.configured(
                 rootURL: directory.appendingPathComponent("deliveries", isDirectory: true)
             )
             let vault = Vault(store: store, key: fixedTestKey, fileDeliveryManager: fileDeliveryManager)
@@ -61,5 +60,3 @@ enum VaultE2EFixture {
         }
     }
 }
-
-#endif
