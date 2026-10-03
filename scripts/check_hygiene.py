@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce production boundaries and keep remaining hygiene debt in a shrinking baseline."""
+"""Enforce fixed repository hygiene and production boundaries."""
 
 import argparse
 from collections import Counter
@@ -9,11 +9,9 @@ import re
 import subprocess
 import sys
 
-BASELINE = "scripts/hygiene-baseline.txt"
 PATTERN_EXCEPTIONS = {
     "scripts/check_hygiene.py",
     "Tests/Automation/test_check_hygiene.py",
-    BASELINE,
 }
 MULTICA_EXCEPTIONS = {"docs/features.md"}
 TEST_SUPPORT = re.compile(r"E2E|Fixture|Probe|RestartProof|DebugSupport|RealUIInput")
@@ -31,7 +29,6 @@ DEBUG_ALLOWLIST = {
     "Sources/AskKeyVault/VaultConfiguration.swift",  # Development data and keychain namespace.
     "Sources/AskKeyHelper/OpenHostApplication.swift",  # Resolve the development host app.
 }
-FIXED_CHECKS = ("test-support:", "debug:")
 SWIFT_NON_CODE = re.compile(
     r'//[^\n]*|/\*|(?:\#+)?"""|(?:\#+)?"', re.MULTILINE
 )
@@ -129,45 +126,18 @@ def violations(root):
     return entries
 
 
-def compare(current, baseline):
-    recorded_debt = {entry for entry in baseline if not entry.startswith(FIXED_CHECKS)}
-    new = current - recorded_debt
-    fixed = (baseline - current) | {entry for entry in baseline if entry.startswith(FIXED_CHECKS)}
-    return new, fixed
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write-baseline", action="store_true",
-                        help="replace remaining hygiene debt; fixed production rules cannot be baselined")
-    args = parser.parse_args()
+    parser.parse_args()
     root = Path(subprocess.check_output(
         ["git", "rev-parse", "--show-toplevel"], text=True).strip())
     current = violations(root)
-    baseline_path = root / BASELINE
-    if args.write_baseline:
-        forbidden = {entry for entry in current if entry.startswith(FIXED_CHECKS)}
-        if forbidden:
-            for entry in sorted(forbidden):
-                print(f"fixed-rule violation: {entry}", file=sys.stderr)
-            return 1
-        baseline_path.parent.mkdir(parents=True, exist_ok=True)
-        baseline_path.write_text("".join(entry + "\n" for entry in sorted(current)), encoding="utf-8")
-        print(f"Wrote {len(current)} baseline entries.")
-        return 0
-    if not baseline_path.is_file():
-        print(f"Missing baseline: {BASELINE}; run with --write-baseline.", file=sys.stderr)
-        return 1
-    baseline = {line for line in baseline_path.read_text(encoding="utf-8").splitlines() if line}
-    new, fixed = compare(current, baseline)
-    for entry in sorted(new):
-        print(f"new violation: {entry}")
-    for entry in sorted(fixed):
-        print(f"fixed, remove from baseline: {entry}")
-    if new or fixed:
+    for entry in sorted(current):
+        print(f"violation: {entry}")
+    if current:
         return 1
     counts = Counter(entry.split(":", 1)[0] for entry in current)
-    print(f"Hygiene rules match ({len(current)} baseline entries): " + ", ".join(
+    print("Hygiene rules passed: " + ", ".join(
         f"{check}={counts.get(check, 0)}" for check in
         ["size", "test-support", "debug", "local-path", "non-ascii-name", "multica"]))
     return 0
