@@ -819,7 +819,9 @@ final class AppLanguageExperienceTests: XCTestCase {
         viewModel.hasManagementSession = true
         viewModel.isLocked = false
 
-        let directory = screenshotDirectory()
+        let directory = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("AskKeyLanguageUI-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         viewModel.languageMode = "en"
@@ -908,12 +910,6 @@ final class AppLanguageExperienceTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-    }
-
-    private func screenshotDirectory() -> URL {
-        repoRoot()
-            .deletingLastPathComponent()
-            .appendingPathComponent("screenshots", isDirectory: true)
     }
 
     private func renderPNG<V: View>(_ view: V, size: CGSize) throws -> Data {

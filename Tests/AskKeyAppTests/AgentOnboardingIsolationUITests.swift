@@ -6,7 +6,9 @@ import XCTest
 @MainActor
 final class AgentOnboardingIsolationUITests: XCTestCase {
     func testIsolatedStatesRenderOrdinaryUIWithoutPrototypeChrome() throws {
-        let directory = repoRoot().appendingPathComponent("331-404-ui-evidence", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("AskKeyOnboardingUI-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var log: [String] = []
         for scenario in IsolatedOnboardingScenario.all {
@@ -46,12 +48,6 @@ final class AgentOnboardingIsolationUITests: XCTestCase {
         return rep
     }
 
-    private func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-    }
 }
 
 private extension NSBitmapImageRep {

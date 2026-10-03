@@ -853,6 +853,7 @@ final class GrokCLIAdapterTests: XCTestCase {
 }
 
 private final class Fixture {
+    private let environment = AskKeyTestEnvironment()
     let directory: URL
     let grokHome: URL
     let isolatedHome: URL
@@ -875,7 +876,8 @@ private final class Fixture {
 
     init() throws {
         let suffix = String(UUID().uuidString.prefix(8))
-        directory = URL(fileURLWithPath: "/tmp/ak-g-\(ProcessInfo.processInfo.processIdentifier)-\(suffix)", isDirectory: true)
+        directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
+            .appendingPathComponent("ak-g-\(ProcessInfo.processInfo.processIdentifier)-\(suffix)", isDirectory: true)
         grokHome = directory.appendingPathComponent("g", isDirectory: true)
         isolatedHome = directory.appendingPathComponent("h", isDirectory: true)
         workingDirectory = directory.appendingPathComponent("p", isDirectory: true)
@@ -884,9 +886,10 @@ private final class Fixture {
         projectConfigURL = workingDirectory.appendingPathComponent(".grok/config.toml")
         cursorURL = isolatedHome.appendingPathComponent(".cursor/mcp.json")
         claudeURL = isolatedHome.appendingPathComponent(".claude.json")
-        let socketRoot = URL(fileURLWithPath: "/private/tmp/ak-gs-\(ProcessInfo.processInfo.processIdentifier)-\(suffix)")
-        try FileManager.default.createDirectory(at: socketRoot, withIntermediateDirectories: false,
+        let socketCandidate = URL(fileURLWithPath: "/private/tmp/ak-gs-\(ProcessInfo.processInfo.processIdentifier)-\(suffix)")
+        try FileManager.default.createDirectory(at: socketCandidate, withIntermediateDirectories: false,
                                                attributes: [.posixPermissions: 0o700])
+        let socketRoot = try physicalTestDirectory(socketCandidate)
         socketPath = socketRoot.appendingPathComponent("daemon.sock").path
         helperURL = try Self.askkeyHelper()
         for url in [grokHome, isolatedHome, workingDirectory, backupDirectory] {

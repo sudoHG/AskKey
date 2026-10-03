@@ -52,8 +52,9 @@ final class HelperCommandContractTests: XCTestCase {
         let process = Process()
         process.executableURL = try helperExecutable()
         process.arguments = arguments
-        process.environment = ProcessInfo.processInfo.environment
-            .merging(["ASKKEY_BROKER_SOCKET": "/tmp/askkey-missing-\(UUID().uuidString).sock"]) { _, new in new }
+        let socket = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("askkey-missing-\(UUID().uuidString).sock")
+        process.environment = helperTestEnvironment(overrides: ["ASKKEY_BROKER_SOCKET": socket.path])
         let output = Pipe()
         let error = Pipe()
         process.standardInput = FileHandle.nullDevice

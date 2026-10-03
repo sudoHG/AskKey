@@ -757,7 +757,7 @@ final class CodexUserMCPAdapterTests: XCTestCase {
 }
 
 private func makeIgnoringTerminationExecutable() throws -> URL {
-    let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+    let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
         .appendingPathComponent("akc-stubborn-\(UUID().uuidString.prefix(8))", isDirectory: true)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let executable = directory.appendingPathComponent("stubborn-helper")
@@ -845,6 +845,7 @@ private func scopedCodexOutput(_ executable: URL, arguments: [String], config: U
 }
 
 private final class Harness {
+    private let environment = AskKeyTestEnvironment()
     static let secret = "ghp_live_token_do_not_log"
 
     let root: URL
@@ -884,7 +885,7 @@ private final class Harness {
         helperOverride: URL? = nil
     ) throws {
         let suffix = UUID().uuidString.prefix(8)
-        root = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        root = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("akc-\(ProcessInfo.processInfo.processIdentifier)-\(suffix)", isDirectory: true)
         home = root.appendingPathComponent("home", isDirectory: true)
         project = root.appendingPathComponent("project", isDirectory: true)

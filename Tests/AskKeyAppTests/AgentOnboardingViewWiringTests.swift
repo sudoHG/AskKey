@@ -206,11 +206,9 @@ final class AgentOnboardingViewWiringTests: XCTestCase {
         errorMessage: String?,
         failures: [String]
     ) throws {
-        let directory = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("331-404-supplement-evidence/b1", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("AskKeyOnboardingReplay-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let payload: [String: Any] = [
             "previewCalls": previewCalls,

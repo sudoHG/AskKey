@@ -45,7 +45,7 @@ def main():
         or key.startswith("LC_")
     }
     with tempfile.TemporaryDirectory(prefix="akd-", dir="/tmp") as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()
         inspection = root / "inspect-nas"
         # Generated synthetic target; it can only report fixed non-secret facts.
         inspection.write_text(
@@ -68,7 +68,7 @@ def main():
         socket_path = str(root / "broker.sock")
         with (output / "broker.log").open("w") as broker_log:
             broker = subprocess.Popen(
-                [broker_executable, directory, str(inspection)],
+                [broker_executable, str(root), str(inspection)],
                 env=environment, stdout=broker_log, stderr=broker_log, start_new_session=True,
             )
             model = None

@@ -738,7 +738,7 @@ final class HelperApprovalWaitTests: XCTestCase {
     }
 
     private func makeTemporaryDirectory(prefix: String) throws -> URL {
-        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let directory = try physicalTestDirectory(URL(fileURLWithPath: "/tmp", isDirectory: true))
             .appendingPathComponent("\(prefix)-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
@@ -813,8 +813,7 @@ final class HelperApprovalWaitTests: XCTestCase {
         let process = Process()
         process.executableURL = try helperExecutable()
         process.arguments = arguments
-        var environment = ProcessInfo.processInfo.environment
-        environment.removeValue(forKey: "ASKKEY_DEBUG_RUN_DIRECTORY")
+        var environment = helperTestEnvironment(overrides: [:])
         environment["ASKKEY_BROKER_SOCKET"] = socketPath
         process.environment = environment
         let output = Pipe()

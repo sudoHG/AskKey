@@ -137,9 +137,7 @@ final class CommandDiscoveryHookTests: XCTestCase {
                 .appendingPathComponent("askkey-command-hook-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: candidate, withIntermediateDirectories: false,
                                                    attributes: [.posixPermissions: 0o700])
-            // Foundation rewrites /private/tmp to the /tmp symlink on macOS;
-            // DebugRunDirectory intentionally requires literal non-link paths.
-            root = candidate
+            root = try physicalTestDirectory(candidate)
         }
         func close() { try? FileManager.default.removeItem(at: root) }
         func ageState() throws {
@@ -156,9 +154,7 @@ final class CommandDiscoveryHookTests: XCTestCase {
             let process = Process()
             process.executableURL = executable
             process.arguments = ["hook", client]
-            var environment = ProcessInfo.processInfo.environment
-            environment["ASKKEY_DEBUG_RUN_DIRECTORY"] = root.path
-            environment.removeValue(forKey: "ASKKEY_BROKER_SOCKET")
+            let environment = helperTestEnvironment(overrides: ["ASKKEY_DEBUG_RUN_DIRECTORY": root.path])
             _ = try DebugRunDirectory.resolve(environment: environment,
                 homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
             process.environment = environment
