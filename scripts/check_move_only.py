@@ -107,7 +107,7 @@ def normalized_lines(path, text):
                 token = match.group()
                 hashes = len(token) - len(token.lstrip("#"))
                 closing = token[hashes:] + "#" * hashes
-                escape = "\\" + "#" * hashes
+                escape = "\\" if token[hashes:] == "/" else "\\" + "#" * hashes
                 literal = True
                 offset = match.end()
             else:

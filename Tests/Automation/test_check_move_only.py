@@ -167,6 +167,12 @@ class MoveOnlyTests(unittest.TestCase):
         self.assertIn("Sources/A.swift:2: //before", result.stdout)
         self.assertIn("missing=1", result.stdout)
 
+    def test_regex_escaped_hash_does_not_hide_closing_delimiter(self):
+        literals = [r"let first = #/\#/#", r"let second = ##/\#/##"]
+        self.base({"Sources/A.swift": "\n".join(line + "\n// before" for line in literals) + "\n"})
+        self.write("Sources/A.swift", "\n".join(line + "\n// after" for line in literals) + "\n")
+        self.assert_pass(self.check())
+
     def test_access_level_and_attributed_import_lines_are_ignored(self):
         self.base({"Sources/A.swift": "import Foundation\nperform()\n"})
         for prefix in ["private", "fileprivate", "internal", "package", "public",
