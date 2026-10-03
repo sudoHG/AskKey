@@ -1,13 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "Ask Key (AskKey)": {
-      "comment": "Product name and technical alias in the existing English Agent usage guide.",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Ask Key (AskKey)" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key (AskKey / 请旨)" } }
-      }
-    },
     "Ask Key: Query the credential catalog before connecting.": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Ask Key: Query the credential catalog before connecting." } },
