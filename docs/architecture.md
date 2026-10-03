@@ -42,7 +42,7 @@ In the test graph, `AskKeyTestSupport` depends on `AskKeyAppKit`, `AskKeyVault`,
 
 ## Management and storage
 
-The management window uses [VaultViewModel](../Sources/AskKeyAppKit/VaultViewModel.swift) and [SessionPolicy](../Sources/AskKeyAppKit/SessionPolicy.swift) to coordinate human access. [ManagementAuthenticationProcess](../Sources/AskKeyAppKit/ManagementAuthenticationProcess.swift) provides the system-authentication boundary. Vault operations enforce the management session and any operation-specific authentication before changing or revealing credentials.
+The management window uses [VaultViewModel](../Sources/AskKeyAppKit/VaultViewModel.swift) and [SessionPolicy](../Sources/AskKeyAppKit/SessionPolicy.swift) to coordinate human access. [ManagementAuthenticationProcess](../Sources/AskKeyAppKit/ManagementAuthenticationProcess.swift) provides the system-authentication boundary. Vault operations apply management-session checks and operation-specific authentication. The guarded first-credential onboarding path verifies an empty library without granting general management access; subsequent creation requires the management session and authentication.
 
 [VaultStore](../Sources/AskKeyVault/Storage/VaultStore.swift) owns database access. [VaultCrypto](../Sources/AskKeyVault/Crypto/VaultCrypto.swift) protects payloads, and [CredentialRecordAuthentication](../Sources/AskKeyVault/Crypto/CredentialRecordAuthentication.swift) authenticates record contents and metadata. [AppKeyStore](../Sources/AskKeyVault/Keychain/AppKeyStore.swift) and [KeychainStore](../Sources/AskKeyVault/Keychain/KeychainStore.swift) keep key handling on the application side. The helper cannot open this storage through its module dependencies or public protocol.
 
