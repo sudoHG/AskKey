@@ -1,0 +1,304 @@
+import AppKit
+import CoreGraphics
+import SwiftUI
+@preconcurrency import UserNotifications
+import AskKeyBroker
+import AskKeyVault
+
+extension AppDelegate {
+    func setupApprovalQueue() {
+        Vault.shared.approvalRequests.configureAuthentication { purpose in
+            let reason = purpose == .readApproval
+                ? ManagementAuthenticationAction.approveRead.reasonKey
+                : ManagementAuthenticationAction.approveWrite.reasonKey
+            return ManagementAuthenticationRunner.shared.authenticateBlocking(
+                presentation: ManagementAuthenticationPresentation.current(reason: reason)
+            )
+        }
+        Vault.shared.approvalRequests.configureObservers(
+            notify: { _ in },
+            pendingCountChanged: { [weak self] count in
+                Task { @MainActor [weak self] in
+                    self?.pendingApprovalCount = count
+                    self?.vault.pendingApprovalCount = count
+                    if count == 0 { self?.resetLockedApprovalReminder() }
+                    if count > 0 { self?.presentPendingApproval() }
+                }
+            }
+        )
+        approvalPresentationObserver = NotificationCenter.default.addObserver(
+            forName: .presentNextAgentApproval, object: nil, queue: .main
+        ) { [weak self] note in
+            MainActor.assumeIsolated {
+                self?.presentPendingApproval(operationID: note.object as? String)
+            }
+        }
+        screenUnlockObserver = DistributedNotificationCenter.default.addObserver(
+            forName: .init("com.apple.screenIsUnlocked"), object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.resetLockedApprovalReminder()
+                self?.presentPendingApproval()
+            }
+        }
+    }
+
+    private func presentPendingApproval(operationID: String? = nil) {
+        guard !presentingApproval else { return }
+        let pending: BrokerPendingApproval
+        switch AgentApprovalPrivacyPolicy.gatedRequest(
+            screenState: Self.screenState(),
+            load: {
+                AgentApprovalRequestSelection.select(
+                    Vault.shared.approvalRequests.pendingRequests(),
+                    operationID: operationID
+                )
+            }
+        ) {
+        case .lockedReminder(let title, let body):
+            postLockedApprovalReminder(title: title, body: body)
+            return
+        case .detailed(let loaded):
+            guard let loaded else { return }
+            pending = loaded
+            resetLockedApprovalReminder()
+        }
+        presentingApproval = true
+        NSApp.activate(ignoringOtherApps: true)
+
+        let request = pending.request
+        runFrozenApprovalPanel(request: request, expiresAt: pending.expiresAt, pending: pending) { [weak self] decision in
+        guard let self else { return }
+        guard let decision else {
+            self.presentingApproval = false
+            return
+        }
+        let fileWrites = self.fileWriteCoordinator
+        let applyDecision: @Sendable () -> Void = { [weak self, fileWrites] in
+            var didFail = false
+            do {
+                _ = try Vault.shared.approvalRequests.decide(
+                    requestID: pending.requestID,
+                    capability: pending.capability,
+                    decision: decision
+                )
+                if decision != .deny,
+                   let fileWrites,
+                   let summary = try? fileWrites.summary(requestID: pending.requestID) {
+                    try fileWrites.commit(
+                        requestID: pending.requestID,
+                        capability: pending.capability,
+                        expectedDigest: summary.digest
+                    )
+                }
+            } catch {
+                didFail = true
+            }
+            let failed = didFail
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.presentingApproval = false
+                if failed {
+                    self.vault.errorMessage = "Ask Key could not apply this decision. Open Pending requests to retry or reject it."
+                } else if !Vault.shared.approvalRequests.pendingRequests().isEmpty {
+                    self.presentPendingApproval()
+                }
+            }
+        }
+        if decision == .deny {
+            applyDecision()
+        } else {
+            DispatchQueue.global(qos: .userInitiated).async(execute: applyDecision)
+        }
+        }
+    }
+
+    private func runFrozenApprovalPanel(
+        request: BrokerApprovalOperationRequest,
+        expiresAt: Date?,
+        pending: BrokerPendingApproval? = nil,
+        completion: @escaping @MainActor (BrokerApprovalDecision?) -> Void = { _ in }
+    ) {
+        var finished = false
+        var privacyTimer: Timer?
+        let contentSize = NSSize(
+            width: 360,
+            height: request.operation == .read ? 430 : 540
+        )
+        let panel = AgentApprovalPanelFactory.make(contentSize: contentSize)
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.isMovableByWindowBackground = true
+        panel.isReleasedWhenClosed = false
+        panel.standardWindowButton(.closeButton)?.isHidden = true
+        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        panel.standardWindowButton(.zoomButton)?.isHidden = true
+        let finish: (BrokerApprovalDecision?) -> Void = { value in
+            guard !finished else { return }
+            finished = true
+            privacyTimer?.invalidate()
+            privacyTimer = nil
+            panel.orderOut(nil)
+            panel.contentViewController = nil
+            let valid = Self.screenState() == .unlocked && expiresAt.map({ $0 > Date() }) != false
+            completion(valid ? value : nil)
+        }
+        panel.contentViewController = NSHostingController(
+            rootView: FrozenAgentApprovalPrompt(
+                request: request,
+                trustedCredentialName: pending?.trustedCredentialName,
+                expiresAt: expiresAt,
+                timedAllowanceEnabled: vault.timedAllowanceEnabled,
+                timedAllowanceMinutes: vault.defaultTimedAllowanceMinutes,
+                writeSummary: pending.flatMap {
+                    try? Vault.shared.frozenAgentWriteSummary(
+                        operationID: $0.request.operationID,
+                        requestID: $0.requestID, capability: $0.capability
+                    )
+                },
+                revealMaterial: pending.map { frozenPending in
+                    { [weak self] in
+                        guard let self, Self.screenState() == .unlocked else {
+                            throw BrokerApprovalError.requestNotFound
+                        }
+                        let fileWrites = self.fileWriteCoordinator
+                        let material = try await Task.detached(priority: .userInitiated) {
+                            if let fileWrites, (try? fileWrites.summary(requestID: frozenPending.requestID)) != nil {
+                                let file = try fileWrites.reveal(requestID: frozenPending.requestID)
+                                return FrozenApprovalMaterial(
+                                    title: file.originalFilename + " · " + String(file.byteCount) + " B",
+                                    content: String(data: file.bytes, encoding: .utf8) ?? file.bytes.base64EncodedString(),
+                                    encoding: String(data: file.bytes, encoding: .utf8) == nil ? "Base64" : "UTF-8"
+                                )
+                            }
+                            guard ManagementAuthenticationRunner.shared.authenticateBlocking(
+                                presentation: .current(reason: ManagementAuthenticationAction.revealFrozenFile.reasonKey)
+                            ) else { throw BrokerFileWriteError.authenticationFailed }
+                            let material = try Vault.shared.revealFrozenCredentialWrite(
+                                operationID: frozenPending.request.operationID,
+                                requestID: frozenPending.requestID,
+                                capability: frozenPending.capability,
+                                using: .allow
+                            )
+                            func describe(_ inputs: [CredentialComponentInput]) -> String {
+                                inputs.map { item in
+                                    let value: String
+                                    switch item.value {
+                                    case .text(let text): value = text
+                                    case .file(let filename, let bytes):
+                                        value = filename + " (" + String(bytes.count) + " B)\n"
+                                            + (String(data: bytes, encoding: .utf8) ?? "Base64: " + bytes.base64EncodedString())
+                                    }
+                                    return item.name + "\n" + value
+                                }.joined(separator: "\n\n")
+                            }
+                            return FrozenApprovalMaterial(
+                                title: material.credentialName,
+                                content: FrozenWriteRevealCopy.content(
+                                    before: describe(material.before),
+                                    after: describe(material.after)
+                                ),
+                                encoding: "UTF-8 / Base64"
+                            )
+                        }.value
+                        guard Self.screenState() == .unlocked else { throw BrokerApprovalError.requestNotFound }
+                        return material
+                    }
+                },
+                finish: finish
+            )
+        )
+        panel.setContentSize(contentSize)
+        panel.contentViewController?.view.frame = NSRect(origin: .zero, size: contentSize)
+        panel.center()
+        privacyTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                let requestEnded = pending.map {
+                    (try? Vault.shared.approvalRequests.status(requestID: $0.requestID, capability: $0.capability)) != .pending
+                } ?? false
+                if Self.screenState() != .unlocked || expiresAt.map({ $0 <= Date() }) == true || requestEnded {
+                    finish(nil)
+                    if Self.screenState() == .unlocked { self.presentPendingApproval() }
+                }
+            }
+        }
+        panel.level = .modalPanel
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    nonisolated private static func screenState() -> AgentApprovalScreenState {
+        AgentApprovalScreenSession.current()
+    }
+
+    private func postLockedApprovalReminder(title: String, body: String) {
+        NSApp.dockTile.badgeLabel = "!"
+        guard !lockedApprovalReminderPosted, lockedApprovalReminderAttempt == nil else { return }
+        let attempt = UUID()
+        lockedApprovalReminderAttempt = attempt
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { [weak self] settings in
+            guard settings.authorizationStatus == .authorized
+                    || settings.authorizationStatus == .provisional else {
+                Task { @MainActor [weak self] in
+                    guard self?.lockedApprovalReminderAttempt == attempt else { return }
+                    self?.lockedApprovalReminderAttempt = nil
+                    self?.lockedApprovalReminderPosted = LockedApprovalReminderDeliveryPolicy
+                        .marksNotificationPosted(for: .authorizationUnavailable)
+                    NSLog(
+                        "AskKey: locked approval notification unavailable; using Dock badge fallback"
+                    )
+                }
+                return
+            }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            let request = UNNotificationRequest(
+                identifier: "askkey-locked-approval-reminder",
+                content: content,
+                trigger: nil
+            )
+            center.add(request) { [weak self] error in
+                Task { @MainActor [weak self] in
+                    guard self?.lockedApprovalReminderAttempt == attempt else { return }
+                    self?.lockedApprovalReminderAttempt = nil
+                    let result: LockedApprovalReminderDeliveryResult = error == nil
+                        ? .delivered
+                        : .deliveryFailed
+                    self?.lockedApprovalReminderPosted = LockedApprovalReminderDeliveryPolicy
+                        .marksNotificationPosted(for: result)
+                    if let error {
+                        NSLog(
+                            "AskKey: locked approval reminder failed; using Dock badge fallback: \(error.localizedDescription)"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func resetLockedApprovalReminder() {
+        lockedApprovalReminderAttempt = nil
+        lockedApprovalReminderPosted = false
+        NSApp.dockTile.badgeLabel = nil
+    }
+
+    private func approvalTitle(for request: BrokerApprovalOperationRequest) -> String {
+        let caller = request.callerName ?? appLocalized("Local Agent")
+        switch request.operation {
+        case .read: return "\(caller) requests a credential"
+        case .create: return "\(caller) requests to create a credential"
+        case .modify: return "\(caller) requests to modify a credential"
+        case .delete: return "\(caller) requests to delete a credential"
+        }
+    }
+
+    private func approvalDetails(for request: BrokerApprovalOperationRequest) -> String {
+        var lines = ["Credential: \(request.credentialName ?? request.targetID)"]
+        if let purpose = request.callerPurpose, !purpose.isEmpty {
+            lines.append("Purpose: \(purpose)")
+        }
+        lines.append("Caller identity is self-declared and has not been verified.")
+        return lines.joined(separator: "\n")
+    }
+}

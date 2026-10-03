@@ -156,9 +156,7 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let app = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/AskKeyApp.swift"), encoding: .utf8
-        )
+        let app = try AskKeyAppSource.read(from: root)
         let start = try XCTUnwrap(app.range(of: "private func startBroker()"))
         let launch = String(app[start.lowerBound...])
         let prepare = try XCTUnwrap(launch.range(of: "try Vault.shared.prepareAgentRuntime()"))

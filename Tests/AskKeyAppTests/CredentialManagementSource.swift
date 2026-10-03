@@ -62,6 +62,9 @@ enum CredentialManagementSource {
     ]
 
     static func read(from root: URL, relative: String) throws -> String {
+        if relative == "Sources/AskKeyAppKit/AskKeyApp.swift" {
+            return try AskKeyAppSource.read(from: root)
+        }
         let files = relative == "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
             ? paths : [relative]
         return try files.map {
