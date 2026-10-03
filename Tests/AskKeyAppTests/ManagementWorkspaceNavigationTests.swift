@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 import AskKeyCore
 
 final class ManagementWorkspaceNavigationTests: AskKeyAppTestCase {

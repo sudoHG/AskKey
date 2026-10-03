@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 final class ManagementDockPolicyTests: AskKeyAppTestCase {
     func testLoginLaunchStaysAccessoryUntilTheUserOpensManagement() {

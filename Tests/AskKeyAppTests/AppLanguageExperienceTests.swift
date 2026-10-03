@@ -3,7 +3,7 @@ import CoreServices
 import LocalAuthentication
 import SwiftUI
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyCore
 
 @MainActor
@@ -111,7 +111,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
     }
 
     func testBundleDisplayNameMatchesBrandInBothLanguages() throws {
-        let resources = repoRoot().appendingPathComponent("Sources/AskKeyApp/Resources")
+        let resources = repoRoot().appendingPathComponent("Sources/AskKeyAppKit/Resources")
         let english = NSDictionary(
             contentsOf: resources.appendingPathComponent("en.lproj/InfoPlist.strings")
         ) as? [String: String]
@@ -191,11 +191,11 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
     func testWindowAppearanceDoesNotInvokeManagementUnlock() throws {
         let root = repoRoot()
         let settings = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/SettingsView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/SettingsView.swift"),
             encoding: .utf8
         )
         let popover = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/VaultPopover.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/VaultPopover.swift"),
             encoding: .utf8
         )
 
@@ -238,7 +238,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         </dict></plist>
         """.utf8).write(to: contents.appendingPathComponent("Info.plist"))
         try FileManager.default.copyItem(
-            at: repoRoot().appendingPathComponent("Sources/AskKeyApp/Resources/MenuBarIcon.png"),
+            at: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/Resources/MenuBarIcon.png"),
             to: resources.appendingPathComponent("MenuBarIcon.png")
         )
 
@@ -285,7 +285,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
 
     func testAgentApprovalUsesDirectConfirmationUnlessTheScreenIsLocked() throws {
         let source = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyApp/AskKeyApp.swift"),
+            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/AskKeyApp.swift"),
             encoding: .utf8
         )
 
@@ -298,7 +298,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
     func testCredentialWorkspaceHasNoFolderAssociationAndGroupsOwnCreationActions() throws {
         let source = try String(
             contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyApp/Views/CredentialManagementView.swift"
+                "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
             ),
             encoding: .utf8
         )
@@ -314,18 +314,18 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         XCTAssertTrue(source.contains("Recycle Bin"))
         let viewModelSource = try String(
             contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyApp/VaultViewModel+Credentials.swift"
+                "Sources/AskKeyAppKit/VaultViewModel+Credentials.swift"
             ),
             encoding: .utf8
         )
         XCTAssertTrue(viewModelSource.contains("loadCredentialWorkspaceImpl"))
         let defaultAdapterSource = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyApp/VaultViewModel.swift"),
+            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/VaultViewModel.swift"),
             encoding: .utf8
         )
         let workspaceSource = try String(
             contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyApp/CredentialWorkspaceMutations.swift"
+                "Sources/AskKeyAppKit/CredentialWorkspaceMutations.swift"
             ),
             encoding: .utf8
         )
@@ -333,7 +333,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         XCTAssertTrue(defaultAdapterSource.contains("credentialMutations.loadWorkspace"))
         XCTAssertFalse(defaultAdapterSource.contains("loadCredentialWorkspace:"))
         let appSource = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyApp/AskKeyApp.swift"),
+            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/AskKeyApp.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(appSource.contains("purgeExpiredRecycledCredentials"))
@@ -342,7 +342,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
     func testAgentClientsUsePlainLanguageAutomaticConnection() throws {
         let source = try String(
             contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyApp/Views/CredentialManagementView.swift"
+                "Sources/AskKeyAppKit/Views/CredentialManagementView.swift"
             ),
             encoding: .utf8
         )
@@ -356,7 +356,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         XCTAssertFalse(source.contains("{\"command\""))
         let onboardingSource = try String(
             contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyApp/Views/AgentOnboardingView.swift"
+                "Sources/AskKeyAppKit/Views/AgentOnboardingView.swift"
             ),
             encoding: .utf8
         )
@@ -366,7 +366,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         XCTAssertFalse(onboardingSource.contains("{\"command\""))
         let connectorSource = try String(
             contentsOf: repoRoot().appendingPathComponent(
-                "Sources/AskKeyApp/AgentClientConnector.swift"
+                "Sources/AskKeyAppKit/AgentClientConnector.swift"
             ),
             encoding: .utf8
         )
@@ -703,11 +703,11 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
     func testKeyUIDoesNotHardcodeTechnicalBrandOrSkipRequiredCopy() throws {
         let root = repoRoot()
         let files = [
-            "Sources/AskKeyApp/AskKeyApp.swift",
-            "Sources/AskKeyApp/Views/CredentialManagementView.swift",
-            "Sources/AskKeyApp/Views/VaultPopover.swift",
-            "Sources/AskKeyApp/Views/SettingsView.swift",
-            "Sources/AskKeyApp/Views/FirstRunOnboardingView.swift",
+            "Sources/AskKeyAppKit/AskKeyApp.swift",
+            "Sources/AskKeyAppKit/Views/CredentialManagementView.swift",
+            "Sources/AskKeyAppKit/Views/VaultPopover.swift",
+            "Sources/AskKeyAppKit/Views/SettingsView.swift",
+            "Sources/AskKeyAppKit/Views/FirstRunOnboardingView.swift",
         ]
         for relative in files {
             let source = try String(contentsOf: root.appendingPathComponent(relative), encoding: .utf8)
@@ -719,7 +719,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         }
 
         let onboarding = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/FirstRunOnboardingView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/FirstRunOnboardingView.swift"),
             encoding: .utf8
         )
         for needle in [
@@ -737,7 +737,7 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         }
 
         let settings = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/CredentialManagementView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/CredentialManagementView.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(settings.contains("Language"))
@@ -745,14 +745,14 @@ final class AppLanguageExperienceTests: AskKeyAppTestCase {
         XCTAssertTrue(settings.contains("Launch at Login"))
         XCTAssertTrue(settings.contains("Timed Allow"))
         let language = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/AppLanguage.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/AppLanguage.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(language.contains("Follow System"))
         XCTAssertTrue(language.contains("publishedModes"))
 
         let manager = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/SettingsView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/SettingsView.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(manager.contains("onboardingRoute = .fileImport"))

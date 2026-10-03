@@ -1,5 +1,5 @@
 import Foundation
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 /// Isolated replay of the ef90 Agent access appear path.
 /// The control flow is copied from ef90, not from the current View.

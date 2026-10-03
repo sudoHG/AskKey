@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyCore
 
 @MainActor
@@ -69,11 +69,11 @@ final class AccessRecordManagementTests: AskKeyAppTestCase {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let viewModel = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/VaultViewModel.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/VaultViewModel.swift"),
             encoding: .utf8
         )
         let mutations = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/CredentialWorkspaceMutations.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/CredentialWorkspaceMutations.swift"),
             encoding: .utf8
         )
         XCTAssertFalse(viewModel.contains("listCredentialAccessRecords:"))

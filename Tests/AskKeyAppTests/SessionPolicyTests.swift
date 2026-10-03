@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 @MainActor
 final class SessionPolicyTests: AskKeyAppTestCase {

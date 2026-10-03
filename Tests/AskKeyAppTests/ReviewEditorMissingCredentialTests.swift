@@ -3,7 +3,7 @@ import SwiftUI
 import Vision
 import XCTest
 import AskKeyCore
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 /// CR-06: `editor(id)` must not become “New Credential” when the list refresh
 /// can no longer find that object.
@@ -144,7 +144,7 @@ final class ReviewEditorMissingCredentialTests: AskKeyAppTestCase {
                 .deletingLastPathComponent()
                 .deletingLastPathComponent()
                 .deletingLastPathComponent()
-                .appendingPathComponent("Sources/AskKeyApp/Views/CredentialManagementView.swift"),
+                .appendingPathComponent("Sources/AskKeyAppKit/Views/CredentialManagementView.swift"),
             encoding: .utf8
         )
         XCTAssertFalse(source.contains("EditorAvailabilityProbe"))

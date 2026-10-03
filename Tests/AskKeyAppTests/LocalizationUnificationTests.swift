@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 /// RED/GREEN contract for 331-392: one String Catalog, one lookup, no mixed chrome.
 @MainActor
@@ -18,9 +18,9 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
     ]
 
     func testReportedMixedLanguagePatternCannotOccur() throws {
-        let appLanguage = try source("Sources/AskKeyApp/AppLanguage.swift")
-        let settingsPage = try source("Sources/AskKeyApp/Views/CredentialManagementView.swift")
-        let support = try source("Sources/AskKeyApp/Views/SettingsSupport.swift")
+        let appLanguage = try source("Sources/AskKeyAppKit/AppLanguage.swift")
+        let settingsPage = try source("Sources/AskKeyAppKit/Views/CredentialManagementView.swift")
+        let support = try source("Sources/AskKeyAppKit/Views/SettingsSupport.swift")
 
         let sidebarOnlyInFileTable = chromeKeys.contains { key in
             !appLanguage.contains("\"\(key)\"") || appLanguage.range(of: "chineseBuiltin") != nil
@@ -43,13 +43,13 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
 
     func testStringCatalogIsTheOnlyHumanTranslationSource() throws {
         let catalog = repoRoot()
-            .appendingPathComponent("Sources/AskKeyApp/Resources/Localizable.xcstrings")
+            .appendingPathComponent("Sources/AskKeyAppKit/Resources/Localizable.xcstrings")
         XCTAssertTrue(
             FileManager.default.fileExists(atPath: catalog.path),
             "Localizable.xcstrings must be the only human-maintained translation source"
         )
         let stringsFiles = try FileManager.default.contentsOfDirectory(
-            at: repoRoot().appendingPathComponent("Sources/AskKeyApp/Resources"),
+            at: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/Resources"),
             includingPropertiesForKeys: [.isRegularFileKey],
             options: [.skipsHiddenFiles]
         ).flatMap { url -> [URL] in
@@ -154,7 +154,7 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
             AppLanguage.localized("Settings", language: "qps-ploc"),
             "[!!Settings!!]"
         )
-        let settings = try source("Sources/AskKeyApp/Views/CredentialManagementView.swift")
+        let settings = try source("Sources/AskKeyAppKit/Views/CredentialManagementView.swift")
         XCTAssertFalse(
             settings.contains("qps-ploc"),
             "test-only locale must not be hard-coded into Settings"
@@ -189,7 +189,7 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
     }
 
     func testLookupDoesNotDependOnSourceTreePath() throws {
-        let source = try self.source("Sources/AskKeyApp/AppLanguage.swift")
+        let source = try self.source("Sources/AskKeyAppKit/AppLanguage.swift")
         XCTAssertFalse(source.contains("#filePath"))
         XCTAssertFalse(source.contains("Resources/\\(language).lproj/Localizable.strings"))
         AppLanguage.current = "zh-Hans"
@@ -221,7 +221,7 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
 
     private func loadCatalog() throws -> [String: [String: String]] {
         let url = repoRoot()
-            .appendingPathComponent("Sources/AskKeyApp/Resources/Localizable.xcstrings")
+            .appendingPathComponent("Sources/AskKeyAppKit/Resources/Localizable.xcstrings")
         let data = try Data(contentsOf: url)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let strings = json?["strings"] as? [String: Any] ?? [:]
@@ -257,7 +257,7 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
     }
 
     private func productionSwiftFiles() throws -> [URL] {
-        let root = repoRoot().appendingPathComponent("Sources/AskKeyApp")
+        let root = repoRoot().appendingPathComponent("Sources/AskKeyAppKit")
         let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: [.isRegularFileKey]

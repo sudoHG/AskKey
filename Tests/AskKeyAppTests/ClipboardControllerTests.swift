@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 @MainActor
 final class ClipboardControllerTests: AskKeyAppTestCase {

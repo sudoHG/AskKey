@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyBroker
 @testable import AskKeyCore
 
@@ -98,7 +98,7 @@ final class LocalizationRemediationTests: AskKeyAppTestCase {
         XCTAssertTrue(qps["Pause Agent Access"]?.hasPrefix("[!!") == true)
 
         let source = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyApp/AppLanguage.swift"),
+            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/AppLanguage.swift"),
             encoding: .utf8
         )
         XCTAssertFalse(source.contains("case \"qps-ploc\""), "locale branches must not hard-code extra languages")
@@ -165,7 +165,7 @@ final class LocalizationRemediationTests: AskKeyAppTestCase {
 
     func testMenuPauseUsesActionKeyNotAuthenticationReason() throws {
         let source = try String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyApp/Views/VaultPopover.swift"),
+            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/Views/VaultPopover.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(source.contains("Pause Agent Access"))
@@ -187,7 +187,7 @@ final class LocalizationRemediationTests: AskKeyAppTestCase {
         XCTAssertTrue(chineseOne.message.contains("凭证"))
         XCTAssertFalse(chineseOne.message.contains("credential is protected"))
         let source = try? String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyApp/WorkspaceVisualContract.swift"),
+            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/WorkspaceVisualContract.swift"),
             encoding: .utf8
         )
         XCTAssertFalse(

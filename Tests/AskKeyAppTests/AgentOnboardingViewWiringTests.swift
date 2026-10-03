@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 /// View/coordinator call-boundary evidence for 331-404 B1 / A01.
 /// The same new-contract assertions RED on the isolated ef90 replay.

@@ -1,6 +1,6 @@
 import XCTest
 import AskKeyCore
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 final class ReviewEditorValidationTests: AskKeyAppTestCase {
     func testBlankCustomRowsDoNotPreventSavingCompleteRows() throws {

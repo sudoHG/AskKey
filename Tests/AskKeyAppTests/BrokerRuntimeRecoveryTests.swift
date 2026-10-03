@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyBroker
 @testable import AskKeyCore
 
@@ -157,7 +157,7 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let app = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/AskKeyApp.swift"), encoding: .utf8
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/AskKeyApp.swift"), encoding: .utf8
         )
         let start = try XCTUnwrap(app.range(of: "private func startBroker()"))
         let launch = String(app[start.lowerBound...])
@@ -172,7 +172,7 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
         XCTAssertTrue(failure.contains("return"))
 
         let popover = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/VaultPopover.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/VaultPopover.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(
@@ -181,7 +181,7 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
         )
 
         let settings = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyApp/Views/SettingsView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/SettingsView.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(settings.contains("Retry Agent access"))

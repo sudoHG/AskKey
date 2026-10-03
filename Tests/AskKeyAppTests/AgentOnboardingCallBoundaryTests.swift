@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 /// Call-boundary evidence for 331-404 S1.
 /// These assertions describe the new contract. On baseline ef90eae they must RED:

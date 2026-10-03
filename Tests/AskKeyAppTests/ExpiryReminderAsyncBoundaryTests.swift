@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 import UserNotifications
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyCore
 
 private struct SyntheticNotificationAddFailure: Error {}

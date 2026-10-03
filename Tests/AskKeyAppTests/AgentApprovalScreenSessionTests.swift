@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 final class AgentApprovalScreenSessionTests: AskKeyAppTestCase {
     private var interactiveSession: [String: Any] {

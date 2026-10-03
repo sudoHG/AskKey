@@ -4,7 +4,7 @@ import Observation
 import AskKeyBroker
 import UserNotifications
 import XCTest
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 @testable import AskKeyCore
 
 @MainActor

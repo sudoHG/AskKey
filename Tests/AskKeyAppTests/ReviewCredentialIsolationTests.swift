@@ -1,6 +1,6 @@
 import XCTest
 import AskKeyCore
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 /// ARC-05: management writes must follow the same injected workspace as reads.
 @MainActor

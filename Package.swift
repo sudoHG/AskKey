@@ -41,16 +41,22 @@ let package = Package(
             path: "Sources/AskKeyHelper",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
-        .executableTarget(
-            name: "AskKeyApp",
+        .target(
+            name: "AskKeyAppKit",
             dependencies: [
                 "AskKeyBroker",
                 "AskKeyCore",
             ],
-            path: "Sources/AskKeyApp",
+            path: "Sources/AskKeyAppKit",
             resources: [
                 .process("Resources")
             ],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .executableTarget(
+            name: "AskKeyApp",
+            dependencies: ["AskKeyAppKit"],
+            path: "Sources/AskKeyApp",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
@@ -68,7 +74,7 @@ let package = Package(
         ),
         .testTarget(
             name: "AskKeyAppTests",
-            dependencies: ["AskKeyApp", "AskKeyCore"],
+            dependencies: ["AskKeyAppKit", "AskKeyCore"],
             path: "Tests/AskKeyAppTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

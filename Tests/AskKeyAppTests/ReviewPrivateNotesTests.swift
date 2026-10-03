@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import XCTest
 import AskKeyCore
-@testable import AskKeyApp
+@testable import AskKeyAppKit
 
 final class ReviewPrivateNotesTests: AskKeyAppTestCase {
     @MainActor
