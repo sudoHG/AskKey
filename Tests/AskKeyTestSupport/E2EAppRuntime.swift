@@ -153,7 +153,7 @@ package enum E2EAppRuntime {
                 }
                 let discovery: CredentialDiscoveryReadiness? = switch client {
                 case .codex: .enabled
-                case .cursor, .grok: .configured
+                case .claudeCode, .cursor, .grok: .configured
                 }
                 return AgentCheckReport(
                     outcome: .verifiedConnected,

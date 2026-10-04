@@ -9,9 +9,9 @@ struct CommandDiscoverySetupContext {
     let verifyHelper: () throws -> Void
 }
 
-/// Product setup for the command-hook discovery integrations used by Cursor
-/// and Grok. The command hook is independent from MCP: a healthy existing MCP
-/// connection is kept while discovery is repaired, and an unhealthy existing
+/// Product setup for the command-hook discovery integrations used by Cursor,
+/// Claude Code and Grok. The command hook is independent from MCP: a healthy
+/// existing connection is kept while discovery is repaired, and an unhealthy existing
 /// MCP configuration is never overwritten by this flow.
 enum CommandHookOnboardingSetup {
     static var reviewedHookDescription: String {
@@ -138,7 +138,8 @@ enum CommandHookOnboardingSetup {
         hasMCPConfiguration: @escaping HasMCPConfiguration,
         isMCPConnected: @escaping IsMCPConnected,
         applyMCP: @escaping ApplyMCP,
-        rollbackMCP: @escaping RollbackMCP = {}
+        rollbackMCP: @escaping RollbackMCP = {},
+        applyVerifiesMCP: Bool = false
     ) throws -> AgentApplyReport {
         guard let frozen = plan.commandHookPlan else {
             throw AgentOnboardingFailure.planChanged
@@ -220,7 +221,9 @@ enum CommandHookOnboardingSetup {
         } else {
             try applyMCP()
             do {
-                guard try isMCPConnected() else {
+                // CLI adapters can own verification and rollback as one
+                // transaction. Do not run a second check outside that rollback.
+                if !applyVerifiesMCP, try !isMCPConnected() {
                     throw AgentOnboardingFailure.verificationFailed
                 }
             } catch {

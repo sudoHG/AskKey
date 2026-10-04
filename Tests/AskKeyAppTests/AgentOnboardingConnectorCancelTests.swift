@@ -260,6 +260,7 @@ private struct IsolatedCancelHome {
 
     func markerConfig(for client: AgentClient) -> URL {
         switch client {
+        case .claudeCode: return root.appendingPathComponent(".claude.json")
         case .codex: return CodexUserMCP.userConfigURL(home: root)
         case .cursor: return cursorConfigURL
         case .grok: return root.appendingPathComponent(".grok/config.toml")

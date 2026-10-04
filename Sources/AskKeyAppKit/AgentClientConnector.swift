@@ -4,6 +4,7 @@ import AskKeyIntegrations
 import AskKeyVault
 
 package enum AgentClient: String, CaseIterable, Identifiable, Sendable {
+    case claudeCode = "Claude Code"
     case codex = "Codex"
     case cursor = "Cursor"
     case grok = "Grok CLI"
@@ -11,6 +12,7 @@ package enum AgentClient: String, CaseIterable, Identifiable, Sendable {
     package var id: String { rawValue }
     var proofID: String {
         switch self {
+        case .claudeCode: return "claude"
         case .codex: return "codex"
         case .cursor: return "cursor"
         case .grok: return "grok"
@@ -26,6 +28,9 @@ package enum AgentClient: String, CaseIterable, Identifiable, Sendable {
     }
 
     var connectionSuccessMessage: String {
+        if self == .claudeCode {
+            return appLocalized("MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it.")
+        }
         if self == .codex {
             return appLocalized("MCP is connected and credential discovery before SSH is enabled. Start a new Codex task to use it.")
         }
@@ -153,6 +158,7 @@ struct AgentConnectionGate {
 }
 
 package struct AgentClientConnector: Sendable {
+    private static let claudeMutationLock = NSLock()
     private static let codexMutationLock = NSLock()
     private static let cursorMutationLock = NSLock()
     private static let grokMutationLock = NSLock()
@@ -187,6 +193,15 @@ package struct AgentClientConnector: Sendable {
 
     package func preview(_ client: AgentClient) throws -> AgentClientPreview {
         switch client {
+        case .claudeCode:
+            let report = try check(client)
+            if let failure = report.failure { throw failure }
+            return AgentClientPreview(
+                summary: client.connectionPreviewSummary,
+                connected: report.outcome == .verifiedConnected,
+                configurationPresent: report.outcome != .notConfigured,
+                discovery: report.discovery
+            )
         case .codex:
             let report = try check(.codex)
             return AgentClientPreview(
@@ -205,6 +220,15 @@ package struct AgentClientConnector: Sendable {
 
     package func connect(_ client: AgentClient) throws -> Bool {
         switch client {
+        case .claudeCode:
+            let report = try check(client)
+            if report.outcome == .verifiedConnected { return true }
+            guard let plan = report.plan, report.failure == nil else {
+                throw report.failure ?? AgentOnboardingFailure.verificationFailed
+            }
+            let result = try apply(client, plan: plan)
+            if let failure = result.failure { throw failure }
+            return result.outcome == .verifiedConnected
         case .codex:
             let report = try check(.codex)
             if report.outcome == .verifiedConnected { return true }
@@ -242,6 +266,7 @@ package struct AgentClientConnector: Sendable {
     static func performExclusive<T>(client: AgentClient, _ body: () throws -> T) rethrows -> T {
         let lock: NSLock
         switch client {
+        case .claudeCode: lock = claudeMutationLock
         case .codex: lock = codexMutationLock
         case .cursor: lock = cursorMutationLock
         case .grok: lock = grokMutationLock
@@ -339,6 +364,7 @@ package struct AgentClientConnector: Sendable {
     func commandDiscoveryContext(for client: AgentClient) throws -> CommandDiscoverySetupContext {
         let discoveryClient: CommandDiscoveryClient
         switch client {
+        case .claudeCode: discoveryClient = .claude
         case .cursor: discoveryClient = .cursor
         case .grok: discoveryClient = .grok
         default: throw AgentOnboardingFailure.unsupportedVersion
@@ -408,6 +434,16 @@ package struct AgentClientConnector: Sendable {
             homeDirectory: home,
             backupDirectory: supportDirectory
                 .appendingPathComponent("client-backups/cursor", isDirectory: true),
+            helperURL: try resolvedHelperURL(),
+            brokerSocketPath: BrokerConfiguration.socketURL.path,
+            signing: isolatedSigning
+        )
+    }
+
+    func claudeAdapter() throws -> ClaudeCodeMCPAdapter {
+        ClaudeCodeMCPAdapter(
+            homeDirectory: home,
+            workingDirectory: home,
             helperURL: try resolvedHelperURL(),
             brokerSocketPath: BrokerConfiguration.socketURL.path,
             signing: isolatedSigning

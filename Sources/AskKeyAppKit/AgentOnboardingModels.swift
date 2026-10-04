@@ -187,6 +187,24 @@ package struct AgentOnboardingOperations: Sendable {
 extension AgentOnboardingFailure {
     static func from(_ error: Error) -> AgentOnboardingFailure {
         if let failure = error as? AgentOnboardingFailure { return failure }
+        if let error = error as? ClaudeCodeMCPError {
+            switch error {
+            case .missingExecutable: return .cliMissing
+            case .unsupportedVersion, .unsupportedCLI: return .unsupportedVersion
+            case .unreadableConfiguration: return .illegalConfig
+            case .conflictingEntry, .conflictingScope: return .nameConflict
+            case .configurationChanged: return .planChanged
+            case .rollbackFailed: return .restoreFailed
+            case .cancelled: return .cancelled
+            case .timeout: return .timedOut
+            case .outputTooLarge, .processFailed: return .communicationFailed
+            case .addFailed: return .verificationFailed
+            case .verificationFailed(let reason):
+                if reason.hasPrefix("helper_") { return .helperMismatch }
+                if reason.hasPrefix("broker_") { return .brokerUnavailable }
+                return .verificationFailed
+            }
+        }
         if let error = error as? CodexNativeHookClientError {
             switch error {
             case .cliMissing: return .cliMissing

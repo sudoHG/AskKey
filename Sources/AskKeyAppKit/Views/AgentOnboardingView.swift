@@ -18,7 +18,7 @@ struct AgentOnboardingView: View {
                 }
                 clientGroup(
                     title: appLocalized("Local clients"),
-                    clients: [.codex, .cursor, .grok]
+                    clients: AgentClient.allCases
                 )
             }
             .padding(28)
@@ -356,6 +356,13 @@ enum AgentOnboardingCopy {
               let result = session.lastKnownResult else { return nil }
         switch result.outcome {
         case .verifiedConnected:
+            if client == .claudeCode {
+                guard result.discovery == .configured || result.discovery == .enabled else { return nil }
+                return (
+                    appLocalizedFormat("Complete: %@ is connected", appLocalized(client.rawValue)),
+                    client.connectionSuccessMessage
+                )
+            }
             if client == .codex {
                 guard result.discovery == .enabled else { return nil }
                 return (
@@ -397,7 +404,7 @@ enum AgentOnboardingCopy {
         case .discoverySetupCancelled:
             return appLocalized("Credential discovery setup was cancelled. The verified MCP connection was kept. Check again before continuing.")
         case .discoverySetupFailed:
-            if client == .cursor || client == .grok {
+            if client == .claudeCode || client == .cursor || client == .grok {
                 return appLocalized("MCP is connected, but credential discovery is not verified. Check again to finish setup.")
             }
             return appLocalized("MCP is connected, but credential discovery before SSH is not verified. Check again to finish setup.")
