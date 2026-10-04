@@ -24,10 +24,10 @@ The maintainer's agents follow [docs/agents/issue-workflow.md](docs/agents/issue
 
 | Role | Does | Does not |
 |---|---|---|
-| Planner (Claude) | Writes task issues, reviews PRs, recommends merges, advances phases | Large implementation work; merging or pushing `main` without the maintainer's approval |
+| Planner (Claude) | Writes task issues, dispatches executors through Orca, reviews PRs, recommends merges | Large implementation work; merging or pushing `main` without the maintainer's approval |
 | Reviewer (Codex, separate session) | Stands in for the planner's review when the planner is unavailable; follows `docs/agents/planner.md` review steps | Writing code, pushing to task branches, merging, writing or changing issues' Scope |
-| Executor (Codex) | Claims `ready-for-agent` issues, implements in a dedicated worktree, opens PRs with a receipt, addresses review comments | Merge PRs, push to `main`, change repository settings |
-| Maintainer | Makes decisions, approves each merge and each push to `main`, completes `ready-for-human` issues, starts executor sessions | — |
+| Executor (Codex) | Implements the issue it was dispatched (or, without a coordinator, claims `ready-for-agent` issues) in a dedicated worktree, opens PRs with a receipt, addresses review comments | Merge PRs, push to `main`, change repository settings |
+| Maintainer | Makes decisions, approves each merge and each push to `main`, completes `ready-for-human` issues, starts executor sessions when no planner is running | — |
 
 ## Safety boundaries (all agents)
 

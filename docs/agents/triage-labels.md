@@ -5,7 +5,7 @@
 | Label | Meaning |
 |---|---|
 | `needs-triage` | Not yet assessed by the maintainer or planner. |
-| `needs-info` | Blocked on a question. The latest comment states what is missing. |
+| `needs-info` | Blocked on a question that could not be asked through Orca. The latest comment states what is missing. |
 | `ready-for-agent` | Fully specified. An agent may claim it. |
 | `ready-for-human` | Requires the maintainer in person: real data, the installed app, devices, signing or accounts. |
 | `wontfix` | Decided not to do. |
@@ -15,7 +15,7 @@
 | Label | Meaning |
 |---|---|
 | `agent:claimed` | An agent is working on the issue. |
-| `needs-review` | The PR is ready for planner review. |
+| `needs-review` | The PR is ready for planner review. Through Orca the planner is also notified by `worker_done`. |
 | `changes-requested` | Review asked for changes. The executor handles these before claiming new work. |
 
 ## Classification
