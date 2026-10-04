@@ -14,6 +14,24 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/package-release.sh"
 SIGNING_ENV = ("ASKKEY_CODESIGN_IDENTITY", "ASKKEY_APPLE_TEAM_ID", "ASKKEY_NOTARY_PROFILE")
 SUBMISSION_ID = "12345678-1234-1234-1234-123456789abc"
+NOTARY_CREDENTIAL = "synthetic-notary"
+NOTARY_SHELL = (
+    'xcrun notarytool submit "$1" --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" '
+    '--issuer "$ISSUER_ID" --wait --output-format json'
+)
+SYNTHETIC_MAPPINGS = {
+    "PRIVATE_KEY_FILE": "synthetic-private-key-file",
+    "KEY_ID": "synthetic-key-id",
+    "ISSUER_ID": "synthetic-issuer-id",
+}
+
+
+def diskutil_image_attach_available():
+    if shutil.which("diskutil") is None:
+        return False
+    result = subprocess.run(["diskutil", "help", "image", "attach"],
+                            capture_output=True, text=True)
+    return result.returncode == 0
 
 
 class PackageReleaseTests(unittest.TestCase):
@@ -56,8 +74,10 @@ class PackageReleaseTests(unittest.TestCase):
             subprocess.run(["codesign", "--force", "--sign", "-", str(self.app)],
                            check=True, text=True, capture_output=True)
 
-    def run_script(self, *arguments, notarize=False, environment=None):
-        command = ["bash", str(SCRIPT), "--app", str(self.app), "--output", str(self.output)]
+    def run_script(self, *arguments, notarize=False, environment=None, output=True):
+        command = ["bash", str(SCRIPT), "--app", str(self.app)]
+        if output:
+            command.extend(["--output", str(self.output)])
         if not notarize:
             command.append("--no-notarize")
         return subprocess.run(command + list(map(str, arguments)), cwd=self.directory,
@@ -77,6 +97,27 @@ class PackageReleaseTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"{image.name}: OK", result.stdout)
 
+    def attach_image(self, image, mountpoint):
+        if diskutil_image_attach_available():
+            result = subprocess.run(
+                ["diskutil", "image", "attach", "--nobrowse", "--readOnly",
+                 "--mountPoint", str(mountpoint), str(image)],
+                text=True, capture_output=True)
+            if result.returncode == 0:
+                return
+        subprocess.run(["hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint",
+                        str(mountpoint), str(image)], check=True, text=True,
+                       capture_output=True)
+
+    def eject_image(self, mountpoint):
+        if shutil.which("diskutil") is not None:
+            result = subprocess.run(["diskutil", "eject", str(mountpoint)],
+                                    text=True, capture_output=True)
+            if result.returncode == 0:
+                return
+        subprocess.run(["hdiutil", "detach", str(mountpoint)], check=True,
+                       text=True, capture_output=True)
+
     def test_unnotarized_dmg_mounts_with_app_and_applications_link(self):
         result = self.run_script()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -86,8 +127,7 @@ class PackageReleaseTests(unittest.TestCase):
         self.assertIn("Notarized: false", result.stdout)
         mountpoint = self.directory / "mounted"
         mountpoint.mkdir()
-        subprocess.run(["hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint",
-                        str(mountpoint), str(image)], check=True, text=True, capture_output=True)
+        self.attach_image(image, mountpoint)
         try:
             self.assertTrue((mountpoint / "Ask Key.app").is_dir())
             applications = mountpoint / "Applications"
@@ -97,8 +137,7 @@ class PackageReleaseTests(unittest.TestCase):
                             str(mountpoint / "Ask Key.app")], check=True,
                            text=True, capture_output=True)
         finally:
-            subprocess.run(["hdiutil", "detach", str(mountpoint)], check=True,
-                           text=True, capture_output=True)
+            self.eject_image(mountpoint)
         self.assert_checksum(image)
         self.assertEqual(list(self.scratch.iterdir()), [])
 
@@ -138,13 +177,18 @@ class PackageReleaseTests(unittest.TestCase):
                 incomplete.pop(setting)
                 result = self.run_script(notarize=True, environment=incomplete)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn(f"{setting} is required", result.stderr)
+                if setting == "ASKKEY_NOTARY_PROFILE":
+                    self.assertIn("Exactly one of --notary-credential or ASKKEY_NOTARY_PROFILE",
+                                  result.stderr)
+                else:
+                    self.assertIn(f"{setting} is required", result.stderr)
                 self.assertFalse(trace.exists())
                 self.assert_no_artifacts()
 
     def test_invalid_arguments_and_missing_app_are_rejected(self):
         for arguments, message in ((["--app"], "requires a path"),
                                    (["--output"], "requires a path"),
+                                   (["--notary-credential"], "requires a name"),
                                    (["--unknown"], "Unknown argument"),
                                    (["--app", self.directory / "missing.app"], "App bundle not found")):
             with self.subTest(arguments=arguments):
@@ -187,7 +231,9 @@ elif name == "hdiutil":
     assert (staging / "Applications").is_symlink()
     Path(arguments[-1]).write_bytes(b"synthetic disk image")
 elif name == "xcrun":
-    print(os.environ["ASKKEY_NOTARY_PROFILE"], file=sys.stderr)
+    profile = os.environ.get("ASKKEY_NOTARY_PROFILE")
+    if profile:
+        print(profile, file=sys.stderr)
     if arguments[:2] == ["notarytool", "submit"]:
         artifact = Path(arguments[2])
         kind = "app" if artifact.suffix == ".zip" else "dmg"
@@ -213,11 +259,22 @@ elif name == "spctl":
         sys.exit(1)
     print(str(arguments[-1]) + ": accepted")
     print("source=" + ("Developer ID" if failure == "app-source" else "Notarized Developer ID"))
+elif name == "askkey":
+    if not arguments or arguments[0] != "run" or "--" not in arguments:
+        sys.exit(1)
+    artifact = Path(arguments[arguments.index("--") + 1:][-1])
+    kind = "app" if artifact.suffix == ".zip" else "dmg"
+    if failure == "invalid-json":
+        print("{}")
+    else:
+        status = "Invalid" if failure == kind + "-notary" else "Accepted"
+        print(json.dumps({"status": status, "id": "12345678-1234-1234-1234-123456789abc"}))
+    sys.exit(1 if failure == "notary-command" else 0)
 else:
     sys.exit(1)
 ''', encoding="utf-8")
         command.chmod(0o755)
-        for name in ("codesign", "ditto", "hdiutil", "xcrun", "spctl"):
+        for name in ("codesign", "ditto", "hdiutil", "xcrun", "spctl", "askkey"):
             (tools / name).symlink_to(command)
         environment = self.environment.copy()
         environment.update({
@@ -226,12 +283,36 @@ else:
             "ASKKEY_CODESIGN_IDENTITY": "synthetic-signing-identity",
             "ASKKEY_APPLE_TEAM_ID": "FAKETEAM01",
             "ASKKEY_NOTARY_PROFILE": "synthetic-notary-profile",
+            "ASKKEY_RELEASE_HELPER": str(tools / "askkey"),
+            **SYNTHETIC_MAPPINGS,
         })
         return environment, trace
 
     def assert_settings_not_printed(self, result, environment):
+        text = result.stdout + result.stderr
         for setting in SIGNING_ENV:
-            self.assertNotIn(environment[setting], result.stdout + result.stderr)
+            if setting in environment:
+                self.assertNotIn(environment[setting], text)
+        for value in SYNTHETIC_MAPPINGS.values():
+            self.assertNotIn(value, text)
+
+    def assert_credential_submit(self, call, suffix):
+        self.assertEqual(call[:6], ["askkey", "run", "--wait-for-approval", "--credential",
+                                    NOTARY_CREDENTIAL, "--operation-id"])
+        operation_id = call[6]
+        self.assertTrue(operation_id)
+        self.assertEqual(call[7:16], [
+            "--caller-name", "AskKey release", "--caller-purpose",
+            f"Notarize AskKey {self.version}", "--", "/bin/bash", "-c", NOTARY_SHELL, "bash",
+        ])
+        self.assertEqual(Path(call[16]).suffix, suffix)
+        self.assertEqual(len(call), 17)
+        return operation_id
+
+    def credential_environment(self):
+        environment, trace = self.mock_tools()
+        environment.pop("ASKKEY_NOTARY_PROFILE")
+        return environment, trace
 
     def test_mocked_notarization_checks_both_artifacts_before_checksum(self):
         environment, trace = self.mock_tools()
@@ -259,6 +340,88 @@ else:
         self.assertIn("context:primary-signature", assessments[1])
         self.assertEqual(list(self.scratch.iterdir()), [])
 
+    def test_credential_mode_builds_askkey_run_invocation(self):
+        environment, trace = self.credential_environment()
+        result = self.run_script("--notary-credential", NOTARY_CREDENTIAL, notarize=True,
+                                 environment=environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assert_settings_not_printed(result, environment)
+        image = self.output / f"AskKey-{self.version}.dmg"
+        self.assertTrue(image.read_bytes().endswith(b":stapled"))
+        self.assertIn("Notarized: true", result.stdout)
+        self.assert_checksum(image)
+        calls = [json.loads(line) for line in trace.read_text().splitlines()]
+        submissions = [call for call in calls if call[0] == "askkey"]
+        self.assertEqual(len(submissions), 2)
+        operation_ids = [self.assert_credential_submit(call, suffix)
+                         for call, suffix in zip(submissions, (".zip", ".dmg"))]
+        self.assertEqual(len(set(operation_ids)), 2)
+        self.assertFalse(any(call[:3] == ["xcrun", "notarytool", "submit"] for call in calls))
+        self.assertEqual(list(self.scratch.iterdir()), [])
+
+    def test_notary_modes_conflict_before_work(self):
+        environment, trace = self.mock_tools()
+        cases = (
+            (["--notary-credential", NOTARY_CREDENTIAL], True, environment,
+             "Notary credential and ASKKEY_NOTARY_PROFILE modes conflict"),
+            (["--notary-credential", NOTARY_CREDENTIAL], False, self.environment,
+             "Notary credential and --no-notarize modes conflict"),
+            ([], True, {key: value for key, value in environment.items()
+                        if key != "ASKKEY_NOTARY_PROFILE"},
+             "Exactly one of --notary-credential or ASKKEY_NOTARY_PROFILE is required"),
+        )
+        for arguments, notarize, env, message in cases:
+            with self.subTest(message=message):
+                result = self.run_script(*arguments, notarize=notarize, environment=env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+                self.assertFalse(trace.exists())
+                self.assert_no_artifacts()
+
+    def test_notary_credential_conflicts_with_no_notarize_without_an_app(self):
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "--notary-credential", "x", "--no-notarize"],
+            cwd=self.directory, env=self.environment, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("modes conflict", result.stderr)
+        self.assertNotIn("App bundle not found", result.stderr)
+
+    def test_default_output_path_is_not_under_a_symlink(self):
+        environment, _ = self.mock_tools()
+        default = ROOT / ".build/release-artifacts"
+        image = default / f"AskKey-{self.version}-unnotarized.dmg"
+        checksum = default / f"{image.name}.sha256"
+        existed = default.exists()
+        for path in (image, checksum):
+            if path.exists() or path.is_symlink():
+                path.unlink()
+
+        def cleanup():
+            for path in (image, checksum):
+                if path.is_file() or path.is_symlink():
+                    path.unlink()
+            if not existed and default.is_dir() and not any(default.iterdir()):
+                default.rmdir()
+
+        self.addCleanup(cleanup)
+        result = self.run_script(environment=environment, output=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(image.is_file())
+        self.assertFalse(default.is_symlink())
+        self.assertNotEqual(default, ROOT / ".build/release")
+        swiftpm = ROOT / ".build/release"
+        if swiftpm.exists() or swiftpm.is_symlink():
+            resolved_default = default.resolve()
+            resolved_release = swiftpm.resolve()
+            self.assertNotEqual(resolved_default, resolved_release)
+            try:
+                resolved_default.relative_to(resolved_release)
+            except ValueError:
+                pass
+            else:
+                self.fail("default output resolved under SwiftPM .build/release")
+        self.assertIn(f"DMG: {image.resolve()}", result.stdout)
+
     def test_signing_team_mismatch_is_rejected_before_staging(self):
         environment, trace = self.mock_tools()
         environment["PACKAGE_TEST_FAILURE"] = "team"
@@ -283,6 +446,20 @@ else:
                 self.assert_settings_not_printed(result, environment)
                 if failure in ("app-notary", "dmg-notary", "notary-command"):
                     self.assertIn(f"xcrun notarytool log {SUBMISSION_ID} --keychain-profile ...",
+                                  result.stderr)
+                self.assert_no_artifacts()
+
+    def test_credential_mode_failures_publish_nothing_and_clean_staging(self):
+        environment, _ = self.credential_environment()
+        for failure in ("app-notary", "dmg-notary", "invalid-json", "notary-command"):
+            with self.subTest(failure=failure):
+                environment["PACKAGE_TEST_FAILURE"] = failure
+                result = self.run_script("--notary-credential", NOTARY_CREDENTIAL, notarize=True,
+                                         environment=environment)
+                self.assertNotEqual(result.returncode, 0)
+                self.assert_settings_not_printed(result, environment)
+                if failure in ("app-notary", "dmg-notary", "notary-command"):
+                    self.assertIn(f"xcrun notarytool log {SUBMISSION_ID} --key ... --key-id ... --issuer ...",
                                   result.stderr)
                 self.assert_no_artifacts()
 

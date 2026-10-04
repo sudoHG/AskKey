@@ -74,6 +74,20 @@ The CI artifact `askkey-basic-ui-evidence` contains the runner's output and is u
 
 Desktop tests exercise shared App/Broker/helper behavior, but system authentication and external client boundaries use isolated fixtures. Passing them does not validate real Touch ID, production keychain access, a real client task, signing/notarization, or a release. Per [ADR 0006](adr/0006-release-process.md), `Local` and `Release` builds run [release-gate.py](../scripts/release-gate.py): the checkout must be clean, `HEAD` must be reachable from `origin/main` after fetching, and the latest push-to-main `CI` run for that exact commit and both required jobs (`build-and-test`, `basic-ui-flows`) must succeed. Jobs are checked for the run's latest attempt. `Release` also requires the tag `v<product version>` to point at `HEAD`; signing identities, notarization, and explicit maintainer publication approval remain required by the release process.
 
+## Release packaging
+
+[package-release.sh](../scripts/package-release.sh) writes a DMG and SHA-256 checksum to `.build/release-artifacts` by default. That directory is not SwiftPM's `.build/release` symlink, which resolves into the build products tree. Pass `--output` to choose another directory.
+
+Notarization needs exactly one of `ASKKEY_NOTARY_PROFILE` (a `notarytool` keychain profile) or `--notary-credential <name>` (an Ask Key credential). `--no-notarize` skips notarization for synthetic packaging checks and cannot be combined with `--notary-credential`. The two notarization modes cannot be combined.
+
+In credential mode each `xcrun notarytool submit … --wait` runs as:
+
+```text
+/Applications/Ask Key.app/Contents/Helpers/askkey run --wait-for-approval --credential <name> --operation-id <unique> --caller-name "AskKey release" --caller-purpose "Notarize AskKey <version>" -- xcrun notarytool submit <artifact> --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER_ID" --wait --output-format json
+```
+
+`PRIVATE_KEY_FILE`, `KEY_ID`, and `ISSUER_ID` are the credential's delivery mappings (file path, key id, and issuer id). The script expands them only in the helper's target shell and never prints their values. Tests may point `ASKKEY_RELEASE_HELPER` at a stub; that override is not a release input. Automation tests must not call a real notary service or use the maintainer's identity.
+
 ## Receipt and review
 
 Follow [the issue workflow](agents/issue-workflow.md) and [the PR template](../.github/pull_request_template.md). Report the base and head SHAs, changed paths, each acceptance command and outcome, Swift passed/failed/skipped counts when run, comparison with the base, and both CI job results. Explain checks omitted under a documentation-only issue rather than claiming they ran. Local acceptance must pass before pushing; CI is not a substitute for required local builds or unit tests. Address conversation comments, submitted reviews, and inline threads as well as CI failures before presenting the PR for acceptance.
