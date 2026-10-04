@@ -4,7 +4,7 @@ A macOS menu bar app that keeps your credentials encrypted on your Mac and lets 
 
 English | [Simplified Chinese](README.zh-CN.md)
 
-> **Status:** AskKey is being restructured before its first public release. There is no installer yet; build it from source. Version 0.1 has no backup or recovery, so keep the originals of your credentials somewhere else.
+> **Status:** AskKey releases are notarized DMGs on [GitHub Releases](https://github.com/sudoHG/AskKey/releases). There is no automatic update. Version 0.1 has no backup or recovery, so keep the originals of your credentials somewhere else.
 
 ## Why it exists
 
@@ -75,6 +75,29 @@ What AskKey does not guarantee:
 - Caller names and purposes are declared by the agent. They help you read a request; they are not verified identity.
 - Another process running as the same macOS user may be able to read material after an approved delivery. Hidden keeps a credential out of the agent catalog but does not defend against that.
 - A timed allowance covers the credential for the whole local user, not one agent client.
+
+## Install
+
+1. Download `AskKey-<version>.dmg` and `AskKey-<version>.dmg.sha256` from the [latest release](https://github.com/sudoHG/AskKey/releases/latest). Replace `<version>` below with the downloaded version.
+2. In the download directory, verify the checksum before opening the DMG:
+
+   ```bash
+   shasum -a 256 -c AskKey-<version>.dmg.sha256
+   ```
+
+   Continue only if the check reports `OK`.
+3. Open the DMG and drag `Ask Key.app` into Applications. It must stay at exactly `/Applications/Ask Key.app`, under that name, or agents cannot connect.
+4. Launch Ask Key and connect your clients from the **Agent access** page. See [Supported clients](#supported-clients).
+
+## Upgrade
+
+Quit Ask Key, download and verify the new DMG as described in [Install](#install), then replace `/Applications/Ask Key.app` with the app from the new DMG and relaunch. Your credential library and settings are kept. Watch [GitHub Releases](https://github.com/sudoHG/AskKey/releases) for new versions; there is no automatic update.
+
+## Uninstall
+
+Quit Ask Key and delete `/Applications/Ask Key.app`. For each connected client, remove only the AskKey entries and owned files listed in [What setup writes](docs/client-integrations.md#what-setup-writes), including MCP configuration, discovery Hooks and AskKey-specific Hook trust settings. Preserve unrelated client settings and Hooks. There is no in-app way to disconnect a client.
+
+You can optionally erase the local credential library as well. **This permanently destroys all stored credentials and cannot be undone; v0.1 has no backup or recovery.** To do so, delete `~/Library/Application Support/AskKey` and use Keychain Access to delete the keychain item with service `com.sudohg.askkey.vault`.
 
 ## Build from source
 

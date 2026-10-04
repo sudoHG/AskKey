@@ -4,7 +4,7 @@
 
 [English](README.md) | 简体中文
 
-> **当前状态：** AskKey 正在首次公开发布前重构。目前没有安装包，请从源码构建。v0.1 没有备份和恢复功能，请自行另存一份凭证原件。
+> **当前状态：** AskKey 通过 [GitHub Releases](https://github.com/sudoHG/AskKey/releases) 提供经过 Apple 公证的 DMG 安装包，没有自动更新功能。v0.1 没有备份和恢复功能，请自行另存一份凭证原件。
 
 ## 为什么需要它
 
@@ -75,6 +75,29 @@ AskKey 不保证的事：
 - 调用方名称和用途由 Agent 自行声明，只是帮你看懂请求，不是经过验证的身份。
 - 同一 macOS 用户下的其他进程，可能在交付之后读取到相关内容。“隐藏”只是让凭证不进入 Agent 目录，防不住这类旁路。
 - 限时允许针对的是整个本机用户下的这份凭证，而不是某一个 Agent 客户端。
+
+## 安装
+
+1. 从[最新版本](https://github.com/sudoHG/AskKey/releases/latest)下载 `AskKey-<version>.dmg` 和 `AskKey-<version>.dmg.sha256`。执行下面的命令前，将 `<version>` 替换为下载的版本号。
+2. 在下载目录中校验文件，确认无误后再打开 DMG：
+
+   ```bash
+   shasum -a 256 -c AskKey-<version>.dmg.sha256
+   ```
+
+   只有校验结果为 `OK` 时才继续。
+3. 打开 DMG，将 `Ask Key.app` 拖入 Applications（应用程序）。应用必须保留原名，并始终位于 `/Applications/Ask Key.app`，否则 Agent 无法连接。
+4. 启动请旨，在 **Agent 接入**页面连接客户端。详见[支持的客户端](#支持的客户端)。
+
+## 升级
+
+退出请旨，按[安装](#安装)中的步骤下载并校验新版 DMG，用其中的应用替换 `/Applications/Ask Key.app`，然后重新启动。凭证库和设置会保留。请关注 [GitHub Releases](https://github.com/sudoHG/AskKey/releases) 获取新版本；应用没有自动更新功能。
+
+## 卸载
+
+退出请旨并删除 `/Applications/Ask Key.app`。对每个已连接的客户端，只移除 [What setup writes](docs/client-integrations.md#what-setup-writes) 中列出的 AskKey 配置项和专属文件，包括 MCP 配置、凭证查询 Hook 和 AskKey 专属的 Hook 信任设置，保留其他客户端设置和 Hook。应用内没有断开客户端连接的功能。
+
+你也可以选择一并删除本机凭证库。**这会永久销毁所有已保存的凭证，无法撤销；v0.1 没有备份和恢复功能。** 如需删除，请移除 `~/Library/Application Support/AskKey` 目录，并在“钥匙串访问”中删除服务名为 `com.sudohg.askkey.vault` 的钥匙串项目。
 
 ## 从源码构建
 
