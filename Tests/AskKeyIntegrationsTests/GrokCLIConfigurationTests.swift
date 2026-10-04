@@ -237,7 +237,7 @@ final class GrokCLIConfigurationTests: GrokCLIAdapterTests {
         XCTAssertTrue(result.connected, result.reason)
         XCTAssertFalse(result.listJSON.contains("https://"))
         XCTAssertTrue(result.doctorJSON.contains("\"healthy\": true") || result.doctorJSON.contains("\"healthy\":true"))
-        XCTAssertEqual(result.helperVersion, "0.1.0")
+        XCTAssertEqual(result.helperVersion, AskKeyVersion.current)
 
         let listed = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(result.listJSON.utf8)) as? [[String: Any]])
         let askkey = try XCTUnwrap(listed.first { $0["name"] as? String == "askkey" })

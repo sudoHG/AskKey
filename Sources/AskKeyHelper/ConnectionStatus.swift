@@ -23,7 +23,7 @@ func connectionStatus(client: BrokerSocketClient) throws -> String {
                 } else if health.status == "ok" {
                     status = [
                         "status": "connected",
-                        "helperVersion": helperVersion,
+                        "helperVersion": AskKeyVersion.current,
                         "mcpProtocolVersion": mcpProtocolVersion,
                         "brokerProtocolVersion": health.version,
                     ]

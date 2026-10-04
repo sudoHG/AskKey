@@ -1,4 +1,5 @@
 import Foundation
+import AskKeyBroker
 
 /// Shared initialize + tools/list request and response checks.
 /// Codex, Cursor, and Grok keep their own clientInfo and runner.
@@ -13,23 +14,23 @@ enum MCPHelperContract {
 
         static let askKeyHelper = Identity(
             clientName: "askkey",
-            clientVersion: "0.1.0",
+            clientVersion: AskKeyVersion.current,
             serverName: "askkey",
-            serverVersion: CodexUserMCP.helperVersion
+            serverVersion: AskKeyVersion.current
         )
 
         static let grokClient = Identity(
             clientName: "askkey",
             clientVersion: "0",
             serverName: "askkey",
-            serverVersion: CodexUserMCP.helperVersion
+            serverVersion: AskKeyVersion.current
         )
 
         static let cursorClient = Identity(
             clientName: "cursor",
             clientVersion: "0",
             serverName: "askkey",
-            serverVersion: CodexUserMCP.helperVersion
+            serverVersion: AskKeyVersion.current
         )
     }
 

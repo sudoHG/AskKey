@@ -73,7 +73,7 @@ extension GrokCLIAdapter {
                 version: ""
             )
         }
-        guard helper.version == "0.1.0" else {
+        guard helper.version == AskKeyVersion.current else {
             return result(connected: false, reason: "helper_version", diff: diff, listJSON: listJSON, doctorJSON: doctorJSON, version: helper.version)
         }
         guard helper.tools.contains("list_credentials"), helper.tools.contains("run") else {

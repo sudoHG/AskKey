@@ -76,7 +76,7 @@ final class AuditProcessBoundaryTests: XCTestCase {
         #!/bin/sh
         while IFS= read -r request; do :; done
         printf '%s\\n' \\
-            '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"askkey","version":"0.1.0"}}}' \\
+            '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"askkey","version":"\(AskKeyVersion.current)"}}}' \\
             '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"list_credentials"},{"name":"run"}]}}'
         marker="${0%/*}/heartbeat"
         heartbeat() {

@@ -29,7 +29,7 @@ final class ReviewMCPHelperContractTests: XCTestCase {
             source: """
             #!/bin/sh
             if [ "$1" = "mcp" ]; then
-              echo '{"id":1,"result":{"serverInfo":{"version":"0.1.0"}}}'
+              echo '{"id":1,"result":{"serverInfo":{"version":"\(AskKeyVersion.current)"}}}'
               echo '{"id":2,"result":{"tools":[{"name":"list_credentials"},{"name":"run"}]}}'
               exit 0
             fi
@@ -85,7 +85,7 @@ final class ReviewMCPHelperContractTests: XCTestCase {
 
     func testSharedContractRejectsMalformedAndWrongIdentityButKeepsLegalResponses() throws {
         let legalInitialize = """
-        {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"askkey","version":"0.1.0"}}}
+        {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"askkey","version":"\(AskKeyVersion.current)"}}}
         """
         let legalTools = """
         {"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"list_credentials"},{"name":"run"}]}}
@@ -94,25 +94,25 @@ final class ReviewMCPHelperContractTests: XCTestCase {
             legalInitialize + "\n" + legalTools,
             identity: .askKeyHelper
         )
-        XCTAssertEqual(legal.version, "0.1.0")
+        XCTAssertEqual(legal.version, AskKeyVersion.current)
         XCTAssertEqual(Set(legal.tools), ["list_credentials", "run"])
 
         let grokLegal = try MCPHelperContract.inspect(
             legalInitialize + "\n" + legalTools,
             identity: .grokClient
         )
-        XCTAssertEqual(grokLegal.version, "0.1.0")
+        XCTAssertEqual(grokLegal.version, AskKeyVersion.current)
 
         let cursorLegal = try MCPHelperContract.inspect(
             legalInitialize + "\n" + legalTools,
             identity: .cursorClient
         )
-        XCTAssertEqual(cursorLegal.version, "0.1.0")
+        XCTAssertEqual(cursorLegal.version, AskKeyVersion.current)
 
         XCTAssertThrowsError(
             try MCPHelperContract.inspect(
                 """
-                {"id":1,"result":{"serverInfo":{"version":"0.1.0"}}}
+                {"id":1,"result":{"serverInfo":{"version":"\(AskKeyVersion.current)"}}}
                 {"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"list_credentials"},{"name":"run"}]}}
                 """,
                 identity: .askKeyHelper
@@ -124,7 +124,7 @@ final class ReviewMCPHelperContractTests: XCTestCase {
         XCTAssertThrowsError(
             try MCPHelperContract.inspect(
                 """
-                {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"other","version":"0.1.0"}}}
+                {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"other","version":"\(AskKeyVersion.current)"}}}
                 {"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"list_credentials"},{"name":"run"}]}}
                 """,
                 identity: .askKeyHelper
