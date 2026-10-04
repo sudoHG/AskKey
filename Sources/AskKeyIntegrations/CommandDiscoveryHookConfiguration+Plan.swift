@@ -10,6 +10,8 @@ extension CommandDiscoveryHookConfiguration {
 
     func makePlan(snapshot: Snapshot?, definition: Definition) throws -> CommandDiscoveryHookPlan {
         switch format {
+        case .claudeMerged:
+            return try claudePlan(snapshot: snapshot, definition: definition)
         case .grokOwned:
             if let snapshot {
                 let existing = try object(snapshot.bytes, error: .invalidHooksFile)

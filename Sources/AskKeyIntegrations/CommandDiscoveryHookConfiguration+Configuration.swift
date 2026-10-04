@@ -16,6 +16,8 @@ extension CommandDiscoveryHookConfiguration {
         catch { throw Error.invalidExpectedHooks }
 
         switch format {
+        case .claudeMerged:
+            return try claudeDefinition(object)
         case .grokOwned:
             let commands = allCommands(in: object)
             guard !commands.isEmpty else { throw Error.invalidExpectedHooks }

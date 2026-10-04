@@ -11,6 +11,9 @@ extension CommandDiscoveryHookConfiguration {
     private func hasExpectedHook(in bytes: Data, definition: Definition) throws -> Bool {
         let existing = try object(bytes, error: .invalidHooksFile)
         switch format {
+        case .claudeMerged:
+            _ = try CommandHookJSON.parse(bytes)
+            return try claudeMatches(in: existing, definition: definition).count == definition.groups.count
         case .grokOwned:
             if jsonEqual(existing, definition.root) { return true }
             if containsOwnLike(in: existing, commands: definition.commands) {

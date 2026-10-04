@@ -4,6 +4,19 @@ import AskKeyBroker
 /// Adapts native command hooks to the same SSH discovery reminder as Codex.
 /// It never executes tool input or accesses credentials.
 enum CommandDiscoveryHook {
+    /// Claude sends one JSON document terminated by EOF, rather than an MCP
+    /// line. Bound its total size before attempting to decode the envelope.
+    static func readClaudeInput(maximumBytes: Int) -> Data? {
+        var bytes = Data()
+        do {
+            while let chunk = try FileHandle.standardInput.read(upToCount: 8192), !chunk.isEmpty {
+                guard bytes.count + chunk.count <= maximumBytes else { return nil }
+                bytes.append(chunk)
+            }
+        } catch { return nil }
+        return bytes
+    }
+
     static func response(client: String, input: [String: Any]) throws -> [String: Any] {
         let allowed = allow(client: client)
         let event: String, session: String, tool: String, call: String?
@@ -36,11 +49,27 @@ enum CommandDiscoveryHook {
             session = rawSession; turn = nil; tool = rawTool
             call = input["toolUseId"] as? String
             arguments = input["toolInput"] as? [String: Any] ?? [:]
+        } else if client == "claude" {
+            guard let rawEvent = input["hook_event_name"] as? String,
+                  let rawSession = input["session_id"] as? String else { return allowed }
+            if rawEvent == "UserPromptSubmit" {
+                try store.beginClaudeTurn(session: rawSession)
+                return allowed
+            }
+            guard ["PreToolUse", "PostToolUse", "PostToolUseFailure"].contains(rawEvent),
+                  let rawTool = input["tool_name"] as? String,
+                  let rawCall = input["tool_use_id"] as? String, !rawCall.isEmpty,
+                  let rawArguments = input["tool_input"] as? [String: Any] else { return allowed }
+            event = rawEvent == "PreToolUse" ? "pre" : "post"
+            session = rawSession; turn = nil; tool = rawTool
+            call = rawCall; arguments = rawArguments
         } else { return allowed }
         // Cursor's generic event exposes MCP:<raw tool name>, without a
         // server identifier. This is a discovery reminder, not authentication.
-        let catalog = client == "cursor" ? tool == "MCP:list_credentials" : tool == "askkey__list_credentials"
-        let shell = client == "cursor" ? tool == "Shell" : tool == "run_terminal_command"
+        let catalog = client == "cursor" ? tool == "MCP:list_credentials"
+            : tool == (client == "claude" ? "mcp__askkey__list_credentials" : "askkey__list_credentials")
+        let shell = client == "cursor" ? tool == "Shell"
+            : tool == (client == "claude" ? "Bash" : "run_terminal_command")
         guard shell || catalog else { return allowed }
         if shell {
             guard event == "pre", let command = arguments["command"] as? String,
@@ -51,7 +80,7 @@ enum CommandDiscoveryHook {
             callID: call, phase: event == "pre" ? .before : .after, catalog: catalog
         )
         guard event == "pre", shell, !settled else { return allowed }
-        if client == "grok" {
+        if client == "grok" || client == "claude" {
             return ["hookSpecificOutput": ["hookEventName": "PreToolUse",
                 "permissionDecision": "deny", "permissionDecisionReason": reminder]]
         }

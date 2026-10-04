@@ -8,18 +8,24 @@ do {
     if command == "hook" {
         guard arguments.count == 2 else { throw HelperError.usage }
         if arguments[1] == "capabilities" {
-            try writeMCPResponse(["protocolVersion": 1, "clients": ["cursor", "grok"]])
+            try writeMCPResponse(["protocolVersion": 1, "clients": ["cursor", "grok", "claude"]])
             exit(EXIT_SUCCESS)
         }
-        guard ["cursor", "grok"].contains(arguments[1]) else { throw HelperError.usage }
+        guard ["cursor", "grok", "claude"].contains(arguments[1]) else { throw HelperError.usage }
         var response = CommandDiscoveryHook.allow(client: arguments[1])
-        if case .frame(let data) = readMCPFrame(maximumBytes: BrokerLimits.maximumFrameBytes),
+        let data: Data?
+        if arguments[1] == "claude" {
+            data = CommandDiscoveryHook.readClaudeInput(maximumBytes: BrokerLimits.maximumFrameBytes)
+        } else if case .frame(let frame) = readMCPFrame(maximumBytes: BrokerLimits.maximumFrameBytes) {
+            data = frame
+        } else { data = nil }
+        if let data,
            let input = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             // Discovery is a reminder. Invalid input or unavailable ephemeral
             // state cannot authorize a credential or block unrelated work.
             response = (try? CommandDiscoveryHook.response(client: arguments[1], input: input)) ?? response
         }
-        try writeMCPResponse(response)
+        if arguments[1] != "claude" || !response.isEmpty { try writeMCPResponse(response) }
         exit(EXIT_SUCCESS)
     }
     if command == "mcp" {

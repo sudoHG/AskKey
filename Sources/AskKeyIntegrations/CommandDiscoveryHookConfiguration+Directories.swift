@@ -14,6 +14,7 @@ extension CommandDiscoveryHookConfiguration {
                 }
                 guard (info.st_mode & S_IFMT) == S_IFDIR else { throw error }
                 if current.path == leaf, info.st_uid != getuid() { throw error }
+                if format == .claudeMerged, current.path == leaf, info.st_mode & 0o022 != 0 { throw error }
                 continue
             }
             guard errno == ENOENT else { throw error }
@@ -55,6 +56,8 @@ extension CommandDiscoveryHookConfiguration {
                 }
                 guard (info.st_mode & S_IFMT) == S_IFDIR else { throw error }
                 if current.path == standardizedURL.path, info.st_uid != getuid() { throw error }
+                if format == .claudeMerged, current.path == standardizedURL.path,
+                   info.st_mode & 0o022 != 0 { throw error }
                 continue
             }
             guard errno == ENOENT else { throw error }

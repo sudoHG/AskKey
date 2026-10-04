@@ -397,6 +397,10 @@ private extension CommandDiscoveryHookConfigurationTests {
 
         static func expectedData(format: CommandDiscoveryHookFormat) throws -> Data {
             switch format {
+            case .claudeMerged:
+                return try CommandDiscoveryClient.claude.definition(
+                    helper: URL(fileURLWithPath: "/signed/Ask Key.app/Contents/Resources/askkey")
+                )
             case .cursorMerged:
                 let handler: [String: Any] = [
                     "command": "'/signed/Ask Key.app/Contents/Resources/askkey' hook cursor",

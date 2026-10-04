@@ -2,17 +2,22 @@ import Foundation
 import AskKeySystem
 
 public enum CommandDiscoveryClient: String, Sendable {
-    case cursor, grok
+    case cursor, grok, claude
 
     public func hooksURL(home: URL) -> URL {
         switch self {
         case .cursor: return home.appendingPathComponent(".cursor/hooks.json")
         case .grok: return home.appendingPathComponent(".grok/hooks/askkey-discovery.json")
+        case .claude: return home.appendingPathComponent(".claude/settings.json")
         }
     }
 
     public var format: CommandDiscoveryHookFormat {
-        self == .cursor ? .cursorMerged : .grokOwned
+        switch self {
+        case .cursor: return .cursorMerged
+        case .grok: return .grokOwned
+        case .claude: return .claudeMerged
+        }
     }
 
     /// Definitions contain only a signed helper path and a client selector.
@@ -34,6 +39,13 @@ public enum CommandDiscoveryClient: String, Sendable {
             root = ["hooks": [
                 "UserPromptSubmit": [["hooks": [commandHandler]]],
                 "PreToolUse": [toolHandler], "PostToolUse": [toolHandler], "PostToolUseFailure": [toolHandler],
+            ]]
+        case .claude:
+            let handler: [String: Any] = ["type": "command", "command": command, "timeout": 3]
+            let group: [String: Any] = ["matcher": "Bash|mcp__askkey__list_credentials", "hooks": [handler]]
+            root = ["hooks": [
+                "UserPromptSubmit": [["hooks": [handler]]],
+                "PreToolUse": [group], "PostToolUse": [group], "PostToolUseFailure": [group],
             ]]
         }
         return try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys, .prettyPrinted])

@@ -4,6 +4,10 @@ import Foundation
 extension CommandDiscoveryHookConfiguration {
     public func apply(plan: CommandDiscoveryHookPlan) throws {
         lock.lock(); defer { lock.unlock() }
+        try applyLocked(plan: plan)
+    }
+
+    func applyLocked(plan: CommandDiscoveryHookPlan, removingClaude: Bool = false) throws {
         guard plan.format == format else { throw Error.concurrentModification }
         let definition = try makeDefinition()
         let current = try readSnapshot(at: hooksURL, checkParent: true)
@@ -11,7 +15,10 @@ extension CommandDiscoveryHookConfiguration {
         guard plan.changed, matches(current, bytes: plan.before, mode: plan.beforeMode) else {
             throw Error.concurrentModification
         }
-        guard try makePlan(snapshot: current, definition: definition) == plan,
+        let reviewed = try removingClaude
+            ? claudeRemovalPlan(snapshot: current, definition: definition)
+            : makePlan(snapshot: current, definition: definition)
+        guard reviewed == plan,
               let replacement = plan.after else {
             throw Error.concurrentModification
         }
@@ -91,6 +98,11 @@ extension CommandDiscoveryHookConfiguration {
             } catch ClientConfigFileIO.Failure.exclusiveExists {
                 throw Error.concurrentModification
             } catch { throw Error.writeFailed }
+            return
+        }
+
+        if format == .claudeMerged, let replacement {
+            try replaceClaude(current: current, replacement: replacement, mode: replacementMode)
             return
         }
 
