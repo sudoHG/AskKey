@@ -2,7 +2,6 @@ import Foundation
 import CoreFoundation
 import AskKeyBroker
 
-let helperVersion = "0.1.0"
 let mcpProtocolVersion = "2024-11-05"
 
 func runMCP() throws {
@@ -47,7 +46,7 @@ func runMCP() throws {
             response = mcpSuccess(id: id, result: [
                 "protocolVersion": mcpProtocolVersion,
                 "capabilities": ["tools": [:]],
-                "serverInfo": ["name": "askkey", "version": helperVersion],
+                "serverInfo": ["name": "askkey", "version": AskKeyVersion.current],
                 "instructions": AgentUsageGuide.instructions,
             ])
         case "tools/list":

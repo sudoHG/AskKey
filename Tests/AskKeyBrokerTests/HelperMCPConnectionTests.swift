@@ -31,7 +31,7 @@ final class HelperMCPConnectionTests: HelperMCPTestCase {
         var server: BrokerSocketServer? = try startHealthServer(socketPath: socketPath)
         var status = try connectionStatus(processInput: input, processOutput: output, id: 2)
         XCTAssertEqual(status["status"] as? String, "connected")
-        XCTAssertEqual(status["helperVersion"] as? String, "0.1.0")
+        XCTAssertEqual(status["helperVersion"] as? String, AskKeyVersion.current)
         XCTAssertEqual(status["mcpProtocolVersion"] as? String, "2024-11-05")
         XCTAssertEqual(status["brokerProtocolVersion"] as? Int, BrokerProtocolVersion.current)
 

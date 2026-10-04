@@ -41,9 +41,9 @@ if [ "$MODE" = Local ]; then
 fi
 AVAILABLE_KIB="$(df -k /System/Volumes/Data | awk 'NR==2 {print $4}')"
 [ "${AVAILABLE_KIB:-0}" -ge 83886080 ] || { echo "At least 80 GiB free is required before building." >&2; exit 1; }
-VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo 0.0.0)"
-SHORT_VERSION="${VERSION#v}-local"
-if [ "$MODE" = Local ]; then SHORT_VERSION="0.1.0"; fi
+VERSION="$(bash scripts/product-version.sh)"
+SHORT_VERSION="$VERSION"
+if [ "$CONFIG" = Debug ]; then SHORT_VERSION="$VERSION-dev"; fi
 DD="${ASKKEY_DERIVED_DATA:-.derivedData/local-app}"
 PRODUCTS="$DD/Build/Products/$CONFIG"
 APP=".build/AskKeyApp.app"

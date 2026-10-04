@@ -8,7 +8,6 @@ import Security
 public enum CodexUserMCP {
     public static let serverName = "askkey"
     public static let bundledHelperPath = OfficialInstallTopology.canonicalHelperPath
-    public static let helperVersion = "0.1.0"
 
     public static func userConfigURL(home: URL) -> URL {
         home.appendingPathComponent(".codex/config.toml")
