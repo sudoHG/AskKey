@@ -19,4 +19,4 @@ The approval prompt shows the caller name, the credential and the purpose; calle
 
 ## Consequences
 
-The person approving sees the actual target with no protocol change and no new trust in self-declared fields. The App holds the display summary only for the life of the pending request. Implementation: #118 (Vault and Broker side), #120 (prompt UI).
+The person approving sees the actual target with no protocol change and no new trust in self-declared fields. The display summary is held in App memory with its approval record, including the Broker's bounded terminal history (at most 256 entries, cleared when the App exits); it is never persisted beyond the sanitized executable name. Implementation: #118 (Vault and Broker side), #120 (prompt UI).
