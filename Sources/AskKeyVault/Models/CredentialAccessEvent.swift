@@ -20,6 +20,7 @@ public struct CredentialAccessEvent: Codable, Equatable, Sendable {
     public let result: Result
     public let callerHint: String?
     public let declaredPurpose: String?
+    public let executableBasename: String?
 
     public init(
         timestamp: Date,
@@ -27,7 +28,8 @@ public struct CredentialAccessEvent: Codable, Equatable, Sendable {
         operation: Operation,
         result: Result,
         callerHint: String?,
-        declaredPurpose: String?
+        declaredPurpose: String?,
+        executableBasename: String? = nil
     ) {
         self.timestamp = timestamp
         self.credentialID = credentialID
@@ -35,5 +37,6 @@ public struct CredentialAccessEvent: Codable, Equatable, Sendable {
         self.result = result
         self.callerHint = callerHint
         self.declaredPurpose = declaredPurpose
+        self.executableBasename = executableBasename.map { ($0 as NSString).lastPathComponent }
     }
 }

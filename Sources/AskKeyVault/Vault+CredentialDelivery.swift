@@ -81,6 +81,7 @@ extension Vault {
         let payloadDigest = SHA256.hash(data: encoded).map { String(format: "%02x", $0) }.joined()
         let callerName = request.sanitizedCallerName
         let callerPurpose = request.sanitizedCallerPurpose
+        let executableBasename = request.command.first.map { ($0 as NSString).lastPathComponent }
         var records: [CredentialRecord] = []
         var consumptions: [BrokerApprovalConsumption] = []
         var pending: [BrokerApprovalTicket] = []
@@ -108,7 +109,8 @@ extension Vault {
                     operation: .runtimeRead,
                     result: .failed,
                     callerHint: callerName,
-                    declaredPurpose: callerPurpose
+                    declaredPurpose: callerPurpose,
+                    executableBasename: executableBasename
                 ))
                 approvalRequests.cancelPending(credentialID: record.id)
                 try fileDeliveryManager.get().revoke(credentialID: record.id)
@@ -125,7 +127,8 @@ extension Vault {
                 payloadDigest: payloadDigest,
                 credentialName: trustedName,
                 callerName: callerName,
-                callerPurpose: callerPurpose
+                callerPurpose: callerPurpose,
+                display: try runtimeApprovalDisplay(for: request, record: record, key: key)
             )
             let ticket = try approvalRequests.submit(
                 approvalRequest,
@@ -212,7 +215,8 @@ extension Vault {
                 operation: .runtimeRead,
                 result: .allowed,
                 callerHint: callerName,
-                declaredPurpose: callerPurpose
+                declaredPurpose: callerPurpose,
+                executableBasename: executableBasename
             ))
         }
         ownsAgentOperation = false
@@ -221,5 +225,71 @@ extension Vault {
             resolvedRequestCount: records.count,
             deliveryLease: lease
         )
+    }
+
+    private func runtimeApprovalDisplay(
+        for request: BrokerTextRunRequest,
+        record: CredentialRecord,
+        key: SymmetricKey
+    ) throws -> BrokerApprovalOperationRequest.Display {
+        var environmentVariables: [String]?
+        var temporaryFileVariables: [String]?
+        // Bundle mappings share encryptedPayload with component values. Do not
+        // open that payload before approval merely to provide display names.
+        if record.payloadKind != CredentialPayloadKind.bundle.rawValue {
+            let variable = try record.encryptedEnvironmentVariable.map {
+                try VaultCrypto.decrypt($0, using: key)
+            }
+            environmentVariables = record.payloadKind == CredentialPayloadKind.text.rawValue
+                ? variable.map { [$0] } ?? [] : []
+            temporaryFileVariables = record.payloadKind == CredentialPayloadKind.file.rawValue
+                ? variable.map { [$0] } ?? [] : []
+        }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let directory = request.workingDirectory.map { path -> String in
+            let abbreviated: String
+            if path == home { abbreviated = "~" }
+            else if path.hasPrefix(home + "/") { abbreviated = "~" + path.dropFirst(home.count) }
+            else { abbreviated = path }
+            return Self.escapedDisplayText(abbreviated)
+        }
+        return .init(
+            commandLine: request.command.map(Self.shellQuotedDisplayArgument).joined(separator: " "),
+            workingDirectory: directory,
+            executableBasename: request.command.first.map { ($0 as NSString).lastPathComponent },
+            environmentVariables: environmentVariables,
+            temporaryFileVariables: temporaryFileVariables
+        )
+    }
+
+    private static func shellQuotedDisplayArgument(_ value: String) -> String {
+        if value.unicodeScalars.contains(where: displayControlCharacter) {
+            return "$'" + escapedDisplayText(value).replacingOccurrences(of: "'", with: "\\'") + "'"
+        }
+        let safe = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./:@%+=,-")
+        if !value.isEmpty, value.unicodeScalars.allSatisfy({ safe.contains($0) }) { return value }
+        return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private static func displayControlCharacter(_ scalar: Unicode.Scalar) -> Bool {
+        CharacterSet.controlCharacters.contains(scalar) || CharacterSet.newlines.contains(scalar)
+    }
+
+    private static func escapedDisplayText(_ value: String) -> String {
+        value.unicodeScalars.map { scalar -> String in
+            switch scalar.value {
+            case 0x5c: return "\\\\"
+            case 0x0a: return "\\n"
+            case 0x0d: return "\\r"
+            case 0x09: return "\\t"
+            default:
+                if displayControlCharacter(scalar) {
+                    // Byte escapes preserve UTF-8 in both macOS Bash and zsh;
+                    // the system Bash does not support Unicode ANSI-C escapes.
+                    return String(scalar).utf8.map { String(format: "\\x%02x", $0) }.joined()
+                }
+                return String(scalar)
+            }
+        }.joined()
     }
 }
