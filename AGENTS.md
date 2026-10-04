@@ -65,7 +65,7 @@ swift build
 swift test
 ```
 
-Push a task branch only after the local Acceptance passes. Never use GitHub CI as a substitute for local builds or unit tests. If local resources are busy, wait.
+Before pushing a task branch, run locally: `swift build`, the tests for the code you changed (`swift test --filter <Suites>`), and the hygiene and module checks. The full `swift test` suite and the desktop flows run in the PR's CI; a PR is accepted only when both CI jobs are green. Several agents may work in parallel, so do not run the full suite locally unless an issue asks for it.
 
 **Desktop UI flows run in CI, not locally.** `bash scripts/run-e2e.sh` drives the real macOS desktop (mouse, keyboard, window focus) for several minutes and blocks the maintainer from using the machine. Agents must not run it locally. The PR's CI `basic-ui-flows` job runs the same required flows on a clean runner and is the E2E acceptance; report its result in the receipt. Run it locally only when an issue explicitly requires it or when a UI failure reproduces only in CI and needs local debugging, and in both cases ask the maintainer first (through Orca, or in the PR when Orca is unavailable) and wait for approval.
 
