@@ -223,7 +223,7 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
         )
         XCTAssertEqual(
             CredentialPermission.prototypeCases.map(\.prototypeTitle),
-            ["每次使用前问我（推荐）", "始终允许使用", "不允许 Agent 使用"]
+            ["每次询问（推荐）", "允许", "隐藏"]
         )
     }
 
@@ -255,7 +255,7 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
             WorkspaceVisualContract.lockedCopy(language: "zh-Hans", credentialCount: 2),
             .init(
                 title: "凭证管理已锁定",
-                message: "已有 2 份凭证受保护。Agent 请旨不受影响，仍会直接弹出确认框。",
+                message: "已有 2 份凭证受保护。Agent 的请求不受影响，照常会弹窗问你。",
                 action: "解锁管理"
             )
         )
@@ -275,7 +275,7 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
             WorkspaceVisualContract.lockedCopy(language: "en", credentialCount: 1),
             .init(
                 title: "Credential Management is Locked",
-                message: "1 credential is protected. Agent requests still appear for you to decide.",
+                message: "1 credential is protected. Agent requests are not affected and still ask you.",
                 action: "Unlock Management"
             )
         )

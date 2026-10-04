@@ -756,13 +756,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld credential is protected. Agent requests still appear for you to decide."
+            "value": "%lld credential is protected. Agent requests are not affected and still ask you."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已有 %lld 份凭证受保护。Agent 请旨不受影响，仍会直接弹出确认框。"
+            "value": "已有 %lld 份凭证受保护。Agent 的请求不受影响，照常会弹窗问你。"
           }
         },
         "qps-ploc": {
@@ -779,20 +779,20 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld credentials are protected. Agent requests still appear for you to decide."
+            "value": "%lld credentials are protected. Agent requests are not affected and still ask you."
           },
           "variations": {
             "plural": {
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld credential is protected. Agent requests still appear for you to decide."
+                  "value": "%lld credential is protected. Agent requests are not affected and still ask you."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld credentials are protected. Agent requests still appear for you to decide."
+                  "value": "%lld credentials are protected. Agent requests are not affected and still ask you."
                 }
               }
             }
@@ -801,7 +801,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已有 %lld 份凭证受保护。Agent 请旨不受影响，仍会直接弹出确认框。"
+            "value": "已有 %lld 份凭证受保护。Agent 的请求不受影响，照常会弹窗问你。"
           }
         },
         "qps-ploc": {
@@ -1433,13 +1433,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ASK KEY · AGENT REQUEST"
+            "value": "Ask Key · Agent request"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请旨 · AGENT 请求"
+            "value": "请旨 · Agent 请求"
           }
         },
         "qps-ploc": {
@@ -1778,7 +1778,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add a credential to keep it in AskKey."
+            "value": "Add a credential to keep it in Ask Key."
           }
         },
         "zh-Hans": {
@@ -1790,7 +1790,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Add a credential to keep it in AskKey.!!]"
+            "value": "[!!Add a credential to keep it in Ask Key.!!]"
           }
         }
       }
@@ -1801,7 +1801,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add a text credential to keep it in AskKey."
+            "value": "Add a text credential to keep it in Ask Key."
           }
         },
         "zh-Hans": {
@@ -1813,7 +1813,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Add a text credential to keep it in AskKey.!!]"
+            "value": "[!!Add a text credential to keep it in Ask Key.!!]"
           }
         }
       }
@@ -2077,13 +2077,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent Requests"
+            "value": "Agent"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent 请旨"
+            "value": "Agent"
           }
         },
         "qps-ploc": {
@@ -2123,13 +2123,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent approvals"
+            "value": "Agent"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent 请旨"
+            "value": "Agent"
           }
         },
         "qps-ploc": {
@@ -2445,13 +2445,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow Once"
+            "value": "Allow once"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅本次"
+            "value": "允许本次"
           }
         },
         "qps-ploc": {
@@ -2537,13 +2537,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Always Allow"
+            "value": "Allow"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "始终允许使用"
+            "value": "允许"
           }
         },
         "qps-ploc": {
@@ -2692,29 +2692,6 @@
         }
       }
     },
-    "Approval": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Approval"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需请旨"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Approval!!]"
-          }
-        }
-      }
-    },
     "Approve Change": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -2836,13 +2813,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask"
+            "value": "Ask every time"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请旨"
+            "value": "每次询问"
           }
         },
         "qps-ploc": {
@@ -2859,13 +2836,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask Every Time (Recommended)"
+            "value": "Ask every time (recommended)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "每次使用前问我（推荐）"
+            "value": "每次询问（推荐）"
           }
         },
         "qps-ploc": {
@@ -3417,7 +3394,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请旨：每次使用都要等你批准。"
+            "value": "每次询问：每次使用都要等你批准。"
           }
         },
         "qps-ploc": {
@@ -3457,7 +3434,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AskKey only imports ordinary files. Directories are not allowed."
+            "value": "Ask Key only imports ordinary files. Directories are not allowed."
           }
         },
         "zh-Hans": {
@@ -3469,7 +3446,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!AskKey only imports ordinary files. Directories are not allowed.!!]"
+            "value": "[!!Ask Key only imports ordinary files. Directories are not allowed.!!]"
           }
         }
       }
@@ -3480,7 +3457,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AskKey only imports ordinary files. Special files are not allowed."
+            "value": "Ask Key only imports ordinary files. Special files are not allowed."
           }
         },
         "zh-Hans": {
@@ -3492,7 +3469,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!AskKey only imports ordinary files. Special files are not allowed.!!]"
+            "value": "[!!Ask Key only imports ordinary files. Special files are not allowed.!!]"
           }
         }
       }
@@ -3503,7 +3480,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AskKey only imports ordinary files. Symbolic links are not allowed."
+            "value": "Ask Key only imports ordinary files. Symbolic links are not allowed."
           }
         },
         "zh-Hans": {
@@ -3515,7 +3492,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!AskKey only imports ordinary files. Symbolic links are not allowed.!!]"
+            "value": "[!!Ask Key only imports ordinary files. Symbolic links are not allowed.!!]"
           }
         }
       }
@@ -5234,7 +5211,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新建一份，或从文件 / .env 导入。保存后 Agent 才能按你的规则来请旨。"
+            "value": "新建一份，或从文件 / .env 导入。保存后 Agent 才能按你的规则来申请使用。"
           }
         },
         "qps-ploc": {
@@ -6539,13 +6516,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Do Not Allow Agent"
+            "value": "Hidden"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "不允许 Agent 使用"
+            "value": "隐藏"
           }
         },
         "qps-ploc": {
@@ -7603,7 +7580,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已隐藏"
+            "value": "隐藏"
           }
         },
         "qps-ploc": {
@@ -9236,7 +9213,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新凭证默认请旨。"
+            "value": "新凭证默认“每次询问”。"
           }
         },
         "qps-ploc": {
@@ -10058,7 +10035,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open AskKey"
+            "value": "Open Ask Key"
           }
         },
         "zh-Hans": {
@@ -10070,7 +10047,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Open AskKey!!]"
+            "value": "[!!Open Ask Key!!]"
           }
         }
       }
@@ -11181,52 +11158,6 @@
         }
       }
     },
-    "Require approval": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Require approval"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每次会话请旨"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Require approval!!]"
-          }
-        }
-      }
-    },
-    "Require approval every time": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Require approval every time"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每次读取都请旨"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Require approval every time!!]"
-          }
-        }
-      }
-    },
     "Restore": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -12149,29 +12080,6 @@
         }
       }
     },
-    "Strict": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Strict"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "次次请旨"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Strict!!]"
-          }
-        }
-      }
-    },
     "Supports regular files and .env files. The original is never modified.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -12615,7 +12523,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The file changed while AskKey was reading it. Import was cancelled."
+            "value": "The file changed while Ask Key was reading it. Import was cancelled."
           }
         },
         "zh-Hans": {
@@ -12627,7 +12535,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!The file changed while AskKey was reading it. Import was cancelled.!!]"
+            "value": "[!!The file changed while Ask Key was reading it. Import was cancelled.!!]"
           }
         }
       }
@@ -12799,7 +12707,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This file is larger than AskKey's 5 MB import limit."
+            "value": "This file is larger than Ask Key's 5 MB import limit."
           }
         },
         "zh-Hans": {
@@ -12811,7 +12719,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!This file is larger than AskKey's 5 MB import limit.!!]"
+            "value": "[!!This file is larger than Ask Key's 5 MB import limit.!!]"
           }
         }
       }
@@ -13305,7 +13213,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unlock AskKey vault"
+            "value": "Unlock Ask Key vault"
           }
         },
         "zh-Hans": {
@@ -13317,7 +13225,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Unlock AskKey vault!!]"
+            "value": "[!!Unlock Ask Key vault!!]"
           }
         }
       }
@@ -13351,7 +13259,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unlock the AskKey vault for %@"
+            "value": "Unlock the Ask Key vault for %@"
           }
         },
         "zh-Hans": {
@@ -13363,7 +13271,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Unlock the AskKey vault for %@!!]"
+            "value": "[!!Unlock the Ask Key vault for %@!!]"
           }
         }
       }
@@ -13489,7 +13397,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use AskKey from terminals and local tools."
+            "value": "Use Ask Key from terminals and local tools."
           }
         },
         "zh-Hans": {
@@ -13501,7 +13409,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Use AskKey from terminals and local tools.!!]"
+            "value": "[!!Use Ask Key from terminals and local tools.!!]"
           }
         }
       }
@@ -13512,7 +13420,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use AskKey from your agents and tools."
+            "value": "Use Ask Key from your agents and tools."
           }
         },
         "zh-Hans": {
@@ -13524,7 +13432,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Use AskKey from your agents and tools.!!]"
+            "value": "[!!Use Ask Key from your agents and tools.!!]"
           }
         }
       }
@@ -13903,7 +13811,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Welcome to AskKey"
+            "value": "Welcome to Ask Key"
           }
         },
         "zh-Hans": {
@@ -13915,7 +13823,7 @@
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Welcome to AskKey!!]"
+            "value": "[!!Welcome to Ask Key!!]"
           }
         }
       }
@@ -14363,19 +14271,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the AskKey CLI"
+            "value": "the Ask Key CLI"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "AskKey 命令行"
+            "value": "Ask Key 命令行"
           }
         },
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!the AskKey CLI!!]"
+            "value": "[!!the Ask Key CLI!!]"
           }
         }
       }

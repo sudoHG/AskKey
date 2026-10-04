@@ -61,7 +61,7 @@ Each credential has one permission:
 | Permission | Effect on agents |
 |---|---|
 | Allow | Agents can use it without a prompt. Delivery still goes through the Broker. |
-| Ask (default) | Every use waits for your approval. |
+| Ask every time (default) | Every use waits for your approval. |
 | Hidden | Not in the agent catalog; agents cannot request it. |
 
 When you approve a read, you choose **Once** or a **Timed allowance**: a number of minutes during which that credential can be read without asking again, until it ends or you revoke it. Pending requests expire after five minutes.
