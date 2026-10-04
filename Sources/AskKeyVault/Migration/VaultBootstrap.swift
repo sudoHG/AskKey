@@ -222,8 +222,11 @@ enum VaultBootstrap {
     /// The database and every directory through the declared root, innermost
     /// first. Keep lexical paths so a symlinked ancestor is opened as a directory.
     private static func durableEntryChain(paths: VaultBootstrapPaths) throws -> [VaultBootstrapSyncTarget] {
-        var directory = paths.directory.standardizedFileURL
-        let root = paths.durabilityRoot.standardizedFileURL
+        // standardizedFileURL can rewrite an existing /private/var ancestor
+        // while leaving a not-yet-created descendant unchanged. Normalize only
+        // dot segments, independently of which directories already exist.
+        var directory = paths.directory.standardized
+        let root = paths.durabilityRoot.standardized
         guard directory.pathComponents.starts(with: root.pathComponents) else {
             throw VaultBootstrapError.invalidState
         }

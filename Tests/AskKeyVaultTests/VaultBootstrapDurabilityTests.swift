@@ -1,8 +1,45 @@
+import Darwin
 import Foundation
 import XCTest
 @testable import AskKeyVault
 
 final class VaultBootstrapDurabilityTests: XCTestCase {
+    func testPhysicalTemporaryRunAllowsFreshCreationRecoveryAndReopening() throws {
+        for recovering in [false, true] {
+            let temporaryRoot = try temporaryDirectory()
+            let physicalPath = try XCTUnwrap(temporaryRoot.path.withCString { realpath($0, nil) })
+            defer { free(physicalPath) }
+            let root = URL(fileURLWithPath: String(cString: physicalPath), isDirectory: true)
+            let paths = VaultBootstrapPaths(directory: root.appendingPathComponent("core"), durabilityRoot: root)
+            let keys = MemoryAppKeyStore()
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.directory.path))
+            if recovering {
+                keys.promotionFailure = SyncInterruption()
+                XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+                    XCTAssertTrue($0 is SyncInterruption)
+                }
+                keys.promotionFailure = nil
+            }
+            var synchronized: [String] = []
+            let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, synchronize: {
+                XCTAssertNil(keys.appKey)
+                try VaultBootstrap.synchronize($0)
+                synchronized.append($0.url.path)
+            })
+            try opened.store.close()
+            XCTAssertEqual(synchronized, (recovering ? [] : [paths.creatingDatabase.path]) + [
+                paths.currentDatabase.path, paths.directory.path, root.path,
+            ])
+            let appKey = try XCTUnwrap(keys.appKey)
+            XCTAssertNil(keys.pendingKey)
+            XCTAssertEqual(try VaultBootstrap.state(paths: paths), .current)
+            let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+            try reopened.store.close()
+            XCTAssertEqual(keys.appKey, appKey)
+            XCTAssertNil(keys.pendingKey)
+        }
+    }
+
     func testSymlinkedApplicationSupportAllowsCreationAndRecovery() throws {
         for recovering in [false, true] {
             let root = try temporaryDirectory()
@@ -142,6 +179,18 @@ final class VaultBootstrapDurabilityTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = VaultBootstrapPaths(directory: root.appendingPathComponent("SYNTHETIC-data"),
                                         durabilityRoot: root.appendingPathComponent("SYNTHETIC-other"))
+        let keys = MemoryAppKeyStore()
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+            XCTAssertEqual($0 as? VaultBootstrapError, .invalidState)
+        }
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), [])
+        XCTAssertEqual(keys.mutations, 0)
+    }
+
+    func testDotSegmentEscapeIsRejectedBeforeMutatingFilesOrKeys() throws {
+        let root = try temporaryDirectory()
+        let directory = URL(fileURLWithPath: root.path + "/../SYNTHETIC-outside/core", isDirectory: true)
+        let paths = VaultBootstrapPaths(directory: directory, durabilityRoot: root)
         let keys = MemoryAppKeyStore()
         XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
             XCTAssertEqual($0 as? VaultBootstrapError, .invalidState)
