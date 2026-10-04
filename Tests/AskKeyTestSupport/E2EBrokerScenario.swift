@@ -149,7 +149,7 @@ final class E2EBrokerScenario {
             throw failure("Expected a pending synthetic credential write")
         }
         try report("approval-pending.json", ["requestID": ticket.requestID])
-        try await waitUntil { self.commandExists("cancel-authentication") }
+        try await waitUntil(timeout: 180) { self.commandExists("cancel-authentication") }
         try report("authentication-cancellation-ready.json", ["ready": true])
     }
 

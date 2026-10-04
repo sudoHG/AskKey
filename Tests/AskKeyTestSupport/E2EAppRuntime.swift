@@ -44,6 +44,9 @@ package enum E2EAppRuntime {
             controlDirectory.appendingPathComponent("command-cancel-authentication.txt").path)
         let outcome = isReveal ? (cancelled ? "cancelled" : "authenticated") : "failed"
         let response = try! JSONSerialization.data(withJSONObject: ["outcome": outcome])
+        try? response.write(to: controlDirectory.appendingPathComponent(
+            cancelled ? "authentication-cancelled.json" : "authentication-authenticated.json"
+        ), options: .atomic)
         try? FileHandle.standardOutput.write(contentsOf: response)
         exit(0)
     }
