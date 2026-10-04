@@ -58,6 +58,25 @@ final class AgentOnboardingCompletionTests: AskKeyAppTestCase {
         XCTAssertNil(AgentOnboardingCopy.completion(for: .codex, session: makeSession(phase: .completed)))
     }
 
+    func testClaudeCompletionRequiresDiscoveryAndExplainsNewSessionInBothLanguages() throws {
+        var session = makeSession(phase: .completed)
+        XCTAssertNil(AgentOnboardingCopy.completion(for: .claudeCode, session: session))
+        session.lastKnownResult?.discovery = .missing
+        XCTAssertNil(AgentOnboardingCopy.completion(for: .claudeCode, session: session))
+        session.lastKnownResult?.discovery = .configured
+        for language in ["en", "zh-Hans"] {
+            AppLanguage.current = language
+            let completion = try XCTUnwrap(AgentOnboardingCopy.completion(for: .claudeCode, session: session))
+            if language == "en" {
+                XCTAssertEqual(completion.detail, "MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it.")
+            } else {
+                XCTAssertTrue(completion.detail.contains("Claude Code"))
+                XCTAssertTrue(completion.detail.contains("\u{4F1A}\u{8BDD}"))
+                XCTAssertFalse(completion.detail.contains("Start a new"))
+            }
+        }
+    }
+
     func testCodexCompletionRequiresVerifiedDiscoveryAndExplainsNewTask() throws {
         for readiness in [CredentialDiscoveryReadiness.configured, .missing, .disabled, .untrusted, .unavailable] {
             var session = makeSession(phase: .completed)

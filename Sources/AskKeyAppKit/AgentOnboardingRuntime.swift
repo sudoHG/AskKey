@@ -60,6 +60,8 @@ extension AgentClientConnector {
         try throwIfCheckCancelled()
         let report: AgentCheckReport
         switch client {
+        case .claudeCode:
+            report = try checkClaude()
         case .codex:
             report = try checkCodex()
         case .cursor:
@@ -93,6 +95,8 @@ extension AgentClientConnector {
             )
         }
         switch client {
+        case .claudeCode:
+            return try applyClaude(plan: plan)
         case .codex:
             return try applyCodex(plan: plan)
         case .cursor:
@@ -104,6 +108,8 @@ extension AgentClientConnector {
 
     private func hasAskKeyConfiguration(_ client: AgentClient) throws -> Bool {
         switch client {
+        case .claudeCode:
+            return try claudeConfigurationPresent(claudeAdapter())
         case .codex:
             return try codexAdapter().hasConfiguration()
         case .cursor:
@@ -120,6 +126,60 @@ extension AgentClientConnector {
             native: codexNativeHooks(),
             plan: localPlan(for: .codex)
         )
+    }
+
+    private func claudeConfigurationPresent(_ adapter: ClaudeCodeMCPAdapter) throws -> Bool {
+        switch try adapter.plan().state {
+        case .absent: return false
+        case .matching: return true
+        case .different: throw ClaudeCodeMCPError.conflictingEntry
+        case .scopeConflict: throw ClaudeCodeMCPError.conflictingScope
+        }
+    }
+
+    private func checkClaude() throws -> AgentCheckReport {
+        let adapter = try claudeAdapter()
+        let context = try commandDiscoveryContext(for: .claudeCode)
+        return try CommandHookOnboardingSetup.check(
+            client: .claudeCode,
+            hook: context.hook,
+            plan: localPlan(for: .claudeCode),
+            verifyHelper: context.verifyHelper,
+            hasMCPConfiguration: { try claudeConfigurationPresent(adapter) },
+            isMCPConnected: { try adapter.verify().connected },
+            previewMCP: { _ = try adapter.plan() }
+        )
+    }
+
+    private func applyClaude(plan: AgentOnboardingPlan) throws -> AgentApplyReport {
+        try Self.performExclusive(client: .claudeCode) {
+            do {
+                let adapter = try claudeAdapter()
+                let context = try commandDiscoveryContext(for: .claudeCode)
+                return try CommandHookOnboardingSetup.apply(
+                    client: .claudeCode,
+                    hook: context.hook,
+                    plan: plan,
+                    verifyHelper: context.verifyHelper,
+                    hasMCPConfiguration: { try claudeConfigurationPresent(adapter) },
+                    isMCPConnected: { try adapter.verify().connected },
+                    applyMCP: {
+                        guard try adapter.connect().connected else {
+                            throw ClaudeCodeMCPError.verificationFailed("client_disconnected")
+                        }
+                    },
+                    applyVerifiesMCP: true
+                )
+            } catch let error as ClaudeCodeMCPError {
+                var report = applyFailure(error, plan: plan)
+                report.changeStatus = .notWritten
+                // connect() rolls back every verification failure itself,
+                // including helper and broker failures with distinct UI states.
+                if case .verificationFailed = error { report.changeStatus = .restored }
+                if case .rollbackFailed = error { report.changeStatus = .restoreFailed }
+                return report
+            }
+        }
     }
 
     private func checkCursor() throws -> AgentCheckReport {

@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Claude Code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Claude Code" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Claude Code" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Claude Code!!]" } }
+      }
+    },
+    "MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "MCP 已连接，SSH 提醒已配置。请启动新的 Claude Code 会话以使用它。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it.!!]" } }
+      }
+    },
     "Use the isolated launch script": {
       "extractionState": "manual",
       "localizations": {
