@@ -10,7 +10,6 @@ import Darwin
 @MainActor
 package enum E2EAppRuntime {
     package static func configuration() -> AppRuntimeConfiguration {
-        completeScreenshotAuthenticationIfRequested()
         prepareIsolation()
         Vault.configureShared(VaultE2EFixture.makeVault())
         if ProcessInfo.processInfo.environment["ASKKEY_CLIENT_E2E"] != nil {
@@ -25,30 +24,17 @@ package enum E2EAppRuntime {
     }
 
     private static func configureE2EAuthentication() {
-        Vault.shared.approvalRequests.configureAuthentication { _ in true }
-    }
-
-    private static func completeScreenshotAuthenticationIfRequested() {
-        guard scenario == "approval-screenshots-write",
-              CommandLine.arguments.count == 4,
-              CommandLine.arguments[1] == "-AppleLanguages",
-              CommandLine.arguments[3] == "--askkey-authenticate" else { return }
-        // This handler exists only in the isolated E2E executable. Validate its
-        // marked bundle and private directories before simulating authentication.
-        prepareIsolation()
-        let data = FileHandle.standardInput.readDataToEndOfFile()
-        let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let isReveal = data.count <= 16 * 1024
-            && payload?["reasonKey"] as? String == "View the frozen file submitted for approval"
-        let cancelled = FileManager.default.fileExists(atPath:
-            controlDirectory.appendingPathComponent("command-cancel-authentication.txt").path)
-        let outcome = isReveal ? (cancelled ? "cancelled" : "authenticated") : "failed"
-        let response = try! JSONSerialization.data(withJSONObject: ["outcome": outcome])
-        try? response.write(to: controlDirectory.appendingPathComponent(
-            cancelled ? "authentication-cancelled.json" : "authentication-authenticated.json"
-        ), options: .atomic)
-        try? FileHandle.standardOutput.write(contentsOf: response)
-        exit(0)
+        let capturesApproval = scenario == "approval-screenshots"
+        let command = controlDirectory.appendingPathComponent("command-cancel-authentication.txt")
+        let evidence = controlDirectory.appendingPathComponent("authentication-cancelled.json")
+        Vault.shared.approvalRequests.configureAuthentication { _ in
+            let cancelled = capturesApproval && FileManager.default.fileExists(atPath: command.path)
+            if cancelled {
+                let response = try? JSONSerialization.data(withJSONObject: ["outcome": "cancelled"])
+                try? response?.write(to: evidence, options: .atomic)
+            }
+            return !cancelled
+        }
     }
     static func prepareIsolation() {
         let environment = ProcessInfo.processInfo.environment
