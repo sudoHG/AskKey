@@ -65,7 +65,7 @@ extension CommandDiscoveryHookConfiguration {
         var hooks = document.member("hooks") ?? CommandHookJSON.emptyObject
         for event in definition.groups.keys.sorted() where !matches.contains(where: { $0.event == event }) {
             var groups = hooks.member(event) ?? CommandHookJSON.emptyArray
-            try groups.append(try CommandHookJSON.parse(serialize(definition.groups[event]![0], error: .invalidExpectedHooks)))
+            try groups.append(try CommandHookJSON.generated(serialize(definition.groups[event]![0], error: .invalidExpectedHooks)))
             try hooks.set(event, to: groups)
         }
         try document.set("hooks", to: hooks)

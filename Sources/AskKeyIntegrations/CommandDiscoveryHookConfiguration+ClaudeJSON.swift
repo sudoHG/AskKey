@@ -15,14 +15,20 @@ struct CommandHookJSON {
 
     var bytes: Data {
         if let original { return original }
+        return rendered(depth: 0) + Data([10])
+    }
+
+    private func rendered(depth: Int) -> Data {
+        if let original { return original }
         switch value {
         case .object(let members):
             let values = members.map { key, node in
                 let encoded = quotedKey(key)
-                return encoded + Data(":".utf8) + node.bytes
+                return encoded + Data(": ".utf8) + node.rendered(depth: depth + 1)
             }
-            return joined(values, open: "{", close: "}")
-        case .array(let elements): return joined(elements.map(\.bytes), open: "[", close: "]")
+            return joined(values, open: "{", close: "}", depth: depth)
+        case .array(let elements):
+            return joined(elements.map { $0.rendered(depth: depth + 1) }, open: "[", close: "]", depth: depth)
         case .scalar: return Data()
         }
     }
@@ -40,14 +46,42 @@ struct CommandHookJSON {
         return encoded
     }
 
-    private func joined(_ values: [Data], open: String, close: String) -> Data {
+    private func joined(_ values: [Data], open: String, close: String, depth: Int) -> Data {
+        if values.isEmpty { return Data((open + close).utf8) }
         var result = Data(open.utf8)
+        result.append(10)
         for (index, value) in values.enumerated() {
-            if index > 0 { result.append(contentsOf: ",".utf8) }
+            result.append(contentsOf: String(repeating: "  ", count: depth + 1).utf8)
             result.append(value)
+            if index < values.count - 1 { result.append(44) }
+            result.append(10)
         }
+        result.append(contentsOf: String(repeating: "  ", count: depth).utf8)
         result.append(contentsOf: close.utf8)
         return result
+    }
+
+    /// Newly added groups have no user formatting to preserve. Render their
+    /// containers at the indentation of the insertion point.
+    static func generated(_ data: Data) throws -> Self {
+        var node = try parse(data)
+        node.regenerateContainers()
+        return node
+    }
+
+    private mutating func regenerateContainers() {
+        switch value {
+        case .object(let members):
+            value = .object(members.map { key, child in
+                var node = child; node.regenerateContainers(); return (key, node)
+            })
+        case .array(let elements):
+            value = .array(elements.map { child in
+                var node = child; node.regenerateContainers(); return node
+            })
+        case .scalar: return
+        }
+        original = nil
     }
 
     func member(_ key: String) -> Self? {

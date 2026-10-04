@@ -3,6 +3,27 @@ import XCTest
 @testable import AskKeyBroker
 
 final class ClaudeDiscoveryHookTests: XCTestCase {
+    func testMultilinePromptAndToolEnvelopesAreReadThroughEOF() throws {
+        let fixture = try Fixture()
+        let prompt = try JSONSerialization.data(withJSONObject: [
+            "hook_event_name": "UserPromptSubmit", "session_id": "synthetic-session"
+        ], options: [.prettyPrinted])
+        XCTAssertTrue(try fixture.call(prompt).isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.stateURL.path))
+        var envelope = try JSONSerialization.data(withJSONObject: fixture.envelope("PreToolUse"), options: [.prettyPrinted])
+        envelope.append(10)
+        let response = try XCTUnwrap(JSONSerialization.jsonObject(with: fixture.call(envelope)) as? [String: Any])
+        XCTAssertEqual((response["hookSpecificOutput"] as? [String: Any])?["permissionDecision"] as? String, "deny")
+    }
+
+    func testOversizedEOFDocumentAllowsWithoutCreatingState() throws {
+        let fixture = try Fixture()
+        var envelope = fixture.envelope("PreToolUse")
+        envelope["syntheticPadding"] = String(repeating: "x", count: BrokerLimits.maximumFrameBytes)
+        XCTAssertTrue(try fixture.call(JSONSerialization.data(withJSONObject: envelope)).isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.stateURL.path))
+    }
+
     func testPromptStartsTurnAndSSHIsDeniedWithoutExecutingInput() throws {
         let fixture = try Fixture()
         try fixture.prompt()

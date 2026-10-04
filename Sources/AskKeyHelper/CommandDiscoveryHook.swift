@@ -4,6 +4,19 @@ import AskKeyBroker
 /// Adapts native command hooks to the same SSH discovery reminder as Codex.
 /// It never executes tool input or accesses credentials.
 enum CommandDiscoveryHook {
+    /// Claude sends one JSON document terminated by EOF, rather than an MCP
+    /// line. Bound its total size before attempting to decode the envelope.
+    static func readClaudeInput(maximumBytes: Int) -> Data? {
+        var bytes = Data()
+        do {
+            while let chunk = try FileHandle.standardInput.read(upToCount: 8192), !chunk.isEmpty {
+                guard bytes.count + chunk.count <= maximumBytes else { return nil }
+                bytes.append(chunk)
+            }
+        } catch { return nil }
+        return bytes
+    }
+
     static func response(client: String, input: [String: Any]) throws -> [String: Any] {
         let allowed = allow(client: client)
         let event: String, session: String, tool: String, call: String?

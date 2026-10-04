@@ -114,6 +114,32 @@ final class ClaudeDiscoveryHookConfigurationTests: XCTestCase {
         XCTAssertEqual(try fixture.backups().count, backupCount)
     }
 
+    func testIndentedMultiToolSettingsStayReadableWithOnlyOwnedChanges() throws {
+        let original = Data(multiToolSettings.utf8)
+        let fixture = try Fixture(bytes: original)
+        var expected = try fixture.object()
+        var hooks = try XCTUnwrap(expected["hooks"] as? [String: [[String: Any]]])
+        let definition = try fixture.definitionObject()
+        let owned = try XCTUnwrap(definition["hooks"] as? [String: [[String: Any]]])
+        for event in fixture.ownedEvents { hooks[event]!.append(contentsOf: owned[event]!) }
+        expected["hooks"] = hooks
+        try fixture.install()
+        let installed = try fixture.bytes()
+        let installedText = try XCTUnwrap(String(data: installed, encoding: .utf8))
+        XCTAssertTrue(installedText.contains("\n  \"env\": "))
+        XCTAssertTrue(installedText.contains("\n  \"hooks\": {\n"))
+        XCTAssertTrue(installedText.contains("\n    \"PreToolUse\": [\n"))
+        XCTAssertTrue(installedText.contains("\n        \"hooks\": [\n          {\n"))
+        XCTAssertEqual(try normalized(installed), try JSONSerialization.data(withJSONObject: expected, options: [.sortedKeys]))
+        try fixture.configuration.removeClaudeHooks()
+        let removed = try fixture.bytes()
+        let removedText = try XCTUnwrap(String(data: removed, encoding: .utf8))
+        XCTAssertTrue(removedText.contains("\n  \"env\": "))
+        XCTAssertTrue(removedText.contains("\n  \"hooks\": {\n"))
+        XCTAssertTrue(removedText.contains("\n    \"PreToolUse\": [\n"))
+        XCTAssertEqual(try normalized(removed), try normalized(original))
+    }
+
     func testRemovalMissingFileDoesNotCreateSettingsOrBackup() throws {
         let fixture = try Fixture()
         try fixture.configuration.removeClaudeHooks()
@@ -281,6 +307,10 @@ final class ClaudeDiscoveryHookConfigurationTests: XCTestCase {
             let range = try XCTUnwrap(text.range(of: "\"\(key)\"", range: previous..<text.endIndex))
             previous = range.upperBound
         }
+    }
+
+    private func normalized(_ data: Data) throws -> Data {
+        try JSONSerialization.data(withJSONObject: JSONSerialization.jsonObject(with: data), options: [.sortedKeys])
     }
 
     private final class Fixture {
