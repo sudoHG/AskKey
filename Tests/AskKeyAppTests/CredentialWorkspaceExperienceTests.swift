@@ -67,8 +67,8 @@ final class CredentialWorkspaceExperienceTests: AppLanguageExperienceTestSupport
             encoding: .utf8
         )
         XCTAssertTrue(onboardingSource.contains("onboarding.appear()"))
-        XCTAssertTrue(onboardingSource.contains("Review connection"))
-        XCTAssertTrue(onboardingSource.contains("Text(FrozenSettingsContract.agentAccessSubtitle)"))
+        XCTAssertTrue(onboardingSource.contains("presentation.actionTitle(expanded: expanded)"))
+        XCTAssertTrue(onboardingSource.contains("subtitle: FrozenSettingsContract.agentAccessSubtitle"))
         XCTAssertFalse(onboardingSource.contains("{\"command\""))
         let connectorSource = try String(
             contentsOf: repoRoot().appendingPathComponent(
