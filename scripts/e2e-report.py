@@ -30,7 +30,8 @@ def export_screenshots(bundle, destination):
         for test in json.loads((raw / "manifest.json").read_text()):
             for attachment in test["attachments"]:
                 name = attachment["suggestedHumanReadableName"]
-                match = re.match(r"^(\d{2}-[a-z-]+)\.png(?:$|[_. ])", name)
+                # XCTest strips the authored extension and appends a run suffix.
+                match = re.match(r"^(\d{2}-[a-z-]+)(?:\.png)?(?:$|[_. ])", name)
                 if not match or match[1] not in SCREENSHOTS:
                     continue
                 filename = match[1] + ".png"

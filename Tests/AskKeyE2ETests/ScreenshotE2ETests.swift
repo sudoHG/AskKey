@@ -7,6 +7,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-welcome"
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = "en"
         app.launch()
+        moveManagementAboveDock()
         waitForText("Create First Credential")
         capture("01-welcome-first-launch")
         clickLabel("Create First Credential")
@@ -23,7 +24,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         clickLabel("Start Using")
         click("unlock-management")
         click("sidebar-all")
-        waitForText("CI Demo Credential")
+        waitForText("CI Demo Credential", containing: true)
         capture("03-all-credentials")
         clickLabel("Import from File", containing: true)
         let editor = app.textViews.firstMatch
@@ -41,6 +42,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         app.terminate()
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "connected"
         app.launch()
+        moveManagementAboveDock()
         XCTAssertTrue(app.buttons["unlock-management"].waitForExistence(timeout: 8))
         capture("11-locked")
     }
@@ -52,6 +54,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         _ = try waitForEvidence("approval-pending.json")
         XCTAssertTrue(app.buttons["approval-deny"].waitForExistence(timeout: 8))
         app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+        moveManagementAboveDock()
         click("unlock-management")
         click("sidebar-pending")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'request-'"))
@@ -86,16 +89,36 @@ final class ScreenshotE2ETests: E2EBaseCase {
     }
 
     private func capture(_ name: String, approval: Bool = false) {
-        let windows = app.windows.allElementsBoundByIndex
+        // AppKit's floating approval NSPanel is exposed as a dialog, while the
+        // management scene is a window. Query both before taking a window crop.
+        let windows = app.windows.allElementsBoundByIndex + app.dialogs.allElementsBoundByIndex
         let window = approval
             ? windows.first { $0.buttons["approval-deny"].exists }
             : windows.first { !$0.buttons["approval-deny"].exists }
-        guard let window else { XCTFail("Missing window for \(name)"); return }
+        guard let window else {
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "Missing screenshot window — UI tree"
+            tree.lifetime = .keepAlways
+            add(tree)
+            XCTFail("Missing window for \(name)")
+            return
+        }
         XCTAssertTrue(window.isHittable)
         let attachment = XCTAttachment(screenshot: window.screenshot())
         attachment.name = name + ".png"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func moveManagementAboveDock() {
+        let window = app.windows["settings"].firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 8))
+        let origin = window.frame.origin
+        guard origin.y > 34 else { return }
+        let titleBar = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: 14))
+        titleBar.press(forDuration: 0.1, thenDragTo:
+            titleBar.withOffset(CGVector(dx: 0, dy: 34 - origin.y)))
     }
 
     private func clickLabel(_ text: String, containing: Bool = false) {
