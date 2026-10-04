@@ -5,8 +5,10 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 APP="$ROOT_DIR/.build/AskKeyApp.app"
-OUTPUT="$ROOT_DIR/.build/release"
+OUTPUT="$ROOT_DIR/.build/release-artifacts"
 NOTARIZE=true
+NOTARY_CREDENTIAL=""
+ASKKEY_RELEASE_HELPER="${ASKKEY_RELEASE_HELPER:-/Applications/Ask Key.app/Contents/Helpers/askkey}"
 
 fail() {
   printf 'Error: %s\n' "$1" >&2
@@ -14,7 +16,7 @@ fail() {
 }
 
 usage() {
-  echo "Usage: $0 [--app PATH] [--output DIR] [--no-notarize]"
+  echo "Usage: $0 [--app PATH] [--output DIR] [--notary-credential NAME] [--no-notarize]"
 }
 
 while [[ "$#" -gt 0 ]]; do
@@ -24,20 +26,33 @@ while [[ "$#" -gt 0 ]]; do
       if [[ "$1" == --app ]]; then APP="$2"; else OUTPUT="$2"; fi
       shift 2
       ;;
+    --notary-credential)
+      [[ "$#" -ge 2 && -n "$2" && "$2" != --* ]] || fail "$1 requires a name"
+      NOTARY_CREDENTIAL="$2"
+      shift 2
+      ;;
     --no-notarize) NOTARIZE=false; shift ;;
     --help|-h) usage; exit 0 ;;
     *) usage >&2; fail "Unknown argument" ;;
   esac
 done
 
-[[ -d "$APP" ]] || fail "App bundle not found: $APP"
+if [[ -n "$NOTARY_CREDENTIAL" && "$NOTARIZE" == false ]]; then
+  fail "Notary credential and --no-notarize modes conflict"
+fi
+if [[ -n "$NOTARY_CREDENTIAL" && -n "${ASKKEY_NOTARY_PROFILE:-}" ]]; then
+  fail "Notary credential and ASKKEY_NOTARY_PROFILE modes conflict"
+fi
 if [[ "$NOTARIZE" == true ]]; then
   [[ -n "${ASKKEY_CODESIGN_IDENTITY:-}" ]] || fail "ASKKEY_CODESIGN_IDENTITY is required"
   [[ -n "${ASKKEY_APPLE_TEAM_ID:-}" ]] || fail "ASKKEY_APPLE_TEAM_ID is required"
-  [[ -n "${ASKKEY_NOTARY_PROFILE:-}" ]] || fail "ASKKEY_NOTARY_PROFILE is required"
+  if [[ -z "$NOTARY_CREDENTIAL" && -z "${ASKKEY_NOTARY_PROFILE:-}" ]]; then
+    fail "Exactly one of --notary-credential or ASKKEY_NOTARY_PROFILE is required"
+  fi
   [[ "$ASKKEY_CODESIGN_IDENTITY" != - ]] || fail "A Developer ID signing identity is required"
 fi
 
+[[ -d "$APP" ]] || fail "App bundle not found: $APP"
 APP="$(CDPATH= cd -- "$APP" && pwd -P)"
 VERSION="$(bash "$ROOT_DIR/scripts/product-version.sh")"
 PLIST="$APP/Contents/Info.plist"
@@ -66,9 +81,21 @@ ditto "$APP" "$STAGED_APP" || fail "Cannot stage the app"
 
 notarize() {
   local artifact="$1" response="$WORK_DIR/notary-result.json" fields submitted=true
-  # Tool diagnostics can contain signing/profile values; never echo them.
-  xcrun notarytool submit "$artifact" --keychain-profile "$ASKKEY_NOTARY_PROFILE" \
-    --wait --output-format json >"$response" 2>/dev/null || submitted=false
+  # Tool diagnostics can contain signing or credential values; never echo them.
+  if [[ -n "$NOTARY_CREDENTIAL" ]]; then
+    local operation_id
+    operation_id="$(uuidgen)"
+    # PRIVATE_KEY_FILE, KEY_ID, and ISSUER_ID are Ask Key delivery mappings.
+    # Expand them only inside the helper's target shell; never print their values.
+    "$ASKKEY_RELEASE_HELPER" run --wait-for-approval --credential "$NOTARY_CREDENTIAL" \
+      --operation-id "$operation_id" --caller-name "AskKey release" \
+      --caller-purpose "Notarize AskKey $VERSION" -- \
+      /bin/bash -c 'xcrun notarytool submit "$1" --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER_ID" --wait --output-format json' \
+      bash "$artifact" >"$response" 2>/dev/null || submitted=false
+  else
+    xcrun notarytool submit "$artifact" --keychain-profile "$ASKKEY_NOTARY_PROFILE" \
+      --wait --output-format json >"$response" 2>/dev/null || submitted=false
+  fi
   fields="$(python3 - "$response" <<'PY'
 import json
 import re
@@ -93,7 +120,11 @@ PY
   local status="${fields%%$'\n'*}" submission_id="${fields#*$'\n'}"
   if [[ "$submitted" != true || "$status" != Accepted ]]; then
     printf 'Notarization was not accepted. Inspect the submission with:\n' >&2
-    printf 'xcrun notarytool log %s --keychain-profile ...\n' "$submission_id" >&2
+    if [[ -n "$NOTARY_CREDENTIAL" ]]; then
+      printf 'xcrun notarytool log %s --key ... --key-id ... --issuer ...\n' "$submission_id" >&2
+    else
+      printf 'xcrun notarytool log %s --keychain-profile ...\n' "$submission_id" >&2
+    fi
     fail "Notarization must report Accepted"
   fi
 }
