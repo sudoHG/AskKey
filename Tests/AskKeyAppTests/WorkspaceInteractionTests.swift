@@ -63,13 +63,12 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         XCTAssertEqual(
             WorkspaceVisualContract.lockedCopy(
                 language: "zh-Hans",
-                credentialCount: 2,
                 pendingRequestCount: 2
             ),
             .init(
                 title: "凭证管理已锁定",
-                message: "已有 2 份凭证受保护。Agent 的请求不受影响，照常会弹窗问你。",
-                action: "解锁管理",
+                message: "查看或修改凭证前需要验证身份。Agent 的请求不受影响，照常会弹窗问你。",
+                action: "验证并解锁",
                 pendingMessage: "有 2 个 Agent 请求等待决定，不需要解锁管理。",
                 pendingAction: "直接处理请求"
             )

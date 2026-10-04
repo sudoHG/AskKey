@@ -183,6 +183,7 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
                     "Ask Every Time (Recommended)": "Ask every time (recommended)",
                     "Ask: Agents wait for your approval each time.": "Ask every time: Agents wait for your approval each time.",
                     "New credentials default to Ask.": "New credentials default to Ask every time.",
+                    "Component list separator": ", ",
                 ]
                 XCTAssertEqual(english, allowedAliases[key], "English value must match the key or a declared alias: \(key)")
             }

@@ -178,22 +178,17 @@ final class LocalizationRemediationTests: AskKeyAppTestCase {
         XCTAssertEqual(appLocalized("Pause Agent access"), "确认暂停 Agent 访问")
     }
 
-    func testLockedCopyPluralUsesCatalogNotALanguageBranch() {
-        let englishOne = WorkspaceVisualContract.lockedCopy(language: "en", credentialCount: 1)
-        XCTAssertTrue(englishOne.message.contains("credential is protected"))
-        let englishMany = WorkspaceVisualContract.lockedCopy(language: "en", credentialCount: 2)
-        XCTAssertTrue(englishMany.message.contains("credentials are protected"))
-        let chineseOne = WorkspaceVisualContract.lockedCopy(language: "zh-Hans", credentialCount: 1)
-        XCTAssertTrue(chineseOne.message.contains("凭证"))
-        XCTAssertFalse(chineseOne.message.contains("credential is protected"))
-        let source = try? String(
-            contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/WorkspaceVisualContract.swift"),
-            encoding: .utf8
-        )
-        XCTAssertFalse(
-            source?.contains("language != \"zh-Hans\" && credentialCount == 1") == true,
-            "plural selection must not hard-code Chinese vs English"
-        )
+    func testLockedCopyExplainsAuthenticationWithoutACredentialCount() {
+        let english = WorkspaceVisualContract.lockedCopy(language: "en")
+        XCTAssertTrue(english.message.contains("Authenticate to view or change credentials"))
+        let chinese = WorkspaceVisualContract.lockedCopy(language: "zh-Hans")
+        XCTAssertTrue(chinese.message.contains("需要验证身份"))
+        for copy in [english, chinese] {
+            XCTAssertNil(
+                copy.message.range(of: "[0-9]", options: .regularExpression),
+                "the locked state must not state how many credentials exist"
+            )
+        }
     }
 
     func testBackgroundApplyKeepsLockAndUpdatesStore() async {

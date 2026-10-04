@@ -3,7 +3,7 @@ import Foundation
 enum CredentialManagementSource {
     static let paths = [
         "Sources/AskKeyAppKit/Views/AccessRecords/FrozenAccessRecordsCopy.swift",
-        "Sources/AskKeyAppKit/Views/AccessRecords/FrozenClock.swift",
+        "Sources/AskKeyAppKit/Views/AccessRecords/AccessRecordPresentation.swift",
         "Sources/AskKeyAppKit/Views/AccessRecords/FrozenPendingRequestsCopy.swift",
         "Sources/AskKeyAppKit/Views/Credentials/CredentialComponentDraft.swift",
         "Sources/AskKeyAppKit/Views/Credentials/CredentialEditorAvailability.swift",
@@ -44,6 +44,7 @@ enum CredentialManagementSource {
         "Sources/AskKeyAppKit/Views/Credentials/FrozenImportConflictPresentation.swift",
         "Sources/AskKeyAppKit/Views/Credentials/FrozenImportCopy.swift",
         "Sources/AskKeyAppKit/Views/Credentials/FrozenImportTableLayout.swift",
+        "Sources/AskKeyAppKit/Views/Credentials/PendingRequestPresentation.swift",
         "Sources/AskKeyAppKit/Views/Credentials/RecycleBinPresentation.swift",
         "Sources/AskKeyAppKit/Views/Onboarding/FrozenTemplateChooserPage.swift",
         "Sources/AskKeyAppKit/Views/Settings/FrozenEraseConfirmationPresentation.swift",
@@ -53,11 +54,16 @@ enum CredentialManagementSource {
         "Sources/AskKeyAppKit/Views/Settings/FrozenSettingsPage.swift",
         "Sources/AskKeyAppKit/Views/Settings/FrozenTimedAllowanceSettingsPresentation.swift",
         "Sources/AskKeyAppKit/Views/Shared/CredentialPermission+Presentation.swift",
+        "Sources/AskKeyAppKit/Views/Shared/EmphasizedSentence.swift",
         "Sources/AskKeyAppKit/Views/Shared/FrozenCountdown.swift",
         "Sources/AskKeyAppKit/Views/Shared/FrozenDangerActions.swift",
         "Sources/AskKeyAppKit/Views/Shared/FrozenDangerButtonStyle.swift",
         "Sources/AskKeyAppKit/Views/Shared/FrozenPrimaryButtonStyle.swift",
         "Sources/AskKeyAppKit/Views/Shared/FrozenSegmentedControl.swift",
+        "Sources/AskKeyAppKit/Views/Shared/GroupedList.swift",
+        "Sources/AskKeyAppKit/Views/Shared/PageHeader.swift",
+        "Sources/AskKeyAppKit/Views/Shared/SecondaryButtonStyle.swift",
+        "Sources/AskKeyAppKit/Views/Shared/StatusLabel.swift",
         "Sources/AskKeyAppKit/Views/Shared/WorkspaceEmptyState.swift",
     ]
 

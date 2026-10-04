@@ -121,15 +121,7 @@ struct BorderedActionButton<Label: View>: View {
     @ViewBuilder let label: Label
 
     var body: some View {
-        Button(action: action) {
-            label
-                .font(Theme.Fonts.secondary)
-                .foregroundStyle(Theme.text)
-                .frame(height: Theme.controlHeight)
-                .padding(.horizontal, 10)
-                .background(Theme.neutralSubtle, in: .rect(cornerRadius: 7))
-                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.separator, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
+        Button(action: action) { label }
+            .buttonStyle(.secondaryAction)
     }
 }

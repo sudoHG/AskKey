@@ -146,42 +146,28 @@ struct SettingsView: View {
     private var lockedView: some View {
         let copy = WorkspaceVisualContract.lockedCopy(
             language: AppLanguage.resolve(mode: vault.languageMode),
-            credentialCount: max(vault.credentials.count, vault.onboardingCredentialCount),
             pendingRequestCount: vault.pendingApprovalCount
         )
-        return VStack(spacing: 18) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Theme.neutralSubtle)
-                    .frame(width: 52, height: 52)
-                Image(systemName: "lock.fill")
-                    .font(Theme.Icon.lockedState)
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            VStack(spacing: 7) {
-                Text(copy.title)
-                    .font(Theme.Fonts.headline)
-                    .foregroundStyle(Theme.text)
-                Text(copy.message)
-                    .font(Theme.Fonts.secondary)
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 320)
-            }
-            Button { vault.unlock() } label: {
-                Text(copy.action)
-                    .font(Theme.Fonts.secondary.weight(.semibold))
-                    .foregroundStyle(Theme.onAccent)
-                    .padding(.horizontal, 14)
-                    .frame(height: Theme.controlHeight)
-                    .background(Theme.accent, in: .rect(cornerRadius: 7))
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("unlock-management")
+        return VStack(spacing: Theme.Spacing.md) {
+            Image(systemName: "lock.fill")
+                .font(Theme.Icon.lockedState)
+                .foregroundStyle(Theme.textTertiary)
+                .accessibilityHidden(true)
+            Text(copy.title)
+                .font(Theme.Fonts.headline)
+                .foregroundStyle(Theme.text)
+            Text(copy.message)
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 340)
+            Button(copy.action) { vault.unlock() }
+                .buttonStyle(FrozenPrimaryButtonStyle())
+                .accessibilityIdentifier("unlock-management")
+                .padding(.top, Theme.Spacing.xs)
             if let pendingMessage = copy.pendingMessage,
                let pendingAction = copy.pendingAction {
                 VStack(spacing: Theme.Spacing.sm) {
-                    Divider().overlay(Theme.neutral(0.08))
                     Text(pendingMessage)
                         .font(Theme.Fonts.secondary)
                         .foregroundStyle(Theme.textSecondary)
@@ -192,11 +178,13 @@ struct SettingsView: View {
                             object: nil
                         )
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.secondaryAction)
                 }
-                .frame(maxWidth: 320)
+                .frame(maxWidth: 340)
+                .padding(.top, Theme.Spacing.xl)
             }
         }
+        .padding(Theme.Spacing.xxl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 

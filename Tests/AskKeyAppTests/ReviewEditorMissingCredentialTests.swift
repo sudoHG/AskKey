@@ -335,7 +335,6 @@ private struct SettingsRouteChain: View {
                 Image(systemName: "lock.fill")
                 Text(WorkspaceVisualContract.lockedCopy(
                     language: AppLanguage.resolve(mode: vault.languageMode),
-                    credentialCount: max(vault.credentials.count, vault.onboardingCredentialCount),
                     pendingRequestCount: vault.pendingApprovalCount
                 ).title)
                 Text(appLocalized("Unlock"))
