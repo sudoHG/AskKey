@@ -150,16 +150,15 @@ final class AppLanguageCatalogTests: AppLanguageExperienceTestSupport {
         )
         for needle in [
             "WorkspaceVisualContract.welcomeCopy",
-            "Save access keys, login details, certificates, or a combination of them.",
-            "Import a regular file or .env; the original file is not modified.",
-            "One credential can contain multiple items",
-            "Decide Agent requests immediately",
-            "Ask Key runs in the background",
-            "Launch at Login",
-            "Create First Credential",
-            "Start Using",
+            "WelcomeStepsPresentation",
+            "Launch at login. Agents get no credentials while Ask Key is off.",
+            "Connect an Agent",
+            "Later",
         ] {
             XCTAssertTrue(onboarding.contains(needle), "onboarding is missing \(needle)")
+        }
+        for removed in ["Start Using", "Create First Credential", "unlock management"] {
+            XCTAssertFalse(onboarding.contains(removed), "onboarding still contains \(removed)")
         }
 
         let settings = try CredentialManagementSource.read(

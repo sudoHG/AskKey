@@ -70,6 +70,8 @@ package final class VaultViewModel {
     }
     var onboardingCredentialCount = 0
     var onboardingLaunchAtLoginEnabled = true
+    /// The first credential saved before onboarding completes, for the welcome page.
+    var onboardingSavedCredential: OnboardingSavedCredential?
 
     var sessionTimeoutSeconds: Double {
         get {
@@ -353,6 +355,12 @@ package final class VaultViewModel {
     func completeOnboarding(enableLaunchAtLogin: Bool) {
         launchAtLogin = enableLaunchAtLogin
         hasCompletedOnboarding = true
+        onboardingSavedCredential = nil
+    }
+
+    func recordOnboardingSave(name: String, permission: CredentialPermission) {
+        guard !hasCompletedOnboarding else { return }
+        onboardingSavedCredential = OnboardingSavedCredential(name: name, permission: permission)
     }
 
     /// First-run creation is the user's explicit action, but it is not an identity

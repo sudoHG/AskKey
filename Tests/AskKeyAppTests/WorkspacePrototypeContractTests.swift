@@ -245,9 +245,9 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
             WorkspaceVisualContract.welcomeCopy(language: "zh-Hans"),
             .init(
                 title: "欢迎使用请旨",
-                message: "把一整套凭证材料放在一起。Agent 需要时，系统确认框会直接问你，由你当场决定。",
-                createAction: "创建凭证",
-                importAction: "从文件导入"
+                message: "Agent 要用密钥时会先来问你。批准后，值只交给要用它的程序。",
+                createAction: "新建凭证",
+                importAction: "从文件导入…"
             )
         )
         XCTAssertEqual(
@@ -265,9 +265,9 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
             WorkspaceVisualContract.welcomeCopy(language: "en"),
             .init(
                 title: "Welcome to Ask Key",
-                message: "Keep a complete set of credential materials together. When an Agent needs them, a system confirmation asks you to decide.",
-                createAction: "Create Credential",
-                importAction: "Import from File"
+                message: "Agents ask you before they use a key. Once you approve, the value goes only to the program that needs it.",
+                createAction: "New Credential",
+                importAction: "Import from File…"
             )
         )
         XCTAssertEqual(

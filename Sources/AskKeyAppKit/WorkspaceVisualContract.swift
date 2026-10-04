@@ -53,11 +53,11 @@ enum WorkspaceVisualContract {
         .init(
             title: AppLanguage.localized("Welcome to Ask Key", language: language),
             message: AppLanguage.localized(
-                "Keep a complete set of credential materials together. When an Agent needs them, a system confirmation asks you to decide.",
+                "Agents ask you before they use a key. Once you approve, the value goes only to the program that needs it.",
                 language: language
             ),
-            createAction: AppLanguage.localized("Create Credential", language: language),
-            importAction: AppLanguage.localized("Import from File", language: language)
+            createAction: AppLanguage.localized("New Credential", language: language),
+            importAction: AppLanguage.localized("Import from File…", language: language)
         )
     }
 

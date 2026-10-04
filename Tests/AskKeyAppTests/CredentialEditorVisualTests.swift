@@ -93,12 +93,7 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
         )
     }
 
-    func testWelcomeAndImportPreviewUseFrozenExplanations() {
-        XCTAssertEqual(
-            FrozenWelcomeCopy.backgroundMessage,
-            "登录时启动默认开启；未运行时 Agent 无法取得凭证。"
-        )
-        XCTAssertEqual(FrozenWelcomeCopy.launchAtLoginSubtitle, "让 Agent 随时能找到请旨")
+    func testImportPreviewUsesFrozenExplanations() {
         XCTAssertEqual(
             FrozenImportCopy.previewSummary(itemCount: 2, skippedLineCount: 1),
             "包含 2 项；跳过空行 1 行。"
