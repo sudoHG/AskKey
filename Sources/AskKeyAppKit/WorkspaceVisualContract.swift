@@ -4,8 +4,21 @@ enum WorkspaceVisualContract {
     static let windowWidth = 980.0
     static let windowHeight = 620.0
     static let sidebarWidth = 204.0
-    static let accentHex = "0A6CFF"
+    // The accent role is the system accent color, so it has no fixed value.
     static let windowBackgroundHex = "F6F6F4"
+    static let sidebarBackgroundHex = "ECEEEC"
+    static let surfaceHex = "FFFFFF"
+    static let textHex = "1C1F23"
+    static let textSecondaryHex = "646B73"
+    static let textTertiaryHex = "8E949A"
+    static let warningHex = "C8342C"
+    static let separatorOpacity = 0.09
+    /// Title, headline, body, secondary and caption sizes, in that order.
+    static let typeScale: [Double] = [22, 15, 13, 12, 11]
+    static let monospaceSize = 12.0
+    static let spacingScale: [Double] = [4, 8, 12, 16, 24, 32]
+    /// Control, list group and alert corner radii, in that order.
+    static let radii: [Double] = [6, 10, 13]
 
     struct WelcomeCopy: Equatable {
         let title: String

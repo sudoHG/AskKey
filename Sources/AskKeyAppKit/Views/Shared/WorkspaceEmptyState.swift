@@ -11,23 +11,23 @@ struct WorkspaceEmptyState: View {
     var action: () -> Void = {}
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Theme.Spacing.md) {
             Spacer()
             Image(systemName: systemImage)
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(Theme.textDim)
+                .font(Theme.Icon.emptyState)
+                .foregroundStyle(Theme.textTertiary)
             Text(title)
-                .font(.title3.weight(.semibold))
+                .font(Theme.Fonts.headline)
                 .foregroundStyle(Theme.text)
             Text(message)
-                .font(.system(size: 12.5))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 340)
             if let actionTitle {
                 Button(actionTitle, action: action)
                     .buttonStyle(.borderedProminent)
-                    .tint(Theme.brand)
+                    .tint(Theme.accent)
             }
             Spacer()
         }

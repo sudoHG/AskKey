@@ -13,39 +13,40 @@ func appLocalizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
 
 // MARK: - Theme
 
+/// Design tokens for the v0.2 design language: three color roles (neutral,
+/// accent, warning red), a five-size type scale plus monospace, 4-pt spacing
+/// and three corner radii. Views take colors and fonts from here only.
 enum Theme {
     static let controlHeight: CGFloat = 30
     static let rowHeight: CGFloat = 44
     static let tableHeaderHeight: CGFloat = 36
-    static let brand      = dynamic(light: (0.039, 0.424, 1.000), dark: (0.290, 0.620, 1.000))
-    static let brandSubtle = brand.opacity(0.12)
-    static let neutralSubtle = neutral(0.06)
-    static let sep        = dynamic(light: (0.871, 0.886, 0.902), dark: (0.102, 0.129, 0.157))
-    static let windowBackground = dynamic(light: (0.965, 0.965, 0.957), dark: (0.039, 0.055, 0.075))
-    static let sidebarBackground = dynamic(light: (0.925, 0.933, 0.925), dark: (0.075, 0.094, 0.114))
-    static let panelBackground = dynamic(light: (1.000, 1.000, 1.000), dark: (0.075, 0.094, 0.114))
-    static let cardShadow = dynamic(light: (0.000, 0.000, 0.000), dark: (0.000, 0.000, 0.000)).opacity(0.08)
-    static let text       = dynamic(light: (0.110, 0.122, 0.137), dark: (0.961, 0.961, 0.961))
-    static let textMuted  = dynamic(light: (0.392, 0.420, 0.451), dark: (0.627, 0.627, 0.627))
-    static let textDim    = dynamic(light: (0.557, 0.580, 0.604), dark: (0.420, 0.420, 0.420))
-    static let bgHigh     = neutral(0.055)
-    static let red        = dynamic(light: (0.788, 0.208, 0.165), dark: (1.000, 0.482, 0.447))
-    static let green      = brand
-    static let blue       = dynamic(light: (0.067, 0.408, 0.745), dark: (0.427, 0.686, 0.945))
-    static let mint       = dynamic(light: (0.063, 0.522, 0.467), dark: (0.384, 0.824, 0.765))
-    static let violet     = dynamic(light: (0.408, 0.310, 0.788), dark: (0.608, 0.529, 0.945))
-    static let pink       = dynamic(light: (0.753, 0.224, 0.420), dark: (0.929, 0.522, 0.690))
-    static let orange     = dynamic(light: (0.702, 0.522, 0.055), dark: (0.949, 0.800, 0.376))
-    static let amber      = dynamic(light: (0.749, 0.420, 0.110), dark: (0.925, 0.635, 0.365))
-    static let slate      = dynamic(light: (0.373, 0.435, 0.494), dark: (0.565, 0.624, 0.690))
 
-    /// Contrast color for glyphs drawn on top of the accent colors above
-    /// (light-mode accents are dark, dark-mode accents are pastel).
-    static let onAccent   = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor.black.withAlphaComponent(0.72)
-            : NSColor.white.withAlphaComponent(0.92)
-    })
+    // MARK: Neutral
+
+    static let windowBackground = dynamic(light: 0xF6F6F4, dark: 0x0A0E13)
+    static let sidebarBackground = dynamic(light: 0xECEEEC, dark: 0x13181D)
+    static let surface = dynamic(light: 0xFFFFFF, dark: 0x13181D)
+    static let text = dynamic(light: 0x1C1F23, dark: 0xF5F5F5)
+    static let textSecondary = dynamic(light: 0x646B73, dark: 0xA0A0A0)
+    static let textTertiary = dynamic(light: 0x8E949A, dark: 0x6B6B6B)
+    static let separator = neutral(0.09)
+    static let neutralSubtle = neutral(0.06)
+    static let cardShadow = Color.black.opacity(0.08)
+
+    // MARK: Accent
+
+    /// The system accent color: the one primary action per view, toggles,
+    /// links and positive states.
+    static let accent = Color.accentColor
+    static let accentSubtle = accent.opacity(0.12)
+    /// Text and glyphs drawn on a filled accent or warning background.
+    static let onAccent = Color.white
+
+    // MARK: Warning
+
+    /// Denied, failed, needs attention and irreversible actions.
+    static let warning = dynamic(light: 0xC8342C, dark: 0xFF7B72)
+    static let warningSubtle = warning.opacity(0.10)
 
     /// Neutral overlay: white-based in dark mode, black-based in light mode.
     static func neutral(_ opacity: Double) -> Color {
@@ -54,16 +55,56 @@ enum Theme {
         })
     }
 
-    private static func dynamic(
-        light: (Double, Double, Double),
-        dark: (Double, Double, Double)
-    ) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let rgb = appearance.isDark ? dark : light
-            return NSColor(srgbRed: rgb.0, green: rgb.1, blue: rgb.2, alpha: 1)
-        })
+    // MARK: Type
+
+    /// The type scale. Text sizes come only from these steps; emphasis is
+    /// `.weight(.semibold)` or `.bold()` on a step.
+    enum Fonts {
+        static let title = Font.system(size: 22, weight: .bold)
+        static let headline = Font.system(size: 15, weight: .semibold)
+        static let body = Font.system(size: 13)
+        static let secondary = Font.system(size: 12)
+        static let caption = Font.system(size: 11)
+        /// Commands, variable names and paths only.
+        static let mono = Font.system(size: 12, design: .monospaced)
     }
 
+    /// Sizes for standalone SF Symbol glyphs, which are not text.
+    enum Icon {
+        static let emptyState = Font.system(size: 32, weight: .light)
+        static let lockedState = Font.system(size: 28, weight: .medium)
+        static let inlineStatus = Font.system(size: 20)
+        static let brandMark = Font.system(size: 20, weight: .bold)
+    }
+
+    // MARK: Layout
+
+    enum Spacing {
+        static let xs: CGFloat = 4
+        static let sm: CGFloat = 8
+        static let md: CGFloat = 12
+        static let lg: CGFloat = 16
+        static let xl: CGFloat = 24
+        static let xxl: CGFloat = 32
+    }
+
+    enum Radius {
+        static let control: CGFloat = 6
+        static let group: CGFloat = 10
+        static let alert: CGFloat = 13
+    }
+
+    private static func dynamic(light: UInt32, dark: UInt32) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let hex = appearance.isDark ? dark : light
+            return NSColor(
+                srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+                green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255,
+                alpha: 1
+            )
+        })
+    }
 }
 
 private extension NSAppearance {
@@ -82,12 +123,12 @@ struct BorderedActionButton<Label: View>: View {
     var body: some View {
         Button(action: action) {
             label
-                .font(.system(size: 12, weight: .medium))
+                .font(Theme.Fonts.secondary)
                 .foregroundStyle(Theme.text)
                 .frame(height: Theme.controlHeight)
                 .padding(.horizontal, 10)
-                .background(Theme.bgHigh, in: .rect(cornerRadius: 7))
-                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.sep, lineWidth: 1))
+                .background(Theme.neutralSubtle, in: .rect(cornerRadius: 7))
+                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.separator, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

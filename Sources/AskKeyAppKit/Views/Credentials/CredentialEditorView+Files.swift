@@ -6,25 +6,25 @@ import AskKeyVault
 extension CredentialEditorView {
     @ViewBuilder
     var filePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Button(appLocalized(snapshot == nil && credential == nil ? CredentialManagementCopy.chooseFile : CredentialManagementCopy.replaceFile)) {
                 chooseFile()
             }
             if let snapshot {
                 Text(snapshot.originalFilename)
-                    .font(.system(.body, design: .monospaced))
+                    .font(Theme.Fonts.mono)
                 Text(ByteCountFormatter.string(fromByteCount: Int64(snapshot.byteSize), countStyle: .file))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.textSecondary)
                 Text(snapshot.contentDigest.map { String(format: "%02x", $0) }.joined())
-                    .font(.system(.caption, design: .monospaced))
+                    .font(Theme.Fonts.caption)
                     .textSelection(.enabled)
             } else if let credential, credential.payloadKind == .file {
                 Text("••••")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.textSecondary)
                 Text(ByteCountFormatter.string(fromByteCount: Int64(credential.byteSize ?? 0), countStyle: .file))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.textSecondary)
                 Text(credential.contentDigest ?? "")
-                    .font(.system(.caption, design: .monospaced))
+                    .font(Theme.Fonts.caption)
                     .textSelection(.enabled)
             }
         }

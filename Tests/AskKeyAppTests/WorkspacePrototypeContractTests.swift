@@ -240,7 +240,6 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
         XCTAssertEqual(WorkspaceVisualContract.windowWidth, 980)
         XCTAssertEqual(WorkspaceVisualContract.windowHeight, 620)
         XCTAssertEqual(WorkspaceVisualContract.sidebarWidth, 204)
-        XCTAssertEqual(WorkspaceVisualContract.accentHex, "0A6CFF")
         XCTAssertEqual(WorkspaceVisualContract.windowBackgroundHex, "F6F6F4")
         XCTAssertEqual(
             WorkspaceVisualContract.welcomeCopy(language: "zh-Hans"),

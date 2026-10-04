@@ -30,18 +30,18 @@ struct FrozenSettingsPage: View {
     var body: some View {
         let _ = AppLanguage.store.resolved
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(appLocalized("Settings")).font(.system(size: 20, weight: .bold))
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(appLocalized("Settings")).font(Theme.Fonts.title)
                     Text(appLocalized("Tighter security applies immediately. Relaxing it explains the impact and verifies you first."))
-                        .font(.system(size: 12.5)).foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.secondary).foregroundStyle(Theme.textSecondary)
                 }
                 settingCard(appLocalized("Agent Access"), vault.isAgentAccessPaused ? appLocalized("Paused: new requests and temporary deliveries are stopped.") : appLocalized("Running: Agents can request credentials according to each permission.")) {
                     Button(vault.isAgentAccessPaused ? appLocalized("Resume Agent Access") : appLocalized("Pause Agent Access")) {
                         Task { vault.isAgentAccessPaused ? await vault.resumeAgentAccess() : await vault.pauseAgentAccess() }
                     }
-                    .foregroundStyle(vault.isAgentAccessPaused ? Theme.brand : Theme.red)
-                    .tint(vault.isAgentAccessPaused ? Theme.brand : Theme.red)
+                    .foregroundStyle(vault.isAgentAccessPaused ? Theme.accent : Theme.warning)
+                    .tint(vault.isAgentAccessPaused ? Theme.accent : Theme.warning)
                 }
                 let readAuthentication = FrozenReadAuthenticationPresentation(
                     enabled: vault.readApprovalAuthenticationEnabled,
@@ -60,10 +60,10 @@ struct FrozenSettingsPage: View {
                 if let warning = readAuthentication.warning,
                    let confirmationTitle = readAuthentication.confirmationTitle {
                     HStack(alignment: .top, spacing: 10) {
-                        Text("⚠︎").foregroundStyle(Theme.amber)
+                        Text("⚠︎").foregroundStyle(Theme.warning)
                         Text(warning)
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textMuted)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                         Spacer()
                         Button(confirmationTitle, role: .destructive) {
                             Task {
@@ -76,8 +76,8 @@ struct FrozenSettingsPage: View {
                         }
                         Button(appLocalized("Cancel")) { confirmingReadAuthenticationDisable = false }
                     }
-                    .padding(12)
-                    .background(Theme.amber.opacity(0.10), in: .rect(cornerRadius: 9))
+                    .padding(Theme.Spacing.md)
+                    .background(Theme.warningSubtle, in: .rect(cornerRadius: 9))
                 }
                 settingCard(
                     appLocalized("Default Timed Allow"),
@@ -89,7 +89,7 @@ struct FrozenSettingsPage: View {
                         Toggle("", isOn: Binding(
                             get: { vault.timedAllowanceEnabled },
                             set: { vault.timedAllowanceEnabled = $0 }
-                        )).labelsHidden().toggleStyle(.switch).tint(Theme.mint)
+                        )).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
                         if vault.timedAllowanceEnabled {
                             Picker("", selection: Binding(
                                 get: {
@@ -133,20 +133,20 @@ struct FrozenSettingsPage: View {
                 }
                 settingCard(appLocalized("Launch at Login"), appLocalized("Agents cannot use credentials while Ask Key is not running.")) {
                     Toggle("", isOn: Binding(get: { vault.launchAtLogin }, set: { vault.launchAtLogin = $0 }))
-                        .labelsHidden().toggleStyle(.switch).tint(Theme.mint)
+                        .labelsHidden().toggleStyle(.switch).tint(Theme.accent)
                 }
                 if let warning = FrozenLoginAtStartupPresentation(
                     isEnabled: vault.launchAtLogin
                 ).warning {
                     HStack(alignment: .top, spacing: 10) {
-                        Text("⚠︎").foregroundStyle(Theme.amber)
+                        Text("⚠︎").foregroundStyle(Theme.warning)
                         Text(warning)
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textMuted)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                     }
-                    .padding(12)
+                    .padding(Theme.Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.amber.opacity(0.10), in: .rect(cornerRadius: 9))
+                    .background(Theme.warningSubtle, in: .rect(cornerRadius: 9))
                 }
                 settingCard(appLocalized("Access Records"), appLocalizedFormat("Keeps 90 days of events, never credential contents; %lld records now.", vault.credentialAccessRecords.count)) {
                     if confirmingAccessRecordClear {
@@ -160,18 +160,18 @@ struct FrozenSettingsPage: View {
                         Button(appLocalized("Clear Records…"), role: .destructive) {
                             confirmingAccessRecordClear = true
                         }
-                        .foregroundStyle(Theme.red)
-                        .tint(Theme.red)
+                        .foregroundStyle(Theme.warning)
+                        .tint(Theme.warning)
                         .disabled(vault.credentialAccessRecords.isEmpty)
                     }
                 }
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(appLocalized("General")).font(.system(size: 13.5, weight: .semibold))
+                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                    Text(appLocalized("General")).font(Theme.Fonts.body.weight(.semibold))
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(appLocalized("Language")).font(.system(size: 12.5, weight: .semibold))
+                            Text(appLocalized("Language")).font(Theme.Fonts.secondary.weight(.semibold))
                             Text(appLocalized("The interface language changes immediately."))
-                                .font(.system(size: 11.5)).foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.secondary).foregroundStyle(Theme.textSecondary)
                         }
                         Spacer()
                         FrozenSegmentedControl(
@@ -188,15 +188,15 @@ struct FrozenSettingsPage: View {
                     }
                 }
                 .padding(14)
-                .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                 .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(appLocalized("Erase Local Data")).font(.system(size: 13.5, weight: .semibold)).foregroundStyle(Theme.red)
+                            Text(appLocalized("Erase Local Data")).font(Theme.Fonts.body.weight(.semibold)).foregroundStyle(Theme.warning)
                             Text(appLocalized("Deletes all local credentials, groups, and records. Uninstalling Ask Key does not do this."))
-                                .font(.system(size: 11.5)).foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.secondary).foregroundStyle(Theme.textSecondary)
                         }
                         Spacer()
                         Button(appLocalized("Erase…"), role: .destructive) { showingErase = true }
@@ -205,8 +205,8 @@ struct FrozenSettingsPage: View {
                         Divider()
                         VStack(alignment: .leading, spacing: 6) {
                             Text(FrozenEraseConfirmationPresentation.label)
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.secondary.weight(.semibold))
+                                .foregroundStyle(Theme.textSecondary)
                             TextField(FrozenEraseConfirmationPresentation.placeholder, text: $eraseWord)
                                 .textFieldStyle(.roundedBorder)
                         }
@@ -230,8 +230,8 @@ struct FrozenSettingsPage: View {
                     }
                 }
                 .padding(14)
-                .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.red.opacity(0.3)))
+                .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.warning.opacity(0.3)))
                 .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                 .id("settings-erase")
             }
@@ -251,15 +251,15 @@ struct FrozenSettingsPage: View {
     ) -> some View {
         HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 13.5, weight: .semibold))
-                Text(message).font(.system(size: 11.5)).foregroundStyle(Theme.textMuted)
+                Text(title).font(Theme.Fonts.body.weight(.semibold))
+                Text(message).font(Theme.Fonts.secondary).foregroundStyle(Theme.textSecondary)
             }
             Spacer()
             action()
         }
         .padding(14)
-        .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
         .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
     }
 

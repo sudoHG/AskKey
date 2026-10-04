@@ -84,7 +84,7 @@ struct CredentialManagementView: View {
             )
                 .frame(width: WorkspaceVisualContract.sidebarWidth)
                 .fixedSize(horizontal: true, vertical: false)
-            Divider().overlay(Theme.neutral(0.06))
+            Divider().overlay(Theme.neutralSubtle)
             detail
                 .frame(minWidth: 480)
                 .clipped()

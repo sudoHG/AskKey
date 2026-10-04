@@ -9,12 +9,12 @@ struct VaultPopover: View {
         let _ = AppLanguage.store.resolved
         VStack(spacing: 0) {
             if let message = vault.errorMessage {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.red)
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.warning)
                     Text(displayedUserMessage(message))
-                        .font(.system(size: 11))
+                        .font(Theme.Fonts.caption)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Button {
                         vault.errorMessage = nil
@@ -25,7 +25,7 @@ struct VaultPopover: View {
                     .accessibilityLabel(appLocalized("Dismiss error"))
                 }
                 .padding(10)
-                .background(Theme.red.opacity(0.12))
+                .background(Theme.warningSubtle)
                 Divider()
             }
 
@@ -66,7 +66,7 @@ struct VaultPopover: View {
             }
             .accessibilityIdentifier("menubar-quit")
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, Theme.Spacing.sm)
         .frame(width: 260)
         .background(.ultraThinMaterial)
         .environment(\.locale, vault.appLocale)
@@ -86,11 +86,11 @@ struct VaultPopover: View {
                 Text(title)
                 Spacer()
                 if let count {
-                    Text("\(count)").foregroundStyle(Theme.textMuted)
+                    Text("\(count)").foregroundStyle(Theme.textSecondary)
                 }
             }
-            .font(.system(size: 13))
-            .padding(.horizontal, 12)
+            .font(Theme.Fonts.body)
+            .padding(.horizontal, Theme.Spacing.md)
             .frame(height: 30)
             .contentShape(Rectangle())
         }

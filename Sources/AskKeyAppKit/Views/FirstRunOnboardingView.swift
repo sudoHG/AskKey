@@ -36,20 +36,20 @@ struct FirstRunOnboardingView: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(vault.hasCompletedOnboarding ? appLocalized("No Credentials Yet") : copy.title)
-                        .font(.system(size: 26, weight: .bold))
+                        .font(Theme.Fonts.title)
                         .foregroundStyle(Theme.text)
                     Text(vault.hasCompletedOnboarding ? appLocalized("Create or import a credential to keep the materials your Agent needs together.") : copy.message)
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.body)
+                        .foregroundStyle(Theme.textSecondary)
                         .frame(maxWidth: 440, alignment: .leading)
                 }
                 .padding(.top, 34)
 
                 if vault.onboardingCredentialCount > 0 {
                     Text(appLocalizedFormat("%lld credentials are protected. Start using Ask Key to unlock management.", vault.onboardingCredentialCount))
-                        .font(.system(size: 14)).padding(.vertical, 22)
+                        .font(Theme.Fonts.body).padding(.vertical, 22)
                 } else {
-                HStack(spacing: 12) {
+                HStack(spacing: Theme.Spacing.md) {
                     onboardingAction(
                         title: copy.createAction,
                         message: appLocalized("Save access keys, login details, certificates, or a combination of them."),
@@ -89,7 +89,7 @@ struct FirstRunOnboardingView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Theme.brand)
+                    .tint(Theme.accent)
                     .controlSize(.large)
                 }
                 .padding(.top, 22)
@@ -118,34 +118,34 @@ struct FirstRunOnboardingView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title).font(.system(size: 14.5, weight: .semibold))
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Text(title).font(Theme.Fonts.body.weight(.semibold))
                 Text(message)
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Theme.textMuted)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-            .padding(16)
-            .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 12))
+            .padding(Theme.Spacing.lg)
+            .background(Theme.surface, in: .rect(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.neutral(0.08)))
         }
         .buttonStyle(.plain)
     }
 
     private func knowledgeCard(_ title: String, _ message: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(Theme.Fonts.secondary.weight(.semibold))
                 .foregroundStyle(Theme.text)
             Text(message)
-                .font(.system(size: 11.5))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
-        .padding(12)
-        .background(Theme.neutral(0.035), in: .rect(cornerRadius: 10))
+        .padding(Theme.Spacing.md)
+        .background(Theme.neutral(0.035), in: .rect(cornerRadius: Theme.Radius.group))
     }
 }
 
@@ -158,27 +158,27 @@ struct LaunchAtLoginToggle: View {
             isEnabled: isOn,
             showsWarning: showsDisabledWarning
         )
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Toggle(isOn: $isOn) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(appLocalized("Launch at Login"))
                     Text(appLocalized(FrozenWelcomeCopy.launchAtLoginSubtitleKey))
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
             .toggleStyle(.switch)
-            .tint(Theme.mint)
+            .tint(Theme.accent)
             if let warning = presentation.warning {
-                HStack(alignment: .top, spacing: 8) {
-                    Text("⚠︎").foregroundStyle(Theme.amber)
+                HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                    Text("⚠︎").foregroundStyle(Theme.warning)
                     Text(warning)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(10)
-                .background(Theme.amber.opacity(0.10), in: .rect(cornerRadius: 8))
+                .background(Theme.warningSubtle, in: .rect(cornerRadius: 8))
             }
         }
     }

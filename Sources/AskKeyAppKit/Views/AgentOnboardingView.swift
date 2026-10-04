@@ -9,12 +9,12 @@ struct AgentOnboardingView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(appLocalized("Agent access"))
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(Theme.Fonts.title)
                     Text(FrozenSettingsContract.agentAccessSubtitle)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 clientGroup(
                     title: appLocalized("Local clients"),
@@ -31,8 +31,8 @@ struct AgentOnboardingView: View {
     private func clientGroup(title: String, clients: [AgentClient]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.secondary.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
             ForEach(clients) { client in
                 clientRow(client)
             }
@@ -43,18 +43,18 @@ struct AgentOnboardingView: View {
         let session = onboarding.session(for: client)
         let expanded = onboarding.expandedClient == client
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: Theme.Spacing.md) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(displayName(client))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(Theme.Fonts.body.weight(.semibold))
                     Text(resultLine(session))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.textSecondary)
                         .accessibilityLabel(resultAccessibility(session))
                     if let readiness = session.lastKnownResult?.discovery {
                         Text(AgentOnboardingCopy.discoveryStatus(readiness, for: client))
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.textMuted)
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.textSecondary)
                             .accessibilityIdentifier("onboarding-discovery-\(client.proofID)")
                     }
                 }
@@ -76,8 +76,8 @@ struct AgentOnboardingView: View {
             }
         }
         .padding(14)
-        .background(Theme.panelBackground, in: .rect(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.sep, lineWidth: 1))
+        .background(Theme.surface, in: .rect(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.separator, lineWidth: 1))
         .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
         .accessibilityElement(children: .contain)
     }
@@ -90,26 +90,26 @@ struct AgentOnboardingView: View {
         if let completion = AgentOnboardingCopy.completion(for: client, session: session) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Theme.brand)
+                    .font(Theme.Icon.inlineStatus)
+                    .foregroundStyle(Theme.accent)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(completion.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(Theme.Fonts.body.weight(.semibold))
                     Text(completion.detail)
-                        .font(.system(size: 12))
+                        .font(Theme.Fonts.secondary)
                 }
                 .foregroundStyle(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            .padding(12)
-            .background(Theme.brandSubtle, in: .rect(cornerRadius: 6))
+            .padding(Theme.Spacing.md)
+            .background(Theme.accentSubtle, in: .rect(cornerRadius: Theme.Radius.control))
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("onboarding-completion-\(client.proofID)")
         } else {
             Text(explanation(for: client, session: session))
-                .font(.system(size: 11))
+                .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -121,8 +121,8 @@ struct AgentOnboardingView: View {
         }
         if session.attempt.phase.isInFlight {
             Text(progressText(session.attempt.phase))
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textSecondary)
                 .accessibilityLabel(progressText(session.attempt.phase))
         }
         actionButtons(client, session: session)
@@ -130,22 +130,22 @@ struct AgentOnboardingView: View {
 
     @ViewBuilder
     private func planSummary(_ plan: AgentOnboardingPlan) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(plan.scopeSummary)
-                .font(.system(size: 11))
+                .font(Theme.Fonts.caption)
             Text(plan.preconditionSummary)
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textSecondary)
             if plan.codexHookPlan != nil {
                 DisclosureGroup(appLocalized("Connection check configuration")) {
                     Text(CodexOnboardingSetup.reviewedHookDescription)
-                        .font(.system(size: 11))
+                        .font(Theme.Fonts.caption)
                 }
             }
             if plan.commandHookPlan != nil {
                 DisclosureGroup(appLocalized("Connection check configuration")) {
                     Text(CommandHookOnboardingSetup.reviewedHookDescription)
-                        .font(.system(size: 11))
+                        .font(Theme.Fonts.caption)
                 }
             }
         }
@@ -159,7 +159,7 @@ struct AgentOnboardingView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(AgentOnboardingCopy.message(for: client, failure: failure, change: session.attempt.changeStatus))
-                .font(.system(size: 11))
+                .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
             if session.attempt.phase == .recoveryRequired {
@@ -167,8 +167,8 @@ struct AgentOnboardingView: View {
                     .buttonStyle(.bordered)
                     .popover(isPresented: $showingDiagnostics) {
                         Text(AgentOnboardingCopy.recoveryNotes(for: client, change: session.attempt.changeStatus))
-                            .font(.system(size: 11))
-                            .padding(12)
+                            .font(Theme.Fonts.caption)
+                            .padding(Theme.Spacing.md)
                             .frame(width: 280, alignment: .leading)
                     }
             }
@@ -180,13 +180,13 @@ struct AgentOnboardingView: View {
         _ client: AgentClient,
         session: AgentClientOnboardingSession
     ) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Spacing.sm) {
             if session.attempt.phase == .readyToConfirm {
                 Button(appLocalized("Confirm connection")) {
                     Task { await onboarding.confirm(client) }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.brand)
+                .tint(Theme.accent)
                 .disabled(session.attempt.changeStatus == .restoreFailed)
                 .accessibilityIdentifier("onboarding-confirm-\(client.proofID)")
                 .onboardingActivateWithKeyboard { Task { await onboarding.confirm(client) } }
@@ -232,7 +232,7 @@ struct AgentOnboardingView: View {
             }
         }
         .buttonStyle(.borderedProminent)
-        .tint(Theme.brand)
+        .tint(Theme.accent)
         .disabled(!checking && session.attempt.phase.isInFlight)
         .accessibilityIdentifier(identifier)
         .onboardingActivateWithKeyboard {
