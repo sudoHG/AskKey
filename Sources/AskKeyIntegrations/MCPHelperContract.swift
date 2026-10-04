@@ -32,6 +32,13 @@ enum MCPHelperContract {
             serverName: "askkey",
             serverVersion: AskKeyVersion.current
         )
+
+        static let claudeClient = Identity(
+            clientName: "claude-code",
+            clientVersion: "0",
+            serverName: "askkey",
+            serverVersion: AskKeyVersion.current
+        )
     }
 
     struct Inspection: Equatable, Sendable {
