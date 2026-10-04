@@ -8,12 +8,11 @@ AskKey is a macOS app that stores credentials locally and lets AI agents use the
 
 The project started as a fork of [Lokalite](https://github.com/RubenGlez/lokalite) (MIT). It has since diverged substantially; upstream is credited in `LICENSE` and `NOTICE` only.
 
-## Current status: normalization
+## Status
 
-The codebase was re-imported from a private legacy repository and restructured. Tracking issue: the pinned "Normalization roadmap" issue (#1). The restructuring phases are complete apart from the last Phase 7 follow-up (#83, moving remaining user-facing literals into the localization catalog). What remains is Phase 8: an audit of the roadmap criteria (#88) and the maintainer's verification of the normalized build on their own machine (#89–#91), then the normalization-only rules below are retired (#92). Until the roadmap issue is closed:
+v0.1 is normalized and verified on the maintainer's machine (see [#1](https://github.com/sudoHG/AskKey/issues/1)). Releases remain disabled. In the [client verification receipt](https://github.com/sudoHG/AskKey/issues/91#issuecomment-5975659000), Codex and Cursor passed all five steps; Grok CLI passed steps 1–2, and the maintainer decided not to run steps 3–5 for now.
 
 - All work happens through GitHub Issues and pull requests.
-- Structural tasks are **move-only**: no logic changes unless the issue explicitly asks for them. If you find a bug, open a new issue instead of fixing it in place.
 - iCloud backup and recovery were removed from v0.1 in #18. A redesigned backup needs its own issue.
 - Supported agent clients are Codex, Cursor and Grok CLI. Multica support was removed in #17; do not reintroduce it.
 
@@ -53,8 +52,8 @@ Releases are disabled. Do not add signing, notarization, Sparkle or Homebrew rel
 - No absolute local paths (`/Users/...`, `/private/var/...`) in committed files. Use `FileManager` temporary directories in tests.
 - File and directory names are English.
 - Code, comments, docs, ADRs, commit messages, issue and PR titles and PR bodies are written in English, even when an agent's global configuration defaults to another language. Conversation with the maintainer may use any language. User-facing UI strings live in `Localizable.xcstrings` (English and Simplified Chinese).
-- Test fixtures, E2E hooks, probes and debug observers do not belong in `Sources/`. (Being enforced progressively during normalization.)
-- Source files stay under 600 lines; `Localizable.xcstrings` is exempt. (Being enforced progressively during normalization.)
+- Test fixtures, E2E hooks, probes and debug observers do not belong in `Sources/`.
+- Source files stay under 600 lines; `Localizable.xcstrings` is exempt.
 - No new third-party dependencies without an issue that approves them.
 
 ## Build and test
