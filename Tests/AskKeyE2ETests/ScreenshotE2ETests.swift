@@ -60,11 +60,8 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'request-deny-'"))
             .firstMatch.waitForExistence(timeout: 8))
         capture("08-pending-requests")
-        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'request-deny-'"))
-            .firstMatch.click()
-        _ = try waitForEvidence("approval-result.json")
         click("sidebar-records")
-        waitForText("Access records")
+        waitForText("Records who asked for what and the outcome, never credential contents. Kept for 90 days.")
         capture("09-access-records")
     }
 
