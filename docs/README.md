@@ -7,7 +7,7 @@ See the [changelog](../CHANGELOG.md) for release changes and known limitations.
 ## Guides
 
 - [architecture.md](architecture.md): modules, allowed dependency directions, and the main flows through the App, Broker and helper.
-- [client-integrations.md](client-integrations.md): how Codex, Cursor and Grok CLI are configured, verified and rolled back.
+- [client-integrations.md](client-integrations.md): how Claude Code, Codex, Cursor and Grok CLI are configured, verified and rolled back.
 - [testing.md](testing.md): local checks, the Swift and Automation suites, and the desktop flows that run in CI.
 - [glossary.md](glossary.md): domain terms with their Chinese UI labels.
 - [features.md](features.md): the feature inventory recording what was kept or removed during normalization.

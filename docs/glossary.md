@@ -35,7 +35,7 @@ The Chinese UI column quotes labels or relevant phrases from [Localizable.xcstri
 | Access record | 访问记录 | Encrypted operation metadata, with no credential values, viewed and cleared through authenticated App management. It is not an agent log or proof of external behavior. |
 | Credential expiry | 到期时间 | A deadline beyond which runtime use and writes fail; related approvals and temporary deliveries are invalidated. |
 | Recycle bin | 回收站 | Deleted credentials retained for 30 days and unavailable to agents. Restore and permanent deletion are App management operations. |
-| Client adapter | — | The boundary that checks, previews, applies, verifies and rolls back a supported client's MCP configuration. Current clients are Codex, Cursor and Grok CLI; adapters share the Broker's security model. |
+| Client adapter | — | The boundary that checks, previews, applies, verifies and rolls back a supported client's MCP configuration. Current clients are Claude Code, Codex, Cursor and Grok CLI; adapters share the Broker's security model. |
 | Discovery hook | 凭证查询 | A reminder to consult the catalog before relevant commands. Discovery does not select credentials, approve requests or bypass the Broker. |
 
 Protocol and storage terms have no standalone UI labels:
