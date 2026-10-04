@@ -164,7 +164,9 @@ public final class Vault {
                         operation: operation,
                         result: .denied,
                         callerHint: approvalRequest.callerName,
-                        declaredPurpose: approvalRequest.callerPurpose
+                        declaredPurpose: approvalRequest.callerPurpose,
+                        executableBasename: operation == .runtimeRead
+                            ? approvalRequest.display?.executableBasename : nil
                     ))
                 }
             }
