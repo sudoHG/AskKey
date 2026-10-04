@@ -10,7 +10,7 @@ The project started as a fork of [Lokalite](https://github.com/RubenGlez/lokalit
 
 ## Status
 
-v0.1 is normalized and verified on the maintainer's machine (see [#1](https://github.com/sudoHG/AskKey/issues/1)). Releases remain disabled. In the [client verification receipt](https://github.com/sudoHG/AskKey/issues/91#issuecomment-5975659000), Codex and Cursor passed all five steps; Grok CLI passed steps 1–2, and the maintainer decided not to run steps 3–5 for now.
+v0.1 is normalized and verified on the maintainer's machine (see [#1](https://github.com/sudoHG/AskKey/issues/1)). The first release, v0.1.0, is tracked in [#100](https://github.com/sudoHG/AskKey/issues/100). In the [client verification receipt](https://github.com/sudoHG/AskKey/issues/91#issuecomment-5975659000), Codex and Cursor passed all five steps; Grok CLI passed steps 1–2, and the maintainer decided not to run steps 3–5 for now.
 
 - All work happens through GitHub Issues and pull requests.
 - iCloud backup and recovery were removed from v0.1 in #18. A redesigned backup needs its own issue.
@@ -44,7 +44,7 @@ Never, unless an issue labeled `ready-for-human` is being done by the maintainer
 
 Bundle ID `com.sudohg.askkey.app`, keychain service `com.sudohg.askkey.vault`, data directory `AskKey`, command `askkey`, MCP server name `askkey`, URL scheme `askkey://`, broker protocol version. Official install path is `/Applications/Ask Key.app` with the helper at `Contents/Helpers/askkey`.
 
-Releases are disabled. Do not add signing, notarization, Sparkle or Homebrew release configuration unless an issue asks for it. Never reuse Lokalite's signing team, Sparkle keys or release entries.
+Releases follow [ADR 0006](docs/adr/0006-release-process.md): signed and notarized on the maintainer's Mac, and each tag push and publication needs the maintainer's explicit approval. Do not add Sparkle, Homebrew, App Store or CI signing configuration unless an issue asks for it. Never reuse Lokalite's signing team, Sparkle keys or release entries.
 
 ## Repository hygiene
 

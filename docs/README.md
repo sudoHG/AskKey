@@ -17,6 +17,7 @@ Start with the [README](../README.md) for what AskKey does, then [architecture.m
 - [ADR 0003](adr/0003-credential-delivery.md): runtime delivery through environment variables and temporary files.
 - [ADR 0004](adr/0004-backup-removal-and-future-design.md): backup removed from v0.1 and constraints for a future design.
 - [ADR 0005](adr/0005-distribution-and-client-integration.md): bundle layout, helper packaging and client adapters.
+- [ADR 0006](adr/0006-release-process.md): locally signed, notarized DMG releases.
 
 ## Contributing and project rules
 
