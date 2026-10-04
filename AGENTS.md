@@ -26,8 +26,8 @@ The maintainer's agents follow [docs/agents/issue-workflow.md](docs/agents/issue
 |---|---|---|
 | Planner (Claude) | Writes task issues, dispatches executors through Orca, reviews PRs, recommends merges | Large implementation work; merging or pushing `main` without the maintainer's approval |
 | Reviewer (Codex, separate session) | Stands in for the planner's review when the planner is unavailable; follows `docs/agents/planner.md` review steps | Writing code, pushing to task branches, merging, writing or changing issues' Scope |
-| Executor (Codex) | Implements the issue it was dispatched (or, without a coordinator, claims `ready-for-agent` issues) in a dedicated worktree, opens PRs with a receipt, addresses review comments | Merge PRs, push to `main`, change repository settings |
-| Maintainer | Makes decisions, approves each merge and each push to `main`, completes `ready-for-human` issues, starts executor sessions when no planner is running | — |
+| Executor (Codex) | Implements the issue it was dispatched in a dedicated worktree, opens PRs with a receipt, addresses review comments | Merge PRs, push to `main`, change repository settings |
+| Maintainer | Makes decisions, approves each merge and each push to `main`, completes `ready-for-human` issues, hands work to executors directly when no planner is running | — |
 
 ## Safety boundaries (all agents)
 
@@ -67,7 +67,7 @@ swift test
 
 Push a task branch only after the local Acceptance passes. Never use GitHub CI as a substitute for local builds or unit tests. If local resources are busy, wait.
 
-**Desktop UI flows run in CI, not locally.** `bash scripts/run-e2e.sh` drives the real macOS desktop (mouse, keyboard, window focus) for several minutes and blocks the maintainer from using the machine. Agents must not run it locally. The PR's CI `basic-ui-flows` job runs the same required flows on a clean runner and is the E2E acceptance; report its result in the receipt. Run it locally only when an issue explicitly requires it or when a UI failure reproduces only in CI and needs local debugging, and in both cases ask the maintainer first (comment and add `needs-info`) and wait for approval.
+**Desktop UI flows run in CI, not locally.** `bash scripts/run-e2e.sh` drives the real macOS desktop (mouse, keyboard, window focus) for several minutes and blocks the maintainer from using the machine. Agents must not run it locally. The PR's CI `basic-ui-flows` job runs the same required flows on a clean runner and is the E2E acceptance; report its result in the receipt. Run it locally only when an issue explicitly requires it or when a UI failure reproduces only in CI and needs local debugging, and in both cases ask the maintainer first (through Orca, or in the PR when Orca is unavailable) and wait for approval.
 
 Run tests exactly like CI: do not set `ASKKEY_DEBUG_RUN_DIRECTORY`, `ASKKEY_BROKER_SOCKET` or other `ASKKEY_*` variables unless an issue says so. Several tests rely on the default runtime path resolution.
 

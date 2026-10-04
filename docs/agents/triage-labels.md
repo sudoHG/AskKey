@@ -5,18 +5,13 @@
 | Label | Meaning |
 |---|---|
 | `needs-triage` | Not yet assessed by the maintainer or planner. |
-| `needs-info` | Blocked on a question that could not be asked through Orca. The latest comment states what is missing. |
-| `ready-for-agent` | Fully specified. An agent may claim it. |
+| `ready-for-agent` | Fully specified. The planner may dispatch it. |
 | `ready-for-human` | Requires the maintainer in person: real data, the installed app, devices, signing or accounts. |
 | `wontfix` | Decided not to do. |
 
 ## Status
 
-| Label | Meaning |
-|---|---|
-| `agent:claimed` | An agent is working on the issue. |
-| `needs-review` | The PR is ready for planner review. Through Orca the planner is also notified by `worker_done`. |
-| `changes-requested` | Review asked for changes. The executor handles these before claiming new work. |
+Work status is not tracked with labels. Dispatch, questions and completion go through Orca; an open PR is ready for review, and a GitHub "Request changes" review means the executor has work to do. The labels `agent:claimed`, `needs-review`, `changes-requested` and `needs-info` are retired and must not be applied.
 
 ## Classification
 

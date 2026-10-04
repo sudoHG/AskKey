@@ -62,7 +62,7 @@ The ordinary suite has explicit opt-in entries: the isolated file-commit crash s
 
 ## Desktop flows run in CI
 
-The `basic-ui-flows` job runs `bash scripts/run-e2e.sh` on a clean macOS runner. Maintainer agents must not run it locally: it drives the real mouse, keyboard, window focus, and desktop for several minutes. A local run is permitted only when the issue explicitly requires it or a CI-only UI failure needs local debugging, and only after commenting with the reason, adding `needs-info`, and receiving the maintainer's approval. Read-only examination of CI results does not require taking over the desktop.
+The `basic-ui-flows` job runs `bash scripts/run-e2e.sh` on a clean macOS runner. Maintainer agents must not run it locally: it drives the real mouse, keyboard, window focus, and desktop for several minutes. A local run is permitted only when the issue explicitly requires it or a CI-only UI failure needs local debugging, and only after stating the reason to the maintainer (through Orca, or in the PR when Orca is unavailable) and receiving approval. Read-only examination of CI results does not require taking over the desktop.
 
 [The runner](../scripts/run-e2e.sh) builds the test-only `AskKeyE2EApp` through [build-app.sh](../scripts/build-app.sh), generates the XCUITest project from [Tests/UI/project.yml](../Tests/UI/project.yml), and runs [Tests/AskKeyE2ETests](../Tests/AskKeyE2ETests). It uses a separate E2E identity, ad hoc signing, per-run synthetic state, and controlled process cleanup. It does not install the production application.
 

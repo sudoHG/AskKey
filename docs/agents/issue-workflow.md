@@ -19,31 +19,24 @@ Labels are described in [triage-labels.md](triage-labels.md).
 
 ## How work is handed out
 
-The planner and the executors run inside Orca on the maintainer's Mac. Orca is the live channel: the planner dispatches an issue to an executor, the executor asks blocking questions and reports completion through Orca, and the planner waits on those messages instead of polling GitHub. The exact commands come from the version-matched guide, `orca skills get orchestration`; do not copy them from memory.
+The planner and the executors run inside Orca on the maintainer's Mac. Orca is the only coordination channel: the planner dispatches an issue to an executor, the executor asks blocking questions and reports completion through Orca, and the planner waits on those messages. The exact commands come from the version-matched guide, `orca skills get orchestration`; do not copy them from memory.
 
-GitHub stays the durable record. Issues hold the task cards, PRs hold the receipts, CI is the acceptance gate, and the labels in [triage-labels.md](triage-labels.md) describe state so that the repository shows progress even though Orca state is local.
+GitHub is the durable record, not a message bus. Issues hold the task cards, PRs hold the receipts and the review state, and CI is the acceptance gate. There are no status labels: an open PR means it is ready for review, a GitHub "Request changes" review means the executor has work to do, and questions go through Orca. The labels in [triage-labels.md](triage-labels.md) classify issues once; they are not updated as work progresses.
 
-When no coordinator is running (the planner is offline, or the maintainer started an executor by hand), the executor falls back to the label-driven flow below. The two modes differ only in how work is received, how questions are asked and how completion is reported.
+If Orca is unavailable, the maintainer tells an executor directly which issue to do. The steps below stay the same; only the question and completion messages are replaced by the conversation with the maintainer.
 
 ## Executor: doing a task
 
-| Step | Dispatched through Orca | Fallback (no coordinator) |
-|---|---|---|
-| Receive work | The dispatch names the issue. Do only that issue. | Start with `gh pr list --repo sudoHG/AskKey --label changes-requested --author @me` and `gh issue list --repo sudoHG/AskKey --label ready-for-agent --state open`. Address `changes-requested` PRs first; otherwise take the lowest-numbered open `ready-for-agent` issue whose `Blocked by` issues are all closed and that is not `agent:claimed`. |
-| Claim | Replace `ready-for-agent` with `agent:claimed`. No comment is needed. | Same. |
-| Worktree | Orca has already created it under `.worktrees/` and linked it to the issue. Keep the branch name Orca assigned. | From the repository root: `git fetch origin && git worktree add .worktrees/<number> -b task/<number>-<short-slug> origin/main`. `.worktrees/` is ignored by Git. |
-| Questions | Use the `ask` command from the dispatch preamble and wait for the reply. Never guess, and never open a local prompt the coordinator cannot answer. | Comment on the issue with the exact problem, add `needs-info`, stop working on it and move on. |
-| Done | Push the branch, open the PR as described below, then send `worker_done` with the PR URL and an explicit outcome. End the turn and idle. | Push the branch, open the PR, continue with the next claimable issue. |
+1. **Do only the dispatched issue.** The dispatch names it; read its Scope and Acceptance from the issue, not from the dispatch text.
+2. **Work in the worktree Orca created** under `.worktrees/`, linked to the issue. Keep the branch name Orca assigned.
+3. **Implement only what the Scope allows.** If the card is unclear, the Scope is not enough, or Acceptance cannot be met, use the `ask` command from the dispatch preamble and wait for the reply. Do not guess, and do not open a local prompt the coordinator cannot answer. An answer that changes Scope or Acceptance is written into the issue by the planner, so the issue stays the source of truth.
+4. **Run every Acceptance command.** Keep logs and other artifacts only until you have read the results, then delete them. Never put them in the repo; report commands, counts and SHAs in the receipt.
+5. **Commit** with a clear English message, using the identity your setup prescribes. No tool attribution lines.
+6. **Push the branch and open a ready (non-draft) PR** with `Closes #<number>` and the receipt below.
+7. **Send `worker_done`** with the PR URL and an explicit outcome, then end the turn and idle.
+8. **Review rounds.** Change requests arrive as a follow-up dispatch in the same terminal. Address every numbered point, push, reply to the review on the PR, and send `worker_done` again.
 
-In both modes:
-
-1. **Implement only what the Scope allows.** If the card is unclear, the Scope is not enough, or Acceptance cannot be met, ask; do not guess. An answer that changes Scope or Acceptance is written back into the issue by the planner, so the issue stays the source of truth.
-2. **Run every Acceptance command.** Keep logs and other artifacts only until you have read the results, then delete them. Never put them in the repo; report commands, counts and SHAs in the receipt.
-3. **Commit** with a clear English message, using the identity your setup prescribes. No tool attribution lines.
-4. **Open a ready (non-draft) PR** with `Closes #<number>` and the receipt below. Add `needs-review` to the PR.
-5. **Review rounds.** When the PR gets `changes-requested`, address every numbered point, push, reply to the review, and swap the label back to `needs-review`. Through Orca this arrives as a follow-up dispatch in the same terminal; in fallback mode it is the first thing to look for at session start.
-
-**Tasks that produce no repository change** (for example, recording evidence from the legacy code): skip the commit and PR steps. Post the receipt as an issue comment instead and add `needs-review` to the issue. The planner closes it.
+**Tasks that produce no repository change** (for example, recording evidence from the legacy code): skip steps 5 and 6. Post the receipt as an issue comment instead; the planner closes the issue.
 
 **Working in the legacy code**: the archived repository is `sudoHG/AskKey-legacy`, tagged `legacy-final`. When a task needs to read, build or run legacy code, clone that tag into a temporary directory outside this checkout and delete the clone when the task is done:
 
@@ -53,7 +46,7 @@ git clone --depth 1 --branch legacy-final https://github.com/sudoHG/AskKey-legac
 
 The `AGENTS.md` and other docs inside the legacy tree are outdated (they describe retired tools and processes). Ignore them; this repository's rules apply. Never fetch legacy history into this repository.
 
-After a PR is merged, the worktree and local branch are removed: by the planner through Orca for dispatched work, or by the executor with `git worktree remove .worktrees/<number>` and `git branch -d <branch>` in fallback mode. The remote branch is deleted at merge.
+After a PR is merged, the planner releases the worker and removes its worktree and local branch. The remote branch is deleted at merge.
 
 ## Receipt (PR description)
 
@@ -68,29 +61,29 @@ The PR template contains these sections. Fill all of them; write "None" when a s
 ## Planner: dispatching
 
 1. Write the issues first; a dispatch never replaces a task card. The executor still reads Scope and Acceptance from the issue.
-2. Create one Orca run per working session and start every independent `ready-for-agent` issue as its own worker in one wave; express `Blocked by` as task dependencies rather than dispatching one issue at a time. Each worker gets a fresh worktree created by Orca under `.worktrees/`, linked to its issue.
+2. Create one Orca run per working session and start every independent `ready-for-agent` issue as its own worker in one wave; express `Blocked by` as task dependencies rather than dispatching one issue at a time. Each worker gets a fresh worktree created by Orca under `.worktrees/`, linked to its issue. No label is changed when an issue is dispatched.
 3. Wait on `worker_done`, questions and escalations. Answer questions through Orca; if an answer changes Scope or Acceptance, edit the issue as well.
-4. For `changes-requested`, send the numbered points as a follow-up dispatch to the same worker terminal instead of starting a new one.
+4. To request changes, leave a GitHub review with numbered points and send them as a follow-up dispatch to the same worker terminal instead of starting a new one.
 5. After the PR is merged, release the worker and remove its worktree.
 
 ## Planner: review
 
-1. CI red → `changes-requested` with the failing step; stop.
+1. CI red → request changes naming the failing step; stop.
 2. Read the receipt; compare test counts and Acceptance results.
 3. Run deterministic checks locally where useful.
 4. Read the diff line by line only for `risk:security` changes and listed deviations. Verify move-only changes mechanically.
-5. Either leave numbered change requests and set `changes-requested`, or report the PR as accepted to the maintainer. Merge (squash) only after the maintainer approves that PR; accepted PRs may be presented together in one approval request.
+5. Either leave numbered change requests as a GitHub review, or report the PR as accepted to the maintainer. Merge (squash) only after the maintainer approves that PR; accepted PRs may be presented together in one approval request.
 
 Changes to rule documents also go through a PR.
 
 ## Reviewer when the planner is unavailable
 
-When the planner is offline, the maintainer may start a separate Codex session as reviewer. That session must not be the one that implemented the PR. Executors are then in fallback mode and signal through labels.
+When the planner is offline, the maintainer may start a separate Codex session as reviewer. That session must not be the one that implemented the PR.
 
 - Follow the review steps above and in [planner.md](planner.md) (CI → receipt → deterministic checks → line-by-line only for `risk:security` and listed deviations; `check_move_only.py` for move-only PRs).
-- Do not write code, push to the task branch, merge, or change an issue's Scope or Acceptance. Request changes with numbered points and the `changes-requested` label; the executor fixes them.
+- Do not write code, push to the task branch, merge, or change an issue's Scope or Acceptance. Request changes as a GitHub review with numbered points; the maintainer passes them to the executor.
 - Report the verdict to the maintainer in Chinese: accepted or not, and the evidence (CI run, counts, checks run). The maintainer approves and merges.
-- If an issue is unclear or a PR needs a decision outside its Scope, add `needs-info` and leave it for the planner or the maintainer instead of deciding.
+- If an issue is unclear or a PR needs a decision outside its Scope, say so in the verdict and leave it for the planner or the maintainer instead of deciding.
 - Start the verdict comment on the PR with `Review (stand-in reviewer):` so the planner can tell these reviews apart later.
 
 ## Maintainer tasks
