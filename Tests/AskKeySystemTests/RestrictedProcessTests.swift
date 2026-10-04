@@ -239,19 +239,24 @@ final class RestrictedProcessTests: XCTestCase {
         )
         XCTAssertEqual(String(decoding: after.stdout, as: UTF8.self), "postwrite\n")
 
-        let early = try RestrictedProcess.run(
-            RestrictedProcess.Request(
-                executable: URL(fileURLWithPath: "/usr/bin/true"),
-                arguments: [],
-                environment: pathEnvironment,
-                standardInput: Data("ignored-after-exit\n".utf8),
-                writeInputBeforeSpawn: false,
-                timeout: 2,
-                maximumOutputBytes: 4_096
+        // Exceed the pipe capacity so closing stdin necessarily interrupts the write.
+        for status: Int32 in [0, 23] {
+            let early = try RestrictedProcess.run(
+                RestrictedProcess.Request(
+                    executable: URL(fileURLWithPath: "/bin/sh"),
+                    arguments: ["-c", "exec 0<&-; printf out; printf err >&2; exit \(status)"],
+                    environment: pathEnvironment,
+                    standardInput: Data(repeating: 1, count: 1_048_576),
+                    writeInputBeforeSpawn: false,
+                    timeout: 2,
+                    maximumOutputBytes: 4_096
+                )
             )
-        )
-        XCTAssertEqual(early.status, 0)
-        XCTAssertFalse(early.timedOut)
+            XCTAssertEqual(early.status, status)
+            XCTAssertFalse(early.timedOut)
+            XCTAssertEqual(String(decoding: early.stdout, as: UTF8.self), "out")
+            XCTAssertEqual(String(decoding: early.stderr, as: UTF8.self), "err")
+        }
 
         XCTAssertThrowsError(
             try RestrictedProcess.run(

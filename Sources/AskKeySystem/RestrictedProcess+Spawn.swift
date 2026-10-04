@@ -144,7 +144,16 @@ extension RestrictedProcess {
         try stdin.fileHandleForReading.close()
         if !request.writeInputBeforeSpawn {
             if let input = request.standardInput {
-                try stdin.fileHandleForWriting.write(contentsOf: input)
+                do {
+                    try stdin.fileHandleForWriting.write(contentsOf: input)
+                } catch {
+                    let failure = error as NSError
+                    let underlying = failure.userInfo[NSUnderlyingErrorKey] as? NSError
+                    let isBrokenPipe = (failure.domain == NSPOSIXErrorDomain && failure.code == Int(EPIPE))
+                        || (underlying?.domain == NSPOSIXErrorDomain && underlying?.code == Int(EPIPE))
+                    guard isBrokenPipe else { throw error }
+                    // A child may close stdin early; preserve its output and exit status.
+                }
             }
             try stdin.fileHandleForWriting.close()
         }
