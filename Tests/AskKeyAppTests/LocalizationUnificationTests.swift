@@ -120,7 +120,7 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
             let value = appLocalized(key)
             XCTAssertNotEqual(value, key, "chrome key \(key) fell back to English")
             XCTAssertFalse(
-                looksEnglish(value) && looksChinese(settingsTitle),
+                looksEnglish(value) && looksChinese(settingsTitle) && value != "Agent",
                 "chrome '\(key)' is English while settings title is Chinese"
             )
         }
@@ -173,7 +173,18 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
             let english = entry["en"]
             XCTAssertNotNil(english, "missing English value for \(key)")
             if let english, english != key {
-                let allowedAliases = ["AskKey": "Ask Key", "Brand monogram": "A"]
+                let allowedAliases = [
+                    "AskKey": "Ask Key",
+                    "Always Allow": "Allow",
+                    "Allow Once": "Allow once",
+                    "Do Not Allow Agent": "Hidden",
+                    "ASK KEY · AGENT REQUEST": "Ask Key · Agent request",
+                    "Agent approvals": "Agent",
+                    "Ask Every Time (Recommended)": "Ask every time (recommended)",
+                    "Ask: Agents wait for your approval each time.": "Ask every time: Agents wait for your approval each time.",
+                    "New credentials default to Ask.": "New credentials default to Ask every time.",
+                    "Brand monogram": "A",
+                ]
                 XCTAssertEqual(english, allowedAliases[key], "English value must match the key or a declared alias: \(key)")
             }
             XCTAssertNotNil(entry["zh-Hans"], "missing Chinese translation for \(key)")

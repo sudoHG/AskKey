@@ -201,7 +201,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
 
         XCTAssertEqual(presentation.language, "zh-Hans")
         XCTAssertEqual(presentation.title, "请旨")
-        XCTAssertEqual(presentation.reason, "为 AskKey 命令行 解锁请旨凭证库")
+        XCTAssertEqual(presentation.reason, "为 Ask Key 命令行 解锁请旨凭证库")
         XCTAssertEqual(AppLanguage.current, "en")
     }
 

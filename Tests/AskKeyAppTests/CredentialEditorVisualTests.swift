@@ -112,13 +112,13 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
         )
         XCTAssertEqual(
             presentation.tags,
-            ["API 访问凭证", "2 项内容", "每次使用前问我（推荐）", "发布"]
+            ["API 访问凭证", "2 项内容", "每次询问（推荐）", "发布"]
         )
         XCTAssertEqual(
             CredentialListPresentation(
                 credential: credential(id: "ssh", name: "部署服务器", group: nil)
             ).tags,
-            ["SSH 登录身份", "1 项内容", "每次使用前问我（推荐）", "未分组"]
+            ["SSH 登录身份", "1 项内容", "每次询问（推荐）", "未分组"]
         )
     }
 

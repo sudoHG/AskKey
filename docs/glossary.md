@@ -2,7 +2,7 @@
 
 AskKey stores credentials for a person and mediates their use by local agents. These terms describe the current product; the [feature inventory](features.md) and [security policy](../SECURITY.md) define its retained behavior and limits.
 
-The Chinese UI column quotes labels or relevant phrases from [Localizable.xcstrings](../Sources/AskKeyAppKit/Resources/Localizable.xcstrings), rather than inventing translations. A dash means there is no standalone UI label. The product name and the Ask permission share the same Chinese label; their context distinguishes them.
+The Chinese UI column quotes labels or relevant phrases from [Localizable.xcstrings](../Sources/AskKeyAppKit/Resources/Localizable.xcstrings), rather than inventing translations. A dash means there is no standalone UI label. The Chinese product name is 请旨; permission labels use separate terms.
 
 | English term | Chinese UI term or phrase | Meaning and boundary |
 |---|---|---|
@@ -17,12 +17,12 @@ The Chinese UI column quotes labels or relevant phrases from [Localizable.xcstri
 | Credential catalog | 浏览凭证目录 | Agent-visible metadata: names, IDs, usage instructions, expiry state and component delivery mappings. It omits Hidden and recycled credentials, values, private notes and original filenames. |
 | Usage instructions | 使用说明; 给 Agent 的说明 | Guidance visible in the agent catalog. It must not contain material intended to remain private. |
 | Private notes | 私人备注 | Encrypted notes available only through authenticated App management, excluded from agent responses. |
-| Agent permission | 允许; 请旨; 已隐藏 | One credential-wide rule: Allow, Ask or Hidden. Groups and caller declarations cannot widen it. |
+| Agent permission | 允许; 每次询问; 隐藏 | One credential-wide rule: Allow, Ask every time or Hidden. Groups and caller declarations cannot widen it. |
 | Allow | 允许 | Read delivery can proceed without a new approval, through the Broker and subject to pause, expiry and launch checks. Agent writes still need separate approval. |
-| Ask | 请旨 | The default for new credentials. A read needs approval unless a valid timed allowance covers that credential; every new agent write needs its own approval. |
-| Hidden | 已隐藏; 隐藏的凭证不会进入 Agent 目录 | Excludes a credential from the agent catalog and agent read/write requests. It does not promise resistance to side channels available to another process running as the same macOS user. |
-| Approval request | Agent 请旨; 待处理请求 | A proposal bound to an operation, target and immutable payload digest, with a request ID, capability and deadline. It is not a management unlock. |
-| Allow once | 仅本次 | Allows one request to consume approval once for its bound operation. It does not authorize a session or a changed payload. |
+| Ask every time | 每次询问 | The default for new credentials. A read needs approval unless a valid timed allowance covers that credential; every new agent write needs its own approval. |
+| Hidden | 隐藏; 隐藏的凭证不会进入 Agent 目录 | Excludes a credential from the agent catalog and agent read/write requests. It does not promise resistance to side channels available to another process running as the same macOS user. |
+| Approval request | Agent 请求; 待处理请求 | A proposal bound to an operation, target and immutable payload digest, with a request ID, capability and deadline. It is not a management unlock. |
+| Allow once | 允许本次 | Allows one request to consume approval once for its bound operation. It does not authorize a session or a changed payload. |
 | Timed read allowance | 默认限时允许; 允许 %lld 分钟 | A revocable read allowance for one credential, shared by all local callers for the current macOS user until its original deadline. It never authorizes agent writes or isolates one client. |
 | Caller claim | 调用方; 调用方自报的身份 | Caller-supplied name, path, signature and purpose used for display and attribution. These are unverified context, not authorization inputs. |
 | Broker | — | The App's local, versioned service that evaluates agent requests and arranges approved delivery. It exposes a limited agent protocol, not a management API. |

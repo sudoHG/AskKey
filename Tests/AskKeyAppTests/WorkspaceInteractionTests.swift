@@ -68,7 +68,7 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
             ),
             .init(
                 title: "凭证管理已锁定",
-                message: "已有 2 份凭证受保护。Agent 请旨不受影响，仍会直接弹出确认框。",
+                message: "已有 2 份凭证受保护。Agent 的请求不受影响，照常会弹窗问你。",
                 action: "解锁管理",
                 pendingMessage: "有 2 个 Agent 请求等待决定，不需要解锁管理。",
                 pendingAction: "直接处理请求"
@@ -111,11 +111,11 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         AppLanguage.current = "zh-Hans"
         XCTAssertEqual(
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
-            ["仅本次", "允许 30 分钟", "拒绝"]
+            ["允许本次", "允许 30 分钟", "拒绝"]
         )
         XCTAssertEqual(
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
-            ["仅本次", "拒绝"]
+            ["允许本次", "拒绝"]
         )
         let writeActions: [(BrokerApprovalOperation, String, String)] = [
             (.create, "批准创建", "Approve Creation"),
@@ -128,9 +128,9 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         }
         AppLanguage.current = "en"
         XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
-                       ["Allow Once", "Allow for 30 Minutes", "Deny"])
+                       ["Allow once", "Allow for 30 Minutes", "Deny"])
         XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
-                       ["Allow Once", "Deny"])
+                       ["Allow once", "Deny"])
         for (operation, _, english) in writeActions {
             XCTAssertEqual(FrozenApprovalActions.titles(operation: operation, timedAllowanceEnabled: true),
                            [english, "Deny"])
