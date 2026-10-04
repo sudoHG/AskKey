@@ -3388,7 +3388,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask: Agents wait for your approval each time."
+            "value": "Ask every time: Agents wait for your approval each time."
           }
         },
         "zh-Hans": {
@@ -9207,7 +9207,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New credentials default to Ask."
+            "value": "New credentials default to Ask every time."
           }
         },
         "zh-Hans": {
