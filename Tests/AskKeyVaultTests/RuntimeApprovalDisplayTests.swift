@@ -201,6 +201,52 @@ final class RuntimeApprovalDisplayTests: XCTestCase {
         }
     }
 
+    func testExecutableBasenameEscapesNewlineAndBidirectionalControlsBeforeDisplayAndStorage() throws {
+        for denied in [false, true] {
+            let harness = try makeHarness()
+            _ = try createCredential(.text, in: harness)
+            let request = request(command: ["/opt/synthetic/deploy\n\u{202e}.sh"])
+            let ticket = try XCTUnwrap(try pendingTickets(request, in: harness).first)
+            let display = try XCTUnwrap(harness.approvals.pendingRequests().first?.request.display)
+            let expected = "deploy\\n\\xe2\\x80\\xae.sh"
+            XCTAssertEqual(display.executableBasename, expected)
+            _ = try harness.approvals.decide(requestID: ticket.requestID, capability: ticket.capability,
+                                             decision: denied ? .deny : .once)
+            if denied {
+                harness.approvals.flushObservers()
+            } else {
+                guard case .resolved(_, _, let lease) = try harness.vault.brokerTextCredentials(
+                    for: request, cancellation: .init()
+                ) else { return XCTFail("approved credential should resolve") }
+                lease?.finish(); lease?.cleanup()
+            }
+            let event = try XCTUnwrap(harness.vault.listCredentialAccessRecords().first)
+            XCTAssertEqual(event.executableBasename, expected)
+            XCTAssertEqual(event.result, denied ? .denied : .allowed)
+            XCTAssertFalse(expected.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) })
+        }
+    }
+
+    func testExecutableBasenameIsBoundedBeforeDisplayAndStorageWithFullCommandRetained() throws {
+        let harness = try makeHarness()
+        _ = try createCredential(.text, in: harness)
+        let basename = String(repeating: "a", count: 80) + "\n\u{202e}" + String(repeating: "z", count: 80)
+        let request = request(command: ["/opt/synthetic/" + basename])
+        let tickets = try pendingTickets(request, in: harness)
+        let display = try XCTUnwrap(harness.approvals.pendingRequests().first?.request.display)
+        let expected = String(repeating: "a", count: 32) + "…" + String(repeating: "z", count: 31)
+        XCTAssertEqual(display.executableBasename, expected)
+        XCTAssertEqual(display.executableBasename?.count, 64)
+        XCTAssertTrue(display.commandLine.contains(String(repeating: "a", count: 80)))
+        XCTAssertTrue(display.commandLine.contains("\\n\\xe2\\x80\\xae"))
+        try approve(tickets, in: harness)
+        guard case .resolved(_, _, let lease) = try harness.vault.brokerTextCredentials(
+            for: request, cancellation: .init()
+        ) else { return XCTFail("approved credential should resolve") }
+        defer { lease?.finish(); lease?.cleanup() }
+        XCTAssertEqual(try harness.vault.listCredentialAccessRecords().first?.executableBasename, expected)
+    }
+
     func testOldAccessRecordsDecodeWithoutExecutableAndNewRecordsStripPath() throws {
         let event = CredentialAccessEvent(timestamp: Date(timeIntervalSince1970: 0), credentialID: "synthetic",
                                           operation: .runtimeRead, result: .allowed, callerHint: nil,

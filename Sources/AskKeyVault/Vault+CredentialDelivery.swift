@@ -81,7 +81,7 @@ extension Vault {
         let payloadDigest = SHA256.hash(data: encoded).map { String(format: "%02x", $0) }.joined()
         let callerName = request.sanitizedCallerName
         let callerPurpose = request.sanitizedCallerPurpose
-        let executableBasename = request.command.first.map { ($0 as NSString).lastPathComponent }
+        let executableBasename = Self.runtimeExecutableBasename(request.command)
         var records: [CredentialRecord] = []
         var consumptions: [BrokerApprovalConsumption] = []
         var pending: [BrokerApprovalTicket] = []
@@ -256,10 +256,18 @@ extension Vault {
         return .init(
             commandLine: request.command.map(Self.shellQuotedDisplayArgument).joined(separator: " "),
             workingDirectory: directory,
-            executableBasename: request.command.first.map { ($0 as NSString).lastPathComponent },
+            executableBasename: Self.runtimeExecutableBasename(request.command),
             environmentVariables: environmentVariables,
             temporaryFileVariables: temporaryFileVariables
         )
+    }
+
+    private static func runtimeExecutableBasename(_ command: [String]) -> String? {
+        command.first.map { executable in
+            let escaped = escapedDisplayText((executable as NSString).lastPathComponent)
+            guard escaped.count > 64 else { return escaped }
+            return String(escaped.prefix(32)) + "…" + String(escaped.suffix(31))
+        }
     }
 
     private static func shellQuotedDisplayArgument(_ value: String) -> String {
