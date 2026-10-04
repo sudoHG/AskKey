@@ -70,13 +70,22 @@ Agent writes (create, modify, delete) always need approval for that single opera
 
 ## Supported clients
 
-Codex, Cursor and Grok CLI. Open the app's **Agent access** page, check a client, then confirm. For each client, setup:
+Claude Code, Codex, Cursor and Grok CLI. Open the app's **Agent access** page, check a client, then confirm. For each client, setup:
 
 - adds AskKey as an MCP server in the user-level configuration, keeping a private backup and your other settings;
 - installs a discovery hook that reminds the agent to look up the catalog before common direct SSH commands;
 - verifies the configuration, the bundled helper and the Broker before it reports the client as connected.
 
 Setup runs only when you ask for it, and writing a client's configuration needs system authentication. Discovery hooks are reminders, not authorization.
+
+### Other MCP clients
+
+Any client that supports standard MCP stdio servers can connect to AskKey by defining a server with:
+
+- `command`: `/Applications/Ask Key.app/Contents/Helpers/askkey`
+- `args`: `["mcp"]`
+
+Manual setup does not include automatic discovery reminders before SSH commands or connection verification in the app. Broker permissions, approval prompts, and credential delivery protections still apply.
 
 ## Security model
 
@@ -99,7 +108,7 @@ Quit Ask Key, download and verify the new DMG as described in [Install](#install
 
 ## Uninstall
 
-Quit Ask Key and delete `/Applications/Ask Key.app`. For each connected client, remove only the AskKey entries and owned files listed in [What setup writes](docs/client-integrations.md#what-setup-writes), including MCP configuration, discovery Hooks and AskKey-specific Hook trust settings. Preserve unrelated client settings and Hooks. There is no in-app way to disconnect a client.
+Quit Ask Key and delete `/Applications/Ask Key.app`. For each connected client, remove only the AskKey entries and owned files listed in [What setup writes](docs/client-integrations.md#what-setup-writes), including MCP configuration, discovery Hooks and AskKey-specific Hook trust settings (for example, for Claude Code, run `claude mcp remove askkey --scope user` and remove AskKey handlers from `~/.claude/settings.json`). Preserve unrelated client settings and Hooks. There is no in-app way to disconnect a client.
 
 You can optionally erase the local credential library as well. **This permanently destroys all stored credentials and cannot be undone; v0.1 has no backup or recovery.** To do so, delete `~/Library/Application Support/AskKey` and use Keychain Access to delete the keychain item with service `com.sudohg.askkey.vault`.
 

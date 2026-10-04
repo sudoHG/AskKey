@@ -14,7 +14,7 @@ v0.1 is normalized and verified on the maintainer's machine (see [#1](https://gi
 
 - All work happens through GitHub Issues and pull requests.
 - iCloud backup and recovery were removed from v0.1 in #18. A redesigned backup needs its own issue.
-- Supported agent clients are Codex, Cursor and Grok CLI. Multica support was removed in #17; do not reintroduce it.
+- Supported agent clients are Claude Code, Codex, Cursor and Grok CLI. Multica support was removed in #17; do not reintroduce it.
 
 ## Maintainer's agent workflow
 

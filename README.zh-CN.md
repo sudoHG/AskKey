@@ -70,13 +70,22 @@ Agent 的写操作（新建、修改、删除）永远要对每一次操作单�
 
 ## 支持的客户端
 
-Codex、Cursor 和 Grok CLI。在应用的 Agent 接入页面里先检查某个客户端，再确认连接。对每个客户端，接入会：
+Claude Code、Codex、Cursor 和 Grok CLI。在应用的 **Agent 接入**页面里先检查某个客户端，再确认连接。对每个客户端，接入会：
 
 - 在用户级配置里把 AskKey 添加为 MCP server，同时保留私有备份，不动你的其他设置；
 - 安装一个发现 hook，在 Agent 直接执行常见 SSH 命令之前，提醒它先查询凭证目录；
 - 验证配置、内置 helper 和 Broker 都正常之后，才显示“已验证连接”。
 
 接入只在你主动操作时运行，写入客户端配置需要系统验证。发现 hook 只是提醒，不是授权。
+
+### 其他 MCP 客户端
+
+任何支持标准 MCP stdio 协议的客户端都可以手动接入 AskKey，配置如下服务器定义：
+
+- `command`: `/Applications/Ask Key.app/Contents/Helpers/askkey`
+- `args`: `["mcp"]`
+
+手动配置不会安装 SSH 前的凭证查询提醒，也不会在应用中进行自动连接验证。但应用内所有的 Broker 权限、批准弹窗和凭证交付保护依然完全有效。
 
 ## 安全模型
 
@@ -99,7 +108,7 @@ AskKey 不保证的事：
 
 ## 卸载
 
-退出请旨并删除 `/Applications/Ask Key.app`。对每个已连接的客户端，只移除 [What setup writes](docs/client-integrations.md#what-setup-writes) 中列出的 AskKey 配置项和专属文件，包括 MCP 配置、凭证查询 Hook 和 AskKey 专属的 Hook 信任设置，保留其他客户端设置和 Hook。应用内没有断开客户端连接的功能。
+退出请旨并删除 `/Applications/Ask Key.app`。对每个已连接的客户端，只移除 [What setup writes](docs/client-integrations.md#what-setup-writes) 中列出的 AskKey 配置项和专属文件，包括 MCP 配置、凭证查询 Hook 和 AskKey 专属的 Hook 信任设置（例如对于 Claude Code，运行 `claude mcp remove askkey --scope user` 并移除 `~/.claude/settings.json` 中的 AskKey 处理器）。保留其他客户端设置和 Hook。应用内没有断开客户端连接的功能。
 
 你也可以选择一并删除本机凭证库。**这会永久销毁所有已保存的凭证，无法撤销；v0.1 没有备份和恢复功能。** 如需删除，请移除 `~/Library/Application Support/AskKey` 目录，并在“钥匙串访问”中删除服务名为 `com.sudohg.askkey.vault` 的钥匙串项目。
 
