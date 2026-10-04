@@ -1,16 +1,33 @@
 # AskKey
 
+[![CI](https://img.shields.io/github/actions/workflow/status/sudoHG/AskKey/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/sudoHG/AskKey/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/sudoHG/AskKey?style=flat-square&label=release)](https://github.com/sudoHG/AskKey/releases/latest) [![Downloads](https://img.shields.io/github/downloads/sudoHG/AskKey/total?style=flat-square&label=downloads)](https://github.com/sudoHG/AskKey/releases) [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?style=flat-square&logo=apple)](#install) [![Stars](https://img.shields.io/github/stars/sudoHG/AskKey?style=flat-square&label=stars)](https://github.com/sudoHG/AskKey/stargazers) [![License](https://img.shields.io/github/license/sudoHG/AskKey?style=flat-square)](LICENSE) [![README views](https://hits.sh/github.com/sudoHG/AskKey.svg?style=flat-square&label=README%20views)](https://hits.sh/github.com/sudoHG/AskKey/)
+
 A macOS menu bar app that keeps your credentials encrypted on your Mac and lets AI agents use them only after you approve.
 
 English | [Simplified Chinese](README.zh-CN.md)
 
-> **Status:** AskKey releases are notarized DMGs on [GitHub Releases](https://github.com/sudoHG/AskKey/releases). There is no automatic update. Version 0.1 has no backup or recovery, so keep the originals of your credentials somewhere else.
+> **[Download the latest release](https://github.com/sudoHG/AskKey/releases/latest)** (notarized DMG, macOS 14+). Version 0.1 has no backup or recovery, so keep the originals of your credentials somewhere else.
 
 ## Why it exists
 
 Coding agents need real secrets to deploy code, call APIs or log in to servers. The usual shortcuts are pasting a key into a chat, writing it into a prompt or leaving it in a `.env` file. Each of those hands plaintext to every tool, transcript and log that can read it, and you rarely see which agent used what.
 
 AskKey takes the secret out of that path. The agent never holds the stored value. It asks, you decide, and the value goes only to the program that needs it.
+
+## Install
+
+1. Download `AskKey-<version>.dmg` and `AskKey-<version>.dmg.sha256` from the [latest release](https://github.com/sudoHG/AskKey/releases/latest). Replace `<version>` below with the downloaded version.
+2. In the download directory, verify the checksum before opening the DMG:
+
+   ```bash
+   shasum -a 256 -c AskKey-<version>.dmg.sha256
+   ```
+
+   Continue only if the check reports `OK`.
+3. Open the DMG and drag `Ask Key.app` into Applications. It must stay at exactly `/Applications/Ask Key.app`, under that name, or agents cannot connect.
+4. Launch Ask Key and connect your clients from the **Agent access** page. See [Supported clients](#supported-clients).
+
+To upgrade or remove it later, see [Upgrade](#upgrade) and [Uninstall](#uninstall).
 
 ## How it works
 
@@ -75,19 +92,6 @@ What AskKey does not guarantee:
 - Caller names and purposes are declared by the agent. They help you read a request; they are not verified identity.
 - Another process running as the same macOS user may be able to read material after an approved delivery. Hidden keeps a credential out of the agent catalog but does not defend against that.
 - A timed allowance covers the credential for the whole local user, not one agent client.
-
-## Install
-
-1. Download `AskKey-<version>.dmg` and `AskKey-<version>.dmg.sha256` from the [latest release](https://github.com/sudoHG/AskKey/releases/latest). Replace `<version>` below with the downloaded version.
-2. In the download directory, verify the checksum before opening the DMG:
-
-   ```bash
-   shasum -a 256 -c AskKey-<version>.dmg.sha256
-   ```
-
-   Continue only if the check reports `OK`.
-3. Open the DMG and drag `Ask Key.app` into Applications. It must stay at exactly `/Applications/Ask Key.app`, under that name, or agents cannot connect.
-4. Launch Ask Key and connect your clients from the **Agent access** page. See [Supported clients](#supported-clients).
 
 ## Upgrade
 

@@ -1,16 +1,33 @@
 # AskKey（请旨）
 
+[![CI](https://img.shields.io/github/actions/workflow/status/sudoHG/AskKey/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/sudoHG/AskKey/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/sudoHG/AskKey?style=flat-square&label=release)](https://github.com/sudoHG/AskKey/releases/latest) [![Downloads](https://img.shields.io/github/downloads/sudoHG/AskKey/total?style=flat-square&label=downloads)](https://github.com/sudoHG/AskKey/releases) [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?style=flat-square&logo=apple)](#安装) [![Stars](https://img.shields.io/github/stars/sudoHG/AskKey?style=flat-square&label=stars)](https://github.com/sudoHG/AskKey/stargazers) [![License](https://img.shields.io/github/license/sudoHG/AskKey?style=flat-square)](LICENSE) [![README views](https://hits.sh/github.com/sudoHG/AskKey.svg?style=flat-square&label=README%20views)](https://hits.sh/github.com/sudoHG/AskKey/)
+
 一个 macOS 菜单栏应用：凭证加密保存在你的 Mac 上，AI Agent 必须经过你的批准才能使用。
 
 [English](README.md) | 简体中文
 
-> **当前状态：** AskKey 通过 [GitHub Releases](https://github.com/sudoHG/AskKey/releases) 提供经过 Apple 公证的 DMG 安装包，没有自动更新功能。v0.1 没有备份和恢复功能，请自行另存一份凭证原件。
+> **[下载最新版本](https://github.com/sudoHG/AskKey/releases/latest)**（经过 Apple 公证的 DMG，需要 macOS 14 或更高版本）。v0.1 没有备份和恢复功能，请自行另存一份凭证原件。
 
 ## 为什么需要它
 
 编码 Agent 要部署代码、调用 API、登录服务器，就得用到真实的密钥。常见做法是把 key 贴进对话、写进提示词，或者留在 `.env` 文件里。这等于把明文交给每一个能读到它的工具、聊天记录和日志，而你往往不知道哪个 Agent 用了什么。
 
 AskKey 把密钥从这条路径里拿出来：Agent 手里没有保存的凭证值，它只能提出请求，由你决定，值只交给真正需要它的那个程序。
+
+## 安装
+
+1. 从[最新版本](https://github.com/sudoHG/AskKey/releases/latest)下载 `AskKey-<version>.dmg` 和 `AskKey-<version>.dmg.sha256`。执行下面的命令前，将 `<version>` 替换为下载的版本号。
+2. 在下载目录中校验文件，确认无误后再打开 DMG：
+
+   ```bash
+   shasum -a 256 -c AskKey-<version>.dmg.sha256
+   ```
+
+   只有校验结果为 `OK` 时才继续。
+3. 打开 DMG，将 `Ask Key.app` 拖入 Applications（应用程序）。应用必须保留原名，并始终位于 `/Applications/Ask Key.app`，否则 Agent 无法连接。
+4. 启动请旨，在 **Agent 接入**页面连接客户端。详见[支持的客户端](#支持的客户端)。
+
+以后升级或卸载，见[升级](#升级)和[卸载](#卸载)。
 
 ## 工作方式
 
@@ -75,19 +92,6 @@ AskKey 不保证的事：
 - 调用方名称和用途由 Agent 自行声明，只是帮你看懂请求，不是经过验证的身份。
 - 同一 macOS 用户下的其他进程，可能在交付之后读取到相关内容。“隐藏”只是让凭证不进入 Agent 目录，防不住这类旁路。
 - 限时允许针对的是整个本机用户下的这份凭证，而不是某一个 Agent 客户端。
-
-## 安装
-
-1. 从[最新版本](https://github.com/sudoHG/AskKey/releases/latest)下载 `AskKey-<version>.dmg` 和 `AskKey-<version>.dmg.sha256`。执行下面的命令前，将 `<version>` 替换为下载的版本号。
-2. 在下载目录中校验文件，确认无误后再打开 DMG：
-
-   ```bash
-   shasum -a 256 -c AskKey-<version>.dmg.sha256
-   ```
-
-   只有校验结果为 `OK` 时才继续。
-3. 打开 DMG，将 `Ask Key.app` 拖入 Applications（应用程序）。应用必须保留原名，并始终位于 `/Applications/Ask Key.app`，否则 Agent 无法连接。
-4. 启动请旨，在 **Agent 接入**页面连接客户端。详见[支持的客户端](#支持的客户端)。
 
 ## 升级
 
