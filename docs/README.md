@@ -20,6 +20,7 @@ See the [changelog](../CHANGELOG.md) for release changes and known limitations.
 - [ADR 0004](adr/0004-backup-removal-and-future-design.md): backup removed from v0.1 and constraints for a future design.
 - [ADR 0005](adr/0005-distribution-and-client-integration.md): bundle layout, helper packaging and client adapters.
 - [ADR 0006](adr/0006-release-process.md): locally signed, notarized DMG releases.
+- [ADR 0007](adr/0007-claude-code-integration.md): Claude Code MCP setup through its CLI and the discovery hook in its settings.
 
 ## Contributing and project rules
 
