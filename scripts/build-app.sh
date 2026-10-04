@@ -14,8 +14,11 @@ CONFIG="$MODE"
 case "$MODE" in Debug|Release|Local|E2E) ;; *) echo "Usage: $0 [Debug|Release|Local|E2E]" >&2; exit 1;; esac
 if [ "$MODE" = Local ]; then CONFIG=Release; fi
 if [ "$MODE" = E2E ]; then CONFIG=Debug; fi
-if [ "$MODE" = Local ] || [ "$MODE" = Release ]; then
-  python3 scripts/e2e-gate.py
+if [ "$MODE" = Local ]; then
+  python3 scripts/release-gate.py
+fi
+if [ "$MODE" = Release ]; then
+  python3 scripts/release-gate.py --require-tag
 fi
 SIGN_IDENTITY="-"
 if [ "$MODE" = E2E ]; then SIGN_IDENTITY="${ASKKEY_E2E_SIGNING_IDENTITY:--}"; fi
