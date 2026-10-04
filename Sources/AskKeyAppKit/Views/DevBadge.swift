@@ -8,11 +8,11 @@ struct DevBadge: View {
     var body: some View {
         if VaultConfiguration.isDevelopmentBuild {
             Text("DEV")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
+                .font(Theme.Fonts.caption.bold())
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(Color.orange))
+                .background(Capsule().fill(Theme.neutralSubtle))
                 .help("Development build — uses a separate vault from the production app")
         }
     }

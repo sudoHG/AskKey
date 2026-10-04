@@ -92,17 +92,17 @@ struct CredentialEditorView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 Button(credential == nil ? appLocalized("← Choose Again") : appLocalized("← Cancel Editing")) { close() }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.brand)
-                VStack(alignment: .leading, spacing: 4) {
+                    .foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(credential == nil ? appLocalized("New Credential") : appLocalized("Edit Credential"))
-                        .font(.system(size: 20, weight: .bold))
+                        .font(Theme.Fonts.title)
                         .accessibilityAddTraits(.isHeader)
                     Text("\(template.prototypeTitle) · " + appLocalized("Its contents are saved and authorized as one set."))
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 editorField(appLocalized("Credential Name")) {
                     TextField(appLocalized("For example: Production API"), text: $name)
@@ -114,16 +114,16 @@ struct CredentialEditorView: View {
                     if credential != nil, !didLoadSecrets {
                         HStack {
                             Text(appLocalized("Contents stay hidden. Changing the name, group, or permission does not reveal plaintext."))
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.secondary)
+                                .foregroundStyle(Theme.textSecondary)
                             Spacer()
                             Button(appLocalized("Authenticate to Edit Contents")) {
                                 Task { await loadExistingSecrets() }
                             }
                             .buttonStyle(.bordered)
                         }
-                        .padding(12)
-                        .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
+                        .padding(Theme.Spacing.md)
+                        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
                     } else if credential == nil || payloadKind == .bundle {
                         componentEditor
                     } else if payloadKind == .file {
@@ -149,8 +149,8 @@ struct CredentialEditorView: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.caption.weight(.semibold))
+                                .foregroundStyle(Theme.textSecondary)
                                 .rotationEffect(.degrees(moreExpanded ? 90 : 0))
                             Text(appLocalized("More Settings"))
                             Spacer(minLength: 0)
@@ -182,32 +182,32 @@ struct CredentialEditorView: View {
                                 TextField("YYYY-MM-DD", text: $expiryDateText)
                                     .textFieldStyle(.roundedBorder)
                                 Text(FrozenEditorMoreSettingsPresentation.expiryHelp)
-                                    .font(.system(size: 11.5, weight: .regular))
+                                    .font(Theme.Fonts.secondary)
                                     .foregroundStyle(
                                         expiryDateText.isEmpty || parsedExpiryDate != nil
-                                            ? Theme.textMuted
-                                            : Theme.red
+                                            ? Theme.textSecondary
+                                            : Theme.warning
                                     )
                             }
                         }
                         .padding(.top, 10)
                     }
                 }
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(Theme.Fonts.secondary.weight(.semibold))
                 if let existingImportCredential {
                     let conflict = FrozenImportConflictPresentation(
                         existingName: existingImportCredential.name,
                         choice: importConflictChoice
                     )
                     HStack(alignment: .top, spacing: 10) {
-                        Text("⚠︎").foregroundStyle(Theme.amber)
+                        Text("⚠︎").foregroundStyle(Theme.warning)
                         Text(conflict.warning ?? "")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textMuted)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                     }
-                    .padding(12)
+                    .padding(Theme.Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.amber.opacity(0.10), in: .rect(cornerRadius: 9))
+                    .background(Theme.warningSubtle, in: .rect(cornerRadius: 9))
                     FrozenSegmentedControl(
                         options: Array(zip(FrozenImportConflictChoice.allCases, conflict.choices)),
                         selection: $importConflictChoice
@@ -218,12 +218,12 @@ struct CredentialEditorView: View {
                     Button(appLocalized("Cancel")) { close() }
                     Button(credential == nil ? appLocalized("Save Credential") : appLocalized("Save Changes")) { save() }
                         .buttonStyle(.borderedProminent)
-                        .tint(Theme.brand)
+                        .tint(Theme.accent)
                         .keyboardShortcut(.defaultAction)
                         .disabled(!isValid)
                         .accessibilityIdentifier("credential-editor-save")
                 }
-                .padding(.top, 4)
+                .padding(.top, Theme.Spacing.xs)
             }
             .padding(28)
         }
@@ -257,8 +257,8 @@ struct CredentialEditorView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.secondary.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
             content()
         }
     }

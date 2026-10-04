@@ -6,23 +6,23 @@ import AskKeyVault
 extension CredentialManagementView {
     func credentialTag(_ text: String, accent: Bool = false) -> some View {
         Text(text)
-            .font(.system(size: 10.5, weight: .medium))
-            .foregroundStyle(accent ? Theme.brand : Theme.textMuted)
+            .font(Theme.Fonts.caption)
+            .foregroundStyle(accent ? Theme.accent : Theme.textSecondary)
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
-            .background(accent ? Theme.brand.opacity(0.11) : Theme.neutral(0.055), in: .rect(cornerRadius: 5))
+            .background(accent ? Theme.accentSubtle : Theme.neutralSubtle, in: .rect(cornerRadius: 5))
     }
 
     func inlineWarning(_ message: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Text("⚠︎").foregroundStyle(Theme.amber)
+            Text("⚠︎").foregroundStyle(Theme.warning)
             Text(message)
-                .font(.system(size: 11.5))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.textSecondary)
         }
-        .padding(12)
+        .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.amber.opacity(0.10), in: .rect(cornerRadius: 9))
+        .background(Theme.warningSubtle, in: .rect(cornerRadius: 9))
     }
 
 }

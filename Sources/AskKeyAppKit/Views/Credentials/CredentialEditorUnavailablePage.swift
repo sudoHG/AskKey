@@ -7,16 +7,16 @@ struct CredentialEditorUnavailablePage: View {
     let onBack: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Theme.Spacing.md) {
             Spacer()
             Image(systemName: "trash")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(Theme.textDim)
+                .font(Theme.Icon.emptyState)
+                .foregroundStyle(Theme.textTertiary)
             Text(appLocalized("This Credential Is Unavailable"))
-                .font(.system(size: 20, weight: .semibold))
+                .font(Theme.Fonts.headline)
             Text(appLocalized("This credential was deleted or changed. Editing and saving are no longer available."))
-                .font(.system(size: 12.5))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 340)
             Button(appLocalized("Back to Library"), action: onBack)

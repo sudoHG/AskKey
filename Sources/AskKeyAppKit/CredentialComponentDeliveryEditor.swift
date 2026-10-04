@@ -48,7 +48,7 @@ struct CredentialComponentDeliveryEditor: View {
                 TextField(appLocalized("Delivery Environment Variable"), text: variableName)
                     .textFieldStyle(.roundedBorder)
             }
-        }.padding(.vertical, 4)
+        }.padding(.vertical, Theme.Spacing.xs)
     }
 }
 
@@ -59,7 +59,7 @@ struct FrozenImportedValue: View {
     var body: some View {
         HStack {
             Text(verbatim: revealed ? value : "••••••••")
-                .font(.system(size: 12.5, design: .monospaced))
+                .font(Theme.Fonts.mono)
                 .lineLimit(2)
             Spacer()
             Button(revealed ? appLocalized("Hide") : appLocalized("View")) {

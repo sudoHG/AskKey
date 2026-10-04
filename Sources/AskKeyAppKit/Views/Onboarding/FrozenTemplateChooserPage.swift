@@ -12,31 +12,31 @@ struct FrozenTemplateChooserPage: View {
             VStack(alignment: .leading, spacing: 0) {
                 Button(appLocalized("← Back"), action: onBack)
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.brand)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Theme.accent)
+                    .font(Theme.Fonts.secondary)
                 Text(appLocalized("What do you want to save?"))
-                    .font(.system(size: 20, weight: .bold))
-                    .padding(.top, 16)
+                    .font(Theme.Fonts.title)
+                    .padding(.top, Theme.Spacing.lg)
                 Text(appLocalized("Choose the closest template. You can add or remove items later."))
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Theme.textMuted)
-                    .padding(.top, 4)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.top, Theme.Spacing.xs)
                 LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 10) {
                     ForEach(CredentialTemplate.allCases, id: \.self) { template in
                         Button { onSelect(template) } label: {
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                                 Text(template.prototypeTitle)
-                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .font(Theme.Fonts.body.weight(.semibold))
                                     .foregroundStyle(Theme.text)
                                 Text(template.prototypeDescription)
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Theme.textMuted)
+                                    .font(Theme.Fonts.secondary)
+                                    .foregroundStyle(Theme.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
                             .padding(14)
-                            .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                            .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                             .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                         }
                         .buttonStyle(.plain)

@@ -9,8 +9,8 @@ extension CredentialEditorView {
             Text(template == .custom
                  ? FrozenEditorCopy.customHelp
                  : appLocalized("Keep everything needed for one task together."))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.textSecondary)
             DisclosureGroup(appLocalized("Delivery Options")) {
                 ForEach($components) { $component in
                     if !component.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -18,7 +18,7 @@ extension CredentialEditorView {
                     }
                 }
             }
-            .font(.system(size: 11))
+            .font(Theme.Fonts.caption)
             if template == .custom {
                 VStack(spacing: 0) {
                     HStack(spacing: 10) {
@@ -29,15 +29,15 @@ extension CredentialEditorView {
                         Color.clear.frame(width: 42, height: 1)
                         Color.clear.frame(width: 18, height: 1)
                     }
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.textMuted)
+                    .font(Theme.Fonts.caption.weight(.semibold))
+                    .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, Theme.Spacing.sm)
 
                     ForEach($components) { $component in
                         HStack(spacing: 10) {
                             TextField(appLocalized("Key, for example API_TOKEN"), text: $component.name)
-                                .font(.system(size: 12.5, design: .monospaced))
+                                .font(Theme.Fonts.mono)
                                 .textFieldStyle(.roundedBorder)
                                 .accessibilityIdentifier(componentEditorIdentifier(component, field: "name"))
                             if component.kind == .file {
@@ -53,8 +53,8 @@ extension CredentialEditorView {
                                     .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
                             }
                             Text(FrozenEditorCopy.kindLabel(for: component.kind))
-                                .font(.system(size: 10.5, weight: .medium))
-                                .foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.caption)
+                                .foregroundStyle(Theme.textSecondary)
                                 .frame(width: 42)
                             if components.count > 1 {
                                 Button(role: .destructive) {
@@ -63,7 +63,7 @@ extension CredentialEditorView {
                                     Image(systemName: "xmark")
                                 }
                                 .buttonStyle(.plain)
-                                .foregroundStyle(Theme.textMuted)
+                                .foregroundStyle(Theme.textSecondary)
                                 .frame(width: 18)
                             } else {
                                 Color.clear.frame(width: 18, height: 1)
@@ -73,21 +73,21 @@ extension CredentialEditorView {
                         .overlay(alignment: .top) { Divider() }
                     }
                 }
-                .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                 .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
             } else if template == .api {
                 ForEach($components) { $component in
                     let card = FrozenEditorCopy.fieldCard(for: component)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(card.title)
-                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .font(Theme.Fonts.secondary.weight(.semibold))
                                 if !card.help.isEmpty {
                                     Text(card.help)
-                                        .font(.system(size: 11.5))
-                                        .foregroundStyle(Theme.textMuted)
+                                        .font(Theme.Fonts.secondary)
+                                        .foregroundStyle(Theme.textSecondary)
                                 }
                             }
                             Spacer()
@@ -96,10 +96,10 @@ extension CredentialEditorView {
                                     components.removeAll { $0.id == component.id }
                                 }
                                 .buttonStyle(.plain)
-                                .foregroundStyle(Theme.textMuted)
+                                .foregroundStyle(Theme.textSecondary)
                             }
                         }
-                        HStack(spacing: 8) {
+                        HStack(spacing: Theme.Spacing.sm) {
                             if component.kind == .file {
                                 Button(component.file?.originalFilename ?? appLocalized("Choose file")) {
                                     chooseComponentFile(component.id)
@@ -129,20 +129,20 @@ extension CredentialEditorView {
                                 componentRevealButton(component.id)
                             }
                             Text(FrozenEditorCopy.kindLabel(for: component))
-                                .font(.system(size: 10.5, weight: .medium))
-                                .foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.caption)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
-                    .padding(12)
-                    .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                    .padding(Theme.Spacing.md)
+                    .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                     .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                 }
             } else {
                 ForEach($components) { $component in
                     HStack {
                         Text(CredentialTemplate.fieldTitle(for: component.name))
-                            .font(.system(size: 12.5, weight: .semibold))
+                            .font(Theme.Fonts.secondary.weight(.semibold))
                             .frame(minWidth: 100, alignment: .leading)
                         if component.kind == .file {
                             Button(component.file?.originalFilename ?? appLocalized("Choose file")) {
@@ -170,8 +170,8 @@ extension CredentialEditorView {
                             componentRevealButton(component.id)
                         }
                         Text(FrozenEditorCopy.kindLabel(for: component))
-                            .font(.system(size: 10.5, weight: .medium))
-                            .foregroundStyle(Theme.textMuted)
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.textSecondary)
                             .frame(width: 42)
                         if component.isRemovable {
                             Button(role: .destructive) {

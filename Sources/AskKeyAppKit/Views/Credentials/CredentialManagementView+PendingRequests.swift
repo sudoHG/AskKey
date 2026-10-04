@@ -18,12 +18,12 @@ extension CredentialManagementView {
         let approvals = storedApprovals
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(appLocalized("Pending Requests"))
-                        .font(.system(size: 20, weight: .bold))
+                        .font(Theme.Fonts.title)
                     Text(appLocalized("Agent requests open a system confirmation. Missed or deferred requests remain here."))
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
             }
@@ -37,20 +37,20 @@ extension CredentialManagementView {
             } else {
                 if !approvals.isEmpty {
                     ScrollView {
-                        LazyVStack(spacing: 8) {
+                        LazyVStack(spacing: Theme.Spacing.sm) {
                             ForEach(approvals, id: \.request.operationID) { approval in
                                 let request = approval.request
-                                HStack(spacing: 12) {
+                                HStack(spacing: Theme.Spacing.md) {
                                     Image(systemName: request.operation == .read ? "command" : "pencil")
                                         .frame(width: 32, height: 32)
-                                        .background(Theme.neutral(0.06), in: .rect(cornerRadius: 8))
+                                        .background(Theme.neutralSubtle, in: .rect(cornerRadius: 8))
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text("\(request.callerName ?? appLocalized("Local Agent")) · \(requestOperationTitle(request.operation)) \(approval.displayCredentialName)")
-                                            .font(.system(size: 13.5, weight: .semibold))
+                                            .font(Theme.Fonts.body.weight(.semibold))
                                         TimelineView(.periodic(from: .now, by: 1)) { context in
                                             Text("\(request.callerPurpose ?? appLocalized("No purpose declared")) · \(appLocalized("Remaining")) \(FrozenCountdown.format(deadline: approval.expiresAt, now: context.date))")
-                                                .font(.system(size: 11.5))
-                                                .foregroundStyle(Theme.textMuted)
+                                                .font(Theme.Fonts.secondary)
+                                                .foregroundStyle(Theme.textSecondary)
                                         }
                                     }
                                     Spacer()
@@ -61,35 +61,35 @@ extension CredentialManagementView {
                                     )
                                 }
                                 .padding(14)
-                                .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                                .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                                 .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                             }
                         }
                         .padding(.horizontal, 28)
                     }
                 } else {
-                HStack(spacing: 12) {
+                HStack(spacing: Theme.Spacing.md) {
                     Image(systemName: "tray.full")
                         .frame(width: 32, height: 32)
-                        .background(Theme.neutral(0.06), in: .rect(cornerRadius: 8))
+                        .background(Theme.neutralSubtle, in: .rect(cornerRadius: 8))
                     VStack(alignment: .leading, spacing: 3) {
                         Text(appLocalizedFormat("%lld Agent requests are waiting", vault.pendingApprovalCount))
-                            .font(.system(size: 13.5, weight: .semibold))
+                            .font(Theme.Fonts.body.weight(.semibold))
                         Text(appLocalized("Credential contents stay masked until you open the confirmation."))
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textMuted)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
                     Button(appLocalized("Open Confirmation")) {
                         NotificationCenter.default.post(name: .presentNextAgentApproval, object: nil)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Theme.brand)
+                    .tint(Theme.accent)
                 }
                 .padding(14)
-                .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                 .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                 .padding(.horizontal, 28)
                 }

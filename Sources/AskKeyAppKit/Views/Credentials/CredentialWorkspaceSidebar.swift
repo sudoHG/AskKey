@@ -23,23 +23,23 @@ struct CredentialWorkspaceSidebar: View {
 
             HStack {
                 Text(appLocalized("Credential Library"))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.textMuted)
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textSecondary)
                     .textCase(.uppercase)
                 Spacer()
                 if allowsCredentialChanges {
                     Button(action: createGroup) {
                         Image(systemName: "plus")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(Theme.Fonts.body)
                             .frame(width: 24, height: 24)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.textMuted)
+                    .foregroundStyle(Theme.textSecondary)
                     .help(appLocalized("New group"))
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.bottom, 4)
+            .padding(.bottom, Theme.Spacing.xs)
 
             ScrollView {
                 LazyVStack(spacing: 2) {
@@ -75,8 +75,8 @@ struct CredentialWorkspaceSidebar: View {
             Spacer()
 
             Text(appLocalized("Agent approvals"))
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Theme.textMuted)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.horizontal, 10)
                 .padding(.bottom, 6)
             routeButton(
@@ -93,7 +93,7 @@ struct CredentialWorkspaceSidebar: View {
                 identifier: "sidebar-records"
             )
 
-            Divider().overlay(Theme.sep).padding(.horizontal, 14)
+            Divider().overlay(Theme.separator).padding(.horizontal, 14)
 
             routeButton(
                 .agentAccess,
@@ -110,7 +110,7 @@ struct CredentialWorkspaceSidebar: View {
             )
             .keyboardShortcut(",", modifiers: .command)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, 10)
         .background(.ultraThinMaterial)
     }
@@ -126,17 +126,17 @@ struct CredentialWorkspaceSidebar: View {
         } label: {
             HStack {
                 Image(systemName: sidebarIcon(for: section))
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.textMuted)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
                     .frame(width: 16)
                 Text(title)
-                    .font(.system(size: 13))
+                    .font(Theme.Fonts.body)
                     .foregroundStyle(Theme.text)
                     .lineLimit(1)
                 Spacer()
                 Text("\(count)")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.textMuted)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(.horizontal, 10)
             .frame(height: 28)
@@ -165,7 +165,7 @@ struct CredentialWorkspaceSidebar: View {
                 Spacer()
                 if let count { Text("\(count)") }
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(Theme.Fonts.body)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 18)
             .padding(.vertical, destination == .settings ? 12 : 8)

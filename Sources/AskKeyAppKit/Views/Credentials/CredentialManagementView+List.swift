@@ -30,10 +30,10 @@ extension CredentialManagementView {
                     selectedCredentialID = nil
                 } label: {
                     Label(sectionTitle, systemImage: "arrow.left")
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(Theme.Fonts.secondary)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Theme.brand)
+                .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 28)
                 .padding(.top, 20)
                 credentialInspector
@@ -45,11 +45,11 @@ extension CredentialManagementView {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(sectionTitle)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(Theme.Fonts.title)
                         .foregroundStyle(Theme.text)
                     Text(sectionSubtitle)
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
                 if selectedSection.showsCredentialImport {
@@ -73,11 +73,11 @@ extension CredentialManagementView {
                             : FrozenCollectionCopy.newCredentialAction,
                         systemImage: "plus"
                     )
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .font(Theme.Fonts.secondary.weight(.semibold))
+                        .foregroundStyle(Theme.onAccent)
                         .frame(height: Theme.controlHeight)
                         .padding(.horizontal, 10)
-                        .background(Theme.brand, in: .rect(cornerRadius: 7))
+                        .background(Theme.accent, in: .rect(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("credential-new")
@@ -95,8 +95,8 @@ extension CredentialManagementView {
                             deletingGroupName = name
                         }
                             .buttonStyle(.bordered)
-                            .foregroundStyle(Theme.red)
-                            .tint(Theme.red)
+                            .foregroundStyle(Theme.warning)
+                            .tint(Theme.warning)
                     }
                 }
             }
@@ -105,8 +105,8 @@ extension CredentialManagementView {
             }
             }
             .padding(.horizontal, 28)
-            .padding(.top, 24)
-            .padding(.bottom, 16)
+            .padding(.top, Theme.Spacing.xl)
+            .padding(.bottom, Theme.Spacing.lg)
 
             if FrozenCollectionCopy.showsSearch(
                 section: selectedSection,
@@ -114,14 +114,14 @@ extension CredentialManagementView {
             ) {
                 HStack(spacing: 7) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundStyle(Theme.textDim)
+                        .foregroundStyle(Theme.textTertiary)
                     TextField(appLocalized("Search credentials…"), text: $searchText)
                         .textFieldStyle(.plain)
                         .focused($searchFocused)
                 }
                 .padding(.horizontal, 10)
                 .frame(width: 300, height: 28)
-                .background(Theme.neutral(0.055), in: .rect(cornerRadius: 7))
+                .background(Theme.neutralSubtle, in: .rect(cornerRadius: 7))
                 .padding(.horizontal, 28)
                 .padding(.bottom, 14)
             }
@@ -184,20 +184,20 @@ extension CredentialManagementView {
 
     private var credentialList: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
+            LazyVStack(spacing: Theme.Spacing.sm) {
                 ForEach(filteredCredentials) { credential in
                 Button {
                     selectedCredentialID = credential.id
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Spacing.md) {
                         Text(String(credential.name.prefix(1)).uppercased())
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Theme.brand)
+                            .font(Theme.Fonts.body.bold())
+                            .foregroundStyle(Theme.accent)
                             .frame(width: 32, height: 32)
-                            .background(Theme.brand.opacity(0.1), in: .rect(cornerRadius: 8))
-                        VStack(alignment: .leading, spacing: 4) {
+                            .background(Theme.accentSubtle, in: .rect(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                             Text(credential.name)
-                                .font(.system(size: 13.5, weight: .semibold))
+                                .font(Theme.Fonts.body.weight(.semibold))
                                 .foregroundStyle(Theme.text)
                             HStack(spacing: 6) {
                                 ForEach(
@@ -213,14 +213,14 @@ extension CredentialManagementView {
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Theme.textDim)
+                            .font(Theme.Fonts.caption.weight(.semibold))
+                            .foregroundStyle(Theme.textTertiary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                    .padding(.vertical, Theme.Spacing.md)
+                    .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                     .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                 }
                 .buttonStyle(.plain)

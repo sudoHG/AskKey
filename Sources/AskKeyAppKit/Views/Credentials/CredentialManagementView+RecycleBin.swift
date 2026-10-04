@@ -6,16 +6,16 @@ import AskKeyVault
 extension CredentialManagementView {
     var recycleBinDetail: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(appLocalized("Recycle Bin"))
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(Theme.Fonts.title)
                 Text(FrozenCollectionCopy.recycleSubtitle)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.textMuted)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(.horizontal, 28)
-            .padding(.top, 24)
-            .padding(.bottom, 16)
+            .padding(.top, Theme.Spacing.xl)
+            .padding(.bottom, Theme.Spacing.lg)
 
             if vault.recycledCredentials.isEmpty {
                 WorkspaceEmptyState(
@@ -25,16 +25,16 @@ extension CredentialManagementView {
                 )
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(spacing: Theme.Spacing.sm) {
                     ForEach(vault.recycledCredentials) { credential in
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Spacing.md) {
                         Text(RecycleBinPresentation.credentialMarker(name: credential.name))
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Theme.brand)
+                            .font(Theme.Fonts.body.bold())
+                            .foregroundStyle(Theme.accent)
                             .frame(width: 32, height: 32)
-                            .background(Theme.brand.opacity(0.1), in: .rect(cornerRadius: 8))
+                            .background(Theme.accentSubtle, in: .rect(cornerRadius: 8))
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(credential.name).font(.system(size: 14, weight: .semibold))
+                            Text(credential.name).font(Theme.Fonts.body.weight(.semibold))
                             HStack(spacing: 6) {
                                 credentialTag(appLocalizedFormat("%lld items", max(credential.components.count, 1)))
                                 credentialTag(RecycleBinPresentation.remainingDaysCopy(
@@ -63,13 +63,13 @@ extension CredentialManagementView {
                             Button(appLocalized("Delete Permanently…"), role: .destructive) {
                                 permanentlyDeletingCredentialID = credential.id
                             }
-                            .foregroundStyle(Theme.red)
-                            .tint(Theme.red)
+                            .foregroundStyle(Theme.warning)
+                            .tint(Theme.warning)
                             .accessibilityIdentifier("credential-permanent-delete-\(credential.id)")
                         }
                     }
-                    .padding(12)
-                    .background(Theme.panelBackground, in: .rect(cornerRadius: 9))
+                    .padding(Theme.Spacing.md)
+                    .background(Theme.surface, in: .rect(cornerRadius: 9))
                     .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.neutral(0.08)))
                     .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                     }

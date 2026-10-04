@@ -32,25 +32,25 @@ struct FrozenFileImportPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 Button(appLocalized("← Back"), action: onCancel)
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.brand)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(appLocalized("Import from File")).font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(appLocalized("Import from File")).font(Theme.Fonts.title)
                     Text(appLocalized("Supports regular files and .env files. The original is never modified."))
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 if preview.isEmpty, importedFile == nil {
                     prototypeCard {
-                        Text(appLocalized(".env File")).font(.system(size: 14, weight: .semibold))
+                        Text(appLocalized(".env File")).font(Theme.Fonts.body.weight(.semibold))
                         Text(appLocalized("Paste .env content below or choose a file. Multiple keys become items in one credential."))
-                            .font(.system(size: 12))
-                            .foregroundStyle(Theme.textMuted)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                         TextEditor(text: $source)
-                            .font(.system(size: 12.5, design: .monospaced))
+                            .font(Theme.Fonts.mono)
                             .frame(minHeight: 120)
                             .padding(6)
                             .background(Theme.neutral(0.045), in: .rect(cornerRadius: 7))
@@ -58,22 +58,22 @@ struct FrozenFileImportPage: View {
                         HStack {
                             Button(appLocalized("Parse and Preview")) { parseSource() }
                                 .buttonStyle(.borderedProminent)
-                                .tint(Theme.brand)
+                                .tint(Theme.accent)
                                 .disabled(source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             Button(appLocalized("Choose File…")) { chooseFile() }
                         }
                     }
                 } else {
                     prototypeCard {
-                        Text(appLocalized("Import Preview")).font(.system(size: 14, weight: .semibold))
+                        Text(appLocalized("Import Preview")).font(Theme.Fonts.body.weight(.semibold))
                         Text(importedFile == nil
                              ? FrozenImportCopy.previewSummary(
                                 itemCount: preview.count,
                                 skippedLineCount: skippedLineCount
                              )
                              : appLocalized("Contains 1 file. The original remains unchanged."))
-                            .font(.system(size: 12))
-                            .foregroundStyle(Theme.textMuted)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                         TextField(appLocalized("Credential Name"), text: $name)
                             .textFieldStyle(.roundedBorder)
                     }
@@ -83,14 +83,14 @@ struct FrozenFileImportPage: View {
                     )
                     if let warning = conflict.warning {
                         HStack(alignment: .top, spacing: 10) {
-                            Text("⚠︎").foregroundStyle(Theme.amber)
+                            Text("⚠︎").foregroundStyle(Theme.warning)
                             Text(warning)
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.secondary)
+                                .foregroundStyle(Theme.textSecondary)
                         }
-                        .padding(12)
+                        .padding(Theme.Spacing.md)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.amber.opacity(0.10), in: .rect(cornerRadius: 9))
+                        .background(Theme.warningSubtle, in: .rect(cornerRadius: 9))
                         FrozenSegmentedControl(
                             options: Array(zip(FrozenImportConflictChoice.allCases, conflict.choices)),
                             selection: $conflictChoice
@@ -101,21 +101,21 @@ struct FrozenFileImportPage: View {
                             Text(appLocalized("Key"))
                             Text(appLocalized("Value"))
                         }
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(Theme.Fonts.caption.weight(.semibold))
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(10)
                         if let importedFile {
                             FrozenImportTableLayout {
-                                Text(appLocalized("File")).font(.system(size: 12.5, weight: .semibold))
+                                Text(appLocalized("File")).font(Theme.Fonts.secondary.weight(.semibold))
                                 Text("\(importedFile.originalFilename) · \(ByteCountFormatter.string(fromByteCount: Int64(importedFile.byteSize), countStyle: .file))")
-                                    .font(.system(size: 12.5))
+                                    .font(Theme.Fonts.secondary)
                             }
                             .padding(10)
                             .overlay(alignment: .top) { Divider() }
                         } else {
                         ForEach(Array(preview.enumerated()), id: \.offset) { _, item in
                             FrozenImportTableLayout {
-                                Text(item.name).font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                                Text(item.name).font(Theme.Fonts.mono.weight(.semibold))
                                 FrozenImportedValue(value: item.value)
                             }
                             .padding(10)
@@ -123,15 +123,15 @@ struct FrozenFileImportPage: View {
                         }
                         }
                     }
-                    .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                    .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                     .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                     HStack {
                         Spacer()
                         Button(appLocalized("Back to Edit")) { preview = []; importedFile = nil }
                         Button(conflict.confirmTitle) { save() }
                             .buttonStyle(.borderedProminent)
-                            .tint(Theme.brand)
+                            .tint(Theme.accent)
                             .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
@@ -144,8 +144,8 @@ struct FrozenFileImportPage: View {
     private func prototypeCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10, content: content)
             .padding(14)
-            .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+            .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
             .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
     }
 

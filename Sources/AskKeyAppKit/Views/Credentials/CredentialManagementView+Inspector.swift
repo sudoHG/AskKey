@@ -8,15 +8,15 @@ extension CredentialManagementView {
     var credentialInspector: some View {
         if let credential = filteredCredentials.first(where: { $0.id == selectedCredentialID }) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                             Text(credential.name)
-                                .font(.system(size: 20, weight: .bold))
+                                .font(Theme.Fonts.title)
                                 .foregroundStyle(Theme.text)
                             Text(appLocalizedFormat("%lld items are delivered together after one approval.", max(credential.components.count, 1)))
-                                .font(.system(size: 12.5))
-                                .foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.secondary)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         Spacer()
                         if deletingCredential?.id == credential.id {
@@ -34,8 +34,8 @@ extension CredentialManagementView {
                             }
                             .accessibilityIdentifier("credential-edit-\(credential.id)")
                             Button(appLocalized("Delete…"), role: .destructive) { deletingCredential = credential }
-                                .foregroundStyle(Theme.red)
-                                .tint(Theme.red)
+                                .foregroundStyle(Theme.warning)
+                                .tint(Theme.warning)
                                 .accessibilityIdentifier("credential-delete-\(credential.id)")
                         }
                     }
@@ -47,10 +47,10 @@ extension CredentialManagementView {
                     HStack(alignment: .center, spacing: 14) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(FrozenCredentialDetailCopy.protectionTitle)
-                                .font(.system(size: 13.5, weight: .semibold))
+                                .font(Theme.Fonts.body.weight(.semibold))
                             Text(FrozenCredentialDetailCopy.protectionMessage)
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textMuted)
+                                .font(Theme.Fonts.secondary)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         Spacer()
                         Button(
@@ -75,8 +75,8 @@ extension CredentialManagementView {
                         }
                     }
                     .padding(14)
-                    .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                    .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                     .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
 
                     VStack(alignment: .leading, spacing: 0) {
@@ -84,11 +84,11 @@ extension CredentialManagementView {
                             ForEach(credential.components, id: \.name) { component in
                                 HStack {
                                     Text(CredentialTemplate.fieldTitle(for: component.name))
-                                        .font(.system(size: 12.5, weight: .semibold))
+                                        .font(Theme.Fonts.secondary.weight(.semibold))
                                     Spacer()
                                     Text(componentDisplayValue(component, credentialID: credential.id))
-                                        .font(.system(size: 12.5, design: .monospaced))
-                                        .foregroundStyle(Theme.textMuted)
+                                        .font(Theme.Fonts.mono)
+                                        .foregroundStyle(Theme.textSecondary)
                                     Button(appLocalized("Copy")) {
                                         vault.copyCredentialComponent(
                                             credential,
@@ -96,32 +96,32 @@ extension CredentialManagementView {
                                         )
                                     }
                                     .buttonStyle(.plain)
-                                    .foregroundStyle(Theme.brand)
+                                    .foregroundStyle(Theme.accent)
                                     credentialTag(componentDisplayKind(component))
                                 }
-                                .padding(12)
+                                .padding(Theme.Spacing.md)
                                 .overlay(alignment: .top) { Divider() }
                             }
                         } else {
                             HStack {
                                 Text(credential.payloadKind == .file ? appLocalized("File") : appLocalized("Value"))
-                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .font(Theme.Fonts.secondary.weight(.semibold))
                                 Spacer()
                                 Text(vault.revealedCredential?.id == credential.id ? appLocalized("Revealed") : "••••••••")
-                                    .font(.system(size: 12.5, design: .monospaced))
+                                    .font(Theme.Fonts.mono)
                             }
-                            .padding(12)
+                            .padding(Theme.Spacing.md)
                         }
                     }
-                    .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                    .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                     .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
 
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                         HStack {
                             Text(appLocalized("Group"))
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Theme.textDim)
+                                .font(Theme.Fonts.caption.weight(.semibold))
+                                .foregroundStyle(Theme.textTertiary)
                             Spacer()
                             Picker(appLocalized("Group"), selection: Binding(
                                 get: { credential.groupName ?? "" },
@@ -142,7 +142,7 @@ extension CredentialManagementView {
                                deadline > context.date {
                                 HStack {
                                     Text(appLocalized("Timed allow remaining ") + FrozenCountdown.format(deadline: deadline, now: context.date))
-                                        .font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                                        .font(Theme.Fonts.caption).foregroundStyle(Theme.textSecondary)
                                     Spacer()
                                     Button(appLocalized("Revoke Now")) {
                                         _ = vault.revokeTimedAllowance(for: credential.id)
@@ -153,8 +153,8 @@ extension CredentialManagementView {
                             }
                         }
                         Text(appLocalized("Agent Permission"))
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Theme.textDim)
+                            .font(Theme.Fonts.caption.weight(.semibold))
+                            .foregroundStyle(Theme.textTertiary)
                         FrozenSegmentedControl(
                             options: CredentialPermission.prototypeCases.map { ($0, $0.prototypeTitle) },
                             selection: Binding(
@@ -164,8 +164,8 @@ extension CredentialManagementView {
                         )
                     }
                     .padding(14)
-                    .background(Theme.panelBackground, in: .rect(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.neutral(0.08)))
+                    .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
                     .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
 
                     if !credential.usageInstructions.isEmpty {
@@ -178,11 +178,11 @@ extension CredentialManagementView {
                             revealedFileBody(vault.revealedCredential?.fileBytes)
                         } else if let value = vault.revealedCredential?.value {
                             Text(value)
-                                .font(.system(size: 13, design: .monospaced))
+                                .font(Theme.Fonts.mono)
                                 .textSelection(.enabled)
-                                .padding(12)
+                                .padding(Theme.Spacing.md)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Theme.neutral(0.06), in: .rect(cornerRadius: 8))
+                                .background(Theme.neutralSubtle, in: .rect(cornerRadius: 8))
                         }
                     }
                 }
@@ -192,7 +192,7 @@ extension CredentialManagementView {
             VStack {
                 Spacer()
                 Text(appLocalized("Select a credential"))
-                    .foregroundStyle(Theme.textMuted)
+                    .foregroundStyle(Theme.textSecondary)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -235,28 +235,28 @@ extension CredentialManagementView {
     private func revealedFileBody(_ bytes: Data?) -> some View {
         if let bytes, let text = String(data: bytes, encoding: .utf8) {
             Text(text)
-                .font(.system(size: 13, design: .monospaced))
+                .font(Theme.Fonts.mono)
                 .textSelection(.enabled)
-                .padding(12)
+                .padding(Theme.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.neutral(0.06), in: .rect(cornerRadius: 8))
+                .background(Theme.neutralSubtle, in: .rect(cornerRadius: 8))
         } else {
             Text(appLocalized("Binary file"))
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.textMuted)
-                .padding(12)
+                .font(Theme.Fonts.body)
+                .foregroundStyle(Theme.textSecondary)
+                .padding(Theme.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.neutral(0.06), in: .rect(cornerRadius: 8))
+                .background(Theme.neutralSubtle, in: .rect(cornerRadius: 8))
         }
     }
 
     private func labeled(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.textDim)
+                .font(Theme.Fonts.caption.weight(.semibold))
+                .foregroundStyle(Theme.textTertiary)
             Text(value)
-                .font(.system(size: 13))
+                .font(Theme.Fonts.body)
                 .foregroundStyle(Theme.text)
         }
     }
