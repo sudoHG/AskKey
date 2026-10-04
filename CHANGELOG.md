@@ -2,7 +2,7 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-04
 
 ### Added
 
