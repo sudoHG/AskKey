@@ -2,6 +2,8 @@
 
 Start with the [README](../README.md) for what AskKey does, then [architecture.md](architecture.md) for how the code is organized.
 
+See the [changelog](../CHANGELOG.md) for release changes and known limitations.
+
 ## Guides
 
 - [architecture.md](architecture.md): modules, allowed dependency directions, and the main flows through the App, Broker and helper.

@@ -15,7 +15,7 @@ Never include real credentials, recovery material, vault contents or client conf
 
 ## Supported versions
 
-No version has been released yet. Security reports currently apply to `main`; the project is under active restructuring before its first public release.
+Security reports are supported for the [latest GitHub Release](https://github.com/sudoHG/AskKey/releases/latest) and `main`.
 
 ## Security boundaries
 
