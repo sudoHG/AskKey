@@ -5,6 +5,8 @@ import AskKeyVault
 
 enum FrozenTimedAllowanceSettingsPresentation {
     static let choices = [15, 30, 60, 120]
+    /// The picker tag for turning timed allow off.
+    static let offTag = 0
 
     static func sanitized(_ minutes: Int) -> Int {
         if minutes > 0, minutes <= Int.max / 60 { return minutes }

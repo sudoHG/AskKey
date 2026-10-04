@@ -6,75 +6,61 @@ import AskKeyVault
 extension CredentialManagementView {
     var accessRecordsDetail: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                Text(appLocalized("Access records"))
-                    .font(Theme.Fonts.title)
-                    .foregroundStyle(Theme.text)
-                Text(FrozenAccessRecordsCopy.subtitle)
-                    .font(Theme.Fonts.secondary)
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            .padding(.horizontal, 28)
-            .padding(.top, Theme.Spacing.xl)
-            .padding(.bottom, Theme.Spacing.lg)
+            PageHeader(title: appLocalized("Access records"), subtitle: FrozenAccessRecordsCopy.subtitle)
+                .padding(.horizontal, Theme.Spacing.xxl)
+                .padding(.top, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.lg)
 
             if vault.credentialAccessRecords.isEmpty {
                 WorkspaceEmptyState(
                     title: appLocalized("No Access Records Yet"),
                     message: FrozenAccessRecordsCopy.subtitle,
-                    systemImage: "list.bullet.rectangle"
+                    systemImage: "clock"
                 )
             } else {
+                let presentation = AccessRecordPresentation(
+                    records: vault.credentialAccessRecords,
+                    credentialName: credentialName(for:)
+                )
                 ScrollView {
-                    LazyVStack(spacing: Theme.Spacing.sm) {
-                    ForEach(Array(vault.credentialAccessRecords.enumerated()), id: \.offset) { _, event in
-                    HStack(alignment: .top, spacing: 14) {
-                        Text(FrozenClock.string(from: event.timestamp))
-                            .font(Theme.Fonts.caption)
-                            .foregroundStyle(Theme.textSecondary)
-                            .frame(width: 52, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(accessOperationTitle(event.operation))
-                                .font(Theme.Fonts.body.weight(.semibold))
-                            Text("\(credentialName(for: event.credentialID)) · \(event.callerHint ?? appLocalized("Local Caller"))")
-                                .font(Theme.Fonts.secondary)
-                                .foregroundStyle(Theme.textSecondary)
+                    LazyVStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                        ForEach(presentation.sections, id: \.title) { section in
+                            GroupedList(header: section.title) {
+                                ForEach(Array(section.rows.enumerated()), id: \.element.id) { index, row in
+                                    if index > 0 { GroupedListSeparator() }
+                                    accessRecordRow(row)
+                                }
+                            }
                         }
-                        Spacer()
-                        credentialTag(accessResultTitle(event.result), accent: event.result == .allowed)
                     }
-                    .padding(Theme.Spacing.md)
-                    .background(Theme.surface, in: .rect(cornerRadius: 9))
-                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.neutral(0.08)))
-                    .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
-                    }
-                    }
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 28)
+                    .padding(.horizontal, Theme.Spacing.xxl)
+                    .padding(.bottom, Theme.Spacing.xxl)
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.windowBackground)
         .onAppear { if !previewMode { vault.reloadCredentialAccessRecords() } }
     }
 
-    private func accessOperationTitle(_ operation: CredentialAccessEvent.Operation) -> String {
-        switch operation {
-        case .catalog: return appLocalized("Browse Credential Catalog")
-        case .runtimeRead: return appLocalized("Use Credential")
-        case .create: return appLocalized("Create Credential")
-        case .modify: return appLocalized("Modify Credential")
-        case .delete: return appLocalized("Delete Credential")
+    private func accessRecordRow(_ row: AccessRecordPresentation.Row) -> some View {
+        HStack(spacing: Theme.Spacing.lg) {
+            Text(row.time)
+                .font(Theme.Fonts.secondary)
+                .monospacedDigit()
+                .foregroundStyle(Theme.textTertiary)
+                .frame(width: 40, alignment: .leading)
+            Text(row.sentence.plainText)
+                .font(Theme.Fonts.body)
+                .foregroundStyle(Theme.text)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: Theme.Spacing.md)
+            StatusLabel(title: row.resultTitle, role: row.resultRole)
         }
-    }
-
-    private func accessResultTitle(_ result: CredentialAccessEvent.Result) -> String {
-        switch result {
-        case .allowed: return appLocalized("Allowed")
-        case .denied: return appLocalized("Denied")
-        case .failed: return appLocalized("Failed")
-        case .hiddenNameRejected: return appLocalized("Hidden")
-        }
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.md)
+        .accessibilityElement(children: .combine)
     }
 
     private func credentialName(for id: String?) -> String {

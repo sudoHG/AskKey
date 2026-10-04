@@ -6,11 +6,11 @@ import AskKeyVault
 struct FrozenDangerButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Theme.Fonts.secondary.weight(.semibold))
+            .font(Theme.Fonts.body.weight(.medium))
             .foregroundStyle(Theme.onAccent)
             .padding(.horizontal, Theme.Spacing.md)
-            .frame(height: 30)
+            .frame(height: Theme.controlHeight)
             .background(Theme.warning.opacity(configuration.isPressed ? 0.78 : 1))
-            .clipShape(.rect(cornerRadius: 7))
+            .clipShape(.rect(cornerRadius: Theme.Radius.control))
     }
 }

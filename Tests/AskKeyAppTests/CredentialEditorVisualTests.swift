@@ -53,7 +53,7 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
     func testRecordsSubtitleAndProductionPendingPageHasNoSimulationActions() {
         XCTAssertEqual(
             FrozenAccessRecordsCopy.subtitle,
-            "保留最近 90 天；只记录谁请求了什么、结果如何，永远不记录凭证内容。可在「设置」里手动清空。"
+            "只记谁请求了什么、结果如何，从不记录凭证内容。保留 90 天。"
         )
         XCTAssertTrue(FrozenPendingRequestsCopy.simulationActions.isEmpty)
     }
@@ -101,20 +101,28 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
         XCTAssertEqual(FrozenImportTableLayout.columnWeights, [1, 1.4])
     }
 
-    func testFrozenCredentialListUsesTemplateItemPermissionAndGroupTags() {
+    func testCredentialRowHasOneStatusLabelAndOneSecondaryLine() {
         let presentation = CredentialListPresentation(
             credential: credential(id: "api", name: "生产环境 API", group: "发布")
         )
-        XCTAssertEqual(
-            presentation.tags,
-            ["API 访问凭证", "2 项内容", "每次询问（推荐）", "发布"]
+        XCTAssertEqual(presentation.monogram, "A")
+        XCTAssertEqual(presentation.secondaryLine, "API 访问凭证 · 2 项内容 · API_KEY、API_ENDPOINT · 发布")
+        XCTAssertEqual(presentation.statusTitle, "每次询问")
+        XCTAssertEqual(presentation.statusRole, .neutral)
+        let ungrouped = CredentialListPresentation(
+            credential: credential(id: "ssh", name: "部署服务器", group: nil)
         )
+        XCTAssertEqual(ungrouped.monogram, "S")
+        XCTAssertEqual(ungrouped.secondaryLine, "SSH 登录身份 · 1 项内容 · SSH_HOST")
         XCTAssertEqual(
             CredentialListPresentation(
-                credential: credential(id: "ssh", name: "部署服务器", group: nil)
-            ).tags,
-            ["SSH 登录身份", "1 项内容", "每次询问（推荐）", "未分组"]
+                credential: credential(id: "api", name: "生产环境 API", group: "发布"),
+                showsGroup: false
+            ).secondaryLine,
+            "API 访问凭证 · 2 项内容 · API_KEY、API_ENDPOINT"
         )
+        XCTAssertEqual(CredentialListPresentation.statusTitle(.allowed), "允许")
+        XCTAssertEqual(CredentialListPresentation.statusTitle(.hidden), "隐藏")
     }
 
     func testFrozenSettingsAndNavigationCopyStayExact() {

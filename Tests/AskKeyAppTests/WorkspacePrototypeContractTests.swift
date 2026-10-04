@@ -251,11 +251,11 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
             )
         )
         XCTAssertEqual(
-            WorkspaceVisualContract.lockedCopy(language: "zh-Hans", credentialCount: 2),
+            WorkspaceVisualContract.lockedCopy(language: "zh-Hans"),
             .init(
                 title: "凭证管理已锁定",
-                message: "已有 2 份凭证受保护。Agent 的请求不受影响，照常会弹窗问你。",
-                action: "解锁管理"
+                message: "查看或修改凭证前需要验证身份。Agent 的请求不受影响，照常会弹窗问你。",
+                action: "验证并解锁"
             )
         )
     }
@@ -271,11 +271,11 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
             )
         )
         XCTAssertEqual(
-            WorkspaceVisualContract.lockedCopy(language: "en", credentialCount: 1),
+            WorkspaceVisualContract.lockedCopy(language: "en"),
             .init(
                 title: "Credential Management is Locked",
-                message: "1 credential is protected. Agent requests are not affected and still ask you.",
-                action: "Unlock Management"
+                message: "Authenticate to view or change credentials. Agent requests are not affected and still ask you.",
+                action: "Authenticate and Unlock"
             )
         )
     }

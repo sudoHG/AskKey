@@ -5,7 +5,7 @@ import AskKeyVault
 
 extension CredentialManagementView {
     var pendingRequestsDetail: some View {
-        let storedApprovals = previewMode
+        let approvals = previewMode
             ? previewPendingRequests.map {
                 BrokerPendingApproval(
                     requestID: $0.operationID,
@@ -15,116 +15,132 @@ extension CredentialManagementView {
                 )
             }
             : vault.pendingApprovals
-        let approvals = storedApprovals
         return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    Text(appLocalized("Pending Requests"))
-                        .font(Theme.Fonts.title)
-                    Text(appLocalized("Agent requests open a system confirmation. Missed or deferred requests remain here."))
-                        .font(Theme.Fonts.secondary)
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                Spacer()
-            }
-            .padding(28)
+            PageHeader(
+                title: appLocalized("Pending requests"),
+                subtitle: appLocalized("Missed or deferred requests stay here for 5 minutes.")
+            )
+            .padding(.horizontal, Theme.Spacing.xxl)
+            .padding(.top, Theme.Spacing.xxl)
+            .padding(.bottom, Theme.Spacing.lg)
             if approvals.isEmpty, vault.pendingApprovalCount == 0 {
                 WorkspaceEmptyState(
                     title: appLocalized("No Pending Requests"),
                     message: appLocalized("New requests open a confirmation and remain here if deferred."),
-                    systemImage: "checkmark"
+                    systemImage: "tray"
                 )
-            } else {
-                if !approvals.isEmpty {
-                    ScrollView {
-                        LazyVStack(spacing: Theme.Spacing.sm) {
-                            ForEach(approvals, id: \.request.operationID) { approval in
-                                let request = approval.request
-                                HStack(spacing: Theme.Spacing.md) {
-                                    Image(systemName: request.operation == .read ? "command" : "pencil")
-                                        .frame(width: 32, height: 32)
-                                        .background(Theme.neutralSubtle, in: .rect(cornerRadius: 8))
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text("\(request.callerName ?? appLocalized("Local Agent")) · \(requestOperationTitle(request.operation)) \(approval.displayCredentialName)")
-                                            .font(Theme.Fonts.body.weight(.semibold))
-                                        TimelineView(.periodic(from: .now, by: 1)) { context in
-                                            Text("\(request.callerPurpose ?? appLocalized("No purpose declared")) · \(appLocalized("Remaining")) \(FrozenCountdown.format(deadline: approval.expiresAt, now: context.date))")
-                                                .font(Theme.Fonts.secondary)
-                                                .foregroundStyle(Theme.textSecondary)
-                                        }
-                                    }
-                                    Spacer()
-                                    pendingRequestAction(
-                                        request,
-                                        isDefault: request.operationID
-                                            == approvals.first?.request.operationID
-                                    )
-                                }
-                                .padding(14)
-                                .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
-                                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
-                                .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
-                            }
-                        }
-                        .padding(.horizontal, 28)
-                    }
-                } else {
-                HStack(spacing: Theme.Spacing.md) {
-                    Image(systemName: "tray.full")
-                        .frame(width: 32, height: 32)
-                        .background(Theme.neutralSubtle, in: .rect(cornerRadius: 8))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(appLocalizedFormat("%lld Agent requests are waiting", vault.pendingApprovalCount))
-                            .font(Theme.Fonts.body.weight(.semibold))
-                        Text(appLocalized("Credential contents stay masked until you open the confirmation."))
-                            .font(Theme.Fonts.secondary)
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer()
-                    Button(appLocalized("Open Confirmation")) {
-                        NotificationCenter.default.post(name: .presentNextAgentApproval, object: nil)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.accent)
+            } else if approvals.isEmpty {
+                GroupedList {
+                    pendingCountRow
                 }
-                .padding(14)
-                .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
-                .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
-                .padding(.horizontal, 28)
+                .padding(.horizontal, Theme.Spacing.xxl)
+                Spacer()
+            } else {
+                ScrollView {
+                    GroupedList {
+                        ForEach(Array(approvals.enumerated()), id: \.element.request.operationID) { index, approval in
+                            if index > 0 { GroupedListSeparator() }
+                            pendingRequestRow(approval, isDefault: index == 0)
+                        }
+                    }
+                    .padding(.horizontal, Theme.Spacing.xxl)
+                    .padding(.bottom, Theme.Spacing.xxl)
                 }
             }
-            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.windowBackground)
     }
 
-    private func requestOperationTitle(_ operation: BrokerApprovalOperation) -> String {
-        switch operation {
-        case .read: return appLocalized("requests use of")
-        case .create: return appLocalized("requests creation of")
-        case .modify: return appLocalized("requests a change to")
-        case .delete: return appLocalized("requests deletion of")
+    private func pendingRequestRow(
+        _ approval: BrokerPendingApproval,
+        isDefault: Bool
+    ) -> some View {
+        let presentation = PendingRequestPresentation(approval: approval)
+        return HStack(spacing: Theme.Spacing.md) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 32, height: 32)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(presentation.sentence.attributed(argumentFonts: [
+                    Theme.Fonts.body.weight(.semibold),
+                    Theme.Fonts.body.weight(.semibold),
+                    Theme.Fonts.mono,
+                ]))
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(PendingRequestPresentation.expiry(deadline: approval.expiresAt, now: context.date))
+                        .font(Theme.Fonts.secondary)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            Spacer(minLength: Theme.Spacing.md)
+            Button(appLocalized("Deny")) {
+                if !previewMode { vault.denyPendingApproval(approval) }
+            }
+            .buttonStyle(.secondaryAction)
+            .accessibilityIdentifier("request-deny-\(approval.request.operationID)")
+            pendingRequestAction(approval.request, isDefault: isDefault)
         }
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.md)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(presentation.sentence.plainText)
     }
 
+    private var pendingCountRow: some View {
+        HStack(spacing: Theme.Spacing.md) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 32, height: 32)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(appLocalizedFormat("%lld Agent requests are waiting", vault.pendingApprovalCount))
+                    .font(Theme.Fonts.body.weight(.semibold))
+                    .foregroundStyle(Theme.text)
+                Text(appLocalized("Credential contents stay masked until you open the confirmation."))
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: Theme.Spacing.md)
+            Button(appLocalized("Open Confirmation")) {
+                NotificationCenter.default.post(name: .presentNextAgentApproval, object: nil)
+            }
+            .buttonStyle(FrozenPrimaryButtonStyle())
+        }
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.md)
+    }
+
+    /// Opens the approval prompt for this request. Only the first row's
+    /// action is the view's primary button.
     @ViewBuilder
     private func pendingRequestAction(
         _ request: BrokerApprovalOperationRequest,
         isDefault: Bool
     ) -> some View {
-        let button = Button(appLocalized("Open Confirmation")) {
+        let open = {
             NotificationCenter.default.post(
                 name: .presentNextAgentApproval,
                 object: request.operationID
             )
         }
-        .buttonStyle(FrozenPrimaryButtonStyle())
-        .accessibilityIdentifier("request-\(request.operationID)")
         if isDefault {
-            button.keyboardShortcut(.defaultAction)
+            Button(appLocalized("Review and Decide"), action: open)
+                .buttonStyle(FrozenPrimaryButtonStyle())
+                .accessibilityIdentifier("request-\(request.operationID)")
+                .keyboardShortcut(.defaultAction)
         } else {
-            button
+            Button(appLocalized("Review and Decide"), action: open)
+                .buttonStyle(.secondaryAction)
+                .accessibilityIdentifier("request-\(request.operationID)")
         }
     }
 

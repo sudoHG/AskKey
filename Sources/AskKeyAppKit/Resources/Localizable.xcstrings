@@ -720,84 +720,6 @@
         }
       }
     },
-    "%lld credential is protected. Agent requests still appear for you to decide.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld credential is protected. Agent requests are not affected and still ask you."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已有 %lld 份凭证受保护。Agent 的请求不受影响，照常会弹窗问你。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%lld credential is protected. Agent requests still appear for you to decide.!!]"
-          }
-        }
-      }
-    },
-    "%lld credentials are protected. Agent requests still appear for you to decide.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld credentials are protected. Agent requests are not affected and still ask you."
-          },
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld credential is protected. Agent requests are not affected and still ask you."
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld credentials are protected. Agent requests are not affected and still ask you."
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已有 %lld 份凭证受保护。Agent 的请求不受影响，照常会弹窗问你。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%lld credentials are protected. Agent requests still appear for you to decide.!!]"
-          },
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "[!!%lld credential is protected. Agent requests still appear for you to decide.!!]"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "[!!%lld credentials are protected. Agent requests still appear for you to decide.!!]"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "%lld days remaining": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -1395,6 +1317,238 @@
             "value": "[!!Access Key ID!!]"
           }
         }
+      }
+    },
+    "Component list separator": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": ", " } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "、" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": ", " } }
+      }
+    },
+    "%1$@ wants to use %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ wants to use %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 想用 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ wants to use %2$@!!]" } }
+      }
+    },
+    "%1$@ wants to use %2$@ to run %3$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ wants to use %2$@ to run %3$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 想用 %2$@ 运行 %3$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ wants to use %2$@ to run %3$@!!]" } }
+      }
+    },
+    "%1$@ used %2$@ to run %3$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ used %2$@ to run %3$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 用 %2$@ 运行 %3$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ used %2$@ to run %3$@!!]" } }
+      }
+    },
+    "%1$@ wants to create %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ wants to create %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 想新建凭证 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ wants to create %2$@!!]" } }
+      }
+    },
+    "%1$@ wants to change %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ wants to change %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 想修改 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ wants to change %2$@!!]" } }
+      }
+    },
+    "%1$@ wants to delete %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ wants to delete %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 想删除 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ wants to delete %2$@!!]" } }
+      }
+    },
+    "Missed or deferred requests stay here for 5 minutes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Missed or deferred requests stay here for 5 minutes." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "错过或稍后处理的请求会留在这里，5 分钟内有效。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Missed or deferred requests stay here for 5 minutes.!!]" } }
+      }
+    },
+    "Review and Decide": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Review and Decide" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "查看并决定" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Review and Decide!!]" } }
+      }
+    },
+    "Records who asked for what and the outcome, never credential contents. Kept for 90 days.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Records who asked for what and the outcome, never credential contents. Kept for 90 days." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "只记谁请求了什么、结果如何，从不记录凭证内容。保留 90 天。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Records who asked for what and the outcome, never credential contents. Kept for 90 days.!!]" } }
+      }
+    },
+    "Today": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Today" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "今天" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Today!!]" } }
+      }
+    },
+    "Yesterday": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Yesterday" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "昨天" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Yesterday!!]" } }
+      }
+    },
+    "%@ browsed the credential list": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@ browsed the credential list" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@ 查看了凭证列表" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@ browsed the credential list!!]" } }
+      }
+    },
+    "%1$@ used %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ used %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 使用了 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ used %2$@!!]" } }
+      }
+    },
+    "%1$@ created credential %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ created credential %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 新建凭证 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ created credential %2$@!!]" } }
+      }
+    },
+    "%1$@ changed credential %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ changed credential %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 修改凭证 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ changed credential %2$@!!]" } }
+      }
+    },
+    "%1$@ deleted credential %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ deleted credential %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 删除凭证 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ deleted credential %2$@!!]" } }
+      }
+    },
+    "Approved": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Approved" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已批准" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Approved!!]" } }
+      }
+    },
+    "Pause": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pause" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "暂停" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pause!!]" } }
+      }
+    },
+    "Resume": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Resume" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "恢复" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Resume!!]" } }
+      }
+    },
+    "Confirm with Touch ID after Allow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Confirm with Touch ID after Allow" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "允许后用 Touch ID 确认" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Confirm with Touch ID after Allow!!]" } }
+      }
+    },
+    "Recommended. Turning it off requires authentication.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Recommended. Turning it off requires authentication." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "推荐开启。关闭需要验证身份。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Recommended. Turning it off requires authentication.!!]" } }
+      }
+    },
+    "When you approve, you can choose not to be asked again for this long.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "When you approve, you can choose not to be asked again for this long." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "批准时可以选择在这段时间内不再询问。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!When you approve, you can choose not to be asked again for this long.!!]" } }
+      }
+    },
+    "Opens the Ask Key menu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Opens the Ask Key menu." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "打开请旨菜单。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Opens the Ask Key menu.!!]" } }
+      }
+    },
+    "Data": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Data" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "数据" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Data!!]" } }
+      }
+    },
+    "Kept for 90 days. Records now: %lld.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Kept for 90 days. Records now: %lld." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "保留 90 天，现有 %lld 条。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Kept for 90 days. Records now: %lld.!!]" } }
+      }
+    },
+    "Permanently deletes all credentials, groups and records. This cannot be undone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Permanently deletes all credentials, groups and records. This cannot be undone." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "永久删除全部凭证、分组和记录，无法恢复。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Permanently deletes all credentials, groups and records. This cannot be undone.!!]" } }
+      }
+    },
+    "Authenticate to view or change credentials. Agent requests are not affected and still ask you.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Authenticate to view or change credentials. Agent requests are not affected and still ask you." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "查看或修改凭证前需要验证身份。Agent 的请求不受影响，照常会弹窗问你。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Authenticate to view or change credentials. Agent requests are not affected and still ask you.!!]" } }
+      }
+    },
+    "Authenticate and Unlock": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Authenticate and Unlock" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "验证并解锁" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Authenticate and Unlock!!]" } }
       }
     },
     "Access Records": {
@@ -2037,29 +2191,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Agent approvals!!]"
-          }
-        }
-      }
-    },
-    "Agent requests open a system confirmation. Missed or deferred requests remain here.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agent requests open a system confirmation. Missed or deferred requests remain here."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agent 请求到达时会直接弹出系统确认框；这里保留错过或稍后的请求。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Agent requests open a system confirmation. Missed or deferred requests remain here.!!]"
           }
         }
       }
@@ -3647,29 +3778,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Blocked!!]"
-          }
-        }
-      }
-    },
-    "Browse Credential Catalog": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Browse Credential Catalog"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "浏览凭证目录"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Browse Credential Catalog!!]"
           }
         }
       }
@@ -5652,29 +5760,6 @@
         }
       }
     },
-    "Delete Credential": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete Credential"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "删除凭证"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Delete Credential!!]"
-          }
-        }
-      }
-    },
     "Delete Environment and Secrets": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -5901,29 +5986,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Deleted credentials stay here for 30 days. Agents cannot access them.!!]"
-          }
-        }
-      }
-    },
-    "Deletes all local credentials, groups, and records. Uninstalling Ask Key does not do this.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deletes all local credentials, groups, and records. Uninstalling Ask Key does not do this."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "删除本机全部凭证、分组与记录。卸载请旨不会删除数据，只有这里会。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Deletes all local credentials, groups, and records. Uninstalling Ask Key does not do this.!!]"
           }
         }
       }
@@ -8389,52 +8451,6 @@
         }
       }
     },
-    "Keeps 90 days of events, never credential contents; %lld records now.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keeps 90 days of events, never credential contents; %lld records now."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保留最近 90 天，只记事件不记内容；现有 %lld 条。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Keeps 90 days of events, never credential contents; %lld records now.!!]"
-          }
-        }
-      }
-    },
-    "Keeps 90 days. Records who requested what and the outcome, never credential contents. Clear it manually in Settings.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keeps 90 days. Records who requested what and the outcome, never credential contents. Clear it manually in Settings."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保留最近 90 天；只记录谁请求了什么、结果如何，永远不记录凭证内容。可在「设置」里手动清空。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Keeps 90 days. Records who requested what and the outcome, never credential contents. Clear it manually in Settings.!!]"
-          }
-        }
-      }
-    },
     "Key": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -8937,29 +8953,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Manage!!]"
-          }
-        }
-      }
-    },
-    "Modify Credential": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modify Credential"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "修改凭证"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Modify Credential!!]"
           }
         }
       }
@@ -9700,29 +9693,6 @@
         }
       }
     },
-    "No purpose declared": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No purpose declared"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未声明用途"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!No purpose declared!!]"
-          }
-        }
-      }
-    },
     "No secrets in %@": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -9976,29 +9946,6 @@
         }
       }
     },
-    "On by default. After Allow, Touch ID confirms it is really you.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On by default. After Allow, Touch ID confirms it is really you."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "默认开启。在确认框里点「允许」后，还会用 Touch ID 确认是本人。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!On by default. After Allow, Touch ID confirms it is really you.!!]"
-          }
-        }
-      }
-    },
     "Only you can see this": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -10133,29 +10080,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Open Confirmation!!]"
-          }
-        }
-      }
-    },
-    "Opens the Ask Key menu. Choose Off to release the system shortcut.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opens the Ask Key menu. Choose Off to release the system shortcut."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开请旨菜单。选择关闭后不再占用系统快捷键。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Opens the Ask Key menu. Choose Off to release the system shortcut.!!]"
           }
         }
       }
@@ -10388,29 +10312,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Paused: new requests and temporary deliveries are stopped.!!]"
-          }
-        }
-      }
-    },
-    "Pending Requests": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pending Requests"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "待处理请求"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Pending Requests!!]"
           }
         }
       }
@@ -11013,29 +10914,6 @@
         }
       }
     },
-    "Remaining": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remaining"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "剩余"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Remaining!!]"
-          }
-        }
-      }
-    },
     "Remove": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -11124,29 +11002,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Repository!!]"
-          }
-        }
-      }
-    },
-    "Require System Authentication for Reads": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Require System Authentication for Reads"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "批准读取需系统验证"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Require System Authentication for Reads!!]"
           }
         }
       }
@@ -12510,29 +12365,6 @@
         }
       }
     },
-    "The interface language changes immediately.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The interface language changes immediately."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "界面语言立即切换。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!The interface language changes immediately.!!]"
-          }
-        }
-      }
-    },
     "The key or token from your provider": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -12782,29 +12614,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Three permission levels!!]"
-          }
-        }
-      }
-    },
-    "Tighter security applies immediately. Relaxing it explains the impact and verifies you first.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tighter security applies immediately. Relaxing it explains the impact and verifies you first."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "收紧安全立即生效；放宽权限前会说明后果并验证身份。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Tighter security applies immediately. Relaxing it explains the impact and verifies you first.!!]"
           }
         }
       }
@@ -13177,29 +12986,6 @@
         }
       }
     },
-    "Unlock Management": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unlock Management"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "解锁管理"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Unlock Management!!]"
-          }
-        }
-      }
-    },
     "Unlock the AskKey vault for %@": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -13380,29 +13166,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Use Ask Key from your agents and tools.!!]"
-          }
-        }
-      }
-    },
-    "Use Credential": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use Credential"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用凭证"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Use Credential!!]"
           }
         }
       }
@@ -14252,98 +14015,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!read!!]"
-          }
-        }
-      }
-    },
-    "requests a change to": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "requests a change to"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请求修改"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!requests a change to!!]"
-          }
-        }
-      }
-    },
-    "requests creation of": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "requests creation of"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请求创建"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!requests creation of!!]"
-          }
-        }
-      }
-    },
-    "requests deletion of": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "requests deletion of"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请求删除"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!requests deletion of!!]"
-          }
-        }
-      }
-    },
-    "requests use of": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "requests use of"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请求使用"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!requests use of!!]"
           }
         }
       }

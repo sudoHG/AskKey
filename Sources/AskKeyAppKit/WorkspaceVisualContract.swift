@@ -61,21 +61,20 @@ enum WorkspaceVisualContract {
         )
     }
 
+    /// The locked state explains why authentication is needed. It never
+    /// states how many credentials exist.
     static func lockedCopy(
         language: String,
-        credentialCount: Int,
         pendingRequestCount: Int = 0
     ) -> LockedCopy {
         let locale = AppLanguage.locale(for: language)
         return .init(
             title: AppLanguage.localized("Credential Management is Locked", language: language),
-            message: AppLanguage.localizedCount(
-                "%lld credentials are protected. Agent requests still appear for you to decide.",
-                oneKey: "%lld credential is protected. Agent requests still appear for you to decide.",
-                count: credentialCount,
+            message: AppLanguage.localized(
+                "Authenticate to view or change credentials. Agent requests are not affected and still ask you.",
                 language: language
             ),
-            action: AppLanguage.localized("Unlock Management", language: language),
+            action: AppLanguage.localized("Authenticate and Unlock", language: language),
             pendingMessage: pendingRequestCount > 0
                 ? String(
                     format: AppLanguage.localized(
