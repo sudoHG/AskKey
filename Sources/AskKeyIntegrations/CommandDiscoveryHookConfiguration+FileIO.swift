@@ -13,6 +13,10 @@ extension CommandDiscoveryHookConfiguration {
         guard (info.st_mode & S_IFMT) == S_IFREG, info.st_uid == getuid() else {
             throw Error.unsafeHooksFile
         }
+        if format == .claudeMerged {
+            guard info.st_nlink == 1, info.st_mode & 0o022 == 0,
+                  info.st_mode & 0o400 != 0 else { throw Error.unsafeHooksFile }
+        }
         do {
             let file = try ClientConfigFileIO.readRegularFile(url, maximumBytes: Self.maximumHooksBytes)
             return Snapshot(bytes: file.bytes, mode: UInt32(file.mode))

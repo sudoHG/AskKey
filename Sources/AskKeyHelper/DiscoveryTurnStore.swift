@@ -18,8 +18,22 @@ struct DiscoveryTurnStore {
         var turns: [String: Turn] = [:]
         var grokTurns: [String: Generation] = [:]
         var grokCalls: [String: Generation] = [:]
+        // Optional fields keep existing Cursor/Grok state readable.
+        var claudeTurns: [String: Generation]?
+        var claudeCalls: [String: Generation]?
     }
     let directory: URL
+
+    func beginClaudeTurn(session: String) throws {
+        guard !session.isEmpty, session.utf8.count <= 4096 else { throw Failure.invalid }
+        try withState { state in
+            var turns = state.claudeTurns ?? [:]
+            turns[Self.hash(["claude", session])] = Generation(
+                key: UUID().uuidString, touched: Date().timeIntervalSince1970
+            )
+            state.claudeTurns = turns
+        }
+    }
 
     func beginGrokTurn(session: String, promptID: String) throws {
         guard !session.isEmpty, !promptID.isEmpty, session.utf8.count <= 4096,
@@ -56,6 +70,22 @@ struct DiscoveryTurnStore {
                     key = state.grokTurns[sessionKey]!.key
                     if catalog, let call { state.grokCalls[call] = Generation(key: key, touched: now) }
                 }
+            } else if client == "claude" {
+                var turns = state.claudeTurns ?? [:]
+                var calls = state.claudeCalls ?? [:]
+                if catalog, phase == .after, let call {
+                    guard let pending = calls.removeValue(forKey: call) else { return false }
+                    key = pending.key
+                } else {
+                    let sessionKey = Self.hash([client, session])
+                    if turns[sessionKey] == nil {
+                        turns[sessionKey] = Generation(key: UUID().uuidString, touched: now)
+                    }
+                    key = turns[sessionKey]!.key
+                    if catalog, let call { calls[call] = Generation(key: key, touched: now) }
+                }
+                state.claudeTurns = turns
+                state.claudeCalls = calls
             } else { throw Failure.invalid }
             var entry = state.turns[key] ?? Turn(touched: now)
             if state.turns[key] == nil { state.turns[key] = entry }
@@ -122,6 +152,13 @@ struct DiscoveryTurnStore {
             for key in entries.sorted(by: { $0.value.touched < $1.value.touched })
                 .prefix(max(0, entries.count - 512)).map(\.key) { entries.removeValue(forKey: key) }
             if isCalls { state.grokCalls = entries } else { state.grokTurns = entries }
+        }
+        for isCalls in [false, true] {
+            guard var entries = isCalls ? state.claudeCalls : state.claudeTurns else { continue }
+            entries = entries.filter { $0.value.touched > cutoff }
+            for key in entries.sorted(by: { $0.value.touched < $1.value.touched })
+                .prefix(max(0, entries.count - 512)).map(\.key) { entries.removeValue(forKey: key) }
+            if isCalls { state.claudeCalls = entries } else { state.claudeTurns = entries }
         }
         let next = try JSONEncoder().encode(state)
         guard next.count <= 1_048_576 else { throw Failure.invalid }
