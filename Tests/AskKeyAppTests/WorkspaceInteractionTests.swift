@@ -121,7 +121,7 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         }
         AppLanguage.current = "en"
         XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
-                       ["Allow once", "Allow for 30 Minutes", "Deny"])
+                       ["Allow once", "Allow for 30 minutes", "Deny"])
         XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
                        ["Allow once", "Deny"])
         for (operation, _, english) in writeActions {

@@ -8,7 +8,7 @@ enum FrozenApprovalActions {
         switch operation {
         case .read:
             return timedAllowanceEnabled
-                ? [appLocalized("Allow Once"), appLocalizedFormat("Allow for %lld Minutes", 30), appLocalized("Deny")]
+                ? [appLocalized("Allow Once"), appLocalizedFormat("Allow for %lld minutes", 30), appLocalized("Deny")]
                 : [appLocalized("Allow Once"), appLocalized("Deny")]
         case .create: return [appLocalized("Approve Creation"), appLocalized("Deny")]
         case .modify: return [appLocalized("Approve Change"), appLocalized("Deny")]

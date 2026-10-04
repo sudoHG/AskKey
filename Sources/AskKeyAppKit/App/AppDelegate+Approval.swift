@@ -43,7 +43,10 @@ extension AppDelegate {
         }
     }
 
-    private func presentPendingApproval(operationID: String? = nil) {
+    private func presentPendingApproval(
+        operationID: String? = nil,
+        cancelledAuthenticationDecision: BrokerApprovalDecision? = nil
+    ) {
         guard !presentingApproval else { return }
         let pending: BrokerPendingApproval
         switch AgentApprovalPrivacyPolicy.gatedRequest(
@@ -67,7 +70,12 @@ extension AppDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         let request = pending.request
-        runFrozenApprovalPanel(request: request, expiresAt: pending.expiresAt, pending: pending) { [weak self] decision in
+        runFrozenApprovalPanel(
+            request: request,
+            expiresAt: pending.expiresAt,
+            pending: pending,
+            cancelledAuthenticationDecision: cancelledAuthenticationDecision
+        ) { [weak self] decision in
         guard let self else { return }
         guard let decision else {
             self.presentingApproval = false
@@ -76,6 +84,7 @@ extension AppDelegate {
         let fileWrites = self.fileWriteCoordinator
         let applyDecision: @Sendable () -> Void = { [weak self, fileWrites] in
             var didFail = false
+            var authenticationCancelled = false
             do {
                 _ = try Vault.shared.approvalRequests.decide(
                     requestID: pending.requestID,
@@ -91,14 +100,23 @@ extension AppDelegate {
                         expectedDigest: summary.digest
                     )
                 }
+            } catch BrokerApprovalError.authenticationFailed {
+                // The request stays pending and nothing was delivered or changed.
+                authenticationCancelled = true
             } catch {
                 didFail = true
             }
             let failed = didFail
+            let cancelled = authenticationCancelled
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.presentingApproval = false
-                if failed {
+                if cancelled {
+                    self.presentPendingApproval(
+                        operationID: pending.request.operationID,
+                        cancelledAuthenticationDecision: decision
+                    )
+                } else if failed {
                     self.vault.errorMessage = "Ask Key could not apply this decision. Open Pending requests to retry or reject it."
                 } else if !Vault.shared.approvalRequests.pendingRequests().isEmpty {
                     self.presentPendingApproval()
@@ -117,14 +135,12 @@ extension AppDelegate {
         request: BrokerApprovalOperationRequest,
         expiresAt: Date?,
         pending: BrokerPendingApproval? = nil,
+        cancelledAuthenticationDecision: BrokerApprovalDecision? = nil,
         completion: @escaping @MainActor (BrokerApprovalDecision?) -> Void = { _ in }
     ) {
         var finished = false
         var privacyTimer: Timer?
-        let contentSize = NSSize(
-            width: 360,
-            height: request.operation == .read ? 430 : 540
-        )
+        let contentSize = NSSize(width: FrozenAgentApprovalPrompt.width, height: 360)
         let panel = AgentApprovalPanelFactory.make(contentSize: contentSize)
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
@@ -143,7 +159,7 @@ extension AppDelegate {
             let valid = Self.screenState() == .unlocked && expiresAt.map({ $0 > Date() }) != false
             completion(valid ? value : nil)
         }
-        panel.contentViewController = NSHostingController(
+        let hosting = NSHostingController(
             rootView: FrozenAgentApprovalPrompt(
                 request: request,
                 trustedCredentialName: pending?.trustedCredentialName,
@@ -205,11 +221,14 @@ extension AppDelegate {
                         return material
                     }
                 },
+                cancelledAuthenticationDecision: cancelledAuthenticationDecision,
                 finish: finish
             )
         )
-        panel.setContentSize(contentSize)
-        panel.contentViewController?.view.frame = NSRect(origin: .zero, size: contentSize)
+        // The panel follows the prompt's height, including the Details section.
+        hosting.sizingOptions = [.preferredContentSize]
+        panel.contentViewController = hosting
+        panel.setContentSize(hosting.view.fittingSize)
         panel.center()
         privacyTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
             MainActor.assumeIsolated {
@@ -281,24 +300,5 @@ extension AppDelegate {
         lockedApprovalReminderAttempt = nil
         lockedApprovalReminderPosted = false
         NSApp.dockTile.badgeLabel = nil
-    }
-
-    private func approvalTitle(for request: BrokerApprovalOperationRequest) -> String {
-        let caller = request.callerName ?? appLocalized("Local Agent")
-        switch request.operation {
-        case .read: return "\(caller) requests a credential"
-        case .create: return "\(caller) requests to create a credential"
-        case .modify: return "\(caller) requests to modify a credential"
-        case .delete: return "\(caller) requests to delete a credential"
-        }
-    }
-
-    private func approvalDetails(for request: BrokerApprovalOperationRequest) -> String {
-        var lines = ["Credential: \(request.credentialName ?? request.targetID)"]
-        if let purpose = request.callerPurpose, !purpose.isEmpty {
-            lines.append("Purpose: \(purpose)")
-        }
-        lines.append("Caller identity is self-declared and has not been verified.")
-        return lines.joined(separator: "\n")
     }
 }
