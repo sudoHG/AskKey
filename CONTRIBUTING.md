@@ -1,6 +1,6 @@
 # Contributing to AskKey
 
-AskKey is being restructured before its first public release. Read the [architecture guide](docs/architecture.md), the [architecture decisions](docs/adr/) and the [feature inventory](docs/features.md), and use a scoped GitHub issue to agree on the intended change. The [documentation index](docs/README.md) lists everything else. If you use an AI agent, it must follow the general rules in [AGENTS.md](AGENTS.md); the issue workflow under `docs/agents/` is the maintainer's internal process and does not apply to outside contributions. Use your own Git identity.
+Read the [architecture guide](docs/architecture.md), the [architecture decisions](docs/adr/) and the [feature inventory](docs/features.md), and use a scoped GitHub issue to agree on the intended change. The [documentation index](docs/README.md) lists everything else. If you use an AI agent, it must follow the general rules in [AGENTS.md](AGENTS.md); the issue workflow under `docs/agents/` is the maintainer's internal process and does not apply to outside contributions. Use your own Git identity.
 
 ## Requirements
 
@@ -47,7 +47,7 @@ For a pull request that only moves or splits code, also run `python3 scripts/che
 
 ## Changes and evidence
 
-Keep changes within the issue's scope. Structural tasks are move-only unless the issue explicitly permits behavior changes; preserve every Keep behavior in the feature inventory. Write code, comments and documentation in English. Put user-facing English and Simplified Chinese strings in `Localizable.xcstrings`. New third-party dependencies require an issue that approves them.
+Keep changes within the issue's scope. Preserve every Keep behavior in the feature inventory. Write code, comments and documentation in English. Put user-facing English and Simplified Chinese strings in `Localizable.xcstrings`. New third-party dependencies require an issue that approves them.
 
 Process records never belong in the repository: logs, screenshots, result bundles, audit notes and progress journals are deleted once their results are read. The UI runner writes to an ignored output directory; never commit generated records or sensitive data. Report commands, counts, SHAs and CI links in the pull request description instead.
 

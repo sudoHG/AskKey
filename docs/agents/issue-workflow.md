@@ -86,36 +86,15 @@ When the planner is offline, the maintainer may start a separate Codex session a
 
 Issues labeled `ready-for-human` involve real data, the installed app, signing identities or account settings. Agents must not do them, even if they appear claimable.
 
-## Removal tasks
+## Move-only tasks
 
-Phase 3 issues remove whole capabilities. Unless the issue says otherwise:
-
-1. **Authority**: remove exactly what the **Remove** rows of [docs/features.md](../features.md) list for the issue's area. Every **Keep** behavior must survive.
-2. **Tests**: delete a test only if it exercises removed behavior exclusively. If a test mixes removed and kept behavior, delete only the removed assertions or setup. List every deleted test and every edited test in the receipt.
-3. **No collateral changes**: no refactoring, renaming, moving or reformatting beyond what the removal requires.
-4. **Strings**: remove `Localizable.xcstrings` entries that become unused (`scripts/sync-string-catalog.py` if it supports this; otherwise by hand, listed in the receipt).
-5. **Hygiene baseline**: regenerate with `python3 scripts/check_hygiene.py --write-baseline`. The baseline may only shrink: delete entries, or lower a `debug` counter. Never add a path, a check or a higher count.
-6. **Standard acceptance** (in addition to the issue's own):
-   ```bash
-   swift build
-   swift test                                   # 0 failed; skips are a subset of the 5 baseline skips
-   swift test list | sort > /tmp/after.txt      # diff against origin/main shows only deletions,
-                                                # all inside test classes named in the receipt
-   python3 -m unittest discover -s Tests/Automation -v
-   python3 scripts/check_hygiene.py
-   # E2E: the PR's CI basic-ui-flows job must pass (all remaining required flows, 0 skipped).
-   # Do not run scripts/run-e2e.sh locally; see AGENTS.md.
-   ```
-
-## Split tasks
-
-Phase 6 issues split modules and long files. Unless the issue says otherwise:
+Issues that move or split code without changing behavior say so in their Steps. Unless the issue says otherwise:
 
 1. **Move only**: code moves between files or modules without behavior changes. No renames of types, members or files beyond what the issue lists; no reformatting; no comment rewrites.
 2. **File layout**: one primary type per file, named after the type. Extensions that group one concern go to `Type+Concern.swift` next to the type. Keep each file at or under 600 lines.
 3. **Access**: widen access only as far as the split requires (`private` → `fileprivate` is not enough across files, so use internal; across modules use `package`, never `public` unless the symbol was already public). List every widened symbol in the receipt.
 4. **Verification**: run `python3 scripts/check_move_only.py origin/main` and paste its summary. Every non-trivial line removed must reappear; any added line that is not a header, import, access modifier or brace must be explained in the receipt.
-5. **Hygiene baseline**: `size:` entries for split files disappear; nothing new is added.
+5. **Hygiene**: split files must pass the `size` rule in `scripts/check_hygiene.py`; there is no baseline.
 6. **Tests that read source files** (pre-approved, no need to ask): when a test reads a file that the split breaks up, update only its input so it reads every file that came from the original, in a deterministic order (a small test-only helper is fine). Keep test names, assertions, expected values and messages unchanged, and make the read fail if any listed file is missing. Enumerate these test-line deviations in the receipt; the `Sources`-only `check_move_only.py` run must still show no missing and no other lines. A test file that is already over 600 lines may receive only these input edits without being split here (the test-file split has its own issue).
    When a moved block contains an allowlisted `#if DEBUG`, update that file path in `DEBUG_ALLOWLIST` in `scripts/check_hygiene.py` (same number of entries, no new exceptions, checker behavior unchanged).
 7. **Acceptance** (in addition to the issue's own): `swift build`, `swift test` with the same test list as main and 0 failed, Automation tests, hygiene, and green CI including `basic-ui-flows`.
