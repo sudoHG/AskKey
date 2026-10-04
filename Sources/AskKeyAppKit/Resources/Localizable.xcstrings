@@ -1329,6 +1329,7 @@
     },
     "%1$@ wants to use %2$@": {
       "extractionState": "manual",
+      "generatesSymbol": false,
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "%1$@ wants to use %2$@" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 想用 %2$@" } },
@@ -1353,6 +1354,7 @@
     },
     "%1$@ wants to create %2$@": {
       "extractionState": "manual",
+      "generatesSymbol": false,
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "%1$@ wants to create %2$@" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 想新建凭证 %2$@" } },
@@ -1369,6 +1371,7 @@
     },
     "%1$@ wants to delete %2$@": {
       "extractionState": "manual",
+      "generatesSymbol": false,
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "%1$@ wants to delete %2$@" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 想删除 %2$@" } },
