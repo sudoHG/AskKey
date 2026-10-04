@@ -6,6 +6,7 @@ import AskKeyVault
 struct CredentialEditorView: View {
     let credential: ManagedTextCredential?
     let onClose: (() -> Void)?
+    let onChooseAnotherType: (() -> Void)?
 
     @Environment(VaultViewModel.self) var vault
     @Environment(\.dismiss) var dismiss
@@ -34,10 +35,12 @@ struct CredentialEditorView: View {
         preferredGroup: String? = nil,
         initialTemplate: CredentialTemplate = .custom,
         initialMoreExpanded: Bool = false,
-        onClose: (() -> Void)? = nil
+        onClose: (() -> Void)? = nil,
+        onChooseAnotherType: (() -> Void)? = nil
     ) {
         self.credential = credential
         self.onClose = onClose
+        self.onChooseAnotherType = onChooseAnotherType
         _name = State(initialValue: credential?.name ?? "")
         _value = State(initialValue: "")
         _usageInstructions = State(initialValue: credential?.usageInstructions ?? "")
@@ -92,108 +95,25 @@ struct CredentialEditorView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                Button(credential == nil ? appLocalized("← Choose Again") : appLocalized("← Cancel Editing")) { close() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.accent)
-                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    Text(credential == nil ? appLocalized("New Credential") : appLocalized("Edit Credential"))
+            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                    if credential == nil, let onChooseAnotherType {
+                        CredentialBackLink(title: appLocalized("Choose another type"), action: onChooseAnotherType)
+                    }
+                    Text(credential == nil ? template.editorTitle : appLocalized("Edit Credential"))
                         .font(Theme.Fonts.title)
                         .accessibilityAddTraits(.isHeader)
-                    Text("\(template.prototypeTitle) · " + appLocalized("Its contents are saved and authorized as one set."))
-                        .font(Theme.Fonts.secondary)
-                        .foregroundStyle(Theme.textSecondary)
                 }
-                editorField(appLocalized("Credential Name")) {
+                CredentialFormField(appLocalized("Name")) {
                     TextField(appLocalized("For example: Production API"), text: $name)
                         .textFieldStyle(.roundedBorder)
                         .accessibilityIdentifier("credential-editor-name")
                 }
-                editorField(appLocalized("Agent Permission")) { permissionSegments }
-                editorField(appLocalized("This Credential Contains")) {
-                    if credential != nil, !didLoadSecrets {
-                        HStack {
-                            Text(appLocalized("Contents stay hidden. Changing the name, group, or permission does not reveal plaintext."))
-                                .font(Theme.Fonts.secondary)
-                                .foregroundStyle(Theme.textSecondary)
-                            Spacer()
-                            Button(appLocalized("Authenticate to Edit Contents")) {
-                                Task { await loadExistingSecrets() }
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        .padding(Theme.Spacing.md)
-                        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
-                    } else if credential == nil || payloadKind == .bundle {
-                        componentEditor
-                    } else if payloadKind == .file {
-                        filePicker
-                    } else {
-                        HStack {
-                            if revealed {
-                                TextField(appLocalized("Value"), text: $value)
-                                    .accessibilityIdentifier("credential-editor-value")
-                            } else {
-                                SecureField(appLocalized("Value"), text: $value)
-                                    .accessibilityIdentifier("credential-editor-value")
-                            }
-                            Button { revealed.toggle() } label: {
-                                Image(systemName: revealed ? "eye.slash" : "eye")
-                            }.buttonStyle(.plain)
-                        }
-                    }
+                CredentialFormField(appLocalized("Agent Permission")) {
+                    CredentialPermissionPicker(permission: $permission)
                 }
-                VStack(alignment: .leading, spacing: 0) {
-                    Button {
-                        moreExpanded.toggle()
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "chevron.right")
-                                .font(Theme.Fonts.caption.weight(.semibold))
-                                .foregroundStyle(Theme.textSecondary)
-                                .rotationEffect(.degrees(moreExpanded ? 90 : 0))
-                            Text(appLocalized("More Settings"))
-                            Spacer(minLength: 0)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("credential-more-settings")
-                    if moreExpanded {
-                        VStack(alignment: .leading, spacing: 10) {
-                            editorField(FrozenEditorMoreSettingsPresentation.agentInstructionsLabel) {
-                                TextField(appLocalized("For example: App Store releases only"), text: $usageInstructions, axis: .vertical)
-                            }
-                            editorField(FrozenEditorMoreSettingsPresentation.privateNotesLabel) {
-                                TextField(appLocalized("Only you can see this"), text: $privateNotes, axis: .vertical)
-                                    .accessibilityIdentifier("credential-private-notes")
-                                    .disabled(credential != nil && !didLoadSecrets)
-                                if credential != nil && !didLoadSecrets {
-                                    Button(appLocalized("Authenticate to Edit Private Notes")) {
-                                        Task { await loadExistingSecrets() }
-                                    }
-                                    .buttonStyle(.link)
-                                }
-                            }
-                            editorField(FrozenEditorMoreSettingsPresentation.expiryLabel) {
-                                TextField("YYYY-MM-DD", text: $expiryDateText)
-                                    .textFieldStyle(.roundedBorder)
-                                Text(FrozenEditorMoreSettingsPresentation.expiryHelp)
-                                    .font(Theme.Fonts.secondary)
-                                    .foregroundStyle(
-                                        expiryDateText.isEmpty || parsedExpiryDate != nil
-                                            ? Theme.textSecondary
-                                            : Theme.warning
-                                    )
-                            }
-                        }
-                        .padding(.top, 10)
-                    }
-                }
-                .font(Theme.Fonts.secondary.weight(.semibold))
+                CredentialFormField(appLocalized("Contents")) { contents }
+                moreSettings
                 if let existingImportCredential {
                     let conflict = FrozenImportConflictPresentation(
                         existingName: existingImportCredential.name,
@@ -213,21 +133,108 @@ struct CredentialEditorView: View {
                         selection: $importConflictChoice
                     )
                 }
-                HStack {
-                    Spacer()
-                    Button(appLocalized("Cancel")) { close() }
-                    Button(credential == nil ? appLocalized("Save Credential") : appLocalized("Save Changes")) { save() }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.accent)
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!isValid)
-                        .accessibilityIdentifier("credential-editor-save")
-                }
-                .padding(.top, Theme.Spacing.xs)
             }
-            .padding(28)
+            .padding(Theme.Spacing.xxl)
         }
+        .credentialFormBottomBar(
+            CredentialFormBottomBar(
+                primaryTitle: credential == nil ? appLocalized("Save Credential") : appLocalized("Save Changes"),
+                primaryIdentifier: "credential-editor-save",
+                isPrimaryDisabled: !isValid,
+                onCancel: close,
+                onPrimary: save
+            )
+        )
         .background(Theme.windowBackground)
+    }
+
+    @ViewBuilder
+    private var contents: some View {
+        if credential != nil, !didLoadSecrets {
+            HStack {
+                Text(appLocalized("Contents stay hidden. Changing the name, group, or permission does not reveal plaintext."))
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Button(appLocalized("Authenticate to Edit Contents")) {
+                    Task { await loadExistingSecrets() }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(Theme.Spacing.md)
+            .credentialGroupedListStyle()
+        } else if credential == nil || payloadKind == .bundle {
+            componentEditor
+        } else if payloadKind == .file {
+            filePicker
+        } else {
+            HStack {
+                if revealed {
+                    TextField(appLocalized("Value"), text: $value)
+                        .accessibilityIdentifier("credential-editor-value")
+                } else {
+                    SecureField(appLocalized("Value"), text: $value)
+                        .accessibilityIdentifier("credential-editor-value")
+                }
+                Button { revealed.toggle() } label: {
+                    Image(systemName: revealed ? "eye.slash" : "eye")
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var moreSettings: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                moreExpanded.toggle()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(Theme.Fonts.caption.weight(.semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .rotationEffect(.degrees(moreExpanded ? 90 : 0))
+                    Text(appLocalized("More Settings"))
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("credential-more-settings")
+            if moreExpanded {
+                VStack(alignment: .leading, spacing: 10) {
+                    CredentialFormField(FrozenEditorMoreSettingsPresentation.agentInstructionsLabel) {
+                        TextField(appLocalized("For example: App Store releases only"), text: $usageInstructions, axis: .vertical)
+                    }
+                    CredentialFormField(FrozenEditorMoreSettingsPresentation.privateNotesLabel) {
+                        TextField(appLocalized("Only you can see this"), text: $privateNotes, axis: .vertical)
+                            .accessibilityIdentifier("credential-private-notes")
+                            .disabled(credential != nil && !didLoadSecrets)
+                        if credential != nil && !didLoadSecrets {
+                            Button(appLocalized("Authenticate to Edit Private Notes")) {
+                                Task { await loadExistingSecrets() }
+                            }
+                            .buttonStyle(.link)
+                        }
+                    }
+                    CredentialFormField(FrozenEditorMoreSettingsPresentation.expiryLabel) {
+                        TextField("YYYY-MM-DD", text: $expiryDateText)
+                            .textFieldStyle(.roundedBorder)
+                        Text(FrozenEditorMoreSettingsPresentation.expiryHelp)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(
+                                expiryDateText.isEmpty || parsedExpiryDate != nil
+                                    ? Theme.textSecondary
+                                    : Theme.warning
+                            )
+                    }
+                }
+                .padding(.top, 10)
+            }
+        }
+        .font(Theme.Fonts.secondary.weight(.semibold))
     }
 
     @MainActor
@@ -250,24 +257,4 @@ struct CredentialEditorView: View {
                 didLoadSecrets = true
         }
     }
-
-    private func editorField<Content: View>(
-        _ title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                .font(Theme.Fonts.secondary.weight(.semibold))
-                .foregroundStyle(Theme.textSecondary)
-            content()
-        }
-    }
-
-    private var permissionSegments: some View {
-        FrozenSegmentedControl(
-            options: CredentialPermission.prototypeCases.map { ($0, $0.prototypeTitle) },
-            selection: $permission
-        )
-    }
-
 }

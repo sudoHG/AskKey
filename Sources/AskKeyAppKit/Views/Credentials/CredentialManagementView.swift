@@ -180,7 +180,8 @@ struct CredentialManagementView: View {
                 onClose: {
                     vault.reloadCredentials()
                     route = .library
-                }
+                },
+                onChooseAnotherType: { route = .templateChooser }
             )
             .environment(vault)
             .id("editor-create-\(template.rawValue)")

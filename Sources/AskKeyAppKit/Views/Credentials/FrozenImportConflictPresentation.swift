@@ -17,9 +17,11 @@ struct FrozenImportConflictPresentation: Equatable {
         }
         choices = existingName == nil ? [] : [appLocalized("Skip"), appLocalized("Authenticate and Replace")]
         selectedChoice = choice
-        confirmTitle = existingName != nil && choice == .skip
-            ? appLocalized("Skip and Finish")
-            : appLocalized("Confirm Import")
+        switch (existingName, choice) {
+        case (nil, _): confirmTitle = appLocalized("Import as 1 credential")
+        case (_, .skip): confirmTitle = appLocalized("Skip and Finish")
+        case (_, .replace): confirmTitle = appLocalized("Confirm Import")
+        }
     }
 
     init(

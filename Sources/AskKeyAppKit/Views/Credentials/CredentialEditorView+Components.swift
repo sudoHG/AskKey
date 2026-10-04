@@ -5,12 +5,52 @@ import AskKeyVault
 
 extension CredentialEditorView {
     var componentEditor: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(template == .custom
-                 ? FrozenEditorCopy.customHelp
-                 : appLocalized("Keep everything needed for one task together."))
-                .font(Theme.Fonts.secondary)
-                .foregroundStyle(Theme.textSecondary)
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            if template == .custom {
+                Text(FrozenEditorCopy.customHelp)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
+                customKeyTable
+            } else {
+                VStack(spacing: 0) {
+                    ForEach($components) { $component in
+                        templateRow($component)
+                            .overlay(alignment: .top) {
+                                if component.id != components.first?.id {
+                                    Rectangle().fill(Theme.separator).frame(height: 1)
+                                }
+                            }
+                    }
+                }
+                .credentialGroupedListStyle()
+            }
+            HStack(spacing: Theme.Spacing.sm) {
+                if template == .custom {
+                    Button(FrozenEditorCopy.addTextAction) {
+                        components.append(CredentialComponentDraft())
+                    }
+                    .buttonStyle(.bordered)
+                    Button(FrozenEditorCopy.addFileAction) {
+                        components.append(CredentialComponentDraft(kind: .file))
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    Button {
+                        components.append(CredentialComponentDraft(isCustomKey: true))
+                    } label: {
+                        Label(FrozenEditorCopy.kindLabel(for: .text), systemImage: "plus")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel(appLocalized("Add text"))
+                    Button {
+                        components.append(CredentialComponentDraft(kind: .file, isCustomKey: true))
+                    } label: {
+                        Label(FrozenEditorCopy.kindLabel(for: .file), systemImage: "plus")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel(appLocalized("Add file"))
+                }
+            }
             DisclosureGroup(appLocalized("Delivery Options")) {
                 ForEach($components) { $component in
                     if !component.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -19,180 +59,158 @@ extension CredentialEditorView {
                 }
             }
             .font(Theme.Fonts.caption)
-            if template == .custom {
-                VStack(spacing: 0) {
-                    HStack(spacing: 10) {
-                        Text(FrozenEditorCopy.keyHeader)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(FrozenEditorCopy.valueHeader)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Color.clear.frame(width: 42, height: 1)
+        }
+    }
+
+    private var customKeyTable: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Text(FrozenEditorCopy.keyHeader)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(FrozenEditorCopy.valueHeader)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Color.clear.frame(width: 42, height: 1)
+                Color.clear.frame(width: 18, height: 1)
+            }
+            .font(Theme.Fonts.caption.weight(.semibold))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+
+            ForEach($components) { $component in
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        TextField(appLocalized("Key, for example API_TOKEN"), text: $component.name)
+                            .font(Theme.Fonts.mono)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier(componentEditorIdentifier(component, field: "name"))
+                        if FrozenEditorCopy.deliveryLabel(for: component) != component.name {
+                            deliveryTag(component)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Group {
+                        if component.kind == .file {
+                            fileButton(component, title: appLocalized("Choose File…"))
+                        } else {
+                            TextField(appLocalized("Enter text value"), text: $component.text)
+                                .textFieldStyle(.roundedBorder)
+                                .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(FrozenEditorCopy.kindLabel(for: component.kind))
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 42, height: 22)
+                    if components.count > 1 {
+                        Button(role: .destructive) {
+                            components.removeAll { $0.id == component.id }
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 18, height: 22)
+                        .accessibilityLabel(appLocalized("Remove"))
+                    } else {
                         Color.clear.frame(width: 18, height: 1)
                     }
-                    .font(Theme.Fonts.caption.weight(.semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, Theme.Spacing.sm)
-
-                    ForEach($components) { $component in
-                        HStack(spacing: 10) {
-                            TextField(appLocalized("Key, for example API_TOKEN"), text: $component.name)
-                                .font(Theme.Fonts.mono)
-                                .textFieldStyle(.roundedBorder)
-                                .accessibilityIdentifier(componentEditorIdentifier(component, field: "name"))
-                            if component.kind == .file {
-                                Button(component.file?.originalFilename ?? appLocalized("Choose File…")) {
-                                    chooseComponentFile(component.id)
-                                }
-                                .buttonStyle(.bordered)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
-                            } else {
-                                TextField(appLocalized("Enter text value"), text: $component.text)
-                                    .textFieldStyle(.roundedBorder)
-                                    .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
-                            }
-                            Text(FrozenEditorCopy.kindLabel(for: component.kind))
-                                .font(Theme.Fonts.caption)
-                                .foregroundStyle(Theme.textSecondary)
-                                .frame(width: 42)
-                            if components.count > 1 {
-                                Button(role: .destructive) {
-                                    components.removeAll { $0.id == component.id }
-                                } label: {
-                                    Image(systemName: "xmark")
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(Theme.textSecondary)
-                                .frame(width: 18)
-                            } else {
-                                Color.clear.frame(width: 18, height: 1)
-                            }
-                        }
-                        .padding(10)
-                        .overlay(alignment: .top) { Divider() }
-                    }
                 }
-                .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
-                .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
-            } else if template == .api {
-                ForEach($components) { $component in
-                    let card = FrozenEditorCopy.fieldCard(for: component)
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(card.title)
-                                    .font(Theme.Fonts.secondary.weight(.semibold))
-                                if !card.help.isEmpty {
-                                    Text(card.help)
-                                        .font(Theme.Fonts.secondary)
-                                        .foregroundStyle(Theme.textSecondary)
-                                }
-                            }
-                            Spacer()
-                            if component.isRemovable {
-                                Button(appLocalized("Remove"), role: .destructive) {
-                                    components.removeAll { $0.id == component.id }
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(Theme.textSecondary)
-                            }
-                        }
-                        HStack(spacing: Theme.Spacing.sm) {
-                            if component.kind == .file {
-                                Button(component.file?.originalFilename ?? appLocalized("Choose file")) {
-                                    chooseComponentFile(component.id)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
-                            } else if CredentialEditorInteractionPresentation.inputVisibility(
-                                template: template,
-                                isSecret: component.isSecret,
-                                isRevealed: revealedComponentIDs.contains(component.id)
-                            ) == .plain {
-                                TextField(
-                                    appLocalizedFormat("Enter %@", CredentialTemplate.fieldTitle(for: component.name)),
-                                    text: $component.text
-                                )
-                                .textFieldStyle(.roundedBorder)
-                                .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
-                            } else {
-                                SecureField(
-                                    appLocalizedFormat("Enter %@", CredentialTemplate.fieldTitle(for: component.name)),
-                                    text: $component.text
-                                )
-                                .textFieldStyle(.roundedBorder)
-                                .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
-                            }
-                            if component.isSecret {
-                                componentRevealButton(component.id)
-                            }
-                            Text(FrozenEditorCopy.kindLabel(for: component))
-                                .font(Theme.Fonts.caption)
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-                    }
-                    .padding(Theme.Spacing.md)
-                    .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
-                    .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
-                }
-            } else {
-                ForEach($components) { $component in
-                    HStack {
-                        Text(CredentialTemplate.fieldTitle(for: component.name))
-                            .font(Theme.Fonts.secondary.weight(.semibold))
-                            .frame(minWidth: 100, alignment: .leading)
-                        if component.kind == .file {
-                            Button(component.file?.originalFilename ?? appLocalized("Choose file")) {
-                                chooseComponentFile(component.id)
-                            }
-                            .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
-                        } else if CredentialEditorInteractionPresentation.inputVisibility(
-                            template: template,
-                            isSecret: component.isSecret,
-                            isRevealed: revealedComponentIDs.contains(component.id)
-                        ) == .plain {
-                            TextField(
-                                appLocalizedFormat("Enter %@", CredentialTemplate.fieldTitle(for: component.name)),
-                                text: $component.text
-                            )
-                            .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
-                        } else {
-                            SecureField(
-                                appLocalizedFormat("Enter %@", CredentialTemplate.fieldTitle(for: component.name)),
-                                text: $component.text
-                            )
-                            .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
-                        }
-                        if component.isSecret {
-                            componentRevealButton(component.id)
-                        }
-                        Text(FrozenEditorCopy.kindLabel(for: component))
-                            .font(Theme.Fonts.caption)
-                            .foregroundStyle(Theme.textSecondary)
-                            .frame(width: 42)
-                        if component.isRemovable {
-                            Button(role: .destructive) {
-                                components.removeAll { $0.id == component.id }
-                            } label: { Image(systemName: "minus.circle") }
-                                .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-            HStack {
-                Button(template == .custom ? FrozenEditorCopy.addTextAction : appLocalized("Add text")) {
-                    components.append(CredentialComponentDraft())
-                }
-                .buttonStyle(.bordered)
-                Button(template == .custom ? FrozenEditorCopy.addFileAction : appLocalized("Add file")) {
-                    components.append(CredentialComponentDraft(kind: .file))
-                }
-                .buttonStyle(.bordered)
+                .padding(Theme.Spacing.md)
+                .overlay(alignment: .top) { Rectangle().fill(Theme.separator).frame(height: 1) }
             }
         }
+        .credentialGroupedListStyle()
+    }
+
+    private func templateRow(_ component: Binding<CredentialComponentDraft>) -> some View {
+        let draft = component.wrappedValue
+        let title = CredentialTemplate.fieldTitle(for: draft.name)
+        let help = FrozenEditorCopy.fieldCard(for: draft).help
+        let isRevealed = revealedComponentIDs.contains(draft.id)
+        return HStack(spacing: Theme.Spacing.md) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                if draft.isCustomKey {
+                    TextField(appLocalized("Key, for example API_TOKEN"), text: component.name)
+                        .font(Theme.Fonts.mono)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier(componentEditorIdentifier(draft, field: "name"))
+                    if FrozenEditorCopy.deliveryLabel(for: draft) != draft.name {
+                        deliveryTag(draft)
+                    }
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
+                        Text(title)
+                            .font(Theme.Fonts.body)
+                            .foregroundStyle(Theme.text)
+                        if draft.isOptional {
+                            Text(appLocalized("Optional"))
+                                .font(Theme.Fonts.caption)
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+                    .help(help)
+                    deliveryTag(draft)
+                }
+            }
+            .frame(width: 180, alignment: .leading)
+            Group {
+                if draft.kind == .file {
+                    fileButton(draft, title: appLocalized("Choose file"))
+                } else if CredentialEditorInteractionPresentation.inputVisibility(
+                    template: template,
+                    isSecret: draft.isSecret,
+                    isRevealed: isRevealed
+                ) == .plain {
+                    TextField(FrozenEditorCopy.placeholder(for: draft), text: component.text)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier(componentEditorIdentifier(draft, field: "value"))
+                } else {
+                    SecureField(FrozenEditorCopy.placeholder(for: draft), text: component.text)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier(componentEditorIdentifier(draft, field: "value"))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if draft.isSecret {
+                componentRevealButton(draft.id)
+                if !isRevealed {
+                    Text(FrozenEditorCopy.contentHiddenLabel)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textTertiary)
+                }
+            }
+            if draft.isRemovable {
+                Button(appLocalized("Remove")) {
+                    components.removeAll { $0.id == draft.id }
+                }
+                .buttonStyle(.plain)
+                .font(Theme.Fonts.body)
+                .foregroundStyle(Theme.accent)
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.md)
+    }
+
+    private func deliveryTag(_ component: CredentialComponentDraft) -> some View {
+        Text(verbatim: FrozenEditorCopy.deliveryLabel(for: component))
+            .font(Theme.Fonts.mono)
+            .foregroundStyle(Theme.textSecondary)
+            .lineLimit(1)
+            .padding(.horizontal, Theme.Spacing.xs)
+            .padding(.vertical, 1)
+            .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.control))
+            .accessibilityLabel(appLocalizedFormat("Delivered as %@", FrozenEditorCopy.deliveryLabel(for: component)))
+    }
+
+    private func fileButton(_ component: CredentialComponentDraft, title: String) -> some View {
+        Button(component.file?.originalFilename ?? title) {
+            chooseComponentFile(component.id)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier(componentEditorIdentifier(component, field: "value"))
     }
 
     private func componentEditorIdentifier(

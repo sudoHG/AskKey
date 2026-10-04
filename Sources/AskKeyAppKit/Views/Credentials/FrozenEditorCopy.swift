@@ -16,6 +16,22 @@ enum FrozenEditorCopy {
     static var addTextAction: String { appLocalized("Add Text Key") }
     static var addFileAction: String { appLocalized("Add File Key") }
     static var customAddActions: [String] { [addTextAction, addFileAction] }
+    static var contentHiddenLabel: String { appLocalized("Content hidden") }
+
+    /// The environment variable (or temporary-file variable) a component is delivered as.
+    static func deliveryLabel(for component: CredentialComponentDraft) -> String {
+        switch component.delivery {
+        case nil: return component.name
+        case .some(.environmentVariable(let name)), .some(.temporaryFile(let name)): return name
+        case .some(.none): return appLocalized("Keep in App Only")
+        }
+    }
+
+    static func placeholder(for component: CredentialComponentDraft) -> String {
+        component.name == "API_ENDPOINT"
+            ? "https://api.example.com"
+            : appLocalizedFormat("Enter %@", CredentialTemplate.fieldTitle(for: component.name))
+    }
 
     static func fieldCard(for component: CredentialComponentDraft) -> FieldCard {
         let title = CredentialTemplate.fieldTitle(for: component.name)
@@ -31,13 +47,5 @@ enum FrozenEditorCopy {
 
     static func kindLabel(for kind: CredentialPayloadKind) -> String {
         kind == .file ? appLocalized("File") : appLocalized("Text")
-    }
-
-    static func kindLabel(for component: CredentialComponentDraft) -> String {
-        component.kind == .file
-            ? appLocalized("File")
-            : component.isSecret
-                ? appLocalized("Protected")
-                : appLocalized("Text")
     }
 }

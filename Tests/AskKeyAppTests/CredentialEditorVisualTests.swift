@@ -101,7 +101,7 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
         XCTAssertEqual(FrozenWelcomeCopy.launchAtLoginSubtitle, "让 Agent 随时能找到请旨")
         XCTAssertEqual(
             FrozenImportCopy.previewSummary(itemCount: 2, skippedLineCount: 1),
-            "包含 2 项；跳过空行 1 行。"
+            "读到 2 项，跳过 1 个空行。原文件不会被修改。"
         )
         XCTAssertEqual(FrozenImportTableLayout.columnWeights, [1, 1.4])
     }
@@ -179,6 +179,53 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
             "确认导入"
         )
         XCTAssertNil(FrozenImportConflictPresentation(existingName: nil, choice: .skip).warning)
+        XCTAssertEqual(
+            FrozenImportConflictPresentation(existingName: nil, choice: .skip).confirmTitle,
+            "导入为 1 份凭证"
+        )
+    }
+
+    func testImportPreviewLabelsTheNameAndDefaultsItToTheFileName() {
+        XCTAssertEqual(FrozenImportCopy.nameHelp, "默认用文件名，可以改。")
+        XCTAssertEqual(FrozenImportCopy.contentsHeader, "内容 · 按键名交付为环境变量")
+        XCTAssertEqual(FrozenImportCopy.blankLineCount(in: "A=1\n\nB=2\n"), 1)
+        XCTAssertEqual(FrozenImportCopy.blankLineCount(in: ""), 0)
+        XCTAssertEqual(
+            FrozenImportCopy.defaultName(forFileAt: URL(fileURLWithPath: "/tmp/demo/askkey-ux-demo.env")),
+            "askkey-ux-demo"
+        )
+        XCTAssertEqual(
+            FrozenImportCopy.defaultName(forFileAt: URL(fileURLWithPath: "/tmp/billing-service/.env")),
+            "billing-service"
+        )
+    }
+
+    func testCreateAndImportPermissionControlExplainsEachChoice() {
+        XCTAssertEqual(
+            CredentialPermission.prototypeCases.map(\.editorTitle),
+            ["每次询问", "允许", "隐藏"]
+        )
+        XCTAssertEqual(
+            CredentialPermission.prototypeCases.map(\.editorExplanation),
+            [
+                "Agent 每次要用这份凭证，都会先弹窗问你。推荐。",
+                "Agent 可以直接使用这份凭证，不会弹窗问你。",
+                "Agent 看不到这份凭证，也无法请求使用。",
+            ]
+        )
+    }
+
+    func testTemplateChooserGroupsCustomCredentialSeparately() {
+        XCTAssertEqual(
+            CredentialTemplate.chooserGroups,
+            [[.api, .ssh, .githubApp, .apple, .cloud, .database], [.custom]]
+        )
+        XCTAssertEqual(Set(CredentialTemplate.chooserGroups.joined()), Set(CredentialTemplate.allCases))
+        XCTAssertEqual(CredentialTemplate.api.editorTitle, "新建 API 访问凭证")
+        XCTAssertEqual(CredentialTemplate.custom.editorTitle, "新建自定义凭证")
+        for template in CredentialTemplate.allCases {
+            XCTAssertNotNil(NSImage(systemSymbolName: template.symbolName, accessibilityDescription: nil), template.symbolName)
+        }
     }
 
     func testOrdinaryFileImportUsesStableComponentNameAndLocalizedDisplay() throws {
@@ -304,7 +351,8 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
         XCTAssertEqual(fields.map(\.name), ["API_KEY", "API_ENDPOINT"])
         XCTAssertEqual(fields.map(\.isSecret), [true, false])
         XCTAssertEqual(fields.map(\.isRemovable), [false, true])
-        XCTAssertEqual(fields.map(FrozenEditorCopy.kindLabel), ["已保护", "文字"])
+        XCTAssertEqual(fields.map(FrozenEditorCopy.deliveryLabel), ["API_KEY", "API_ENDPOINT"])
+        XCTAssertEqual(FrozenEditorCopy.contentHiddenLabel, "内容已隐藏")
 
         let loaded = try CredentialEditorComponentLoader.load(
             [

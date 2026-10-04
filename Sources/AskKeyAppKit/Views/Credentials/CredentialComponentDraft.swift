@@ -17,6 +17,8 @@ struct CredentialComponentDraft: Identifiable {
     var text = ""
     var file: FileImport.FrozenFile?
     var isOptional = false
+    /// Added by the user in a template editor, so its key is typed rather than predefined.
+    var isCustomKey = false
     var emptyValuePolicy = EmptyValuePolicy.reject
     var delivery: CredentialComponentDelivery?
     var masked = true
