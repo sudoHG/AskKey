@@ -1,7 +1,12 @@
+import AppKit
 import SwiftUI
 import AskKeyBroker
 
+/// The approval prompt in the native alert layout: app icon, who wants which
+/// credential, what will run, a collapsed Details section and stacked actions.
 struct FrozenAgentApprovalPrompt: View {
+    static let width: CGFloat = 300
+
     let request: BrokerApprovalOperationRequest
     var trustedCredentialName: String? = nil
     var expiresAt: Date? = nil
@@ -9,169 +14,163 @@ struct FrozenAgentApprovalPrompt: View {
     var timedAllowanceMinutes: Int = 30
     var writeSummary: BrokerCredentialWriteSummary? = nil
     var revealMaterial: (@MainActor () async throws -> FrozenApprovalMaterial)? = nil
+    /// The approval whose system authentication was cancelled. The prompt then
+    /// offers to authenticate again for that same decision, or to deny.
+    var cancelledAuthenticationDecision: BrokerApprovalDecision? = nil
+    var detailsExpanded = false
     let finish: (BrokerApprovalDecision?) -> Void
-    @State private var revealedMaterial: FrozenApprovalMaterial?
-    @State private var revealing = false
-    @State private var revealFailed = false
-    @State private var revealTask: Task<Void, Never>?
+    @State private var showsDetails: Bool?
 
-    private var caller: String { request.callerName ?? appLocalized("Local Agent") }
-    private var credential: String { trustedCredentialName ?? request.credentialName ?? request.targetID }
-    private var operationTitle: String {
-        switch request.operation {
-        case .read: return appLocalizedFormat("%@ requests to use a credential", caller)
-        case .create: return appLocalizedFormat("%@ requests to create a credential", caller)
-        case .modify: return appLocalizedFormat("%@ requests to modify a credential", caller)
-        case .delete: return appLocalizedFormat("%@ requests to delete a credential", caller)
-        }
+    private var content: ApprovalPromptContent {
+        ApprovalPromptContent(
+            request: request,
+            credentialName: trustedCredentialName ?? request.credentialName ?? request.targetID
+        )
     }
+
+    private var contentWidth: CGFloat { Self.width - 2 * Theme.Spacing.lg }
 
     var body: some View {
         let _ = AppLanguage.store.resolved
-        VStack(spacing: 10) {
-            Text(appLocalized("Brand monogram"))
-                .font(Theme.Icon.brandMark)
-                .foregroundStyle(Theme.onAccent)
-                .frame(width: 46, height: 46)
-                .background(Theme.accent.gradient, in: .rect(cornerRadius: 11))
-            Text(appLocalized("ASK KEY · AGENT REQUEST"))
-                .font(Theme.Fonts.caption.weight(.semibold))
-                .foregroundStyle(Theme.textSecondary)
-            Text(operationTitle)
+        let content = content
+        let commandFits = content.commandFits(prefix: appLocalized("to run"), width: contentWidth)
+        let details = content.detailRows(commandFits: commandFits)
+        let expanded = showsDetails ?? detailsExpanded
+        VStack(spacing: 0) {
+            appIcon
+            Text(content.title)
                 .font(Theme.Fonts.body.bold())
-            VStack(alignment: .leading, spacing: 7) {
-                approvalRow(appLocalized("Caller"), caller, badge: appLocalized("Declared · Unverified"))
-                approvalRow(appLocalized("Credential"), credential)
-                if let purpose = request.callerPurpose, !purpose.isEmpty {
-                    approvalRow(appLocalized("Purpose"), purpose)
-                }
-                if request.operation == .delete {
-                    approvalRow(appLocalized("Destination"), appLocalized("Recycle Bin · Recoverable for 30 days"))
-                }
+                .foregroundStyle(Theme.text)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, Theme.Spacing.md)
+            if let command = content.commandSummary {
+                (Text(appLocalized("to run")).font(Theme.Fonts.body)
+                    + Text(verbatim: " ")
+                    + Text(verbatim: command).font(Theme.Fonts.mono))
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(Text(verbatim: content.fullCommand ?? command))
+                    .padding(.top, Theme.Spacing.sm)
             }
-            .padding(11)
-            .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.group))
-            Text(appLocalized("Caller identity is self-declared and unverified. Decide from the credential and purpose."))
-                .font(Theme.Fonts.caption)
-                .foregroundStyle(Theme.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if let writeSummary {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text(appLocalized("Before"))
-                        ForEach(Array(writeSummary.before.enumerated()), id: \.offset) { _, item in
-                            Text("\(item.name) · \(item.byteCount) B · \(item.delivery.environmentVariable ?? "App")")
-                        }
-                        Text(appLocalized("After"))
-                        ForEach(Array(writeSummary.after.enumerated()), id: \.offset) { _, item in
-                            Text("\(item.name) · \(item.byteCount) B · \(item.delivery.environmentVariable ?? "App")")
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }.font(Theme.Fonts.caption).frame(maxHeight: 70)
+            if cancelledAuthenticationDecision != nil {
+                Text(content.cancelledAuthenticationNote)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, Theme.Spacing.md)
+                    .accessibilityIdentifier("approval-authentication-cancelled")
+            }
+            if !details.isEmpty {
+                detailsToggle(expanded: expanded)
+                    .padding(.top, Theme.Spacing.md)
+                if expanded {
+                    detailRows(details)
+                        .padding(.top, Theme.Spacing.md)
+                }
             }
             if request.operation != .read {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(appLocalized("Frozen Content to Write"))
-                        .font(Theme.Fonts.caption.weight(.semibold))
-                    if let revealedMaterial {
-                        HStack {
-                            Text(revealedMaterial.title).lineLimit(1)
-                            Spacer()
-                            Text(revealedMaterial.encoding).foregroundStyle(Theme.textSecondary)
-                            Button(appLocalized("Hide")) { self.revealedMaterial = nil }
-                        }.font(Theme.Fonts.caption)
-                        ScrollView {
-                            Text(verbatim: revealedMaterial.content)
-                                .font(Theme.Fonts.mono)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }.frame(height: 85)
-                    } else {
-                        HStack {
-                            Text("••••••••").foregroundStyle(Theme.textSecondary)
-                            Spacer()
-                            Button(appLocalized("Authenticate and View")) {
-                                guard let revealMaterial, !revealing else { return }
-                                revealing = true
-                                revealFailed = false
-                                revealTask = Task {
-                                    defer { revealing = false }
-                                    do {
-                                        let material = try await revealMaterial()
-                                        guard !Task.isCancelled else { return }
-                                        revealedMaterial = material
-                                    } catch {
-                                        if !Task.isCancelled { revealFailed = true }
-                                    }
-                                }
-                            }
-                            .disabled(revealMaterial == nil || revealing)
-                            .accessibilityIdentifier("approval-reveal-frozen-material")
-                        }
-                        Text(appLocalized("Viewing requires separate authentication and does not approve this request."))
-                            .font(Theme.Fonts.caption).foregroundStyle(Theme.textSecondary)
-                    }
-                    if revealFailed {
-                        Text(appLocalized("Unable to view: authentication was not completed or the request is no longer valid."))
-                            .font(Theme.Fonts.caption).foregroundStyle(Theme.warning)
-                    }
-                }
-                .padding(10)
-                .background(Theme.neutralSubtle, in: .rect(cornerRadius: 8))
+                FrozenWriteApprovalContent(writeSummary: writeSummary, revealMaterial: revealMaterial)
+                    .padding(.top, Theme.Spacing.lg)
             }
-            VStack(spacing: 7) {
-                Button { finish(.once) } label: {
-                    Text(primaryTitle)
-                        .font(Theme.Fonts.body.weight(.semibold))
-                        .foregroundStyle(Theme.onAccent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.sm)
-                        .background(Theme.accent, in: .rect(cornerRadius: 9))
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("approval-allow-once")
-                if request.operation == .read, timedAllowanceEnabled {
-                    Button {
-                        finish(.timedAllow(duration: nil))
-                    } label: {
-                        VStack(spacing: 1) {
-                            Text(appLocalizedFormat("Allow for %lld Minutes", timedAllowanceMinutes))
-                            Text(appLocalized("Applies to all local callers for this credential · Revocable anytime"))
-                                .font(Theme.Fonts.caption).foregroundStyle(Theme.textSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
-                        .background(Theme.surface, in: .rect(cornerRadius: 9))
-                        .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.separator))
-                    }
-                    .buttonStyle(.plain)
-                }
-                Button { finish(.deny) } label: {
-                    Text(appLocalized("Deny"))
-                        .foregroundStyle(Theme.warning)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
-                }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("approval-deny")
-            }
-            .frame(maxWidth: .infinity)
-            HStack {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(appLocalized("Remaining ") + FrozenCountdown.format(deadline: expiresAt, now: context.date))
-                }
-                Spacer()
-                Button(appLocalized("Press ESC to Decide Later")) { finish(nil) }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.cancelAction)
-            }
-            .font(Theme.Fonts.caption)
-            .foregroundStyle(Theme.textSecondary)
+            actions
+                .padding(.top, Theme.Spacing.lg)
+            footer
+                .padding(.top, Theme.Spacing.md)
         }
-        .padding(20)
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.top, Theme.Spacing.xl)
+        .padding(.bottom, Theme.Spacing.lg)
+        .frame(width: Self.width)
+        .fixedSize(horizontal: false, vertical: true)
         .background(.ultraThinMaterial)
         .environment(\.locale, AppLanguage.store.locale)
-        .onDisappear { revealTask?.cancel(); revealTask = nil; revealedMaterial = nil }
+    }
+
+    private var appIcon: some View {
+        Image(nsImage: NSApplication.shared.applicationIconImage ?? NSImage())
+            .resizable()
+            .interpolation(.high)
+            .frame(width: 64, height: 64)
+            .accessibilityHidden(true)
+    }
+
+    private func detailsToggle(expanded: Bool) -> some View {
+        Button {
+            showsDetails = !expanded
+        } label: {
+            HStack(spacing: Theme.Spacing.xs) {
+                Text(appLocalized("Details")).font(Theme.Fonts.body)
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(Theme.Fonts.caption.weight(.semibold))
+                    .imageScale(.small)
+            }
+            .foregroundStyle(Theme.accent)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("approval-details")
+    }
+
+    private func detailRows(_ rows: [ApprovalPromptContent.Row]) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Rectangle().fill(Theme.separator).frame(height: 1)
+            Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.md, verticalSpacing: Theme.Spacing.sm) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    GridRow {
+                        Text(row.label)
+                            .foregroundStyle(Theme.textSecondary)
+                            .fixedSize()
+                        Text(verbatim: row.value)
+                            .font(row.monospaced ? Theme.Fonts.mono : Theme.Fonts.body)
+                            .foregroundStyle(Theme.text)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .font(Theme.Fonts.body)
+        }
+    }
+
+    private var actions: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            if let retry = cancelledAuthenticationDecision {
+                ApprovalPromptButton(title: content.retryTitle, primary: true) { finish(retry) }
+                    .accessibilityIdentifier("approval-retry-authentication")
+            } else {
+                ApprovalPromptButton(title: primaryTitle, primary: true) { finish(.once) }
+                    .accessibilityIdentifier("approval-allow-once")
+                if request.operation == .read, timedAllowanceEnabled {
+                    ApprovalPromptButton(
+                        title: appLocalizedFormat("Allow for %lld minutes", timedAllowanceMinutes),
+                        primary: false
+                    ) { finish(.timedAllow(duration: nil)) }
+                        .help(appLocalized("Applies to all local callers for this credential · Revocable anytime"))
+                        .accessibilityIdentifier("approval-allow-timed")
+                }
+            }
+            ApprovalPromptButton(title: appLocalized("Deny"), primary: false) { finish(.deny) }
+                .accessibilityIdentifier("approval-deny")
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(appLocalizedFormat("Expires in %@", FrozenCountdown.format(deadline: expiresAt, now: context.date)))
+                    .monospacedDigit()
+            }
+            Text(verbatim: "·")
+            Button(appLocalized("Esc to decide later")) { finish(nil) }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.cancelAction)
+        }
+        .font(Theme.Fonts.caption)
+        .foregroundStyle(Theme.textTertiary)
     }
 
     private var primaryTitle: String {
@@ -182,20 +181,31 @@ struct FrozenAgentApprovalPrompt: View {
         case .delete: return appLocalized("Approve Deletion")
         }
     }
+}
 
-    private func approvalRow(_ label: String, _ value: String, badge: String? = nil) -> some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-            Text(label).foregroundStyle(Theme.textSecondary).frame(width: 44, alignment: .leading)
-            Text(value).fontWeight(.medium)
-            if let badge {
-                Text(badge)
-                    .font(Theme.Fonts.caption.weight(.semibold))
-                    .foregroundStyle(Theme.warning)
-                    .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(Theme.warningSubtle, in: .rect(cornerRadius: 4))
-            }
-            Spacer(minLength: 0)
+/// Full-width stacked alert button: the one filled accent action, or a white
+/// bordered secondary action. "Deny" is secondary, never red.
+private struct ApprovalPromptButton: View {
+    let title: String
+    let primary: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(Theme.Fonts.body)
+                .foregroundStyle(primary ? Theme.onAccent : Theme.text)
+                .frame(maxWidth: .infinity)
+                .frame(height: Theme.controlHeight)
+                .background(primary ? Theme.accent : Theme.surface, in: .rect(cornerRadius: Theme.Radius.control))
+                .overlay {
+                    if !primary {
+                        RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(Theme.separator)
+                    }
+                }
+                .shadow(color: Theme.cardShadow, radius: 1, y: 0.5)
+                .contentShape(Rectangle())
         }
-        .font(Theme.Fonts.secondary)
+        .buttonStyle(.plain)
     }
 }

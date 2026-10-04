@@ -451,6 +451,52 @@
         }
       }
     },
+    "%@ (file)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (file)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（文件）"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!%@ (file)!!]"
+          }
+        }
+      }
+    },
+    "%@ (self-declared, unverified)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (self-declared, unverified)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（自报，未核实）"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!%@ (self-declared, unverified)!!]"
+          }
+        }
+      }
+    },
     "%@ did not complete the connection check. Restart %@, then try again.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -516,98 +562,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!%@ is not installed!!]"
-          }
-        }
-      }
-    },
-    "%@ requests to create a credential": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ requests to create a credential"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「%@」请求创建凭证"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%@ requests to create a credential!!]"
-          }
-        }
-      }
-    },
-    "%@ requests to delete a credential": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ requests to delete a credential"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「%@」请求删除凭证"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%@ requests to delete a credential!!]"
-          }
-        }
-      }
-    },
-    "%@ requests to modify a credential": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ requests to modify a credential"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「%@」请求修改凭证"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%@ requests to modify a credential!!]"
-          }
-        }
-      }
-    },
-    "%@ requests to use a credential": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ requests to use a credential"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「%@」请求使用凭证"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%@ requests to use a credential!!]"
           }
         }
       }
@@ -1423,29 +1377,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!API credential!!]"
-          }
-        }
-      }
-    },
-    "ASK KEY · AGENT REQUEST": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key · Agent request"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨 · Agent 请求"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!ASK KEY · AGENT REQUEST!!]"
           }
         }
       }
@@ -2458,29 +2389,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Allow Once!!]"
-          }
-        }
-      }
-    },
-    "Allow for %lld Minutes": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allow for %lld Minutes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "允许 %lld 分钟"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Allow for %lld Minutes!!]"
           }
         }
       }
@@ -3796,29 +3704,6 @@
         }
       }
     },
-    "Brand monogram": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "旨"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!A!!]"
-          }
-        }
-      }
-    },
     "Browse Credential Catalog": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3884,52 +3769,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!CLI and MCP cannot obtain credentials while Ask Key is not running.!!]"
-          }
-        }
-      }
-    },
-    "Caller": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Caller"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "调用方"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Caller!!]"
-          }
-        }
-      }
-    },
-    "Caller identity is self-declared and unverified. Decide from the credential and purpose.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Caller identity is self-declared and unverified. Decide from the credential and purpose."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「声明」是调用方自报的身份，请旨无法核实；请按凭证与用途判断。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Caller identity is self-declared and unverified. Decide from the credential and purpose.!!]"
           }
         }
       }
@@ -5770,29 +5609,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Decide Requests Directly!!]"
-          }
-        }
-      }
-    },
-    "Declared · Unverified": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Declared · Unverified"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "声明 · 未经核实"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Declared · Unverified!!]"
           }
         }
       }
@@ -10537,29 +10353,6 @@
         }
       }
     },
-    "Press ESC to Decide Later": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Press ESC to Decide Later"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "按 ESC 稍后处理"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Press ESC to Decide Later!!]"
-          }
-        }
-      }
-    },
     "Private Key File": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -10694,29 +10487,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Protected!!]"
-          }
-        }
-      }
-    },
-    "Purpose": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Purpose"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用途"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Purpose!!]"
           }
         }
       }
@@ -11016,29 +10786,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Remaining!!]"
-          }
-        }
-      }
-    },
-    "Remaining ": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remaining "
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "剩余 "
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Remaining !!]"
           }
         }
       }
@@ -14311,6 +14058,144 @@
         }
       }
     },
+    "You cancelled authentication. Nothing was changed, and the request is still pending.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You cancelled authentication. Nothing was changed, and the request is still pending."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你取消了验证，没有做任何修改，请求仍在等待。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!You cancelled authentication. Nothing was changed, and the request is still pending.!!]"
+          }
+        }
+      }
+    },
+    "You cancelled authentication. The credential was not delivered, and the request is still pending.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You cancelled authentication. The credential was not delivered, and the request is still pending."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你取消了验证，凭证没有交付，请求仍在等待。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!You cancelled authentication. The credential was not delivered, and the request is still pending.!!]"
+          }
+        }
+      }
+    },
+    "“%@” wants to create “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” wants to create “%@”"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”想创建“%@”"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!“%@” wants to create “%@”!!]"
+          }
+        }
+      }
+    },
+    "“%@” wants to delete “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” wants to delete “%@”"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”想删除“%@”"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!“%@” wants to delete “%@”!!]"
+          }
+        }
+      }
+    },
+    "“%@” wants to modify “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” wants to modify “%@”"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”想修改“%@”"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!“%@” wants to modify “%@”!!]"
+          }
+        }
+      }
+    },
+    "“%@” wants to use “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” wants to use “%@”"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”想使用“%@”"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!“%@” wants to use “%@”!!]"
+          }
+        }
+      }
+    },
     "← Back": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -14725,6 +14610,29 @@
         }
       }
     },
+    "to run": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "to run"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用于运行"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!to run!!]"
+          }
+        }
+      }
+    },
     "Waiting for authentication…": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -15001,6 +14909,75 @@
         }
       }
     },
+    "List separator": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", "
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "、"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", "
+          }
+        }
+      }
+    },
+    "Location": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Location!!]"
+          }
+        }
+      }
+    },
+    "Stated purpose": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stated purpose"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "说明"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Stated purpose!!]"
+          }
+        }
+      }
+    },
     "The connection did not finish, and original settings could not be restored. Writing has stopped and the backup was kept.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -15066,6 +15043,190 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Add Ask Key for the current user of %@. Other connections stay as they are. A backup is created first.!!]"
+          }
+        }
+      }
+    },
+    "Allow for %lld minutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow for %lld minutes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许 %lld 分钟"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Allow for %lld minutes!!]"
+          }
+        }
+      }
+    },
+    "Authenticate and allow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authenticate and allow"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新验证并允许"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Authenticate and allow!!]"
+          }
+        }
+      }
+    },
+    "Authenticate and approve": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authenticate and approve"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新验证并批准"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Authenticate and approve!!]"
+          }
+        }
+      }
+    },
+    "Command": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "命令"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Command!!]"
+          }
+        }
+      }
+    },
+    "Delivers": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delivers"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "交付"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Delivers!!]"
+          }
+        }
+      }
+    },
+    "Details": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "详细信息"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Details!!]"
+          }
+        }
+      }
+    },
+    "Esc to decide later": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esc to decide later"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esc 稍后处理"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Esc to decide later!!]"
+          }
+        }
+      }
+    },
+    "Expires in %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expires in %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 后失效"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Expires in %@!!]"
           }
         }
       }
