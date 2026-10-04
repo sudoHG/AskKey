@@ -76,13 +76,6 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         )
     }
 
-    func testWelcomeExplainsFingerprintVerification() {
-        XCTAssertEqual(
-            FrozenWelcomeCopy.agentRequestMessage,
-            "请求到达时直接弹出系统确认框，像 Touch ID 一样，点一下加指纹就完成。"
-        )
-    }
-
     func testSidebarSelectionFollowsTheVisiblePage() {
         XCTAssertEqual(CredentialWorkspaceRoute.library.sidebarSelection, .credentials)
         XCTAssertEqual(CredentialWorkspaceRoute.pendingRequests.sidebarSelection, .pendingRequests)

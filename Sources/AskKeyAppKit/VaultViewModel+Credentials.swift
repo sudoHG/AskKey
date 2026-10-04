@@ -254,6 +254,7 @@ extension VaultViewModel {
         renewManagementSession()
         do {
             try credentialMutations.createText(input)
+            recordOnboardingSave(name: input.name, permission: input.permission)
             onboardingCredentialCount = try storedCredentialCountImpl()
             revealedCredential = nil
             reloadCredentials()
@@ -268,6 +269,7 @@ extension VaultViewModel {
         renewManagementSession()
         do {
             try credentialMutations.createBundle(input)
+            recordOnboardingSave(name: input.name, permission: input.permission)
             onboardingCredentialCount = try storedCredentialCountImpl()
             revealedCredential = nil
             reloadCredentials()
@@ -330,6 +332,7 @@ extension VaultViewModel {
         renewManagementSession()
         do {
             try credentialMutations.createFile(input)
+            recordOnboardingSave(name: input.name, permission: input.permission)
             onboardingCredentialCount = try storedCredentialCountImpl()
             revealedCredential = nil
             reloadCredentials()

@@ -828,29 +828,6 @@
         }
       }
     },
-    "%lld credentials are protected. Start using Ask Key to unlock management.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld credentials are protected. Start using Ask Key to unlock management."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已有 %lld 份凭证受保护，开始使用后可解锁管理。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!%lld credentials are protected. Start using Ask Key to unlock management.!!]"
-          }
-        }
-      }
-    },
     "%lld days remaining": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -1285,29 +1262,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!A system confirmation appears when a request arrives.!!]"
-          }
-        }
-      }
-    },
-    "A system confirmation appears when a request arrives; like Touch ID, one click and your fingerprint completes approval.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A system confirmation appears when a request arrives; like Touch ID, one click and your fingerprint completes approval."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请求到达时直接弹出系统确认框，像 Touch ID 一样，点一下加指纹就完成。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!A system confirmation appears when a request arrives; like Touch ID, one click and your fingerprint completes approval.!!]"
           }
         }
       }
@@ -3309,29 +3263,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Ask Key must stay at /Applications/Ask Key.app. Reinstall the official package, then open that copy.!!]"
-          }
-        }
-      }
-    },
-    "Ask Key runs in the background": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key runs in the background"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨在后台运行"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key runs in the background!!]"
           }
         }
       }
@@ -5728,29 +5659,6 @@
         }
       }
     },
-    "Decide Agent requests immediately": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Decide Agent requests immediately"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agent 请求当场决定"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Decide Agent requests immediately!!]"
-          }
-        }
-      }
-    },
     "Decide Requests Directly": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -7545,29 +7453,6 @@
         }
       }
     },
-    "Help Agents always find Ask Key.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Help Agents always find Ask Key."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "让 Agent 随时能找到请旨"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Help Agents always find Ask Key.!!]"
-          }
-        }
-      }
-    },
     "Hidden": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -7840,29 +7725,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Import Preview!!]"
-          }
-        }
-      }
-    },
-    "Import a regular file or .env; the original file is not modified.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import a regular file or .env; the original file is not modified."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "导入普通文件或 .env；原文件不会被修改。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Import a regular file or .env; the original file is not modified.!!]"
           }
         }
       }
@@ -8189,29 +8051,6 @@
         }
       }
     },
-    "Keep a complete set of credential materials together. When an Agent needs them, a system confirmation asks you to decide.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep a complete set of credential materials together. When an Agent needs them, a system confirmation asks you to decide."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "把一整套凭证材料放在一起。Agent 需要时，系统确认框会直接问你，由你当场决定。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Keep a complete set of credential materials together. When an Agent needs them, a system confirmation asks you to decide.!!]"
-          }
-        }
-      }
-    },
     "Keep everything needed for one task together.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -8254,29 +8093,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Keep in App Only!!]"
-          }
-        }
-      }
-    },
-    "Keep text and files together and deliver them under one approval.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep text and files together and deliver them under one approval."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字和文件放在一起，按同一次授权完整交付。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Keep text and files together and deliver them under one approval.!!]"
           }
         }
       }
@@ -8484,29 +8300,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Launch at login is on by default so Agents can reach Ask Key.!!]"
-          }
-        }
-      }
-    },
-    "Launch at login is on by default; Agents cannot obtain credentials while Ask Key is not running.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Launch at login is on by default; Agents cannot obtain credentials while Ask Key is not running."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "登录时启动默认开启；未运行时 Agent 无法取得凭证。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Launch at login is on by default; Agents cannot obtain credentials while Ask Key is not running.!!]"
           }
         }
       }
@@ -9910,29 +9703,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!On by default. After Allow, Touch ID confirms it is really you.!!]"
-          }
-        }
-      }
-    },
-    "One credential can contain multiple items": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "One credential can contain multiple items"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "一份凭证可以有多项"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!One credential can contain multiple items!!]"
           }
         }
       }
@@ -11574,29 +11344,6 @@
         }
       }
     },
-    "Save access keys, login details, certificates, or a combination of them.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save access keys, login details, certificates, or a combination of them."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存访问密钥、登录信息、证书或它们的组合。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Save access keys, login details, certificates, or a combination of them.!!]"
-          }
-        }
-      }
-    },
     "Search credentials…": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -12030,29 +11777,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Skip and Finish!!]"
-          }
-        }
-      }
-    },
-    "Start Using": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start Using"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开始使用"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Start Using!!]"
           }
         }
       }
@@ -13803,6 +13527,142 @@
             "value": "[!!Welcome to Ask Key!!]"
           }
         }
+      }
+    },
+    "Agents ask you before they use a key. Once you approve, the value goes only to the program that needs it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agents ask you before they use a key. Once you approve, the value goes only to the program that needs it." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 要用密钥时会先来问你。批准后，值只交给要用它的程序。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agents ask you before they use a key. Once you approve, the value goes only to the program that needs it.!!]" } }
+      }
+    },
+    "Import from File…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Import from File…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "从文件导入…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Import from File…!!]" } }
+      }
+    },
+    "Store a credential": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Store a credential" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "存一份凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Store a credential!!]" } }
+      }
+    },
+    "An API key, login details, an SSH private key, or a .env file to import.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "An API key, login details, an SSH private key, or a .env file to import." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "API 密钥、登录信息、SSH 私钥，或导入一个 .env 文件。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!An API key, login details, an SSH private key, or a .env file to import.!!]" } }
+      }
+    },
+    "Connect your Agent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Connect your Agent" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "接入你的 Agent" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Connect your Agent!!]" } }
+      }
+    },
+    "Codex, Claude Code, Cursor or Grok CLI.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Codex, Claude Code, Cursor or Grok CLI." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Codex、Claude Code、Cursor 或 Grok CLI。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Codex, Claude Code, Cursor or Grok CLI.!!]" } }
+      }
+    },
+    "Try it once": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Try it once" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "试一次" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Try it once!!]" } }
+      }
+    },
+    "Ask your Agent to run one command with this credential. Ask Key will ask you in a prompt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask your Agent to run one command with this credential. Ask Key will ask you in a prompt." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "让 Agent 用这份凭证跑一条命令，请旨会弹窗问你。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask your Agent to run one command with this credential. Ask Key will ask you in a prompt.!!]" } }
+      }
+    },
+    "Saved %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Saved %@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已保存 %@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Saved %@!!]" } }
+      }
+    },
+    "First credential saved": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "First credential saved" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已保存第一份凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!First credential saved!!]" } }
+      }
+    },
+    "Review it in All credentials.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Review it in All credentials." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "可以在“全部凭证”里查看。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Review it in All credentials.!!]" } }
+      }
+    },
+    "Permission: Allow. You can change it in All credentials.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Permission: Allow. You can change it in All credentials." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "权限：允许。可以在“全部凭证”里修改。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Permission: Allow. You can change it in All credentials.!!]" } }
+      }
+    },
+    "Permission: Ask every time. You can change it in All credentials.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Permission: Ask every time. You can change it in All credentials." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "权限：每次询问。可以在“全部凭证”里修改。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Permission: Ask every time. You can change it in All credentials.!!]" } }
+      }
+    },
+    "Permission: Hidden. You can change it in All credentials.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Permission: Hidden. You can change it in All credentials." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "权限：隐藏。可以在“全部凭证”里修改。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Permission: Hidden. You can change it in All credentials.!!]" } }
+      }
+    },
+    "Connect an Agent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Connect an Agent" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "去接入 Agent" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Connect an Agent!!]" } }
+      }
+    },
+    "Later": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Later" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "稍后再说" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Later!!]" } }
+      }
+    },
+    "Launch at login. Agents get no credentials while Ask Key is off.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Launch at login. Agents get no credentials while Ask Key is off." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "登录时启动。请旨不运行时，Agent 拿不到任何凭证。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Launch at login. Agents get no credentials while Ask Key is off.!!]" } }
       }
     },
     "Welcome to AskKey": {

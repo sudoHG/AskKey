@@ -109,6 +109,13 @@ struct SettingsView: View {
                     if vault.hasManagementSession || vault.beginOnboardingManagement() {
                         onboardingRoute = .fileImport
                     }
+                },
+                onConnectAgent: {
+                    // Agent access sits behind the management lock; unlocking
+                    // lands on it, and a cancelled prompt leaves the locked page.
+                    workspaceSection = .agentAccess
+                    workspaceRoute = .agentAccess
+                    vault.unlock()
                 }
             )
             .environment(vault)
