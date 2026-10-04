@@ -21,6 +21,7 @@ See the [changelog](../CHANGELOG.md) for release changes and known limitations.
 - [ADR 0005](adr/0005-distribution-and-client-integration.md): bundle layout, helper packaging and client adapters.
 - [ADR 0006](adr/0006-release-process.md): locally signed, notarized DMG releases.
 - [ADR 0007](adr/0007-claude-code-integration.md): Claude Code MCP setup through its CLI and the discovery hook in its settings.
+- [ADR 0008](adr/0008-approval-shows-target.md): approvals show the command, working directory and delivered names.
 
 ## Contributing and project rules
 
