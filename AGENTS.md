@@ -67,6 +67,8 @@ swift test
 
 Before pushing a task branch, run locally: `swift build`, the tests for the code you changed (`swift test --filter <Suites>`), and the hygiene and module checks. The full `swift test` suite and the desktop flows run in the PR's CI; a PR is accepted only when both CI jobs are green. Several agents may work in parallel, so do not run the full suite locally unless an issue asks for it.
 
+**Nothing that interrupts the maintainer's desktop runs locally.** Do not launch development or E2E app builds, take screenshots or screen recordings, or drive the UI (AppleScript, System Events, computer use) on the maintainer's Mac unless the maintainer asks for it in that session. Visual evidence comes from CI. When several agents share the maintainer's Mac, at most two may build or test at the same time.
+
 **Desktop UI flows run in CI, not locally.** `bash scripts/run-e2e.sh` drives the real macOS desktop (mouse, keyboard, window focus) for several minutes and blocks the maintainer from using the machine. Agents must not run it locally. The PR's CI `basic-ui-flows` job runs the same required flows on a clean runner and is the E2E acceptance; report its result in the receipt. Run it locally only when an issue explicitly requires it or when a UI failure reproduces only in CI and needs local debugging, and in both cases ask the maintainer first (through Orca, or in the PR when Orca is unavailable) and wait for approval.
 
 Run tests exactly like CI: do not set `ASKKEY_DEBUG_RUN_DIRECTORY`, `ASKKEY_BROKER_SOCKET` or other `ASKKEY_*` variables unless an issue says so. Several tests rely on the default runtime path resolution.
