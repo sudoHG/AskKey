@@ -32,8 +32,9 @@ gh issue list --repo sudoHG/AskKey --label ready-for-agent --state open
 4. **Create a worktree** from the latest `main`:
    ```bash
    git fetch origin
-   git worktree add ~/Coding/AskKey-workspace/worktrees/<number> -b task/<number>-<short-slug> origin/main
+   git worktree add .worktrees/<number> -b task/<number>-<short-slug> origin/main
    ```
+   Run this from the repository root. `.worktrees/` is ignored by Git, so task worktrees stay inside the checkout without showing up as changes.
 5. **Implement only what the Scope allows.** If the card is unclear, the Scope is not enough, or Acceptance cannot be met: comment with the exact problem, add `needs-info`, and stop working on that issue. Do not guess. Any question to the planner, in an issue or in a PR, must also add the `needs-info` label to that issue or PR; the planner's watcher triggers on labels, so a comment alone may go unseen. Then move on to the next claimable issue.
 6. **Run every Acceptance command.** Keep logs and other artifacts only until you have read the results, then delete them. Never put them in the repo; report commands, counts and SHAs in the receipt.
 7. **Commit** with a clear English message, using the identity your setup prescribes. No tool attribution lines.
@@ -42,15 +43,15 @@ gh issue list --repo sudoHG/AskKey --label ready-for-agent --state open
 
 **Tasks that produce no repository change** (for example, recording evidence from the legacy code): skip steps 7–8. Post the receipt as an issue comment instead and add `needs-review` to the issue. The planner closes it.
 
-**Working in the legacy code**: a read-only reference clone of the archived repository is at `~/Coding/AskKey-workspace/legacy`, checked out at tag `legacy-final`. Create a detached worktree from it when a task needs to build or run legacy code:
+**Working in the legacy code**: the archived repository is `sudoHG/AskKey-legacy`, tagged `legacy-final`. When a task needs to read, build or run legacy code, clone that tag into a temporary directory outside this checkout and delete the clone when the task is done:
 
 ```bash
-git -C ~/Coding/AskKey-workspace/legacy worktree add --detach ~/Coding/AskKey-workspace/worktrees/legacy-<number> legacy-final
+git clone --depth 1 --branch legacy-final https://github.com/sudoHG/AskKey-legacy.git "$(mktemp -d)/legacy"
 ```
 
 The `AGENTS.md` and other docs inside the legacy tree are outdated (they describe retired tools and processes). Ignore them; this repository's rules apply. Never fetch legacy history into this repository.
 
-After a PR is merged, clean up what the task created: `git worktree remove ~/Coding/AskKey-workspace/worktrees/<number>`, then `git branch -d task/<number>-<short-slug>`. The remote branch is deleted at merge.
+After a PR is merged, clean up what the task created: `git worktree remove .worktrees/<number>`, then `git branch -d task/<number>-<short-slug>`. The remote branch is deleted at merge.
 
 ## Receipt (PR description)
 

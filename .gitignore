@@ -24,7 +24,10 @@ Tests/UI/output/
 .codex/
 .agents/
 
-# Process records belong in ~/Coding/AskKey-workspace, never in the repo
+# Task worktrees (see docs/agents/issue-workflow.md)
+.worktrees/
+
+# Process records never belong in the repo; delete them after reading
 evidence/
 receipts/
 reviews/
