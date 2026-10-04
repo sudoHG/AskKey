@@ -61,6 +61,10 @@ final class E2EBrokerScenario {
         try startHelper()
         let health = try await call("connection_status", [:], evidence: "health.json")
         try require(health.body["status"] as? String == "connected", "Broker did not report connected")
+        if scenario == "approval-screenshots-write" {
+            try await runScreenshotWrite()
+            return
+        }
         if scenario == "approval-restart-check" {
             try await checkRestart()
             return
@@ -129,6 +133,24 @@ final class E2EBrokerScenario {
         ]
         try writeJSON(arguments, "frozen-run.json")
         return arguments
+    }
+
+    private func runScreenshotWrite() async throws {
+        let reply = try await call("create_credential", [
+            "operation_id": "ci-screenshot-write",
+            "name": "CI Approval Credential",
+            "caller_name": "CI Demo Agent", "caller_purpose": "Synthetic screenshot review",
+            "components": [["name": "TOKEN", "text": "synthetic-ci-approval",
+                            "delivery": ["type": "environment_variable", "environment_variable": "CI_TOKEN"]]],
+        ], evidence: "write-pending.json")
+        guard !reply.isError,
+              case .success(.textWriteRequest(.submitted(let ticket))) =
+                try JSONDecoder().decode(BrokerResponse.self, from: reply.data) else {
+            throw failure("Expected a pending synthetic credential write")
+        }
+        try report("approval-pending.json", ["requestID": ticket.requestID])
+        try await waitUntil { self.commandExists("cancel-authentication") }
+        try report("authentication-cancellation-ready.json", ["ready": true])
     }
 
     private func assertRejected(_ arguments: [String: Any], outcome: String) async throws {
