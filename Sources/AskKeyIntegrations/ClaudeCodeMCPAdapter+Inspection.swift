@@ -11,20 +11,10 @@ extension ClaudeCodeMCPAdapter {
         let output = String(decoding: response.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         let diagnostic = String(decoding: response.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         if response.status == 1,
-           (output.isEmpty ? diagnostic : output) == "No MCP server found with name: askkey",
+           (output.isEmpty ? diagnostic : output).hasPrefix("No MCP server named \"askkey\"."),
            output.isEmpty || diagnostic.isEmpty {
-            let listed = try runClaude(["mcp", "list"], cleanup: cleanup)
-            let list = String(decoding: listed.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard listed.status == 0 else { throw ClaudeCodeMCPError.unreadableConfiguration }
-            if list == "No MCP servers configured. Use `claude mcp add` to add a server." {
-                return Entry(state: .absent)
-            }
-            let lines = list.split(whereSeparator: \.isNewline).map(String.init)
-            guard lines.first == "Checking MCP server health...", lines.count > 1,
-                  lines.dropFirst().allSatisfy({ $0.range(of: #"^[^\s:]+: .+ - .+$"#, options: .regularExpression) != nil }),
-                  !lines.dropFirst().contains(where: { $0.hasPrefix("askkey:") }) else {
-                throw ClaudeCodeMCPError.unreadableConfiguration
-            }
+            // get is authoritative for this name. list would health-check every
+            // unrelated server and connector, whose labels are not identifiers.
             return Entry(state: .absent)
         }
         guard response.status == 0, output.hasPrefix("askkey:\n") else {
@@ -34,13 +24,19 @@ extension ClaudeCodeMCPAdapter {
         for line in output.split(whereSeparator: \.isNewline).dropFirst() {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("To remove this server, run: claude mcp remove ") { continue }
+            if trimmed.isEmpty { continue }
+            if trimmed.range(of: #"^[A-Za-z_][A-Za-z0-9_]*="#, options: .regularExpression) != nil {
+                return Entry(state: .different)
+            }
             guard let colon = trimmed.firstIndex(of: ":") else {
-                // Environment assignments or a changed output contract are unsafe.
+                // An unlabelled value can be an environment assignment.
                 return Entry(state: .different)
             }
             let key = String(trimmed[..<colon])
             let value = trimmed[trimmed.index(after: colon)...].trimmingCharacters(in: .whitespaces)
-            guard fields[key] == nil, ["Scope", "Status", "Type", "Command", "Args", "Environment"].contains(key) else {
+            if key == "Environment" { return Entry(state: .different) }
+            guard ["Scope", "Status", "Type", "Command", "Args"].contains(key) else { continue }
+            guard fields[key] == nil else {
                 return Entry(state: .different)
             }
             fields[key] = value
@@ -52,10 +48,10 @@ extension ClaudeCodeMCPAdapter {
             return Entry(state: .scopeConflict)
         }
         guard fields["Type"] == "stdio", fields["Command"] == helperURL.path,
-              fields["Args"] == "mcp", fields["Environment", default: ""].isEmpty else {
+              fields["Args"] == "mcp" else {
             return Entry(state: .different)
         }
-        return Entry(state: .matching, connected: fields["Status"] == "✓ Connected")
+        return Entry(state: .matching, connected: fields["Status"] == "✔ Connected")
     }
 
     func rollback() throws {

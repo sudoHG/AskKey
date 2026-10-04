@@ -132,7 +132,7 @@ final class ClaudeCodeMCPAdapterTests: XCTestCase {
     }
 
     func testUnknownCLIResponsesCannotAuthorizeAnAdd() throws {
-        for mode in ["get-fail", "list-fail", "list-conflict", "unreadable"] {
+        for mode in ["get-fail", "unreadable"] {
             let fixture = try ClaudeCodeMCPFixture()
             try fixture.write("mode", mode)
             if mode == "unreadable" { try fixture.write("state", "matching") }
@@ -143,15 +143,18 @@ final class ClaudeCodeMCPAdapterTests: XCTestCase {
         }
     }
 
-    func testUnrelatedListedServerDoesNotConflict() throws {
-        let fixture = try ClaudeCodeMCPFixture()
-        try fixture.write("mode", "unrelated-server")
-        XCTAssertTrue(try fixture.adapter().connect().connected)
-        XCTAssertEqual(fixture.mutations, ["add"])
+    func testSetupDoesNotHealthCheckUnrelatedServersOrConnectors() throws {
+        for mode in ["list-fail", "list-conflict", "unrelated-server"] {
+            let fixture = try ClaudeCodeMCPFixture()
+            try fixture.write("mode", mode)
+            XCTAssertTrue(try fixture.adapter().connect().connected)
+            XCTAssertEqual(fixture.mutations, ["add"])
+            XCTAssertFalse(try fixture.read("calls").split(whereSeparator: \.isNewline).contains("mcp list"))
+        }
     }
 
     func testExtraEnvironmentArgumentsAndDuplicateFieldsAreNotMatching() throws {
-        for mode in ["extra-env", "duplicate-command", "extra-args"] {
+        for mode in ["extra-env", "empty-env", "env-assignment", "duplicate-command", "extra-args"] {
             let fixture = try ClaudeCodeMCPFixture()
             try fixture.write("state", "matching")
             try fixture.write("mode", mode)
@@ -165,6 +168,7 @@ final class ClaudeCodeMCPAdapterTests: XCTestCase {
         let fixture = try ClaudeCodeMCPFixture()
         try fixture.write("state", "matching")
         try fixture.write("mode", "disconnected")
+        XCTAssertEqual(try fixture.adapter().plan().state, .matching)
         XCTAssertFalse(try fixture.adapter().connect().connected)
         XCTAssertTrue(fixture.mutations.isEmpty)
     }
@@ -257,5 +261,67 @@ final class ClaudeCodeMCPAdapterTests: XCTestCase {
             XCTAssertEqual(fixture.mutations, ["add", "remove"])
             XCTAssertEqual(try fixture.read("state"), "absent")
         }
+    }
+
+    func testBothCapturedAbsenceMessagesAuthorizeSetup() throws {
+        for mode in ["ok", "absent-other-servers"] {
+            let fixture = try ClaudeCodeMCPFixture()
+            try fixture.write("mode", mode)
+            XCTAssertEqual(try fixture.adapter().plan().state, .absent)
+            XCTAssertTrue(try fixture.adapter().connect().connected)
+            XCTAssertEqual(fixture.mutations, ["add"])
+        }
+    }
+
+    func testUnknownDiagnosticFieldsDoNotChangeConfigurationIdentity() throws {
+        let fixture = try ClaudeCodeMCPFixture()
+        try fixture.write("state", "matching")
+        try fixture.write("mode", "unknown-field")
+        XCTAssertEqual(try fixture.adapter().plan().state, .matching)
+        XCTAssertTrue(try fixture.adapter().connect().connected)
+        XCTAssertTrue(fixture.mutations.isEmpty)
+    }
+
+    func testCapturedFailedServerRemainsMatchingAndDisconnected() throws {
+        let fixture = try ClaudeCodeMCPFixture()
+        let output = ClaudeCodeMCPOutputSamples.failedServer.replacingOccurrences(of: "/usr/bin/true", with: fixture.helper.path)
+        try fixture.install(fixture.executable, script: """
+        #!/bin/sh
+        if [ "$1" = --version ]; then printf '2.1.282 (Claude Code)\\n'; exit 0; fi
+        if [ "$3" = --help ]; then printf 'Usage: claude mcp %s\\n--scope user\\n' "$2"; exit 0; fi
+        if [ "$2" = get ]; then printf '%s\\n' '\(output)'; exit 0; fi
+        exit 64
+        """)
+        XCTAssertEqual(try fixture.adapter().plan().state, .matching)
+        let status = try fixture.adapter().connect()
+        XCTAssertFalse(status.connected)
+        XCTAssertEqual(status.reason, "client_disconnected")
+        XCTAssertTrue(fixture.mutations.isEmpty)
+    }
+
+    func testCapturedConnectedStatusPassesFullVerification() throws {
+        let fixture = try ClaudeCodeMCPFixture()
+        let output = ClaudeCodeMCPOutputSamples.connectedServer
+            .replacingOccurrences(of: "/usr/bin/python3", with: fixture.helper.path)
+            .replacingOccurrences(of: "<TMP>/srv.py", with: "mcp")
+        try fixture.install(fixture.executable, script: """
+        #!/bin/sh
+        if [ "$1" = --version ]; then printf '2.1.282 (Claude Code)\\n'; exit 0; fi
+        if [ "$3" = --help ]; then printf 'Usage: claude mcp %s\\n--scope user\\n' "$2"; exit 0; fi
+        if [ "$2" = get ]; then printf '%s\\n' '\(output)'; exit 0; fi
+        exit 64
+        """)
+        XCTAssertTrue(try fixture.adapter().connect().connected)
+        XCTAssertEqual(try fixture.read("helper-calls"), "mcp\nhealth\n")
+        XCTAssertTrue(fixture.mutations.isEmpty)
+    }
+
+    func testUncapturedSuccessGlyphIsNotConnected() throws {
+        let fixture = try ClaudeCodeMCPFixture()
+        try fixture.write("state", "matching")
+        try fixture.write("mode", "wrong-status")
+        XCTAssertEqual(try fixture.adapter().plan().state, .matching)
+        XCTAssertFalse(try fixture.adapter().connect().connected)
+        XCTAssertTrue(fixture.mutations.isEmpty)
     }
 }

@@ -94,13 +94,14 @@ final class ClaudeCodeMCPFixture {
           exit 0
         fi
         if [ "$2" = list ]; then
+          printf 'list-called\\n' >> "$HOME/mutations"
           [ "$mode" = list-fail ] && exit 1
           if [ "$mode" = list-conflict ]; then
-            printf 'Checking MCP server health...\\naskkey: something - ✓ Connected\\n'
+            printf '%s\\n' '\(ClaudeCodeMCPOutputSamples.listedServer)'
           elif [ "$mode" = unrelated-server ]; then
-            printf 'Checking MCP server health...\\nother: node server.js - ✓ Connected\\n'
+            printf 'Checking MCP server health…\\n\\nExternal connector.name: node server.js - ✔ Connected\\n'
           else
-            printf 'No MCP servers configured. Use `claude mcp add` to add a server.\\n'
+            printf '%s\\n' '\(ClaudeCodeMCPOutputSamples.emptyList)'
           fi
           exit 0
         fi
@@ -111,7 +112,11 @@ final class ClaudeCodeMCPFixture {
           fi
           [ "$mode" = get-fail ] && { printf 'Permission denied\\n' >&2; exit 1; }
           if [ "$state" = absent ]; then
-            printf 'No MCP server found with name: askkey\\n' >&2
+            if [ "$mode" = absent-other-servers ]; then
+              printf '%s\\n' '\(ClaudeCodeMCPOutputSamples.absentWithServers.replacingOccurrences(of: "askkey", with: "unrelated").replacingOccurrences(of: "nothere", with: "askkey"))'
+            else
+              printf '%s\\n' '\(ClaudeCodeMCPOutputSamples.absentWithoutServers)' >&2
+            fi
             exit 1
           fi
           if [ "$mode" = unreadable ]; then printf 'new output contract\\n'; exit 0; fi
@@ -120,13 +125,19 @@ final class ClaudeCodeMCPFixture {
           [ "$state" = local ] && scope='Local config (private to you in this project)'
           command='\(helper.path)'
           [ "$state" = different ] && command='/synthetic/other-helper'
-          status='✓ Connected'
-          case "$mode" in disconnected|rollback-fail|rollback-retained) status='✗ Failed to connect';; esac
-          printf 'askkey:\\n  Scope: %s\\n  Status: %s\\n  Type: stdio\\n  Command: %s\\n  Args: mcp\\n' "$scope" "$status" "$command"
+          status='✔ Connected'
+          [ "$mode" = wrong-status ] && status='✓ Connected'
+          case "$mode" in disconnected|rollback-fail|rollback-retained) status='✘ Failed to connect';; esac
+          printf 'askkey:\\n  Scope: %s\\n  Status: %s\\n' "$scope" "$status"
+          [ "$status" = '✘ Failed to connect' ] && printf '  Issue: CONNECTION_CLOSED: Connection closed\\n'
+          [ "$mode" = unknown-field ] && printf '  Future diagnostic: synthetic detail\\n  \\n'
+          printf '  Type: stdio\\n  Command: %s\\n  Args: mcp\\n' "$command"
           if [ "$mode" = extra-env ]; then printf '  Environment:\\n    TOKEN=synthetic\\n'; fi
+          if [ "$mode" = empty-env ]; then printf '  Environment:\\n'; fi
+          if [ "$mode" = env-assignment ]; then printf '  TOKEN=synthetic\\n'; fi
           if [ "$mode" = duplicate-command ]; then printf '  Command: /synthetic/duplicate\\n'; fi
           if [ "$mode" = extra-args ]; then printf '  Args: mcp extra\\n'; fi
-          printf '\\nTo remove this server, run: claude mcp remove "askkey" -s user\\n'
+          printf '\\nTo remove this server, run: claude mcp remove askkey -s user\\n'
           exit 0
         fi
         exit 64
