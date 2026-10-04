@@ -56,6 +56,7 @@ extension AppDelegate {
                     width: WorkspaceVisualContract.windowWidth,
                     height: WorkspaceVisualContract.windowHeight
                 )
+                .ignoresSafeArea(.container, edges: .top)
         )
         window.title = vault.brandName
         managementWindow = window

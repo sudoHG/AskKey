@@ -85,7 +85,8 @@ struct SettingsView: View {
                 onClose: {
                     vault.reloadCredentials()
                     onboardingRoute = nil
-                }
+                },
+                onChooseAnotherType: { onboardingRoute = .templateChooser }
             )
             .environment(vault)
         case .fileImport:

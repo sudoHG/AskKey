@@ -10,42 +10,69 @@ struct FrozenTemplateChooserPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Button(appLocalized("← Back"), action: onBack)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.accent)
-                    .font(Theme.Fonts.secondary)
+                CredentialBackLink(title: appLocalized("Back"), action: onBack)
                 Text(appLocalized("What do you want to save?"))
                     .font(Theme.Fonts.title)
-                    .padding(.top, Theme.Spacing.lg)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.top, Theme.Spacing.md)
                 Text(appLocalized("Choose the closest template. You can add or remove items later."))
                     .font(Theme.Fonts.secondary)
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.top, Theme.Spacing.xs)
-                LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 10) {
-                    ForEach(CredentialTemplate.allCases, id: \.self) { template in
-                        Button { onSelect(template) } label: {
-                            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                                Text(template.prototypeTitle)
-                                    .font(Theme.Fonts.body.weight(.semibold))
-                                    .foregroundStyle(Theme.text)
-                                Text(template.prototypeDescription)
-                                    .font(Theme.Fonts.secondary)
-                                    .foregroundStyle(Theme.textSecondary)
-                                    .fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: Theme.Spacing.md) {
+                    ForEach(CredentialTemplate.chooserGroups, id: \.self) { group in
+                        VStack(spacing: 0) {
+                            ForEach(Array(group.enumerated()), id: \.element) { index, template in
+                                templateRow(template)
+                                    .overlay(alignment: .top) {
+                                        if index > 0 {
+                                            Rectangle()
+                                                .fill(Theme.separator)
+                                                .frame(height: 1)
+                                        }
+                                    }
                             }
-                            .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
-                            .padding(14)
-                            .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
-                            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.group).stroke(Theme.neutral(0.08)))
-                            .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
                         }
-                        .buttonStyle(.plain)
+                        .credentialGroupedListStyle()
                     }
                 }
-                .padding(.top, 20)
+                .padding(.top, Theme.Spacing.xl)
             }
-            .padding(28)
+            .padding(Theme.Spacing.xxl)
         }
         .background(Theme.windowBackground)
+    }
+
+    private func templateRow(_ template: CredentialTemplate) -> some View {
+        Button { onSelect(template) } label: {
+            HStack(spacing: Theme.Spacing.md) {
+                Image(systemName: template.symbolName)
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(width: 28, height: 28)
+                    .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.control))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(template.prototypeTitle)
+                        .font(Theme.Fonts.body)
+                        .foregroundStyle(Theme.text)
+                    Text(template.prototypeDescription)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: Theme.Spacing.sm)
+                Image(systemName: "chevron.right")
+                    .font(Theme.Fonts.caption.weight(.semibold))
+                    .foregroundStyle(Theme.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.vertical, Theme.Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("credential-template-\(template.rawValue)")
     }
 }

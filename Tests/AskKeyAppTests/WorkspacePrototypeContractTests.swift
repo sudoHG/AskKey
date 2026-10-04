@@ -284,8 +284,9 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
         AppLanguage.current = "en"
         defer { AppLanguage.current = "zh-Hans" }
         let conflict = FrozenImportConflictPresentation(existingName: "Existing", choice: .replace)
-        let strings = CredentialTemplate.allCases.flatMap { [$0.prototypeTitle, $0.prototypeDescription] }
-            + CredentialPermission.prototypeCases.map(\.prototypeTitle)
+        let strings = CredentialTemplate.allCases.flatMap { [$0.prototypeTitle, $0.prototypeDescription, $0.editorTitle] }
+            + CredentialPermission.prototypeCases.flatMap { [$0.prototypeTitle, $0.editorTitle, $0.editorExplanation] }
+            + [FrozenImportCopy.nameHelp, FrozenImportCopy.contentsHeader, FrozenEditorCopy.contentHiddenLabel]
             + FrozenSettingsContract.languageOptions
             + [FrozenSettingsContract.agentAccessSubtitle]
             + FrozenDangerActions.initialTitles

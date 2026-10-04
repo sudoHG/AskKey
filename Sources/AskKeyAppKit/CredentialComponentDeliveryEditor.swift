@@ -58,13 +58,17 @@ struct FrozenImportedValue: View {
 
     var body: some View {
         HStack {
-            Text(verbatim: revealed ? value : "••••••••")
+            Text(verbatim: revealed ? value : "••••••••••")
                 .font(Theme.Fonts.mono)
+                .foregroundStyle(revealed ? Theme.text : Theme.textSecondary)
                 .lineLimit(2)
             Spacer()
-            Button(revealed ? appLocalized("Hide") : appLocalized("View")) {
+            Button(revealed ? appLocalized("Hide") : appLocalized("Show")) {
                 revealed.toggle()
-            }.buttonStyle(.plain)
+            }
+            .buttonStyle(.plain)
+            .font(Theme.Fonts.body)
+            .foregroundStyle(Theme.accent)
         }
     }
 }

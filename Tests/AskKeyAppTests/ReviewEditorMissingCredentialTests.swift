@@ -396,7 +396,8 @@ private final class HostedRoute {
         let visible = strings()
         let joined = visible.joined(separator: "\n")
         if showsUnavailablePage() { return "unavailable" }
-        if joined.contains(appLocalized("New Credential")) || joined.contains("新建凭证") {
+        if joined.contains(appLocalized("New Credential")) || joined.contains("新建凭证")
+            || CredentialTemplate.allCases.contains(where: { joined.contains($0.editorTitle) }) {
             return "create"
         }
         if joined.contains(appLocalized("Edit Credential")) || joined.contains("编辑凭证")

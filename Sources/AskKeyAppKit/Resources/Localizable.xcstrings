@@ -7814,6 +7814,466 @@
         }
       }
     },
+    "Ask every time": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask every time"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每次询问"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Ask every time!!]"
+          }
+        }
+      }
+    },
+    "Agents ask you before every use of this credential. Recommended.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents ask you before every use of this credential. Recommended."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent 每次要用这份凭证，都会先弹窗问你。推荐。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Agents ask you before every use of this credential. Recommended.!!]"
+          }
+        }
+      }
+    },
+    "Agents can use this credential without asking you.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents can use this credential without asking you."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent 可以直接使用这份凭证，不会弹窗问你。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Agents can use this credential without asking you.!!]"
+          }
+        }
+      }
+    },
+    "Agents cannot see this credential or ask to use it.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents cannot see this credential or ask to use it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent 看不到这份凭证，也无法请求使用。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Agents cannot see this credential or ask to use it.!!]"
+          }
+        }
+      }
+    },
+    "Choose another type": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose another type"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "换一种类型"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Choose another type!!]"
+          }
+        }
+      }
+    },
+    "New API access credential": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New API access credential"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建 API 访问凭证"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!New API access credential!!]"
+          }
+        }
+      }
+    },
+    "New GitHub App": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New GitHub App"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建 GitHub 应用"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!New GitHub App!!]"
+          }
+        }
+      }
+    },
+    "New Apple signing credential": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Apple signing credential"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建 Apple 发布签名"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!New Apple signing credential!!]"
+          }
+        }
+      }
+    },
+    "New SSH identity": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New SSH identity"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建 SSH 登录身份"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!New SSH identity!!]"
+          }
+        }
+      }
+    },
+    "New cloud account": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New cloud account"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建云服务账号"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!New cloud account!!]"
+          }
+        }
+      }
+    },
+    "New database or service connection": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New database or service connection"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建数据库或服务连接"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!New database or service connection!!]"
+          }
+        }
+      }
+    },
+    "New custom credential": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New custom credential"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建自定义凭证"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!New custom credential!!]"
+          }
+        }
+      }
+    },
+    "Contents": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contents"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Contents!!]"
+          }
+        }
+      }
+    },
+    "Content hidden": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Content hidden"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容已隐藏"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Content hidden!!]"
+          }
+        }
+      }
+    },
+    "Delivered as %@": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delivered as %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "交付为 %@"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Delivered as %@!!]"
+          }
+        }
+      }
+    },
+    "Show": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Show!!]"
+          }
+        }
+      }
+    },
+    "Defaults to the file name; you can change it.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Defaults to the file name; you can change it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认用文件名，可以改。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Defaults to the file name; you can change it.!!]"
+          }
+        }
+      }
+    },
+    "Contents · delivered as environment variables by key name": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contents · delivered as environment variables by key name"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容 · 按键名交付为环境变量"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Contents · delivered as environment variables by key name!!]"
+          }
+        }
+      }
+    },
+    "Items read: %lld. Blank lines skipped: %lld. The original file is not modified.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Items read: %lld. Blank lines skipped: %lld. The original file is not modified."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读到 %lld 项，跳过 %lld 个空行。原文件不会被修改。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Items read: %lld. Blank lines skipped: %lld. The original file is not modified.!!]"
+          }
+        }
+      }
+    },
+    "Import as 1 credential": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import as 1 credential"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入为 1 份凭证"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Import as 1 credential!!]"
+          }
+        }
+      }
+    },
     "Import from File": {
       "extractionState": "extracted_with_value",
       "localizations": {
