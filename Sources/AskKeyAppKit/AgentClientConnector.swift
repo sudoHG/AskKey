@@ -26,16 +26,6 @@ package enum AgentClient: String, CaseIterable, Identifiable, Sendable {
         }
         return appLocalizedFormat("Ask Key will back up %@'s user settings, add Ask Key and credential discovery before SSH, then verify the connection and configuration.", rawValue)
     }
-
-    var connectionSuccessMessage: String {
-        if self == .claudeCode {
-            return appLocalized("MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it.")
-        }
-        if self == .codex {
-            return appLocalized("MCP is connected and credential discovery before SSH is enabled. Start a new Codex task to use it.")
-        }
-        return appLocalizedFormat("Ask Key was added to %@ and the connection was verified.", rawValue)
-    }
 }
 
 package struct AgentClientPreview: Sendable {
@@ -86,7 +76,7 @@ package enum AgentClientErrorCopy {
             return appLocalizedFormat("The %@ user configuration cannot be updated safely. Fix that configuration, then try again.", name)
         case .unsupported:
             if client == .codex {
-                return appLocalized("Ask Key has not verified automatic setup for this Codex version. Contact support to confirm compatibility, then try again.")
+                return appLocalized("Ask Key has not verified automatic setup for this Codex version. Report the version on GitHub Issues (github.com/sudoHG/AskKey/issues) to confirm compatibility, then try again.")
             }
             return appLocalizedFormat("This version of %@ does not support automatic setup. Update %@, then try again.", name, name)
         case .helper:
@@ -94,7 +84,7 @@ package enum AgentClientErrorCopy {
         case .broker:
             return appLocalized("Ask Key is not running. Open Ask Key, then try again.")
         case .rollback:
-            return appLocalizedFormat("Ask Key could not restore the original %@ configuration. Stop retrying and contact support.", name)
+            return appLocalizedFormat("Ask Key could not restore the original %@ configuration. Stop retrying and report it on GitHub Issues (github.com/sudoHG/AskKey/issues).", name)
         case .verification:
             return appLocalizedFormat("%@ did not complete the connection check. Restart %@, then try again.", name, name)
         }

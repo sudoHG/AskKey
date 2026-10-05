@@ -1,192 +1,268 @@
+import AppKit
 import SwiftUI
 
 struct AgentOnboardingView: View {
     @Environment(VaultViewModel.self) private var vault
-    @State private var showingDiagnostics = false
+    @State private var showingRecoveryNotes = false
+    @State private var copiedPromptClient: AgentClient?
 
     private var onboarding: AgentOnboardingCoordinator { vault.onboarding }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    Text(appLocalized("Agent access"))
-                        .font(Theme.Fonts.title)
-                    Text(FrozenSettingsContract.agentAccessSubtitle)
-                        .font(Theme.Fonts.secondary)
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                clientGroup(
-                    title: appLocalized("Local clients"),
-                    clients: AgentClient.allCases
+            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                PageHeader(
+                    title: appLocalized("Agent access"),
+                    subtitle: FrozenSettingsContract.agentAccessSubtitle
                 )
+                GroupedList {
+                    ForEach(Array(AgentClient.allCases.enumerated()), id: \.element) { index, client in
+                        if index > 0 {
+                            Rectangle()
+                                .fill(Theme.separator)
+                                .frame(height: 1)
+                        }
+                        clientRow(client)
+                    }
+                }
             }
-            .padding(28)
+            .padding(Theme.Spacing.xxl)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.windowBackground)
         .onAppear { vault.onboarding.appear() }
         .onDisappear { vault.onboarding.disappear() }
     }
 
-    private func clientGroup(title: String, clients: [AgentClient]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(Theme.Fonts.secondary.weight(.semibold))
-                .foregroundStyle(Theme.textSecondary)
-            ForEach(clients) { client in
-                clientRow(client)
-            }
-        }
-    }
+    // MARK: - Row
 
     private func clientRow(_ client: AgentClient) -> some View {
         let session = onboarding.session(for: client)
+        let presentation = AgentAccessPresentation(client: client, session: session)
         let expanded = onboarding.expandedClient == client
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: Theme.Spacing.md) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(displayName(client))
-                        .font(Theme.Fonts.body.weight(.semibold))
-                    Text(resultLine(session))
-                        .font(Theme.Fonts.caption)
-                        .foregroundStyle(Theme.textSecondary)
-                        .accessibilityLabel(resultAccessibility(session))
-                    if let readiness = session.lastKnownResult?.discovery {
-                        Text(AgentOnboardingCopy.discoveryStatus(readiness, for: client))
-                            .font(Theme.Fonts.caption)
-                            .foregroundStyle(Theme.textSecondary)
-                            .accessibilityIdentifier("onboarding-discovery-\(client.proofID)")
-                    }
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: Theme.Spacing.md) {
+                clientSymbol(client)
+                Text(displayName(client))
+                    .font(Theme.Fonts.body.weight(.medium))
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(1)
+                    .frame(minWidth: Self.nameColumnWidth, alignment: .leading)
+                StatusLabel(title: presentation.status.title, role: presentation.status.role)
+                    .accessibilityIdentifier("onboarding-status-\(client.proofID)")
+                Spacer(minLength: Theme.Spacing.md)
+                Button(presentation.actionTitle(expanded: expanded)) {
+                    toggleReview(client)
                 }
-                Spacer()
-                Button(appLocalized("Review connection")) {
-                    toggleReview(client, expanded: expanded)
-                }
-                .buttonStyle(.bordered)
+                .buttonStyle(.secondaryAction)
                 .disabled(session.attempt.phase.isInFlight && !expanded)
                 .accessibilityIdentifier("onboarding-review-\(client.proofID)")
-                .onboardingActivateWithKeyboard { toggleReview(client, expanded: expanded) }
+                .onboardingActivateWithKeyboard { toggleReview(client) }
                 .registerAction(
                     "onboarding-review-\(client.proofID)",
-                    action: { toggleReview(client, expanded: expanded) }
+                    action: { toggleReview(client) }
                 )
             }
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.vertical, Theme.Spacing.sm)
             if expanded {
-                expandedSection(client, session: session)
+                Rectangle()
+                    .fill(Theme.separator)
+                    .frame(height: 1)
+                expandedSection(client, session: session, presentation: presentation)
+                    .padding(.leading, Self.detailInset)
+                    .padding(.trailing, Theme.Spacing.lg)
+                    .padding(.vertical, Theme.Spacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.windowBackground)
             }
         }
-        .padding(14)
-        .background(Theme.surface, in: .rect(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.separator, lineWidth: 1))
-        .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
         .accessibilityElement(children: .contain)
     }
+
+    /// A neutral SF Symbol per client; third-party logos are never used.
+    private func clientSymbol(_ client: AgentClient) -> some View {
+        Image(systemName: Self.symbolName(client))
+            .font(Theme.Fonts.body)
+            .foregroundStyle(Theme.textSecondary)
+            .frame(width: Self.symbolSize, height: Self.symbolSize)
+            .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.control))
+            .accessibilityHidden(true)
+    }
+
+    // MARK: - Expanded
 
     @ViewBuilder
     private func expandedSection(
         _ client: AgentClient,
-        session: AgentClientOnboardingSession
+        session: AgentClientOnboardingSession,
+        presentation: AgentAccessPresentation
     ) -> some View {
-        if let completion = AgentOnboardingCopy.completion(for: client, session: session) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(Theme.Icon.inlineStatus)
-                    .foregroundStyle(Theme.accent)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(completion.title)
-                        .font(Theme.Fonts.body.weight(.semibold))
-                    Text(completion.detail)
-                        .font(Theme.Fonts.secondary)
-                }
-                .foregroundStyle(Theme.text)
-                .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            stepProgress(presentation)
+            headlineBlock(client, presentation: presentation)
+            if let plan = session.plan, session.attempt.phase == .readyToConfirm {
+                planDetails(plan)
             }
-            .padding(Theme.Spacing.md)
-            .background(Theme.accentSubtle, in: .rect(cornerRadius: Theme.Radius.control))
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("onboarding-completion-\(client.proofID)")
-        } else {
-            Text(explanation(for: client, session: session))
-                .font(Theme.Fonts.caption)
-                .foregroundStyle(Theme.text)
-                .fixedSize(horizontal: false, vertical: true)
+            if presentation.showsConnectedGuide {
+                samplePrompt(client)
+                Text(AgentOnboardingCopy.sshReminderNote.attributed(argumentFonts: [Theme.Fonts.mono]))
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("onboarding-ssh-note-\(client.proofID)")
+            }
+            actionButtons(client, session: session, presentation: presentation)
         }
-        if let plan = session.plan, session.attempt.phase == .readyToConfirm {
-            planSummary(plan)
+    }
+
+    private func stepProgress(_ presentation: AgentAccessPresentation) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            ForEach(AgentAccessStep.allCases) { step in
+                if step != .check {
+                    Text(verbatim: "—")
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                stepLabel(step, state: presentation.stepState(step), status: presentation.status)
+            }
         }
-        if let failure = session.attempt.failure, session.attempt.phase != .explanation {
-            failureBlock(client, session: session, failure: failure)
+        .font(Theme.Fonts.secondary)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func stepLabel(
+        _ step: AgentAccessStep,
+        state: AgentAccessStep.State,
+        status: AgentAccessStatus
+    ) -> some View {
+        let color: Color = switch state {
+        case .done: Theme.accent
+        case .current: status == .needsAttention ? Theme.warning : Theme.accent
+        case .upcoming: Theme.textTertiary
         }
-        if session.attempt.phase.isInFlight {
-            Text(progressText(session.attempt.phase))
-                .font(Theme.Fonts.caption)
-                .foregroundStyle(Theme.textSecondary)
-                .accessibilityLabel(progressText(session.attempt.phase))
+        return HStack(spacing: Theme.Spacing.xs) {
+            Image(systemName: state == .done ? "checkmark" : "\(step.rawValue).circle")
+                .accessibilityHidden(true)
+            Text(step.title)
+                .fontWeight(state == .upcoming ? .regular : .semibold)
         }
-        actionButtons(client, session: session)
+        .foregroundStyle(color)
     }
 
     @ViewBuilder
-    private func planSummary(_ plan: AgentOnboardingPlan) -> some View {
+    private func headlineBlock(_ client: AgentClient, presentation: AgentAccessPresentation) -> some View {
+        if presentation.showsConnectedGuide {
+            // One element so the completion reads as a single announcement.
+            HStack(alignment: .top, spacing: 0) {
+                headlineTexts(presentation)
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("onboarding-completion-\(client.proofID)")
+        } else if presentation.headlineIsDiscoveryStatus {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text(presentation.headline)
+                    .font(Theme.Fonts.headline)
+                    .foregroundStyle(Theme.text)
+                    .accessibilityIdentifier("onboarding-discovery-\(client.proofID)")
+                detailText(presentation.detail)
+            }
+        } else {
+            headlineTexts(presentation)
+        }
+    }
+
+    private func headlineTexts(_ presentation: AgentAccessPresentation) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text(plan.scopeSummary)
-                .font(Theme.Fonts.caption)
+            Text(presentation.headline)
+                .font(Theme.Fonts.headline)
+                .foregroundStyle(Theme.text)
+                .fixedSize(horizontal: false, vertical: true)
+            detailText(presentation.detail)
+        }
+    }
+
+    @ViewBuilder
+    private func detailText(_ detail: String) -> some View {
+        if !detail.isEmpty {
+            Text(detail)
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private func planDetails(_ plan: AgentOnboardingPlan) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(plan.preconditionSummary)
                 .font(Theme.Fonts.caption)
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(Theme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
             if plan.codexHookPlan != nil {
                 DisclosureGroup(appLocalized("Connection check configuration")) {
-                    Text(CodexOnboardingSetup.reviewedHookDescription)
-                        .font(Theme.Fonts.caption)
+                    hookDescription(CodexOnboardingSetup.reviewedHookDescription)
                 }
+                .font(Theme.Fonts.secondary)
             }
             if plan.commandHookPlan != nil {
                 DisclosureGroup(appLocalized("Connection check configuration")) {
-                    Text(CommandHookOnboardingSetup.reviewedHookDescription)
-                        .font(Theme.Fonts.caption)
+                    hookDescription(CommandHookOnboardingSetup.reviewedHookDescription)
                 }
+                .font(Theme.Fonts.secondary)
             }
         }
     }
 
-    @ViewBuilder
-    private func failureBlock(
-        _ client: AgentClient,
-        session: AgentClientOnboardingSession,
-        failure: AgentOnboardingFailure
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(AgentOnboardingCopy.message(for: client, failure: failure, change: session.attempt.changeStatus))
-                .font(Theme.Fonts.caption)
-                .foregroundStyle(Theme.text)
-                .fixedSize(horizontal: false, vertical: true)
-            if session.attempt.phase == .recoveryRequired {
-                Button(appLocalized("Recovery notes")) { showingDiagnostics = true }
-                    .buttonStyle(.bordered)
-                    .popover(isPresented: $showingDiagnostics) {
-                        Text(AgentOnboardingCopy.recoveryNotes(for: client, change: session.attempt.changeStatus))
-                            .font(Theme.Fonts.caption)
-                            .padding(Theme.Spacing.md)
-                            .frame(width: 280, alignment: .leading)
-                    }
-            }
-        }
+    private func hookDescription(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.Fonts.secondary)
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    private func samplePrompt(_ client: AgentClient) -> some View {
+        let prompt = AgentOnboardingCopy.samplePrompt(credentialName: sampleCredentialName)
+        let copied = copiedPromptClient == client
+        return HStack(spacing: Theme.Spacing.md) {
+            Text(prompt.attributed(argumentFonts: [Theme.Fonts.mono, Theme.Fonts.mono]))
+                .font(Theme.Fonts.body)
+                .foregroundStyle(Theme.text)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("onboarding-sample-prompt-\(client.proofID)")
+            Spacer(minLength: Theme.Spacing.md)
+            Button(copied ? appLocalized("Copied") : appLocalized("Copy")) {
+                copySamplePrompt(prompt.plainText, for: client)
+            }
+            .buttonStyle(.secondaryAction)
+            .accessibilityIdentifier("onboarding-copy-prompt-\(client.proofID)")
+        }
+        .padding(.leading, Theme.Spacing.lg)
+        .padding(.trailing, Theme.Spacing.sm)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.group))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.group)
+                .stroke(Theme.separator, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Actions
 
     @ViewBuilder
     private func actionButtons(
         _ client: AgentClient,
-        session: AgentClientOnboardingSession
+        session: AgentClientOnboardingSession,
+        presentation: AgentAccessPresentation
     ) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
             if session.attempt.phase == .readyToConfirm {
                 Button(appLocalized("Confirm connection")) {
                     Task { await onboarding.confirm(client) }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
+                .buttonStyle(AgentAccessButtonStyle(prominent: true))
                 .disabled(session.attempt.changeStatus == .restoreFailed)
                 .accessibilityIdentifier("onboarding-confirm-\(client.proofID)")
                 .onboardingActivateWithKeyboard { Task { await onboarding.confirm(client) } }
@@ -197,7 +273,7 @@ struct AgentOnboardingView: View {
                 Button(appLocalized("Not now")) {
                     onboarding.collapse()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.secondaryAction)
                 .accessibilityIdentifier("onboarding-not-now-\(client.proofID)")
                 .onboardingActivateWithKeyboard { onboarding.collapse() }
                 .registerAction(
@@ -206,24 +282,53 @@ struct AgentOnboardingView: View {
                 )
             } else if session.attempt.phase == .checking
                         || !session.attempt.phase.isWriteInFlight {
-                checkOrCancelButton(client, session: session)
+                checkOrCancelButton(client, session: session, presentation: presentation)
+            }
+            if session.attempt.phase.isInFlight {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel(presentation.headline)
+            }
+            if presentation.offersRecoveryNotes {
+                Button(appLocalized("Recovery notes")) { showingRecoveryNotes = true }
+                    .buttonStyle(.secondaryAction)
+                    .accessibilityIdentifier("onboarding-recovery-\(client.proofID)")
+                    .popover(isPresented: $showingRecoveryNotes) {
+                        Text(AgentOnboardingCopy.recoveryNotes(for: client))
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(Theme.Spacing.md)
+                            .frame(width: Self.recoveryNotesWidth, alignment: .leading)
+                    }
+            }
+            if presentation.offersIssueLink {
+                Link(appLocalized("Report on GitHub Issues"), destination: AgentOnboardingCopy.issuesURL)
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityIdentifier("onboarding-report-\(client.proofID)")
             }
         }
     }
 
     private func checkOrCancelButton(
         _ client: AgentClient,
-        session: AgentClientOnboardingSession
+        session: AgentClientOnboardingSession,
+        presentation: AgentAccessPresentation
     ) -> some View {
         let checking = session.attempt.phase == .checking
+        let checkedBefore = session.lastKnownResult != nil || session.attempt.failure != nil
         let title = checking
             ? appLocalized("Cancel check")
-            : (session.attempt.phase == .completed
-               ? appLocalized("Check again")
-               : appLocalized("Check this Mac"))
+            : (checkedBefore ? appLocalized("Check again") : appLocalized("Check this Mac"))
         let identifier = checking
             ? "onboarding-cancel-\(client.proofID)"
             : "onboarding-check-\(client.proofID)"
+        // The page's one primary action, except while cancelling, once the
+        // client is connected, or when only recovery can help.
+        let prominent = !checking
+            && !presentation.showsConnectedGuide
+            && session.attempt.phase != .recoveryRequired
         return Button(title) {
             if checking {
                 onboarding.cancelCheck(client)
@@ -231,8 +336,7 @@ struct AgentOnboardingView: View {
                 Task { await onboarding.startCheck(client) }
             }
         }
-        .buttonStyle(.borderedProminent)
-        .tint(Theme.accent)
+        .buttonStyle(AgentAccessButtonStyle(prominent: prominent))
         .disabled(!checking && session.attempt.phase.isInFlight)
         .accessibilityIdentifier(identifier)
         .onboardingActivateWithKeyboard {
@@ -252,56 +356,62 @@ struct AgentOnboardingView: View {
         .id("onboarding-primary-\(client.proofID)")
     }
 
-    private func toggleReview(_ client: AgentClient, expanded: Bool) {
-        if expanded {
+    private func toggleReview(_ client: AgentClient) {
+        if onboarding.expandedClient == client {
             onboarding.collapse()
         } else {
+            copiedPromptClient = nil
             onboarding.explain(client)
         }
+    }
+
+    private func copySamplePrompt(_ text: String, for client: AgentClient) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        copiedPromptClient = client
+    }
+
+    /// A credential Agents can see, so the sample prompt works as written.
+    private var sampleCredentialName: String? {
+        vault.credentials
+            .filter { $0.deletedAt == nil && $0.permission != .hidden }
+            .map(\.name)
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+            .first
     }
 
     private func displayName(_ client: AgentClient) -> String {
         appLocalized(client.rawValue)
     }
 
-    private func explanation(for client: AgentClient, session: AgentClientOnboardingSession) -> String {
-        return appLocalizedFormat(
-            "Ask Key will first check this Mac and any existing %@ settings, then show the change that needs confirmation.",
-            displayName(client)
-        )
-    }
-
-    private func resultLine(_ session: AgentClientOnboardingSession) -> String {
-        guard let result = session.lastKnownResult else {
-            return appLocalized("Not checked yet")
-        }
-        let stamp = AgentOnboardingCopy.timestamp(result.checkedAt)
-        switch result.outcome {
-        case .verifiedConnected:
-            return appLocalizedFormat("Last: verified connection · %@", stamp)
-        case .configuredUnverified:
-            if result.discovery != nil {
-                return appLocalizedFormat("Last: MCP connected, setup incomplete · %@", stamp)
-            }
-            return appLocalizedFormat("Last: configured, unverified · %@", stamp)
-        case .existingConfigUnverified:
-            return appLocalizedFormat("Last: existing configuration, this check did not pass · %@", stamp)
-        case .notConfigured:
-            return appLocalizedFormat("Last: not configured · %@", stamp)
+    private static func symbolName(_ client: AgentClient) -> String {
+        switch client {
+        case .claudeCode: return "terminal"
+        case .codex: return "chevron.left.forwardslash.chevron.right"
+        case .cursor: return "cursorarrow"
+        case .grok: return "greaterthan.square"
         }
     }
 
-    private func resultAccessibility(_ session: AgentClientOnboardingSession) -> String {
-        resultLine(session)
-    }
+    private static let symbolSize: CGFloat = 28
+    private static let nameColumnWidth: CGFloat = 120
+    /// Lines the expanded section up with the client name.
+    private static let detailInset = Theme.Spacing.lg + symbolSize + Theme.Spacing.md
+    private static let recoveryNotesWidth: CGFloat = 320
+}
 
-    private func progressText(_ phase: AgentOnboardingPhase) -> String {
-        switch phase {
-        case .checking: return appLocalized("Checking…")
-        case .authenticating: return appLocalized("Waiting for authentication…")
-        case .applying: return appLocalized("Applying saved settings…")
-        case .verifying: return appLocalized("Verifying…")
-        default: return ""
+/// The primary or secondary look for one button whose role changes with
+/// the phase, so it keeps one identity across the swap.
+private struct AgentAccessButtonStyle: ButtonStyle {
+    let prominent: Bool
+
+    @ViewBuilder
+    func makeBody(configuration: Configuration) -> some View {
+        if prominent {
+            FrozenPrimaryButtonStyle().makeBody(configuration: configuration)
+        } else {
+            SecondaryButtonStyle().makeBody(configuration: configuration)
         }
     }
 }
@@ -319,134 +429,5 @@ private extension View {
                 action()
                 return .handled
             }
-    }
-}
-
-enum AgentOnboardingCopy {
-    static func discoveryStatus(
-        _ readiness: CredentialDiscoveryReadiness,
-        for client: AgentClient
-    ) -> String {
-        if client == .codex {
-            switch readiness {
-            case .enabled: return appLocalized("Before SSH: credential discovery enabled")
-            case .configured: return appLocalized("Before SSH: credential discovery configured")
-            case .missing: return appLocalized("Before SSH: credential discovery not installed")
-            case .disabled: return appLocalized("Before SSH: credential discovery disabled")
-            case .untrusted: return appLocalized("Before SSH: credential discovery awaiting trust")
-            case .unavailable: return appLocalized("Before SSH: credential discovery could not be verified")
-            }
-        }
-        switch readiness {
-        case .enabled: return appLocalized("Credential discovery is enabled")
-        case .configured: return appLocalized("Credential discovery is configured")
-        case .missing: return appLocalized("Credential discovery is not installed")
-        case .disabled: return appLocalized("Credential discovery is disabled")
-        case .untrusted: return appLocalized("Credential discovery is awaiting trust")
-        case .unavailable: return appLocalized("Credential discovery could not be verified")
-        }
-    }
-
-    static func completion(
-        for client: AgentClient,
-        session: AgentClientOnboardingSession
-    ) -> (title: String, detail: String)? {
-        guard session.attempt.phase == .completed,
-              session.attempt.failure == nil,
-              let result = session.lastKnownResult else { return nil }
-        switch result.outcome {
-        case .verifiedConnected:
-            if client == .claudeCode {
-                guard result.discovery == .configured || result.discovery == .enabled else { return nil }
-                return (
-                    appLocalizedFormat("Complete: %@ is connected", appLocalized(client.rawValue)),
-                    client.connectionSuccessMessage
-                )
-            }
-            if client == .codex {
-                guard result.discovery == .enabled else { return nil }
-                return (
-                    appLocalizedFormat("Complete: %@ is connected", appLocalized(client.rawValue)),
-                    appLocalized("MCP is connected and credential discovery before SSH is enabled. Start a new Codex task to use it.")
-                )
-            }
-            if client == .cursor || client == .grok {
-                guard result.discovery == .configured || result.discovery == .enabled else { return nil }
-                return (
-                    appLocalizedFormat("Complete: %@ is connected", appLocalized(client.rawValue)),
-                    appLocalizedFormat("MCP is connected and credential discovery is configured. Start a new %@ task to use it.", appLocalized(client.rawValue))
-                )
-            }
-            return (
-                appLocalizedFormat("Complete: %@ is connected", appLocalized(client.rawValue)),
-                appLocalized("Connection verification passed. No further setup is needed.")
-            )
-        case .configuredUnverified, .existingConfigUnverified, .notConfigured:
-            return nil
-        }
-    }
-
-    static func timestamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = AppLanguage.locale(for: AppLanguage.current)
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
-    static func message(
-        for client: AgentClient,
-        failure: AgentOnboardingFailure,
-        change: AgentChangeStatus
-    ) -> String {
-        let name = client.rawValue
-        switch failure {
-        case .discoverySetupCancelled:
-            return appLocalized("Credential discovery setup was cancelled. The verified MCP connection was kept. Check again before continuing.")
-        case .discoverySetupFailed:
-            if client == .claudeCode || client == .cursor || client == .grok {
-                return appLocalized("MCP is connected, but credential discovery is not verified. Check again to finish setup.")
-            }
-            return appLocalized("MCP is connected, but credential discovery before SSH is not verified. Check again to finish setup.")
-        case .cancelled:
-            return ""
-        case .permissionDenied:
-            return appLocalized("System authentication failed.")
-        case .unsupportedVersion:
-            return appLocalizedFormat("This version of %@ is not verified yet. Existing settings were left unchanged.", name)
-        case .nameConflict:
-            return appLocalized("Another connection already uses this name. Existing settings were kept.")
-        case .unsafeConfig, .illegalConfig:
-            return appLocalizedFormat("The existing %@ settings cannot be updated safely. Existing settings were left unchanged.", name)
-        case .helperMismatch:
-            return appLocalized("The Ask Key helper signature or version does not match. Reinstall Ask Key, then try again.")
-        case .brokerUnavailable:
-            return appLocalized("Ask Key is not running. Open Ask Key, then try again.")
-        case .verificationFailed:
-            if change == .restored {
-                return appLocalized("The connection did not pass verification. Original settings were restored.")
-            }
-            if change == .notWritten {
-                return appLocalized("Existing configuration is present, but this verification did not pass. Nothing was changed.")
-            }
-            return appLocalizedFormat("%@ did not complete the connection check. Restart %@, then try again.", name, name)
-        case .restoreFailed:
-            return appLocalized("The connection did not finish, and original settings could not be restored. Writing has stopped and the backup was kept.")
-        case .cliMissing:
-            return appLocalizedFormat("%@ was not found. Install or open it, then check again.", name)
-        case .timedOut:
-            return appLocalizedFormat("Could not read %@'s local configuration. Check again.", name)
-        case .communicationFailed:
-            return appLocalizedFormat("Could not read %@'s local configuration. Check again.", name)
-        case .planChanged:
-            return appLocalized("Local settings changed after review. Check again before confirming.")
-        }
-    }
-
-    static func recoveryNotes(for client: AgentClient, change: AgentChangeStatus) -> String {
-        return appLocalizedFormat(
-            "A managed backup for %@ was kept. Stop ordinary retry. Review the backup notes, then continue only after the original settings are safe.",
-            client.rawValue
-        )
     }
 }

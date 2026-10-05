@@ -13,7 +13,7 @@ final class AskKeyE2ETests: E2EBaseCase {
         click("onboarding-check-codex")
         XCTAssertTrue(result.waitForExistence(timeout: 10))
         let completionText = try XCTUnwrap(result.value as? String)
-        XCTAssertTrue(completionText.contains("Complete: Codex is connected"), completionText)
+        XCTAssertTrue(completionText.contains("Codex is connected"), completionText)
         XCTAssertTrue(result.isHittable)
         XCTAssertTrue(app.buttons["onboarding-check-codex"].label.contains("Check again"))
     }
@@ -27,8 +27,8 @@ final class AskKeyE2ETests: E2EBaseCase {
         let result = app.descendants(matching: .any)["onboarding-completion-codex"].firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 10), "Check must visibly complete")
         let completionText = try XCTUnwrap(result.value as? String)
-        XCTAssertTrue(completionText.contains("检查完成：Codex 已连接"), completionText)
-        XCTAssertTrue(completionText.contains("连接前查询凭证已启用"), completionText)
+        XCTAssertTrue(completionText.contains("Codex 已接入"), completionText)
+        XCTAssertTrue(completionText.contains("新开一个 Codex 任务"), completionText)
         XCTAssertTrue(app.buttons["onboarding-check-codex"].label.contains("重新检查"))
         let stable = expectation(description: "Completion remains visible")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { stable.fulfill() }
@@ -79,7 +79,7 @@ final class AskKeyE2ETests: E2EBaseCase {
             let result = app.descendants(matching: .any)["onboarding-completion-\(client)"].firstMatch
             XCTAssertTrue(result.waitForExistence(timeout: 10), "Missing completion for \(name)")
             let completionText = try XCTUnwrap(result.value as? String)
-            XCTAssertTrue(completionText.contains("检查完成：\(name) 已连接"), completionText)
+            XCTAssertTrue(completionText.contains("\(name) 已接入"), completionText)
             XCTAssertTrue(completionText.contains("新开一个 \(name) 任务"), completionText)
         }
     }

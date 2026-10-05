@@ -47,11 +47,8 @@ final class AgentOnboardingCompletionTests: AskKeyAppTestCase {
         )
 
         let completion = try XCTUnwrap(AgentOnboardingCopy.completion(for: .cursor, session: session))
-        XCTAssertEqual(completion.title, "Complete: Cursor is connected")
-        XCTAssertEqual(
-            completion.detail,
-            "MCP is connected and credential discovery is configured. Start a new Cursor task to use it."
-        )
+        XCTAssertEqual(completion.title, "Cursor is connected")
+        XCTAssertEqual(completion.detail, "Start a new Cursor task to use it. Try this:")
     }
 
     func testCodexMCPConnectionAloneDoesNotClaimSetupComplete() {
@@ -68,7 +65,7 @@ final class AgentOnboardingCompletionTests: AskKeyAppTestCase {
             AppLanguage.current = language
             let completion = try XCTUnwrap(AgentOnboardingCopy.completion(for: .claudeCode, session: session))
             if language == "en" {
-                XCTAssertEqual(completion.detail, "MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it.")
+                XCTAssertEqual(completion.detail, "Start a new Claude Code session to use it. Try this:")
             } else {
                 XCTAssertTrue(completion.detail.contains("Claude Code"))
                 XCTAssertTrue(completion.detail.contains("\u{4F1A}\u{8BDD}"))
@@ -86,7 +83,8 @@ final class AgentOnboardingCompletionTests: AskKeyAppTestCase {
         var session = makeSession(phase: .completed)
         session.lastKnownResult?.discovery = .enabled
         let completion = try XCTUnwrap(AgentOnboardingCopy.completion(for: .codex, session: session))
-        XCTAssertEqual(completion.detail, "MCP is connected and credential discovery before SSH is enabled. Start a new Codex task to use it.")
+        XCTAssertEqual(completion.title, "Codex is connected")
+        XCTAssertEqual(completion.detail, "Start a new Codex task to use it. Try this:")
     }
 
     func testCursorAndGrokCompletionRequiresConfiguredDiscoveryAndExplainsNewTask() throws {
@@ -108,7 +106,7 @@ final class AgentOnboardingCompletionTests: AskKeyAppTestCase {
                 )
                 XCTAssertEqual(
                     completion.title,
-                    "Complete: \(client.rawValue) is connected"
+                    "\(client.rawValue) is connected"
                 )
                 XCTAssertTrue(
                     completion.detail.contains("Start a new \(client.rawValue) task"),

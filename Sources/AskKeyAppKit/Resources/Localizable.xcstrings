@@ -9,14 +9,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Claude Code!!]" } }
       }
     },
-    "MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "MCP 已连接，SSH 提醒已配置。请启动新的 Claude Code 会话以使用它。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!MCP is connected and the SSH reminder is configured. Start a new Claude Code session to use it.!!]" } }
-      }
-    },
     "Use the isolated launch script": {
       "extractionState": "manual",
       "localizations": {
@@ -184,7 +176,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Connect Ask Key to %@ and configure credential discovery before SSH." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "连接 Ask Key 到 %@，并配置 SSH 连接前的凭证查询。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "把请旨接入 %@，并配置 SSH 连接前的凭证查询。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Connect Ask Key to %@ and configure credential discovery before SSH.!!]" } }
       }
     },
@@ -200,7 +192,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Ask Key will back up %@'s user settings, add Ask Key and credential discovery before SSH, then verify the connection and configuration." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key 会先备份 %@ 的用户设置，接入 MCP 并配置 SSH 连接前的凭证查询，再验证连接并检查配置。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨会先备份 %@ 的用户设置，接入 MCP 并配置 SSH 连接前的凭证查询，再验证连接并检查配置。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key will back up %@'s user settings, add Ask Key and credential discovery before SSH, then verify the connection and configuration.!!]" } }
       }
     },
@@ -256,16 +248,8 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Ask Key will back up Codex's user-level configuration, add Ask Key and credential discovery before SSH, then verify both. Only this Ask Key hook will be trusted." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key 会先备份 Codex 的用户配置，再添加接入和 SSH 连接前查询凭证，并分别验证。仅信任本次展示的 Ask Key 检查规则。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨会先备份 Codex 的用户配置，再添加接入和 SSH 连接前查询凭证，并分别验证。仅信任本次展示的请旨检查规则。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key will back up Codex's user-level configuration, add Ask Key and credential discovery before SSH, then verify both. Only this Ask Key hook will be trusted.!!]" } }
-      }
-    },
-    "Last: MCP connected, setup incomplete · %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Last: MCP connected, setup incomplete · %@" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "上次：MCP 已连接，接入尚未完成 · %@" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Last: MCP connected, setup incomplete · %@!!]" } }
       }
     },
     "Before SSH: credential discovery enabled": {
@@ -372,22 +356,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Connection check configuration!!]" } }
       }
     },
-    "MCP is connected and credential discovery before SSH is enabled. Start a new Codex task to use it.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "MCP is connected and credential discovery before SSH is enabled. Start a new Codex task to use it." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "MCP 已连接，SSH 连接前查询凭证已启用。新开一个 Codex 任务即可使用。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!MCP is connected and credential discovery before SSH is enabled. Start a new Codex task to use it.!!]" } }
-      }
-    },
-    "MCP is connected and credential discovery is configured. Start a new %@ task to use it.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "MCP is connected and credential discovery is configured. Start a new %@ task to use it." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "MCP 已连接，凭证查询已配置。新开一个 %@ 任务即可使用。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!MCP is connected and credential discovery is configured. Start a new %@ task to use it.!!]" } }
-      }
-    },
     "MCP is connected, but credential discovery before SSH is not verified. Check again to finish setup.": {
       "extractionState": "manual",
       "localizations": {
@@ -408,7 +376,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Connect Ask Key to Codex and enable credential discovery before SSH. Only this Ask Key hook will be trusted." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "接入 Ask Key，并启用 SSH 连接前查询凭证。确认后，仅信任本次展示的 Ask Key 检查规则。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "接入请旨，并启用 SSH 连接前查询凭证。确认后，仅信任本次展示的请旨检查规则。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Connect Ask Key to Codex and enable credential discovery before SSH. Only this Ask Key hook will be trusted.!!]" } }
       }
     },
@@ -426,22 +394,6 @@
         "en": { "stringUnit": { "state": "translated", "value": "Check again" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "重新检查" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Check again!!]" } }
-      }
-    },
-    "Complete: %@ is connected": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Complete: %@ is connected" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "检查完成：%@ 已连接" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Complete: %@ is connected!!]" } }
-      }
-    },
-    "Connection verification passed. No further setup is needed.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Connection verification passed. No further setup is needed." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "连接验证已通过，无需重新配置。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Connection verification passed. No further setup is needed.!!]" } }
       }
     },
     " (Optional)": {
@@ -3072,29 +3024,6 @@
         }
       }
     },
-    "Ask Key could not restore the original %@ configuration. Stop retrying and contact support.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key could not restore the original %@ configuration. Stop retrying and contact support."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨无法恢复 %@ 的原配置。请停止重试并联系支持。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key could not restore the original %@ configuration. Stop retrying and contact support.!!]"
-          }
-        }
-      }
-    },
     "Ask Key could not save an access record. Credential operations continue, and this warning will remain until recording succeeds.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3233,29 +3162,6 @@
         }
       }
     },
-    "Ask Key has not verified automatic setup for this Codex version. Contact support to confirm compatibility, then try again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key has not verified automatic setup for this Codex version. Contact support to confirm compatibility, then try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨尚未确认当前 Codex 版本能否自动接入。请联系支持确认兼容性，再重试。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key has not verified automatic setup for this Codex version. Contact support to confirm compatibility, then try again.!!]"
-          }
-        }
-      }
-    },
     "Ask Key has pending requests": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -3321,29 +3227,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Ask Key must stay at /Applications/Ask Key.app. Reinstall the official package, then open that copy.!!]"
-          }
-        }
-      }
-    },
-    "Ask Key was added to %@ and the connection was verified.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key was added to %@ and the connection was verified."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已将请旨写入 %@，并验证连接成功。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Ask Key was added to %@ and the connection was verified.!!]"
           }
         }
       }
@@ -4015,29 +3898,6 @@
         }
       }
     },
-    "Choose a client. Review how it connects, then decide whether to check or configure.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose a client. Review how it connects, then decide whether to check or configure."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择你要使用的客户端。查看接入方式后，再决定是否检查或配置。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Choose a client. Review how it connects, then decide whether to check or configure.!!]"
-          }
-        }
-      }
-    },
     "Choose an ordinary file before saving this credential.": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -4671,7 +4531,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已验证连接"
+            "value": "已接入"
           }
         },
         "qps-ploc": {
@@ -14390,75 +14250,6 @@
         }
       }
     },
-    "Local clients": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Local clients"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本机客户端"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Local clients!!]"
-          }
-        }
-      }
-    },
-    "Review connection": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Review connection"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看接入"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Review connection!!]"
-          }
-        }
-      }
-    },
-    "Not checked yet": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not checked yet"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "尚未检查"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Not checked yet!!]"
-          }
-        }
-      }
-    },
     "Check this Mac": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -14551,75 +14342,6 @@
         }
       }
     },
-    "Checking…": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Checking…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在检查…"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Checking…!!]"
-          }
-        }
-      }
-    },
-    "Verifying…": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verifying…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在验证…"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Verifying…!!]"
-          }
-        }
-      }
-    },
-    "Applying saved settings…": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Applying saved settings…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在写入设置…"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Applying saved settings…!!]"
-          }
-        }
-      }
-    },
     "to run": {
       "extractionState": "manual",
       "localizations": {
@@ -14708,98 +14430,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Ask Key will first check this Mac and any existing %@ settings, then show the change that needs confirmation.!!]"
-          }
-        }
-      }
-    },
-    "Last: verified connection · %@": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last: verified connection · %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次：已验证连接 · %@"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Last: verified connection · %@!!]"
-          }
-        }
-      }
-    },
-    "Last: configured, unverified · %@": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last: configured, unverified · %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次：已配置但未验证 · %@"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Last: configured, unverified · %@!!]"
-          }
-        }
-      }
-    },
-    "Last: existing configuration, this check did not pass · %@": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last: existing configuration, this check did not pass · %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次：已有配置，本次验证未通过 · %@"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Last: existing configuration, this check did not pass · %@!!]"
-          }
-        }
-      }
-    },
-    "Last: not configured · %@": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last: not configured · %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次：未配置 · %@"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Last: not configured · %@!!]"
           }
         }
       }
@@ -15007,29 +14637,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!The connection did not finish, and original settings could not be restored. Writing has stopped and the backup was kept.!!]"
-          }
-        }
-      }
-    },
-    "A managed backup for %@ was kept. Stop ordinary retry. Review the backup notes, then continue only after the original settings are safe.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A managed backup for %@ was kept. Stop ordinary retry. Review the backup notes, then continue only after the original settings are safe."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 的受保护备份已保留。请停止普通重试，先查看恢复说明，确认原设置安全后再继续。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!A managed backup for %@ was kept. Stop ordinary retry. Review the backup notes, then continue only after the original settings are safe.!!]"
           }
         }
       }
@@ -15260,6 +14867,788 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!If verification fails, Ask Key restores the original settings.!!]"
+          }
+        }
+      }
+    },
+    "%@ is connected": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is connected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已接入"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!%@ is connected!!]"
+          }
+        }
+      }
+    },
+    "%@ is not connected to Ask Key yet. Check again to set it up.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is not connected to Ask Key yet. Check again to set it up."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 还没有接入请旨。重新检查后即可接入。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!%@ is not connected to Ask Key yet. Check again to set it up.!!]"
+          }
+        }
+      }
+    },
+    "%@ needs attention": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ needs attention"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 需要处理"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!%@ needs attention!!]"
+          }
+        }
+      }
+    },
+    "%@ was not found on this Mac": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ was not found on this Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有在这台 Mac 上找到 %@"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!%@ was not found on this Mac!!]"
+          }
+        }
+      }
+    },
+    "Ask Key could not restore the original %@ configuration. Stop retrying and report it on GitHub Issues (github.com/sudoHG/AskKey/issues).": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key could not restore the original %@ configuration. Stop retrying and report it on GitHub Issues (github.com/sudoHG/AskKey/issues)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨无法恢复 %@ 的原配置。请停止重试，并在 GitHub Issues（github.com/sudoHG/AskKey/issues）报告。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Ask Key could not restore the original %@ configuration. Stop retrying and report it on GitHub Issues (github.com/sudoHG/AskKey/issues).!!]"
+          }
+        }
+      }
+    },
+    "Ask Key has not verified automatic setup for this Codex version. Report the version on GitHub Issues (github.com/sudoHG/AskKey/issues) to confirm compatibility, then try again.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key has not verified automatic setup for this Codex version. Report the version on GitHub Issues (github.com/sudoHG/AskKey/issues) to confirm compatibility, then try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨尚未确认当前 Codex 版本能否自动接入。请在 GitHub Issues（github.com/sudoHG/AskKey/issues）报告版本、确认兼容性，再重试。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Ask Key has not verified automatic setup for this Codex version. Report the version on GitHub Issues (github.com/sudoHG/AskKey/issues) to confirm compatibility, then try again.!!]"
+          }
+        }
+      }
+    },
+    "Ask Key is changing the settings, then verifying the connection.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key is changing the settings, then verifying the connection."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨正在修改设置，随后验证连接。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Ask Key is changing the settings, then verifying the connection.!!]"
+          }
+        }
+      }
+    },
+    "Ask Key is reading %@'s settings. Nothing is changed.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key is reading %@'s settings. Nothing is changed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨正在读取 %@ 的设置，不会做任何改动。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Ask Key is reading %@'s settings. Nothing is changed.!!]"
+          }
+        }
+      }
+    },
+    "Ask Key is set up in %@, but the connection is not verified. Check again.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key is set up in %@, but the connection is not verified. Check again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 里已配置请旨，但连接尚未验证。请重新检查。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Ask Key is set up in %@, but the connection is not verified. Check again.!!]"
+          }
+        }
+      }
+    },
+    "Ask Key stopped changing %1$@'s settings because it could not put the original settings back. A copy of the original files was kept in Ask Key's data folder, under client-backups, and Ask Key will not retry this change on its own. Open %1$@ and check that it still works. If it does not, report it on GitHub Issues with the client name and this message. Never include credential values.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key stopped changing %1$@'s settings because it could not put the original settings back. A copy of the original files was kept in Ask Key's data folder, under client-backups, and Ask Key will not retry this change on its own. Open %1$@ and check that it still works. If it does not, report it on GitHub Issues with the client name and this message. Never include credential values."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨没能把 %1$@ 的原设置放回去，因此已停止修改。原文件的副本保存在请旨数据文件夹的 client-backups 中，请旨不会自行重试这次改动。请打开 %1$@，确认它仍能正常使用。如果不能，请在 GitHub Issues 报告，附上客户端名称和这段说明。不要附上任何凭证值。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Ask Key stopped changing %1$@'s settings because it could not put the original settings back. A copy of the original files was kept in Ask Key's data folder, under client-backups, and Ask Key will not retry this change on its own. Open %1$@ and check that it still works. If it does not, report it on GitHub Issues with the client name and this message. Never include credential values.!!]"
+          }
+        }
+      }
+    },
+    "Check whether %@ is on this Mac": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check whether %@ is on this Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查这台 Mac 上有没有 %@"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Check whether %@ is on this Mac!!]"
+          }
+        }
+      }
+    },
+    "Checking this Mac…": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking this Mac…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查本机…"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Checking this Mac…!!]"
+          }
+        }
+      }
+    },
+    "Collapse": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收起"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Collapse!!]"
+          }
+        }
+      }
+    },
+    "Confirm changes": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm changes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认改动"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Confirm changes!!]"
+          }
+        }
+      }
+    },
+    "Confirm it's you to let Ask Key change %@'s settings.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm it's you to let Ask Key change %@'s settings."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "验证是你本人后，请旨才会修改 %@ 的设置。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Confirm it's you to let Ask Key change %@'s settings.!!]"
+          }
+        }
+      }
+    },
+    "Confirm the changes to %@": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm the changes to %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认对 %@ 的改动"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Confirm the changes to %@!!]"
+          }
+        }
+      }
+    },
+    "Connecting %@…": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting %@…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在接入 %@…"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Connecting %@…!!]"
+          }
+        }
+      }
+    },
+    "Connect…": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接入…"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Connect…!!]"
+          }
+        }
+      }
+    },
+    "Find the right credential in Ask Key and run %@": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find the right credential in Ask Key and run %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从请旨里找合适的凭证，跑一下 %@"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Find the right credential in Ask Key and run %@!!]"
+          }
+        }
+      }
+    },
+    "Install or open %@, then check again. Before changing anything, Ask Key shows you what will change.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install or open %@, then check again. Before changing anything, Ask Key shows you what will change."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装或打开 %@ 后再检查一次。改动前，请旨会先给你看要改什么。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Install or open %@, then check again. Before changing anything, Ask Key shows you what will change.!!]"
+          }
+        }
+      }
+    },
+    "Needs attention": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs attention"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要处理"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Needs attention!!]"
+          }
+        }
+      }
+    },
+    "Not checked": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not checked"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未检查"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Not checked!!]"
+          }
+        }
+      }
+    },
+    "Not connected": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not connected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未接入"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Not connected!!]"
+          }
+        }
+      }
+    },
+    "Not found": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not found"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未找到"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Not found!!]"
+          }
+        }
+      }
+    },
+    "Once connected, an Agent first looks up which credentials Ask Key has, then asks within the permissions you set.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once connected, an Agent first looks up which credentials Ask Key has, then asks within the permissions you set."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接入后，Agent 会先查请旨里有哪些凭证，再按你给的权限申请。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Once connected, an Agent first looks up which credentials Ask Key has, then asks within the permissions you set.!!]"
+          }
+        }
+      }
+    },
+    "Report on GitHub Issues": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report on GitHub Issues"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到 GitHub Issues 报告"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Report on GitHub Issues!!]"
+          }
+        }
+      }
+    },
+    "Review": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Review!!]"
+          }
+        }
+      }
+    },
+    "SSH reminder is on: before an Agent runs %@, it is reminded to check Ask Key. It is only a reminder and never authorizes anything.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH reminder is on: before an Agent runs %@, it is reminded to check Ask Key. It is only a reminder and never authorizes anything."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH 前提醒已开启：Agent 运行 %@ 前，会先被提醒查一下请旨。只是提醒，不会自动授权。"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!SSH reminder is on: before an Agent runs %@, it is reminded to check Ask Key. It is only a reminder and never authorizes anything.!!]"
+          }
+        }
+      }
+    },
+    "Show details": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show details"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "详情"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Show details!!]"
+          }
+        }
+      }
+    },
+    "Start a new %@ session to use it. Try this:": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a new %@ session to use it. Try this:"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新开一个 %@ 会话就能用。可以这样试："
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Start a new %@ session to use it. Try this:!!]"
+          }
+        }
+      }
+    },
+    "Start a new %@ task to use it. Try this:": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a new %@ task to use it. Try this:"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新开一个 %@ 任务就能用。可以这样试："
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Start a new %@ task to use it. Try this:!!]"
+          }
+        }
+      }
+    },
+    "The original %@ settings could not be restored": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original %@ settings could not be restored"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没能恢复 %@ 的原设置"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!The original %@ settings could not be restored!!]"
+          }
+        }
+      }
+    },
+    "Use %1$@ from Ask Key to run %2$@": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use %1$@ from Ask Key to run %2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用请旨里的 %1$@ 跑一下 %2$@"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Use %1$@ from Ask Key to run %2$@!!]"
+          }
+        }
+      }
+    },
+    "Verify connection": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify connection"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "验证连接"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Verify connection!!]"
           }
         }
       }
