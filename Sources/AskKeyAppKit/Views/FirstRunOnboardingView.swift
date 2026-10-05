@@ -61,7 +61,7 @@ struct FirstRunOnboardingView: View {
 
     private var column: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Image(nsImage: NSApp.applicationIconImage)
+            Image(nsImage: AppIcon.load())
                 .resizable()
                 .frame(width: 48, height: 48)
                 .accessibilityHidden(true)
