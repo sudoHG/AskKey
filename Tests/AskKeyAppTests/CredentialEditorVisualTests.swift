@@ -139,11 +139,11 @@ final class CredentialEditorVisualTests: WorkspaceVisualContractTestSupport {
             )
         )
         XCTAssertEqual(FrozenSettingsContract.languageOptions, ["跟随系统", "中文", "English"])
-        XCTAssertEqual(FrozenSettingsContract.agentAccessSubtitle, "接入后，Agent 会先查请旨里有哪些凭证，再按你给的权限申请。")
+        XCTAssertEqual(FrozenSettingsContract.agentAccessSubtitle, "接入后，Agent 可以查看请旨里有哪些凭证，并在你设定的权限内申请使用。")
         AppLanguage.current = "en"
         XCTAssertEqual(
             FrozenSettingsContract.agentAccessSubtitle,
-            "Once connected, an Agent first looks up which credentials Ask Key has, then asks within the permissions you set."
+            "Once connected, an Agent can look up which credentials Ask Key has and request them within the permissions you set."
         )
         AppLanguage.current = "zh-Hans"
         XCTAssertEqual(FrozenSettingsContract.emptyLibraryAction, "新建第一份凭证")

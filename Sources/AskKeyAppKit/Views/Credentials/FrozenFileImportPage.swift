@@ -105,7 +105,16 @@ struct FrozenFileImportPage: View {
                     }
                 }
                 CredentialFormField(appLocalized("Agent Permission")) {
-                    CredentialPermissionPicker(permission: $permission)
+                    if let existingCredential {
+                        // Replacing changes contents only; the permission stays.
+                        CredentialPermissionPicker(permission: .constant(existingCredential.permission))
+                            .disabled(true)
+                        Text(appLocalized("Replacing keeps this credential's current permission. You can change it on the credential page."))
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.textSecondary)
+                    } else {
+                        CredentialPermissionPicker(permission: $permission)
+                    }
                 }
                 CredentialFormField(
                     importedFile == nil ? FrozenImportCopy.contentsHeader : appLocalized("Contents")

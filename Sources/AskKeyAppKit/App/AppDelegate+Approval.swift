@@ -117,7 +117,10 @@ extension AppDelegate {
                     )
                 } else if failed {
                     self.vault.errorMessage = "Ask Key could not apply this decision. Open Pending requests to retry or reject it."
-                } else if !Vault.shared.approvalRequests.pendingRequests().isEmpty {
+                }
+                // The retried request may have expired meanwhile; never leave
+                // other requests waiting without a prompt.
+                if !self.presentingApproval, !Vault.shared.approvalRequests.pendingRequests().isEmpty {
                     self.presentPendingApproval()
                 }
             }
@@ -229,7 +232,8 @@ extension AppDelegate {
         panel.contentViewController = hosting
         panel.setContentSize(hosting.view.fittingSize)
         panel.center()
-        privacyTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
+        // Common modes keep the check running during menus, drags and modal pickers.
+        privacyTimer = Timer(timeInterval: 0.25, repeats: true) { _ in
             MainActor.assumeIsolated {
                 let requestEnded = pending.map {
                     (try? Vault.shared.approvalRequests.status(requestID: $0.requestID, capability: $0.capability)) != .pending
@@ -240,6 +244,7 @@ extension AppDelegate {
                 }
             }
         }
+        if let privacyTimer { RunLoop.main.add(privacyTimer, forMode: .common) }
         panel.level = .modalPanel
         panel.makeKeyAndOrderFront(nil)
     }

@@ -52,10 +52,11 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
             )
             XCTAssertEqual(content.title, "“Demo Agent” wants to use “demo-api”")
             XCTAssertEqual(content.commandSummary, "./deploy.sh --env staging")
-            XCTAssertEqual(content.rows.map(\.label), ["Delivers", "Location", "Stated purpose"])
+            XCTAssertEqual(content.rows.map(\.label), ["Delivers", "Location", "Requested by", "Stated purpose"])
             XCTAssertEqual(content.rows.map(\.value), [
                 "API_KEY, CERT_FILE (file)",
                 "~/work/shop-api",
+                "Demo Agent (self-declared, unverified)",
                 "Deploy staging (self-declared, unverified)",
             ])
         }
@@ -65,10 +66,11 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
                 credentialName: "demo-api"
             )
             XCTAssertEqual(content.title, "“Demo Agent”想使用“demo-api”") // i18n-literal: Assert the Simplified Chinese approval copy.
-            XCTAssertEqual(content.rows.map(\.label), ["交付", "位置", "说明"]) // i18n-literal: Assert the Simplified Chinese approval copy.
+            XCTAssertEqual(content.rows.map(\.label), ["交付", "位置", "请求方", "说明"]) // i18n-literal: Assert the Simplified Chinese approval copy.
             XCTAssertEqual(content.rows.map(\.value), [
                 "API_KEY、API_ENDPOINT", // i18n-literal: Assert the Simplified Chinese approval copy.
                 "~/work/shop-api",
+                "Demo Agent（自报，未核实）", // i18n-literal: Assert the Simplified Chinese approval copy.
                 "Deploy staging（自报，未核实）", // i18n-literal: Assert the Simplified Chinese approval copy.
             ])
         }
@@ -130,7 +132,7 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
             )
             XCTAssertEqual(content.title, "“Demo Agent” wants to delete “demo-api”")
             XCTAssertNil(content.commandSummary)
-            XCTAssertEqual(content.rows.map(\.label), ["Stated purpose", "Destination"])
+            XCTAssertEqual(content.rows.map(\.label), ["Requested by", "Stated purpose", "Destination"])
         }
     }
 

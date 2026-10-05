@@ -72,7 +72,9 @@ extension AppDelegate {
     }
 
     private func handleManagementDockEvent(_ event: ManagementDockPolicy.Event) {
-        guard !ManagementAuthenticationSubprocess.isActive else { return }
+        // A Touch ID prompt takes focus briefly; keep the Dock state as it was.
+        guard !ManagementAuthenticationSubprocess.isActive,
+              !ManagementAuthenticationRunner.isPromptShowing else { return }
         if isApplyingDockPolicy {
             scheduleManagementDockStateRefresh()
             return
@@ -82,7 +84,8 @@ extension AppDelegate {
     }
 
     private func syncManagementWindowDockState() {
-        guard !ManagementAuthenticationSubprocess.isActive else { return }
+        guard !ManagementAuthenticationSubprocess.isActive,
+              !ManagementAuthenticationRunner.isPromptShowing else { return }
         guard let window = managementWindow else {
             handleManagementDockEvent(.managementWindowState(
                 visible: false,
@@ -127,7 +130,8 @@ extension AppDelegate {
     }
 
     private func applyManagementDockPolicy() {
-        guard !ManagementAuthenticationSubprocess.isActive else { return }
+        guard !ManagementAuthenticationSubprocess.isActive,
+              !ManagementAuthenticationRunner.isPromptShowing else { return }
         guard !isApplyingDockPolicy else {
             scheduleManagementDockPolicyApplication()
             return
@@ -190,6 +194,19 @@ extension AppDelegate {
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.handleManagementDockEvent(.applicationDidResignActive)
+                }
+            }
+        )
+        // Events are ignored while Touch ID is showing; reconcile afterwards.
+        observers.append(
+            center.addObserver(
+                forName: .managementAuthenticationPromptDidEnd,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard !ManagementAuthenticationRunner.isPromptShowing else { return }
+                    self?.syncManagementWindowDockState()
                 }
             }
         )

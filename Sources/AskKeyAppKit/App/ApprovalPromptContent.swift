@@ -37,6 +37,12 @@ struct ApprovalPromptContent: Equatable {
         if let directory = display?.workingDirectory, !directory.isEmpty {
             rows.append(Row(label: appLocalized("Location"), value: directory, monospaced: false))
         }
+        // The caller name in the title is declared by the agent itself.
+        rows.append(Row(
+            label: appLocalized("Requested by"),
+            value: appLocalizedFormat("%@ (self-declared, unverified)", caller),
+            monospaced: false
+        ))
         if let purpose = request.callerPurpose, !purpose.isEmpty {
             rows.append(Row(
                 label: appLocalized("Stated purpose"),

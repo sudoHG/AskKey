@@ -13,7 +13,10 @@ final class SessionPolicy {
 
     init(
         scheduleTimer: @escaping ScheduleTimer = { timeout, callback in
-            Timer.scheduledTimer(withTimeInterval: timeout, repeats: false, block: callback)
+            // Common modes keep the idle lock running during menus and modal pickers.
+            let timer = Timer(timeInterval: timeout, repeats: false, block: callback)
+            RunLoop.main.add(timer, forMode: .common)
+            return timer
         },
         enqueueExpiration: @escaping EnqueueExpiration = { callback in
             Task { @MainActor in callback() }
