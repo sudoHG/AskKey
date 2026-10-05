@@ -9,7 +9,7 @@ English | [Simplified Chinese](README.zh-CN.md)
 > **[Download the latest release](https://github.com/sudoHG/AskKey/releases/latest)** (notarized DMG, macOS 14+). Version 0.1 has no backup or recovery, so keep the originals of your credentials somewhere else.
 
 <p align="center">
-  <img src="assets/readme/approval-prompt.png" width="300" alt="AskKey approval prompt: an Agent wants to use a credential to run a command, with the buttons Allow once, Allow for 30 minutes and Deny">
+  <img src="assets/readme/approval-prompt.png" width="300" alt="AskKey approval prompt: Claude Code wants to use Staging API to run ./deploy.sh, with the buttons Allow once, Allow for 30 minutes and Deny">
 </p>
 
 ## Why it exists

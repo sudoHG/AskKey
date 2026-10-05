@@ -9,7 +9,7 @@
 > **[下载最新版本](https://github.com/sudoHG/AskKey/releases/latest)**（经过 Apple 公证的 DMG，需要 macOS 14 或更高版本）。v0.1 没有备份和恢复功能，请自行另存一份凭证原件。
 
 <p align="center">
-  <img src="assets/readme/approval-prompt.png" width="300" alt="请旨的批准弹窗：某个 Agent 想用一份凭证运行一条命令，下方是“允许本次”“允许 30 分钟”和“拒绝”按钮（截图为英文界面）">
+  <img src="assets/readme/approval-prompt.png" width="300" alt="请旨的批准弹窗：Claude Code 想用 Staging API 运行 ./deploy.sh，下方是“允许本次”“允许 30 分钟”和“拒绝”按钮（截图为英文界面）">
 </p>
 
 ## 为什么需要它
