@@ -104,9 +104,6 @@ struct ManagementAuthenticationDescription: Codable, Equatable, Sendable {
 
 private struct ManagementAuthenticationResponse: Codable {
     let outcome: ManagementAuthenticationOutcome
-    /// Whether the prompt still had focus when it finished; false when the
-    /// user switched to another app meanwhile.
-    var promptWasActive: Bool?
 }
 
 private struct ManagementAuthenticationPayload: Codable {
@@ -213,9 +210,7 @@ enum ManagementAuthenticationSubprocess {
                 outcome = .failed
             }
             DispatchQueue.main.async {
-                writeAndTerminate(ManagementAuthenticationResponse(
-                    outcome: outcome, promptWasActive: NSApp.isActive
-                ))
+                writeAndTerminate(ManagementAuthenticationResponse(outcome: outcome))
             }
         }
         return true
@@ -351,19 +346,26 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
         ) else { return .failed }
         let process = Process()
         let wasActive = ActivationFlag()
-        let userSwitchedAway = ActivationFlag()
         Self.promptCount.increment()
         // Return focus to the app only when the prompt took it from the app,
-        // not when an approval was answered from another app, and not when
-        // the user moved to another app while the prompt was open.
+        // not when an approval was answered from another app. The Touch ID
+        // sheet belongs to the system (coreautha), so when it closes macOS
+        // activates whichever app is next; a cooperative activate() request
+        // is refused then, so this restore has to ignore other apps.
         defer {
             DispatchQueue.main.async {
                 Self.promptCount.decrement()
                 NotificationCenter.default.post(name: .managementAuthenticationPromptDidEnd, object: nil)
                 // NSApp is nil when the runner is exercised without an app.
-                guard wasActive.isSet, !userSwitchedAway.isSet,
-                      let app = NSApp as NSApplication? else { return }
-                app.activate()
+                guard wasActive.isSet, let app = NSApp as NSApplication? else { return }
+                app.activate(ignoringOtherApps: true)
+                // The system may hand focus to the next app only after the
+                // sheet finishes closing; ask again if that happened.
+                for delay in [0.25, 0.75] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        if !app.isActive { app.activate(ignoringOtherApps: true) }
+                    }
+                }
             }
         }
         process.executableURL = executable
@@ -419,7 +421,6 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
               ) else {
             return .failed
         }
-        if response.promptWasActive == false { userSwitchedAway.set() }
         return response.outcome
     }
 
