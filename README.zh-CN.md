@@ -8,6 +8,10 @@
 
 > **[下载最新版本](https://github.com/sudoHG/AskKey/releases/latest)**（经过 Apple 公证的 DMG，需要 macOS 14 或更高版本）。v0.1 没有备份和恢复功能，请自行另存一份凭证原件。
 
+<p align="center">
+  <img src="assets/readme/approval-prompt.png" width="300" alt="请旨的批准弹窗：某个 Agent 想用一份凭证运行一条命令，下方是“允许本次”“允许 30 分钟”和“拒绝”按钮（截图为英文界面）">
+</p>
+
 ## 为什么需要它
 
 编码 Agent 要部署代码、调用 API、登录服务器，就得用到真实的密钥。常见做法是把 key 贴进对话、写进提示词，或者留在 `.env` 文件里。这等于把明文交给每一个能读到它的工具、聊天记录和日志，而你往往不知道哪个 Agent 用了什么。
@@ -25,9 +29,17 @@ AskKey 把密钥从这条路径里拿出来：Agent 手里没有保存的凭证�
 
    只有校验结果为 `OK` 时才继续。
 3. 打开 DMG，将 `Ask Key.app` 拖入 Applications（应用程序）。应用必须保留原名，并始终位于 `/Applications/Ask Key.app`，否则 Agent 无法连接。
-4. 启动请旨，在 **Agent 接入**页面连接客户端。详见[支持的客户端](#支持的客户端)。
+4. 启动请旨，按下面三步开始使用。
 
 以后升级或卸载，见[升级](#升级)和[卸载](#卸载)。
+
+### 三步开始
+
+欢迎页会带你走同样的三步。
+
+1. **存一份凭证。** 选择“新建凭证”，或用“从文件导入…”导入 `.env` 文件。新凭证默认“每次询问”。
+2. **接入你的 Agent。** 打开 **Agent 接入**页面，在 Claude Code、Codex、Cursor 或 Grok CLI 旁边选择“接入…”。详见[支持的客户端](#支持的客户端)。
+3. **试一次。** 对 Agent 说类似“用请旨里的 Staging API 跑一下 `./deploy.sh`”的话。请旨会弹出批准窗口，选择“允许本次”。Agent 只看到命令的输出，看不到凭证值，这次使用会出现在**访问记录**里。
 
 ## 工作方式
 
@@ -69,6 +81,8 @@ helper 位于应用包内的 `Contents/Helpers/askkey`。目标进程只会拿�
 Agent 的写操作（新建、修改、删除）永远要对每一次操作单独批准。批准绑定的是你看到的那份具体内容，不能挪用到另一次修改上。永久删除只能在应用里进行。
 
 ## 支持的客户端
+
+![请旨的 Agent 接入页面，列出 Claude Code、Codex、Cursor 和 Grok CLI，每一行都有“接入…”按钮（截图为英文界面）](assets/readme/agent-access.png)
 
 Claude Code、Codex、Cursor 和 Grok CLI。在应用的 **Agent 接入**页面里先检查某个客户端，再确认连接。对每个客户端，接入会：
 

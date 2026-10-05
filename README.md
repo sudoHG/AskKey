@@ -8,6 +8,10 @@ English | [Simplified Chinese](README.zh-CN.md)
 
 > **[Download the latest release](https://github.com/sudoHG/AskKey/releases/latest)** (notarized DMG, macOS 14+). Version 0.1 has no backup or recovery, so keep the originals of your credentials somewhere else.
 
+<p align="center">
+  <img src="assets/readme/approval-prompt.png" width="300" alt="AskKey approval prompt: an Agent wants to use a credential to run a command, with the buttons Allow once, Allow for 30 minutes and Deny">
+</p>
+
 ## Why it exists
 
 Coding agents need real secrets to deploy code, call APIs or log in to servers. The usual shortcuts are pasting a key into a chat, writing it into a prompt or leaving it in a `.env` file. Each of those hands plaintext to every tool, transcript and log that can read it, and you rarely see which agent used what.
@@ -25,9 +29,17 @@ AskKey takes the secret out of that path. The agent never holds the stored value
 
    Continue only if the check reports `OK`.
 3. Open the DMG and drag `Ask Key.app` into Applications. It must stay at exactly `/Applications/Ask Key.app`, under that name, or agents cannot connect.
-4. Launch Ask Key and connect your clients from the **Agent access** page. See [Supported clients](#supported-clients).
+4. Launch Ask Key and follow the three steps below.
 
 To upgrade or remove it later, see [Upgrade](#upgrade) and [Uninstall](#uninstall).
+
+### Start in three steps
+
+The welcome page walks you through the same steps.
+
+1. **Store a credential.** Choose **New Credential**, or **Import from File…** to bring in a `.env` file. New credentials default to **Ask every time**.
+2. **Connect your Agent.** Open the **Agent access** page and choose **Connect…** next to Claude Code, Codex, Cursor or Grok CLI. See [Supported clients](#supported-clients).
+3. **Try it once.** Ask your Agent something like "Use Staging API from Ask Key to run `./deploy.sh`". Ask Key shows an approval prompt; choose **Allow once**. The Agent sees the command's output, never the value, and the use appears in **Access records**.
 
 ## How it works
 
@@ -69,6 +81,8 @@ When you approve a read, you choose **Once** or a **Timed allowance**: a number 
 Agent writes (create, modify, delete) always need approval for that single operation. The approval is tied to the exact content you were shown and cannot be reused for another change. Permanent deletion stays in the app.
 
 ## Supported clients
+
+![The Agent access page in AskKey, listing Claude Code, Codex, Cursor and Grok CLI, each with a Connect button](assets/readme/agent-access.png)
 
 Claude Code, Codex, Cursor and Grok CLI. Open the app's **Agent access** page, check a client, then confirm. For each client, setup:
 
