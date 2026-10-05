@@ -56,6 +56,7 @@ final class CodexCommandDiscoveryHookTests: XCTestCase {
             }
             XCTAssertTrue(try fixture.denied())
             try fixture.ageState()
+            _ = try fixture.event("PostToolUse", tool: Fixture.catalog, call: "unmatched")
             XCTAssertFalse(try fixture.denied())
             let state = try fixture.state()
             let turns = try XCTUnwrap(state["turns"] as? [String: [String: Any]])
