@@ -198,9 +198,6 @@ struct AgentAccessPresentation: Equatable {
 enum AgentOnboardingCopy {
     static let issuesURL = URL(string: "https://github.com/sudoHG/AskKey/issues")!
 
-    /// The command in the sample prompt.
-    static let sampleCommand = "./deploy.sh --env staging"
-
     /// Connected means the MCP connection is verified and credential
     /// discovery is ready.
     static func isConnected(_ client: AgentClient, result: AgentLastKnownResult) -> Bool {
@@ -256,18 +253,19 @@ enum AgentOnboardingCopy {
         return (appLocalizedFormat("%@ is connected", name), detail)
     }
 
-    /// The sample prompt shown after a client connects. Arguments: the
-    /// credential name, then the command; both are shown in monospace.
+    /// The sample prompt shown after a client connects. It works in any
+    /// directory: the agent checks the delivered variables without printing
+    /// them. The argument is the credential name, shown in monospace.
     static func samplePrompt(credentialName: String?) -> EmphasizedSentence {
         if let credentialName {
             return EmphasizedSentence(
-                format: appLocalized("Use %1$@ from Ask Key to run %2$@"),
-                arguments: [credentialName, sampleCommand]
+                format: appLocalized("Use %@ from Ask Key to run a command that checks its variables are set, without printing their values"),
+                arguments: [credentialName]
             )
         }
         return EmphasizedSentence(
-            format: appLocalized("Find the right credential in Ask Key and run %@"),
-            arguments: [sampleCommand]
+            format: appLocalized("Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values"),
+            arguments: []
         )
     }
 

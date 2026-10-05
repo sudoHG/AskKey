@@ -167,18 +167,18 @@ final class AgentAccessPresentationTests: AskKeyAppTestCase {
     func testSamplePromptAndSSHNoteInBothLanguages() {
         XCTAssertEqual(
             AgentOnboardingCopy.samplePrompt(credentialName: "demo-api").plainText,
-            "Use demo-api from Ask Key to run ./deploy.sh --env staging"
+            "Use demo-api from Ask Key to run a command that checks its variables are set, without printing their values"
         )
         XCTAssertEqual(
             AgentOnboardingCopy.samplePrompt(credentialName: nil).plainText,
-            "Find the right credential in Ask Key and run ./deploy.sh --env staging"
+            "Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values"
         )
         XCTAssertTrue(AgentOnboardingCopy.sshReminderNote.plainText.contains("never authorizes"))
 
         AppLanguage.current = "zh-Hans"
         XCTAssertEqual(
             AgentOnboardingCopy.samplePrompt(credentialName: "demo-api").plainText,
-            "用请旨里的 demo-api 跑一下 ./deploy.sh --env staging" // i18n-literal: Assert the Simplified Chinese catalog value.
+            "用请旨里的 demo-api 跑一条命令，确认变量都已拿到，不要显示值" // i18n-literal: Assert the Simplified Chinese catalog value.
         )
         XCTAssertEqual(
             AgentOnboardingCopy.sshReminderNote.plainText,
