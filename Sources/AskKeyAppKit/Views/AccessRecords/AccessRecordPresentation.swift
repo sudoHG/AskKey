@@ -77,24 +77,38 @@ struct AccessRecordPresentation: Equatable {
         let caller = event.callerHint ?? appLocalized("Local Caller")
         let name = credentialName(event.credentialID)
         let sentence: EmphasizedSentence
+        // Denied or failed requests did not happen; describe them as requests.
+        let happened = event.result == .allowed
         switch event.operation {
         case .catalog:
             sentence = .init(format: appLocalized("%@ browsed the credential list"), arguments: [caller])
         case .runtimeRead:
             if let executable = event.executableBasename, !executable.isEmpty {
                 sentence = .init(
-                    format: appLocalized("%1$@ used %2$@ to run %3$@"),
+                    format: happened ? appLocalized("%1$@ used %2$@ to run %3$@") : appLocalized("%1$@ asked to use %2$@ to run %3$@"),
                     arguments: [caller, name, executable]
                 )
             } else {
-                sentence = .init(format: appLocalized("%1$@ used %2$@"), arguments: [caller, name])
+                sentence = .init(
+                    format: happened ? appLocalized("%1$@ used %2$@") : appLocalized("%1$@ asked to use %2$@"),
+                    arguments: [caller, name]
+                )
             }
         case .create:
-            sentence = .init(format: appLocalized("%1$@ created credential %2$@"), arguments: [caller, name])
+            sentence = .init(
+                format: happened ? appLocalized("%1$@ created credential %2$@") : appLocalized("%1$@ asked to create credential %2$@"),
+                arguments: [caller, name]
+            )
         case .modify:
-            sentence = .init(format: appLocalized("%1$@ changed credential %2$@"), arguments: [caller, name])
+            sentence = .init(
+                format: happened ? appLocalized("%1$@ changed credential %2$@") : appLocalized("%1$@ asked to change credential %2$@"),
+                arguments: [caller, name]
+            )
         case .delete:
-            sentence = .init(format: appLocalized("%1$@ deleted credential %2$@"), arguments: [caller, name])
+            sentence = .init(
+                format: happened ? appLocalized("%1$@ deleted credential %2$@") : appLocalized("%1$@ asked to delete credential %2$@"),
+                arguments: [caller, name]
+            )
         }
         let result = Self.result(event)
         return .init(

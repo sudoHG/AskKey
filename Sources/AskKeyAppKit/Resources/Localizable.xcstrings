@@ -1,6 +1,86 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Requested by": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Requested by" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请求方" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Requested by!!]" } }
+      }
+    },
+    "Replacing keeps this credential's current permission. You can change it on the credential page.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Replacing keeps this credential's current permission. You can change it on the credential page." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "替换时保留这份凭证现有的权限，可在凭证页修改。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Replacing keeps this credential's current permission. You can change it on the credential page.!!]" } }
+      }
+    },
+    "Ask your Agent to run one command with this credential. With Allow, it runs without a prompt and appears in Access records.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask your Agent to run one command with this credential. With Allow, it runs without a prompt and appears in Access records." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "让 Agent 用这份凭证运行一条命令。权限是“允许”，不会弹窗，可在访问记录里查看。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask your Agent to run one command with this credential. With Allow, it runs without a prompt and appears in Access records.!!]" } }
+      }
+    },
+    "Agents cannot see a Hidden credential. Change it to Ask every time, then ask your Agent to run one command with it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agents cannot see a Hidden credential. Change it to Ask every time, then ask your Agent to run one command with it." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 看不到“隐藏”的凭证。先改成“每次询问”，再让 Agent 用它运行一条命令。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agents cannot see a Hidden credential. Change it to Ask every time, then ask your Agent to run one command with it.!!]" } }
+      }
+    },
+    "%1$@ asked to use %2$@ to run %3$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ asked to use %2$@ to run %3$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 请求用 %2$@ 运行 %3$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ asked to use %2$@ to run %3$@!!]" } }
+      }
+    },
+    "%1$@ asked to use %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ asked to use %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 请求使用 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ asked to use %2$@!!]" } }
+      }
+    },
+    "%1$@ asked to create credential %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ asked to create credential %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 请求新建凭证 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ asked to create credential %2$@!!]" } }
+      }
+    },
+    "%1$@ asked to change credential %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ asked to change credential %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 请求修改凭证 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ asked to change credential %2$@!!]" } }
+      }
+    },
+    "%1$@ asked to delete credential %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ asked to delete credential %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 请求删除凭证 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ asked to delete credential %2$@!!]" } }
+      }
+    },
+    "Once connected, an Agent can look up which credentials Ask Key has and request them within the permissions you set.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Once connected, an Agent can look up which credentials Ask Key has and request them within the permissions you set." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "接入后，Agent 可以查看请旨里有哪些凭证，并在你设定的权限内申请使用。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Once connected, an Agent can look up which credentials Ask Key has and request them within the permissions you set.!!]" } }
+      }
+    },
     "Claude Code": {
       "extractionState": "manual",
       "localizations": {
@@ -15419,29 +15499,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[!!Not found!!]"
-          }
-        }
-      }
-    },
-    "Once connected, an Agent first looks up which credentials Ask Key has, then asks within the permissions you set.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Once connected, an Agent first looks up which credentials Ask Key has, then asks within the permissions you set."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接入后，Agent 会先查请旨里有哪些凭证，再按你给的权限申请。"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Once connected, an Agent first looks up which credentials Ask Key has, then asks within the permissions you set.!!]"
           }
         }
       }

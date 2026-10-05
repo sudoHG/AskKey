@@ -375,7 +375,10 @@ struct AgentOnboardingView: View {
     /// A credential Agents can see, so the sample prompt works as written.
     private var sampleCredentialName: String? {
         vault.credentials
-            .filter { $0.deletedAt == nil && $0.permission != .hidden }
+            .filter { credential in
+                credential.deletedAt == nil && credential.permission != .hidden
+                    && credential.expiresAt.map { $0 > Date() } != false
+            }
             .map(\.name)
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
             .first

@@ -59,10 +59,18 @@ struct WelcomeStepsPresentation: Equatable {
             Step(
                 number: 3,
                 title: appLocalized("Try it once"),
-                message: appLocalized("Ask your Agent to run one command with this credential. Ask Key will ask you in a prompt."),
+                message: Self.trialMessage(savedCredential?.permission ?? .ask),
                 state: .upcoming
             ),
         ]
+    }
+
+    private static func trialMessage(_ permission: CredentialPermission) -> String {
+        switch permission {
+        case .ask: return appLocalized("Ask your Agent to run one command with this credential. Ask Key will ask you in a prompt.")
+        case .allowed: return appLocalized("Ask your Agent to run one command with this credential. With Allow, it runs without a prompt and appears in Access records.")
+        case .hidden: return appLocalized("Agents cannot see a Hidden credential. Change it to Ask every time, then ask your Agent to run one command with it.")
+        }
     }
 
     private static func permissionMessage(_ permission: CredentialPermission) -> String {

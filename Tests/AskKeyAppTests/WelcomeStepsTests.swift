@@ -126,4 +126,19 @@ final class WelcomeStepsTests: AppLanguageExperienceTestSupport {
         for render in renders { XCTAssertGreaterThan(render.count, 8_000) }
         XCTAssertEqual(Set(renders).count, renders.count)
     }
+
+    func testTryItStepMatchesTheSavedPermission() {
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        AppLanguage.current = "en"
+        func trial(_ permission: CredentialPermission) -> String {
+            WelcomeStepsPresentation(
+                storedCredentialCount: 1,
+                savedCredential: .init(name: "demo-api", permission: permission)
+            ).steps[2].message
+        }
+        XCTAssertTrue(trial(.ask).contains("will ask you in a prompt"))
+        XCTAssertTrue(trial(.allowed).contains("without a prompt"))
+        XCTAssertTrue(trial(.hidden).contains("cannot see a Hidden credential"))
+    }
 }

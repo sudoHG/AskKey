@@ -97,7 +97,7 @@ final class ScreenPresentationTests: WorkspaceVisualContractTestSupport {
         let todayRows = presentation.sections[0].rows
         XCTAssertEqual(todayRows.map(\.time), ["18:18", "17:52"])
         XCTAssertEqual(todayRows.map(\.sentence.plainText), [
-            "Demo Agent 用 demo-api 运行 deploy.sh", // i18n-literal: Expected Simplified Chinese catalog value.
+            "Demo Agent 请求用 demo-api 运行 deploy.sh", // i18n-literal: Expected Simplified Chinese catalog value.
             "Claude Code 使用了 demo-api", // i18n-literal: Expected Simplified Chinese catalog value.
         ])
         XCTAssertEqual(todayRows.map(\.resultTitle), ["已拒绝", "已允许"]) // i18n-literal: Expected Simplified Chinese catalog value.
