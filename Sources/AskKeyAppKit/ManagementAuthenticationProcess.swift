@@ -289,6 +289,10 @@ enum ManagementAuthenticationSubprocess {
         if let data = try? JSONEncoder().encode(value) {
             try? FileHandle.standardOutput.write(contentsOf: data)
         }
+        // Let the app take focus back if it was in front before the prompt.
+        if let parent = NSRunningApplication(processIdentifier: getppid()) {
+            NSApp.yieldActivation(to: parent)
+        }
         NSApp.terminate(nil)
     }
 }
@@ -336,6 +340,16 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
             presentation: presentation
         ) else { return .failed }
         let process = Process()
+        let wasActive = ActivationFlag()
+        // Return focus to the app only when the prompt took it from the app,
+        // not when an approval was answered from another app.
+        defer {
+            DispatchQueue.main.async {
+                // NSApp is nil when the runner is exercised without an app.
+                guard wasActive.isSet, let app = NSApp as NSApplication? else { return }
+                app.activate()
+            }
+        }
         process.executableURL = executable
         process.arguments = ManagementAuthenticationSubprocess.arguments(
             language: presentation.language,
@@ -357,8 +371,10 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
             try process.run()
             let pid = process.processIdentifier
             DispatchQueue.main.async {
+                guard let app = NSApp as NSApplication?, app.isActive else { return }
+                wasActive.set()
                 if let prompt = NSRunningApplication(processIdentifier: pid) {
-                    NSApp.yieldActivation(to: prompt)
+                    app.yieldActivation(to: prompt)
                 }
             }
             try input.fileHandleForWriting.write(contentsOf: payloadData)
@@ -403,4 +419,15 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
     static func suppressSIGPIPE(fileDescriptor: Int32) -> Bool {
         fcntl(fileDescriptor, F_SETNOSIGPIPE, 1) == 0
     }
+}
+
+/// Records, from the main thread, whether the app was active when the
+/// authentication prompt started.
+private final class ActivationFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+
+    var isSet: Bool { lock.withLock { value } }
+
+    func set() { lock.withLock { value = true } }
 }
