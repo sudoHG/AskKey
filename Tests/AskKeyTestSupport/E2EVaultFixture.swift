@@ -43,15 +43,16 @@ enum VaultE2EFixture {
                 rootURL: directory.appendingPathComponent("deliveries", isDirectory: true)
             )
             let vault = Vault(store: store, key: fixedTestKey, fileDeliveryManager: fileDeliveryManager)
-            if environment["ASKKEY_E2E_SCENARIO"]?.hasPrefix("approval") == true {
+            if let scenario = environment["ASKKEY_E2E_SCENARIO"], scenario.hasPrefix("approval") {
                 try vault.beginManagementSession(using: .allow)
                 defer { vault.endManagementSession() }
-                if try !vault.listTextCredentials().contains(where: { $0.name == "E2E Broker Credential" }) {
-                    _ = try vault.createTextCredential(
-                        .init(name: "E2E Broker Credential", value: "synthetic-e2e-value",
-                              environmentVariable: "ASKKEY_E2E_TOKEN", permission: .ask),
-                        using: .allow
-                    )
+                let credential: TextCredentialInput = scenario == E2EScreenshotDemo.scenario
+                    ? .init(name: E2EScreenshotDemo.credentialName, value: E2EScreenshotDemo.syntheticValue,
+                            environmentVariable: E2EScreenshotDemo.environmentVariable, permission: .ask)
+                    : .init(name: "E2E Broker Credential", value: "synthetic-e2e-value",
+                            environmentVariable: "ASKKEY_E2E_TOKEN", permission: .ask)
+                if try !vault.listTextCredentials().contains(where: { $0.name == credential.name }) {
+                    _ = try vault.createTextCredential(credential, using: .allow)
                 }
             }
             return vault
