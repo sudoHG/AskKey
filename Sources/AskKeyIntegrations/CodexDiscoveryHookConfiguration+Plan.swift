@@ -12,12 +12,7 @@ extension CodexDiscoveryHookConfiguration {
         let matches = try matchingHookGroups(in: document)
         try validateOwnHook(matches)
 
-        if let own = matches.first {
-            let expected = Self.expectedHookGroup
-            guard own.eventName == "PreToolUse",
-                  jsonEqual(own.group, expected) else {
-                throw CodexDiscoveryHookConfigurationError.customHookMismatch
-            }
+        if matches.count == Self.expectedEvents.count && matches.allSatisfy({ !$0.legacy }) {
             return CodexDiscoveryHookPlan(
                 before: snapshot?.bytes,
                 after: snapshot?.bytes,
@@ -29,14 +24,14 @@ extension CodexDiscoveryHookConfiguration {
         }
 
         var next = document
-        try appendExpectedHook(to: &next)
+        try appendExpectedHook(to: &next, matches: matches)
         let after = try serializeDocument(next)
         let afterMode = snapshot?.mode ?? 0o600
         return CodexDiscoveryHookPlan(
             before: snapshot?.bytes,
             after: after,
             changed: true,
-            summary: "Add Ask Key's Codex discovery hook.",
+            summary: "Install Ask Key's Codex command discovery hooks.",
             beforeMode: snapshot?.mode,
             afterMode: afterMode
         )

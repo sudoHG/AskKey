@@ -5,6 +5,11 @@ extension CodexDiscoveryHookConfiguration {
     var hooksParentURL: URL { hooksURL.deletingLastPathComponent() }
 
     static var expectedHookGroup: [String: Any] {
+        ["matcher": expectedMatcher,
+         "hooks": [["type": "command", "command": expectedCommand, "timeout": 3]]]
+    }
+
+    static var legacyHookGroup: [String: Any] {
         [
             "matcher": expectedMatcher,
             "hooks": [[
@@ -81,7 +86,7 @@ extension CodexDiscoveryHookConfiguration {
             guard let groups = rawGroups as? [Any] else {
                 throw CodexDiscoveryHookConfigurationError.invalidHooksFile
             }
-            for rawGroup in groups {
+            for (index, rawGroup) in groups.enumerated() {
                 guard let group = rawGroup as? [String: Any],
                       let rawHooksInGroup = group["hooks"] as? [Any] else {
                     throw CodexDiscoveryHookConfigurationError.invalidHooksFile
@@ -90,11 +95,12 @@ extension CodexDiscoveryHookConfiguration {
                     guard let hook = rawHook as? [String: Any] else {
                         throw CodexDiscoveryHookConfigurationError.invalidHooksFile
                     }
-                    guard hook["server"] as? String == Self.expectedServer,
-                          hook["tool"] as? String == Self.expectedTool else {
+                    let legacy = hook["server"] as? String == Self.expectedServer
+                        && hook["tool"] as? String == Self.expectedTool
+                    guard legacy || Self.isOwnCommand(hook["command"] as? String) else {
                         continue
                     }
-                    matches.append(HookGroupMatch(eventName: eventName, group: group))
+                    matches.append(HookGroupMatch(eventName: eventName, group: group, index: index, legacy: legacy))
                 }
             }
         }
@@ -102,12 +108,25 @@ extension CodexDiscoveryHookConfiguration {
     }
 
     func validateOwnHook(_ matches: [HookGroupMatch]) throws {
-        if matches.count > 1 {
+        let legacy = matches.filter(\.legacy)
+        if (!legacy.isEmpty && matches.count > 1)
+            || Set(matches.map(\.eventName)).count != matches.count {
             throw CodexDiscoveryHookConfigurationError.multipleExpectedHooks
+        }
+        for match in matches {
+            guard match.legacy ? (match.eventName == "PreToolUse" && jsonEqual(match.group, Self.legacyHookGroup))
+                : (Self.expectedEvents.contains(match.eventName) && jsonEqual(match.group, Self.expectedHookGroup)) else {
+                throw CodexDiscoveryHookConfigurationError.customHookMismatch
+            }
         }
     }
 
-    func appendExpectedHook(to document: inout [String: Any]) throws {
+    static func isOwnCommand(_ command: String?) -> Bool {
+        guard let command else { return false }
+        return command == expectedCommand || (command.contains("askkey") && command.contains("hook codex"))
+    }
+
+    func appendExpectedHook(to document: inout [String: Any], matches: [HookGroupMatch]) throws {
         var hooks: [String: Any]
         if let rawHooks = document["hooks"] {
             guard let existingHooks = rawHooks as? [String: Any] else {
@@ -118,17 +137,15 @@ extension CodexDiscoveryHookConfiguration {
             hooks = [:]
         }
 
-        var preToolUse: [Any]
-        if let rawPreToolUse = hooks["PreToolUse"] {
-            guard let existing = rawPreToolUse as? [Any] else {
-                throw CodexDiscoveryHookConfigurationError.invalidHooksFile
+        for event in Self.expectedEvents {
+            var groups = hooks[event] as? [Any] ?? []
+            if let match = matches.first(where: { $0.eventName == event }) {
+                if match.legacy { groups[match.index] = Self.expectedHookGroup }
+            } else {
+                groups.append(Self.expectedHookGroup)
             }
-            preToolUse = existing
-        } else {
-            preToolUse = []
+            hooks[event] = groups
         }
-        preToolUse.append(Self.expectedHookGroup)
-        hooks["PreToolUse"] = preToolUse
         document["hooks"] = hooks
     }
 

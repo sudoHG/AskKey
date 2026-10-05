@@ -25,6 +25,79 @@ final class CodexNativeHookClientTests: XCTestCase {
         XCTAssertEqual(try harness.client.status(), .missing)
     }
 
+    func testOnlyLegacyOrOneCommandEventRequiresReconnectWithoutTrustWrite() throws {
+        for event in ["PreToolUse", "PostToolUse"] {
+            let harness = try Harness(hookState: .disabled, onlyEvent: event)
+            XCTAssertEqual(try harness.client.status(), .missing)
+            XCTAssertThrowsError(try harness.client.enableReviewedHook())
+            XCTAssertFalse(try harness.methods().contains("config/batchWrite"))
+        }
+        let legacy = try Harness(hookState: .disabled, legacy: true)
+        XCTAssertEqual(try legacy.client.status(), .missing)
+        XCTAssertFalse(try legacy.methods().contains("config/batchWrite"))
+    }
+
+    func testTrustUsesActualKeysWithGroupsBeforeAndAfterOurHandlers() throws {
+        let harness = try Harness(hookState: .disabled, surroundingGroups: true)
+        XCTAssertEqual(try harness.client.enableReviewedHook(), .enabled)
+        let write = try XCTUnwrap(try harness.requests().first { $0["method"] as? String == "config/batchWrite" })
+        let params = try XCTUnwrap(write["params"] as? [String: Any])
+        let edits = try XCTUnwrap(params["edits"] as? [[String: Any]])
+        let value = try XCTUnwrap(edits.first?["value"] as? [String: Any])
+        XCTAssertEqual(Set(value.keys), [harness.hookKey, harness.postHookKey])
+        XCTAssertTrue(harness.hookKey.hasSuffix(":pre_tool_use:1:0"))
+        XCTAssertTrue(harness.postHookKey.hasSuffix(":post_tool_use:1:0"))
+        XCTAssertNil(value["unrelated-disabled"])
+        XCTAssertNil(value["legacy-mcp-key"])
+    }
+
+    func testInPlaceLegacyKeyUsesNewCurrentHashAndModifiedStatusNeedsTrust() throws {
+        let harness = try Harness(hookState: .modified)
+        XCTAssertEqual(try harness.client.status(), .untrusted)
+        XCTAssertEqual(try harness.client.enableReviewedHook(), .enabled)
+        let write = try XCTUnwrap(try harness.requests().first { $0["method"] as? String == "config/batchWrite" })
+        let params = try XCTUnwrap(write["params"] as? [String: Any])
+        let edits = try XCTUnwrap(params["edits"] as? [[String: Any]])
+        let value = try XCTUnwrap(edits.first?["value"] as? [String: [String: Any]])
+        XCTAssertEqual(value[harness.hookKey]?["trusted_hash"] as? String, harness.currentHash)
+        XCTAssertNotEqual(value[harness.hookKey]?["trusted_hash"] as? String,
+                          "sha256:de649513d3d2d2d50c5a9747079e3fa5879d89ea2e9fb15238e7923b0efa6c93")
+        XCTAssertEqual(Set(value.keys), [harness.hookKey, harness.postHookKey])
+        XCTAssertNil(value["legacy-mcp-key"], "Stale entries outside current keys remain untouched")
+    }
+
+    func testBothHandlersMustBeEnabledAndTrustedForReadiness() throws {
+        let disabledPost = try Harness(hookState: .enabled,
+            metadataOverrides: ["postToolUse": ["enabled": false]])
+        XCTAssertEqual(try disabledPost.client.status(), .disabled)
+        let untrustedPost = try Harness(hookState: .enabled,
+            metadataOverrides: ["postToolUse": ["trustStatus": "untrusted"]])
+        XCTAssertEqual(try untrustedPost.client.status(), .untrusted)
+        let enabled = try Harness(hookState: .enabled)
+        XCTAssertEqual(try enabled.client.enableReviewedHook(), .enabled)
+        XCTAssertFalse(try enabled.methods().contains("config/batchWrite"))
+    }
+
+    func testMismatchedCommandMetadataCannotReceiveTrust() throws {
+        for override in [["handlerType": "mcpTool"], ["timeoutSec": 4], ["async": true],
+                         ["matcher": "custom"], ["currentHash": "invalid"], ["source": "project"],
+                         ["key": "unrelated-disabled"]] as [[String: Any]] {
+            let harness = try Harness(hookState: .disabled, metadataOverrides: ["postToolUse": override])
+            XCTAssertThrowsError(try harness.client.enableReviewedHook())
+            XCTAssertFalse(try harness.methods().contains("config/batchWrite"))
+            XCTAssertEqual(try Data(contentsOf: harness.configURL), harness.originalConfig)
+        }
+    }
+
+    func testConcurrentHookEditStopsTrustAndPreservesTheExternalEdit() throws {
+        let harness = try Harness(hookState: .disabled, concurrentHookEdit: true)
+        XCTAssertThrowsError(try harness.client.enableReviewedHook())
+        XCTAssertFalse(try harness.methods().contains("config/batchWrite"))
+        XCTAssertEqual(try Data(contentsOf: harness.configURL), harness.originalConfig)
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: harness.hooksURL)) as? [String: Any])
+        XCTAssertEqual(root["keep"] as? String, "concurrent")
+    }
+
     func testPublicClientRejectsAUserHomeDifferentFromTheCurrentHome() throws {
         let harness = try Harness(hookState: .disabled)
         let otherHome = harness.root.appendingPathComponent("other-home", isDirectory: true)
@@ -42,7 +115,7 @@ final class CodexNativeHookClientTests: XCTestCase {
         }
     }
 
-    func testEnableReviewedHookWritesOnlyOneTrustStateAndReadsItBack() throws {
+    func testEnableReviewedHookWritesOnlyTwoCurrentTrustStatesAndReadsThemBack() throws {
         let harness = try Harness(hookState: .disabled)
 
         XCTAssertEqual(try harness.client.enableReviewedHook(), .enabled)
@@ -63,10 +136,13 @@ final class CodexNativeHookClientTests: XCTestCase {
         XCTAssertEqual(edits[0]["keyPath"] as? String, "hooks.state")
         XCTAssertEqual(edits[0]["mergeStrategy"] as? String, "upsert")
         let value = try XCTUnwrap(edits[0]["value"] as? [String: Any])
-        XCTAssertEqual(value.keys.sorted(), [harness.hookKey])
+        XCTAssertEqual(value.keys.sorted(), [harness.hookKey, harness.postHookKey].sorted())
         let state = try XCTUnwrap(value[harness.hookKey] as? [String: Any])
         XCTAssertEqual(state["enabled"] as? Bool, true)
         XCTAssertEqual(state["trusted_hash"] as? String, harness.currentHash)
+        let postState = try XCTUnwrap(value[harness.postHookKey] as? [String: Any])
+        XCTAssertEqual(postState["enabled"] as? Bool, true)
+        XCTAssertEqual(postState["trusted_hash"] as? String, harness.postHash)
 
         let backupDirectory = harness.root
             .appendingPathComponent("Library/Application Support/AskKey/client-backups/codex-trust", isDirectory: true)
@@ -328,180 +404,5 @@ private extension CodexNativeHookClientTests {
         }
         XCTAssertNotEqual(kill(pid, 0), 0, "process \(pid) should be gone")
         XCTAssertEqual(errno, ESRCH)
-    }
-}
-
-private extension CodexNativeHookClientTests {
-    final class Harness {
-        enum HookState: Equatable {
-            case missing
-            case disabled
-            case untrusted
-        }
-
-        let root: URL
-        let codexDirectory: URL
-        let hooksURL: URL
-        let configURL: URL
-        let executable: URL
-        let client: CodexNativeHookClient
-        let hookKey: String
-        let currentHash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        let originalConfig = Data("model = \"fixture\"\n".utf8)
-        private let hookPresent: Bool
-        private let initialTrust: String
-        private let requestLog: URL
-
-        init(hookState: HookState) throws {
-            hookPresent = hookState != .missing
-            initialTrust = hookState == .disabled ? "trusted" : "untrusted"
-            root = URL(fileURLWithPath: "/tmp", isDirectory: true)
-                .appendingPathComponent("askkey-native-hook-\(UUID().uuidString)", isDirectory: true)
-            codexDirectory = root.appendingPathComponent(".codex", isDirectory: true)
-            hooksURL = codexDirectory.appendingPathComponent("hooks.json")
-            configURL = codexDirectory.appendingPathComponent("config.toml")
-            executable = root.appendingPathComponent("codex-fixture")
-            hookKey = "\(hooksURL.path):pre_tool_use:0:0"
-            requestLog = root.appendingPathComponent("requests.jsonl")
-            client = CodexNativeHookClient(executable: executable, userHome: root)
-
-            try FileManager.default.createDirectory(at: codexDirectory, withIntermediateDirectories: true)
-            try writeHooks(state: hookState)
-            try originalConfig.write(to: configURL)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configURL.path)
-            try writeExecutable()
-        }
-
-        deinit {
-            try? FileManager.default.removeItem(at: root)
-        }
-
-        func methods() throws -> [String] {
-            try requests().compactMap { $0["method"] as? String }
-        }
-
-        func arguments() throws -> [String] {
-            let data = try Data(contentsOf: root.appendingPathComponent("argv.json"))
-            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String])
-        }
-
-        func requests() throws -> [[String: Any]] {
-            guard FileManager.default.fileExists(atPath: requestLog.path) else { return [] }
-            return try String(contentsOf: requestLog, encoding: .utf8)
-                .split(whereSeparator: \.isNewline)
-                .map { try XCTUnwrap(JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any]) }
-        }
-
-        private func writeHooks(state: HookState) throws {
-            let hook: [String: Any] = [
-                "matcher": "^(Bash|mcp__askkey__list_credentials)$",
-                "hooks": [[
-                    "type": "mcp_tool",
-                    "server": "askkey",
-                    "tool": "credential_discovery_guard",
-                    "input": [
-                        "session_id": "${session_id}",
-                        "turn_id": "${turn_id}",
-                        "tool_name": "${tool_name}",
-                        "tool_input": "${tool_input}"
-                    ],
-                    "timeout": 3
-                ]]
-            ]
-            let root: [String: Any] = [
-                "hooks": [
-                    "PreToolUse": state == .missing ? [] : [hook]
-                ]
-            ]
-            let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
-            try data.write(to: hooksURL)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: hooksURL.path)
-        }
-
-        private func writeExecutable() throws {
-            let homeLiteral = String(reflecting: root.path)
-            let configLiteral = String(reflecting: configURL.path)
-            let hooksLiteral = String(reflecting: hooksURL.path)
-            let logLiteral = String(reflecting: requestLog.path)
-            let keyLiteral = String(reflecting: hookKey)
-            let hashLiteral = String(reflecting: currentHash)
-            let hookPresentLiteral = hookPresent ? "True" : "False"
-            let initialTrustLiteral = String(reflecting: initialTrust)
-            let script = """
-            #!/usr/bin/python3
-            import json
-            import pathlib
-            import sys
-
-            home = \(homeLiteral)
-            config = \(configLiteral)
-            hooks = \(hooksLiteral)
-            log_path = pathlib.Path(\(logLiteral))
-            hook_key = \(keyLiteral)
-            current_hash = \(hashLiteral)
-            hook_present = \(hookPresentLiteral)
-            enabled = False
-            trusted = \(initialTrustLiteral)
-
-            pathlib.Path(sys.argv[0]).with_name("argv.json").write_text(json.dumps(sys.argv[1:]))
-
-            def hook():
-                return {
-                    "key": hook_key,
-                    "currentHash": current_hash,
-                    "enabled": enabled,
-                    "eventName": "preToolUse",
-                    "isManaged": False,
-                    "matcher": "^(Bash|mcp__askkey__list_credentials)$",
-                    "source": "user",
-                    "sourcePath": hooks,
-                    "timeoutSec": 3,
-                    "trustStatus": trusted,
-                    "handlerType": "mcpTool",
-                    "server": "askkey",
-                    "tool": "credential_discovery_guard",
-                    "displayOrder": 0,
-                }
-
-            def config_read():
-                return {
-                    "config": {},
-                    "origins": {
-                        "hooks": {
-                            "name": {"type": "user", "file": config},
-                            "version": "fixture-version-1",
-                        }
-                    },
-                    "layers": [{
-                        "name": {"type": "user", "file": config},
-                        "version": "fixture-version-1",
-                        "config": {},
-                    }],
-                }
-
-            for line in sys.stdin:
-                request = json.loads(line)
-                with log_path.open("a") as log:
-                    log.write(json.dumps(request) + "\\n")
-                if "id" not in request:
-                    continue
-                method = request.get("method")
-                if method == "initialize":
-                    result = {"userAgent": "fixture", "codexHome": home + "/.codex"}
-                elif method == "hooks/list":
-                    result = {"data": [{"cwd": home, "errors": [], "hooks": [hook()] if hook_present else [], "warnings": []}]}
-                elif method == "config/read":
-                    result = config_read()
-                elif method == "config/batchWrite":
-                    enabled = True
-                    trusted = "trusted"
-                    result = {"status": "ok"}
-                else:
-                    result = {}
-                print(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": result}), flush=True)
-            """
-            try Data(script.utf8).write(to: executable)
-            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
-        }
     }
 }

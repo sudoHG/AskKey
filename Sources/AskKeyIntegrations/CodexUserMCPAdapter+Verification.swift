@@ -54,13 +54,23 @@ extension CodexUserMCPAdapter {
             throw CodexUserMCPError.connectionFailed("broker")
         }
         try verifyHelperMCP()
+        if requiresCredentialDiscovery { try verifyCommandDiscoveryHelper() }
+    }
+
+    public func verifyCommandDiscoveryHelper() throws {
+        try assertTrustedHelper()
+        let response = try runProcess(executable: helperURL, arguments: ["hook", "capabilities"],
+                                      environment: ProcessInfo.processInfo.environment)
+        guard let data = response.data(using: .utf8),
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              json["protocolVersion"] as? Int == 1,
+              let clients = json["clients"] as? [String], clients.contains("codex") else {
+            throw CodexUserMCPError.connectionFailed("helper")
+        }
     }
 
     private func verifyHelperMCP() throws {
-        var identity = MCPHelperContract.Identity.askKeyHelper
-        if requiresCredentialDiscovery {
-            identity.requiredTools.insert("credential_discovery_guard")
-        }
+        let identity = MCPHelperContract.Identity.askKeyHelper
         var environment = ProcessInfo.processInfo.environment
         environment["ASKKEY_BROKER_SOCKET"] = brokerSocketPath
         let response: String

@@ -90,13 +90,18 @@ struct DiscoveryTurnStore {
             var entry = state.turns[key] ?? Turn(touched: now)
             if state.turns[key] == nil { state.turns[key] = entry }
             if catalog, let callID, !callID.isEmpty, let call {
+                let progressed: Bool
                 switch phase {
                 case .before:
                     if entry.pending.count < 64 { entry.pending.insert(call) }
+                    progressed = true
                 case .after:
-                    if entry.pending.remove(call) != nil { entry.completed = true }
+                    progressed = entry.pending.remove(call) != nil
+                    if progressed { entry.completed = true }
                 }
-                entry.touched = now
+                // Codex's unmatched callbacks are not catalog progress and
+                // must not extend its lost-callback deadline.
+                if client != "codex" || progressed { entry.touched = now }
                 state.turns[key] = entry
             }
             if state.turns.count > 256 {

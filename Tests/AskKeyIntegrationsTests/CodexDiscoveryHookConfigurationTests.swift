@@ -43,7 +43,7 @@ final class CodexDiscoveryHookConfigurationTests: XCTestCase {
             try Self.expectedHookGroup.asJSONData()
         )
         let postToolUse = try XCTUnwrap(hooks["PostToolUse"] as? [[String: Any]])
-        XCTAssertEqual(postToolUse.count, 1)
+        XCTAssertEqual(postToolUse.count, 2)
         XCTAssertEqual(postToolUse[0]["matcher"] as? String, "post")
         XCTAssertEqual(root["model"] as? String, "keep")
     }
@@ -74,7 +74,8 @@ final class CodexDiscoveryHookConfigurationTests: XCTestCase {
                     "PreToolUse": [
                         ["matcher": "before", "hooks": [["type": "command", "command": "/usr/bin/true"]]],
                         Self.expectedHookGroup
-                    ]
+                    ],
+                    "PostToolUse": [Self.expectedHookGroup]
                 ]
             ]
         ))
@@ -123,7 +124,7 @@ final class CodexDiscoveryHookConfigurationTests: XCTestCase {
         let root = try XCTUnwrap(try harness.readData().jsonObject() as? [String: Any])
         let hooks = try XCTUnwrap(root["hooks"] as? [String: Any])
         XCTAssertNotNil(hooks["PreToolUse"] as? [[String: Any]])
-        XCTAssertEqual((hooks["PostToolUse"] as? [[String: Any]])?.count, 1)
+        XCTAssertEqual((hooks["PostToolUse"] as? [[String: Any]])?.count, 2)
         XCTAssertEqual(root["other"] as? Bool, true)
     }
 
@@ -332,10 +333,73 @@ final class CodexDiscoveryHookConfigurationTests: XCTestCase {
         }
         XCTAssertEqual(try harness.readData(), harness.originalData)
     }
+
+    func testExactLegacyMigratesInPlaceWithOneBackupAndPreservesMode() throws {
+        let unrelated: [String: Any] = ["matcher": "unrelated", "hooks": [["type": "command", "command": "true"]]]
+        let harness = try Harness(data: Self.jsonData(root: ["hooks": [
+            "PreToolUse": [unrelated, Self.legacyHookGroup, unrelated], "PostToolUse": [unrelated]
+        ], "keep": false]))
+        try FileManager.default.setAttributes([.posixPermissions: 0o640], ofItemAtPath: harness.hooksURL.path)
+        XCTAssertFalse(try harness.configuration.hasExpectedHook(), "Legacy needs reconnection")
+        let plan = try harness.configuration.preview()
+        try harness.configuration.apply(plan: plan)
+        let root = try XCTUnwrap(try harness.readData().jsonObject() as? [String: Any])
+        let hooks = try XCTUnwrap(root["hooks"] as? [String: [[String: Any]]])
+        XCTAssertEqual(try hooks["PreToolUse"]?.asJSONData(), try [unrelated, Self.expectedHookGroup, unrelated].asJSONData())
+        XCTAssertEqual(try hooks["PostToolUse"]?.asJSONData(), try [unrelated, Self.expectedHookGroup].asJSONData())
+        XCTAssertEqual(root["keep"] as? Bool, false)
+        XCTAssertEqual(try harness.mode(), 0o640)
+        XCTAssertEqual(try harness.backupFiles().count, 1)
+        XCTAssertEqual(try Data(contentsOf: XCTUnwrap(harness.backupFiles().first)), harness.originalData)
+        XCTAssertFalse(try harness.configuration.preview().changed)
+    }
+
+    func testPartialCommandDefinitionNeedsReconnectAndAddsOnlyMissingEvent() throws {
+        for event in ["PreToolUse", "PostToolUse"] {
+            let harness = try Harness(data: Self.jsonData(root: ["hooks": [event: [Self.expectedHookGroup]]]))
+            XCTAssertFalse(try harness.configuration.hasExpectedHook())
+            let plan = try harness.configuration.preview()
+            XCTAssertTrue(plan.changed)
+            try harness.configuration.apply(plan: plan)
+            XCTAssertTrue(try harness.configuration.hasExpectedHook())
+            XCTAssertFalse(try harness.configuration.preview().changed)
+        }
+    }
+
+    func testCustomizedLegacyAndCommandDefinitionsAreNeverRewritten() throws {
+        for group in [Self.legacyHookGroup, Self.expectedHookGroup] {
+            var customized = group
+            customized["matcher"] = "custom"
+            let harness = try Harness(data: Self.jsonData(root: ["hooks": ["PreToolUse": [customized]]]))
+            XCTAssertThrowsError(try harness.configuration.preview()) { error in
+                XCTAssertEqual(error as? CodexDiscoveryHookConfigurationError, .customHookMismatch)
+            }
+            XCTAssertEqual(try harness.readData(), harness.originalData)
+        }
+    }
+
+    func testMixedLegacyAndNewHooksAndDuplicatePostHooksAreRejected() throws {
+        for hooks in [
+            ["PreToolUse": [Self.legacyHookGroup, Self.expectedHookGroup]],
+            ["PreToolUse": [Self.legacyHookGroup], "PostToolUse": [Self.expectedHookGroup]],
+            ["PostToolUse": [Self.expectedHookGroup, Self.expectedHookGroup]]
+        ] {
+            let harness = try Harness(data: Self.jsonData(root: ["hooks": hooks]))
+            XCTAssertThrowsError(try harness.configuration.preview()) { error in
+                XCTAssertEqual(error as? CodexDiscoveryHookConfigurationError, .multipleExpectedHooks)
+            }
+            XCTAssertEqual(try harness.readData(), harness.originalData)
+        }
+    }
 }
 
 private extension CodexDiscoveryHookConfigurationTests {
     static let expectedHookGroup: [String: Any] = [
+        "matcher": "^(Bash|mcp__askkey__list_credentials)$",
+        "hooks": [["type": "command", "command": "\"/Applications/Ask Key.app/Contents/Helpers/askkey\" hook codex", "timeout": 3]]
+    ]
+
+    static let legacyHookGroup: [String: Any] = [
         "matcher": "^(Bash|mcp__askkey__list_credentials)$",
         "hooks": [[
             "type": "mcp_tool",
@@ -433,6 +497,12 @@ private extension Data {
 }
 
 private extension Dictionary where Key == String, Value == Any {
+    func asJSONData() throws -> Data {
+        try JSONSerialization.data(withJSONObject: self, options: [.sortedKeys])
+    }
+}
+
+private extension Array where Element == [String: Any] {
     func asJSONData() throws -> Data {
         try JSONSerialization.data(withJSONObject: self, options: [.sortedKeys])
     }
