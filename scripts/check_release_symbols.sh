@@ -36,6 +36,10 @@ for forbidden in \
   ASKKEY_E2E_ \
   synthetic-e2e-value \
   'E2E Broker Credential' \
+  E2EScreenshotDemo \
+  synthetic-staging-value \
+  STAGING_API_TOKEN \
+  'Deploy the staging site' \
   configureE2EAuthentication
 do
   for inspection_file in "$inspection_dir/nm.txt" "$inspection_dir/strings.txt"; do

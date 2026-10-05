@@ -20,6 +20,7 @@ final class E2EBrokerScenario {
     private var helperGeneration = 0
     private var requestID = 0
     private var targetPID: Int32?
+    private var demoWorkspace: URL?
     private var scenarioTask: Task<Void, Never>?
     private var monitorTask: Task<Void, Never>?
 
@@ -55,6 +56,7 @@ final class E2EBrokerScenario {
         scenarioTask?.cancel()
         monitorTask?.cancel()
         stopHelper()
+        removeDemoWorkspace()
     }
 
     private func run() async throws {
@@ -107,6 +109,12 @@ final class E2EBrokerScenario {
     }
 
     private func makeFrozenRun() throws -> [String: Any] {
+        if scenario == E2EScreenshotDemo.scenario {
+            let run = try E2EScreenshotDemo.makeRun(operationID: "e2e-" + directory.lastPathComponent)
+            demoWorkspace = run.workspace
+            try writeJSON(run.arguments, "frozen-run.json")
+            return run.arguments
+        }
         let script = """
         #!/bin/sh
         set -eu
@@ -323,9 +331,15 @@ final class E2EBrokerScenario {
                 return helperStopped && (self.targetPID.map(self.processGroupStopped) ?? true)
             }
         } catch { stopped = false }
+        removeDemoWorkspace()
         let namespace = SHA256.hash(data: Data(directory.path.utf8)).map { String(format: "%02x", $0) }.joined()
         UserDefaults.standard.removePersistentDomain(forName: "com.sudohg.askkey.debug." + namespace)
         try? report("cleanup.json", ["processesStopped": stopped])
+    }
+
+    private func removeDemoWorkspace() {
+        if let demoWorkspace { E2EScreenshotDemo.removeWorkspace(demoWorkspace) }
+        demoWorkspace = nil
     }
 
     private func recordProcess(_ pid: Int32, role: String) throws {
