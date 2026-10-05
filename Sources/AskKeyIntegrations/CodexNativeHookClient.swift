@@ -47,12 +47,17 @@ public struct CodexNativeHookClient: Sendable {
             }
             let original = try safeConfig()
             let before = try userLayer(rpc)
-            guard let metadata = try hookMetadata(rpc, snapshot: reviewed),
-                  let key = metadata["key"] as? String,
-                  let hash = metadata["currentHash"] as? String else {
-                throw CodexNativeHookClientError.invalidResponse
-            }
+            let metadata = try hookMetadata(rpc, snapshot: reviewed)
             if Self.state(metadata) == .enabled { return .enabled }
+            var value: [String: [String: Any]] = [:]
+            for own in metadata {
+                guard let key = own["key"] as? String, let hash = own["currentHash"] as? String else {
+                    throw CodexNativeHookClientError.invalidResponse
+                }
+                value[key] = ["enabled": true, "trusted_hash": hash]
+            }
+            let keys = Set(value.keys)
+            guard keys.count == 2 else { throw CodexNativeHookClientError.invalidResponse }
             let directory = backupDirectory ?? userHome.appendingPathComponent(
                 "Library/Application Support/AskKey/client-backups/codex-trust"
             )
@@ -80,14 +85,16 @@ public struct CodexNativeHookClient: Sendable {
                 "filePath": configURL.path,
                 "expectedVersion": before.version,
                 "reloadUserConfig": true,
-                "edits": [["keyPath": "hooks.state", "mergeStrategy": "upsert", "value": [
-                    key: ["enabled": true, "trusted_hash": hash]
-                ]]]
+                "edits": [["keyPath": "hooks.state", "mergeStrategy": "upsert", "value": value]]
                 ])
                 let after = try userLayer(rpc)
-                guard try Self.normalized(before.config, removing: key) == Self.normalized(after.config, removing: key),
-                      let readback = try hookMetadata(rpc, snapshot: reviewed),
-                      readback["currentHash"] as? String == hash,
+                let readback = try hookMetadata(rpc, snapshot: reviewed)
+                guard try Self.normalized(before.config, removing: keys) == Self.normalized(after.config, removing: keys),
+                      readback.count == metadata.count,
+                      zip(metadata, readback).allSatisfy({
+                          $0["key"] as? String == $1["key"] as? String
+                              && $0["currentHash"] as? String == $1["currentHash"] as? String
+                      }),
                       Self.state(readback) == .enabled else {
                     throw CodexNativeHookClientError.verificationFailed
                 }
@@ -102,7 +109,6 @@ public struct CodexNativeHookClient: Sendable {
 
     private struct Snapshot: Equatable {
         let bytes: Data
-        let key: String
     }
 
     private func reviewedSnapshot() throws -> Snapshot? {
@@ -113,63 +119,74 @@ public struct CodexNativeHookClient: Sendable {
         )
         guard try configuration.hasExpectedHook() else { return nil }
         let bytes = try ClientConfigFileIO.readRegularFile(hooksURL, maximumBytes: 1_048_576).bytes
-        guard let root = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
-              let hooks = root["hooks"] as? [String: Any],
-              let groups = hooks["PreToolUse"] as? [[String: Any]],
-              let index = groups.firstIndex(where: { group in
-                  guard let handlers = group["hooks"] as? [[String: Any]] else { return false }
-                  return handlers.contains { $0["server"] as? String == "askkey"
-                      && $0["tool"] as? String == "credential_discovery_guard" }
-              }),
-              try configuration.hasExpectedHook(),
+        guard try configuration.hasExpectedHook(),
               try ClientConfigFileIO.readRegularFile(hooksURL).bytes == bytes else {
             throw CodexNativeHookClientError.configurationChanged
         }
-        return Snapshot(bytes: bytes, key: "\(hooksURL.path):pre_tool_use:\(index):0")
+        return Snapshot(bytes: bytes)
     }
 
-    private func hookMetadata(_ rpc: RPC, snapshot: Snapshot?) throws -> [String: Any]? {
-        let result = try rpc.call("hooks/list", ["cwds": [userHome.path]])
-        guard let entries = result["data"] as? [[String: Any]], entries.count == 1,
+    private func hookMetadata(_ rpc: RPC, snapshot: Snapshot?) throws -> [[String: Any]] {
+        let response = try rpc.call("hooks/list", ["cwds": [userHome.path]])
+        guard let entries = response["data"] as? [[String: Any]], entries.count == 1,
               let entry = entries.first,
               let errors = entry["errors"] as? [Any], errors.isEmpty,
               let hooks = entry["hooks"] as? [[String: Any]] else {
             throw CodexNativeHookClientError.invalidResponse
         }
-        let matches = hooks.filter {
-            $0["sourcePath"] as? String == hooksURL.path
-                && $0["server"] as? String == "askkey"
-                && $0["tool"] as? String == "credential_discovery_guard"
-        }
         guard let snapshot else {
-            guard matches.isEmpty, try reviewedSnapshot() == nil else {
+            guard try reviewedSnapshot() == nil else {
                 throw CodexNativeHookClientError.configurationChanged
             }
-            return nil
+            return []
         }
-        guard matches.count == 1, let own = matches.first,
-              own["key"] as? String == snapshot.key,
-              own["source"] as? String == "user",
-              own["isManaged"] as? Bool == false,
-              own["eventName"] as? String == "preToolUse",
-              own["handlerType"] as? String == "mcpTool",
-              own["matcher"] as? String == "^(Bash|mcp__askkey__list_credentials)$",
-              own["timeoutSec"] as? Int == 3,
-              let hash = own["currentHash"] as? String,
-              hash.hasPrefix("sha256:"), hash.count == 71,
-              hash.dropFirst(7).allSatisfy({ $0.isHexDigit }),
-              own["enabled"] is Bool,
-              ["trusted", "untrusted"].contains(own["trustStatus"] as? String ?? ""),
+        // Identify exact definitions, then use Codex's returned keys/hashes.
+        // Unrelated groups can appear before or after ours in either event.
+        let matches = hooks.filter {
+            $0["sourcePath"] as? String == hooksURL.path
+                && CodexDiscoveryHookConfiguration.isOwnCommand($0["command"] as? String)
+        }
+        var result: [[String: Any]] = []
+        for event in ["preToolUse", "postToolUse"] {
+            let candidates = matches.filter { $0["eventName"] as? String == event }
+            guard candidates.count == 1, let own = candidates.first,
+                  let key = own["key"] as? String, !key.isEmpty,
+                  Self.validKey(key, sourcePath: hooksURL.path, event: event),
+                  own["source"] as? String == "user",
+                  own["isManaged"] as? Bool == false,
+                  own["handlerType"] as? String == "command",
+                  own["command"] as? String == CodexDiscoveryHookConfiguration.expectedCommand,
+                  own["async"] as? Bool == false,
+                  own["matcher"] as? String == CodexDiscoveryHookConfiguration.expectedMatcher,
+                  own["timeoutSec"] as? Int == 3,
+                  let hash = own["currentHash"] as? String,
+                  hash.hasPrefix("sha256:"), hash.count == 71,
+                  hash.dropFirst(7).allSatisfy({ $0.isHexDigit }),
+                  own["enabled"] is Bool,
+                  ["trusted", "untrusted"].contains(own["trustStatus"] as? String ?? "") else {
+                throw CodexNativeHookClientError.verificationFailed
+            }
+            result.append(own)
+        }
+        guard matches.count == 2, Set(result.compactMap { $0["key"] as? String }).count == 2,
               try reviewedSnapshot()?.bytes == snapshot.bytes else {
             throw CodexNativeHookClientError.verificationFailed
         }
-        return own
+        return result
     }
 
-    private static func state(_ metadata: [String: Any]?) -> CodexNativeHookStatus {
-        guard let metadata else { return .missing }
-        if metadata["trustStatus"] as? String != "trusted" { return .untrusted }
-        return metadata["enabled"] as? Bool == true ? .enabled : .disabled
+    private static func validKey(_ key: String, sourcePath: String, event: String) -> Bool {
+        let eventKey = event == "preToolUse" ? "pre_tool_use" : "post_tool_use"
+        let prefix = "\(sourcePath):\(eventKey):"
+        guard key.hasPrefix(prefix) else { return false }
+        let indices = key.dropFirst(prefix.count).split(separator: ":", omittingEmptySubsequences: false)
+        return indices.count == 2 && indices.allSatisfy { Int($0).map { $0 >= 0 } == true }
+    }
+
+    private static func state(_ metadata: [[String: Any]]) -> CodexNativeHookStatus {
+        guard metadata.count == 2 else { return .missing }
+        if metadata.contains(where: { $0["trustStatus"] as? String != "trusted" }) { return .untrusted }
+        return metadata.allSatisfy { $0["enabled"] as? Bool == true } ? .enabled : .disabled
     }
 
     private func userLayer(_ rpc: RPC) throws -> (version: String, config: [String: Any]) {
@@ -195,11 +212,11 @@ public struct CodexNativeHookClient: Sendable {
         } catch { throw CodexNativeHookClientError.unsafeConfiguration }
     }
 
-    private static func normalized(_ input: [String: Any], removing key: String) throws -> Data {
+    private static func normalized(_ input: [String: Any], removing keys: Set<String>) throws -> Data {
         var config = input
         if var hooks = config["hooks"] as? [String: Any] {
             if var state = hooks["state"] as? [String: Any] {
-                state.removeValue(forKey: key)
+                for key in keys { state.removeValue(forKey: key) }
                 if state.isEmpty { hooks.removeValue(forKey: "state") } else { hooks["state"] = state }
             }
             if hooks.isEmpty { config.removeValue(forKey: "hooks") } else { config["hooks"] = hooks }

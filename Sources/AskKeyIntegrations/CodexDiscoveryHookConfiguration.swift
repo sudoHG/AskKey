@@ -11,6 +11,8 @@ public final class CodexDiscoveryHookConfiguration: @unchecked Sendable {
     static let expectedMatcher = "^(Bash|mcp__askkey__list_credentials)$"
     static let expectedServer = "askkey"
     static let expectedTool = "credential_discovery_guard"
+    static let expectedCommand = "\"/Applications/Ask Key.app/Contents/Helpers/askkey\" hook codex"
+    static let expectedEvents = ["PreToolUse", "PostToolUse"]
 
     let hooksURL: URL
     let backupDirectory: URL

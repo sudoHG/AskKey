@@ -8,13 +8,13 @@ do {
     if command == "hook" {
         guard arguments.count == 2 else { throw HelperError.usage }
         if arguments[1] == "capabilities" {
-            try writeMCPResponse(["protocolVersion": 1, "clients": ["cursor", "grok", "claude"]])
+            try writeMCPResponse(["protocolVersion": 1, "clients": ["cursor", "grok", "claude", "codex"]])
             exit(EXIT_SUCCESS)
         }
-        guard ["cursor", "grok", "claude"].contains(arguments[1]) else { throw HelperError.usage }
+        guard ["cursor", "grok", "claude", "codex"].contains(arguments[1]) else { throw HelperError.usage }
         var response = CommandDiscoveryHook.allow(client: arguments[1])
         let data: Data?
-        if arguments[1] == "claude" {
+        if arguments[1] == "claude" || arguments[1] == "codex" {
             data = CommandDiscoveryHook.readClaudeInput(maximumBytes: BrokerLimits.maximumFrameBytes)
         } else if case .frame(let frame) = readMCPFrame(maximumBytes: BrokerLimits.maximumFrameBytes) {
             data = frame
@@ -25,7 +25,7 @@ do {
             // state cannot authorize a credential or block unrelated work.
             response = (try? CommandDiscoveryHook.response(client: arguments[1], input: input)) ?? response
         }
-        if arguments[1] != "claude" || !response.isEmpty { try writeMCPResponse(response) }
+        if !["claude", "codex"].contains(arguments[1]) || !response.isEmpty { try writeMCPResponse(response) }
         exit(EXIT_SUCCESS)
     }
     if command == "mcp" {

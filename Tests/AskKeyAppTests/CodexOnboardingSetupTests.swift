@@ -24,6 +24,32 @@ final class CodexOnboardingSetupTests: AskKeyAppTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.hooksURL.path))
     }
 
+    func testLegacyAndPartialCommandHooksOfferReconnectWithoutWriting() throws {
+        let command: [String: Any] = ["matcher": "^(Bash|mcp__askkey__list_credentials)$", "hooks": [[
+            "type": "command", "command": "\"/Applications/Ask Key.app/Contents/Helpers/askkey\" hook codex", "timeout": 3
+        ]]]
+        let legacy: [String: Any] = ["matcher": "^(Bash|mcp__askkey__list_credentials)$", "hooks": [[
+            "type": "mcp_tool", "server": "askkey", "tool": "credential_discovery_guard", "timeout": 3,
+            "input": ["session_id": "${session_id}", "turn_id": "${turn_id}",
+                      "tool_name": "${tool_name}", "tool_input": "${tool_input}"]
+        ]]]
+        for events in [["PreToolUse": [legacy]], ["PreToolUse": [command]], ["PostToolUse": [command]]] {
+            let fixture = try CodexSetupFixture(nativeMode: .missing)
+            defer { fixture.close() }
+            _ = try fixture.mcp.apply()
+            let original = try JSONSerialization.data(withJSONObject: ["hooks": events], options: [.sortedKeys])
+            try original.write(to: fixture.hooksURL)
+            let mcpBefore = try Data(contentsOf: fixture.mcp.configURL)
+            let checked = try CodexOnboardingSetup.check(
+                mcp: fixture.mcp, hook: fixture.hook, native: fixture.native, plan: fixture.plan)
+            XCTAssertEqual(checked.outcome, .configuredUnverified)
+            XCTAssertEqual(checked.discovery, .missing)
+            XCTAssertTrue(try XCTUnwrap(checked.plan?.codexHookPlan).changed)
+            XCTAssertEqual(try Data(contentsOf: fixture.hooksURL), original)
+            XCTAssertEqual(try Data(contentsOf: fixture.mcp.configURL), mcpBefore)
+        }
+    }
+
     func testChangingHookAfterReviewStopsBeforeMCPConfiguration() throws {
         let fixture = try CodexSetupFixture()
         defer { fixture.close() }
@@ -295,39 +321,42 @@ private final class CodexSetupFixture {
         def save(value):
             state_path.write_text(json.dumps(value))
 
-        def own_index():
+        def own_indices(event):
             try:
                 document = json.loads(hooks.read_text())
             except Exception:
-                return None
-            groups = document.get("hooks", {}).get("PreToolUse", [])
+                return []
+            groups = document.get("hooks", {}).get(event, [])
+            result = []
             for index, group in enumerate(groups):
                 for handler in group.get("hooks", []):
-                    if handler.get("server") == "askkey" and handler.get("tool") == "credential_discovery_guard":
-                        return index
-            return None
+                    if handler.get("command", "").endswith(" hook codex"):
+                        result.append(index)
+            return result
 
         def metadata():
-            index = own_index()
-            if index is None:
-                return []
             value = state()
-            return [{
-                "key": str(hooks) + ":pre_tool_use:" + str(index) + ":0",
+            result = []
+            for raw, event, event_key in [("PreToolUse", "preToolUse", "pre_tool_use"),
+                                         ("PostToolUse", "postToolUse", "post_tool_use")]:
+                for index in own_indices(raw):
+                    result.append({
+                "key": str(hooks) + ":" + event_key + ":" + str(index) + ":0",
                 "currentHash": current_hash,
                 "enabled": value["enabled"],
-                "eventName": "preToolUse",
+                "eventName": event,
                 "isManaged": False,
                 "matcher": "^(Bash|mcp__askkey__list_credentials)$",
                 "source": "user",
                 "sourcePath": str(hooks),
                 "timeoutSec": 3,
                 "trustStatus": value["trusted"],
-                "handlerType": "mcpTool",
-                "server": "askkey",
-                "tool": "credential_discovery_guard",
+                "handlerType": "command",
+                "command": '\"/Applications/Ask Key.app/Contents/Helpers/askkey\" hook codex',
+                "async": False,
                 "displayOrder": index
-            }]
+                    })
+            return result
 
         def config_read():
             return {

@@ -32,6 +32,7 @@ enum CodexOnboardingSetup {
         let state: CodexNativeHookStatus
         do {
             state = try native.status()
+            try mcp.verifyCommandDiscoveryHelper()
         } catch {
             if RestrictedProcessCancellation.current?() == true { throw AgentOnboardingFailure.cancelled }
             return AgentCheckReport(
@@ -78,6 +79,7 @@ enum CodexOnboardingSetup {
             throw AgentOnboardingFailure.planChanged
         }
         guard try native.status() != .unsupported else { throw AgentOnboardingFailure.unsupportedVersion }
+        try mcp.verifyCommandDiscoveryHelper()
         if plan.configurationPresent {
             guard mcp.status() == .connected else { throw AgentOnboardingFailure.verificationFailed }
         } else {
