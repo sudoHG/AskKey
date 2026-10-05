@@ -72,6 +72,27 @@ The `basic-ui-flows` job runs `bash scripts/run-e2e.sh` on a clean macOS runner.
 
 The CI artifact `askkey-basic-ui-evidence` contains the runner's output and is uploaded even on failure, with seven-day retention. The output location is generated under the ignored UI output directory; it is not a tracked source path. Read logs or bundles only as needed, then delete locally downloaded/generated records. Keep commands, counts, SHAs, and CI links in the PR receipt; do not commit evidence directories. Preserve only evidence explicitly requested by the maintainer or a necessary unresolved-failure reproduction.
 
+The optional `ScreenshotE2ETests` suite runs separately in CI and does not change the required-flow gate. Its window captures use synthetic credentials and simulated authentication, including a cancelled authentication attempt. Download `askkey-basic-ui-evidence` from the PR's **Checks → CI → Artifacts**, or use `gh run download <run-id> -R sudoHG/AskKey -n askkey-basic-ui-evidence -D <temporary-directory>`. Open the PNGs in the artifact's `screenshots/` directory:
+
+```text
+01-welcome-first-launch.png
+02-welcome-after-first-save.png
+03-all-credentials.png
+04-template-chooser.png
+05-new-credential.png
+06-import-preview.png
+07-agent-access.png
+08-pending-requests.png
+09-access-records.png
+10-settings.png
+11-locked.png
+12-approval-default.png
+13-approval-details.png
+14-approval-cancelled-authentication.png
+```
+
+An optional capture failure is diagnostic: inspect the screenshot step, its log and xcresult, and the exported subset. A green required-flow job alone does not prove screenshot completeness; #146 acceptance also requires all 14 PNGs in the artifact. Delete downloaded evidence after review.
+
 Desktop tests exercise shared App/Broker/helper behavior, but system authentication and external client boundaries use isolated fixtures. Passing them does not validate real Touch ID, production keychain access, a real client task, signing/notarization, or a release. Per [ADR 0006](adr/0006-release-process.md), `Local` and `Release` builds run [release-gate.py](../scripts/release-gate.py): the checkout must be clean, `HEAD` must be reachable from `origin/main` after fetching, and the latest push-to-main `CI` run for that exact commit and both required jobs (`build-and-test`, `basic-ui-flows`) must succeed. Jobs are checked for the run's latest attempt. `Release` also requires the tag `v<product version>` to point at `HEAD`; signing identities, notarization, and explicit maintainer publication approval remain required by the release process.
 
 ## Release packaging

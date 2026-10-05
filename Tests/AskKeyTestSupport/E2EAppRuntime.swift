@@ -24,7 +24,17 @@ package enum E2EAppRuntime {
     }
 
     private static func configureE2EAuthentication() {
-        Vault.shared.approvalRequests.configureAuthentication { _ in true }
+        let capturesApproval = scenario == "approval-screenshots"
+        let command = controlDirectory.appendingPathComponent("command-cancel-authentication.txt")
+        let evidence = controlDirectory.appendingPathComponent("authentication-cancelled.json")
+        Vault.shared.approvalRequests.configureAuthentication { _ in
+            let cancelled = capturesApproval && FileManager.default.fileExists(atPath: command.path)
+            if cancelled {
+                let response = try? JSONSerialization.data(withJSONObject: ["outcome": "cancelled"])
+                try? response?.write(to: evidence, options: .atomic)
+            }
+            return !cancelled
+        }
     }
     static func prepareIsolation() {
         let environment = ProcessInfo.processInfo.environment
@@ -166,7 +176,7 @@ package enum E2EAppRuntime {
         )
         let model = VaultViewModel.configured(
             languageMode: ProcessInfo.processInfo.environment["ASKKEY_E2E_LANGUAGE"] ?? "zh-Hans",
-            appearanceMode: "light", completedOnboarding: true,
+            appearanceMode: "light", completedOnboarding: selectedScenario != "screenshots-welcome",
             readApprovalAuthenticationEnabled: true,
             unlockVault: {}, authenticateDeviceOwner: { _ in .allow },
             loginItemIsEnabled: { false }, setLoginItemEnabled: { _ in },
@@ -174,7 +184,7 @@ package enum E2EAppRuntime {
         )
         model.isLocked = true
         model.hasManagementSession = false
-        model.showsLockedWorkbench = true
+        model.showsLockedWorkbench = selectedScenario != "screenshots-welcome"
         return model
     }
 

@@ -2,11 +2,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd -P)"
-python3 scripts/e2e-gate.py invalidate
+MODE="${1:-required}"
+case "$MODE" in
+  required) TEST_SELECTION=(-skip-testing:AskKeyE2ETests/ScreenshotE2ETests) ;;
+  screenshots) TEST_SELECTION=(-only-testing:AskKeyE2ETests/ScreenshotE2ETests) ;;
+  *) echo 'Usage: run-e2e.sh [required|screenshots]' >&2; exit 2 ;;
+esac
+if [[ "$MODE" == required ]]; then python3 scripts/e2e-gate.py invalidate; fi
 AVAILABLE_KIB="$(df -k /System/Volumes/Data | awk 'NR==2 {print $4}')"
 [[ "${AVAILABLE_KIB:-0}" -ge 83886080 ]] || { echo 'E2E requires at least 80 GiB free.' >&2; exit 1; }
 command -v xcodegen >/dev/null || { echo 'Install xcodegen before running UI tests.' >&2; exit 1; }
-OUTPUT="$ROOT/Tests/UI/output/$(date +%Y%m%d-%H%M%S)-$$"
+OUTPUT="$ROOT/Tests/UI/output/$(date +%Y%m%d-%H%M%S)-$$-$MODE"
 mkdir -p "$OUTPUT"
 chmod 700 "$OUTPUT"
 RUN_ROOT="$(mktemp -d /private/tmp/ak-e2e-XXXXXXXX)"
@@ -111,7 +117,7 @@ for case in cases:
 shutil.rmtree(root)
 PY
   if [[ "$original_exit" == 0 && "$cleanup_exit" != 0 ]]; then original_exit=$cleanup_exit; fi
-  if [[ "$original_exit" != 0 ]]; then python3 scripts/e2e-gate.py invalidate; fi
+  if [[ "$original_exit" != 0 && "$MODE" == required ]]; then python3 scripts/e2e-gate.py invalidate; fi
   exit "$original_exit"
 }
 trap cleanup EXIT
@@ -124,6 +130,7 @@ bash scripts/build-app.sh E2E > "$OUTPUT/app-build.log" 2>&1
 xcodegen generate --spec Tests/UI/project.yml > "$OUTPUT/project-generation.log"
 test_exit=0
 xcodebuild test -project Tests/UI/AskKeyE2E.xcodeproj -scheme AskKeyE2E \
+  "${TEST_SELECTION[@]}" \
   -destination 'platform=macOS' -parallel-testing-enabled NO \
   -derivedDataPath "$ROOT/.derivedData/e2e-runner" \
   -resultBundlePath "$OUTPUT/basic-flows.xcresult" \
@@ -137,6 +144,10 @@ if [[ -d "$OUTPUT/basic-flows.xcresult" ]]; then
     > "$OUTPUT/summary.json"
   xcrun xcresulttool get test-results tests --path "$OUTPUT/basic-flows.xcresult" \
     > "$OUTPUT/tests.json"
+fi
+if [[ "$MODE" == screenshots ]]; then
+  python3 scripts/e2e-report.py --export-screenshots "$OUTPUT/basic-flows.xcresult" "$ROOT/Tests/UI/output/screenshots"
+  exit "$test_exit"
 fi
 if [[ "$test_exit" != 0 ]]; then
   echo "E2E FAILED (exit $test_exit). See $OUTPUT/ui-tests.log" >&2

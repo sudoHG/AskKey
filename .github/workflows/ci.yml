@@ -54,6 +54,9 @@ jobs:
         run: brew list xcodegen || brew install xcodegen
       - name: Run required desktop flows
         run: bash scripts/run-e2e.sh
+      - name: Capture optional key screen screenshots
+        continue-on-error: true
+        run: bash scripts/run-e2e.sh screenshots
       - name: Preserve UI evidence even on failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
