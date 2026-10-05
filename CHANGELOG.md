@@ -2,6 +2,32 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
+## [0.2.0] - 2026-10-05
+
+### Added
+
+- Claude Code support: AskKey adds itself through the official `claude mcp` CLI at user scope and installs credential discovery hooks in `~/.claude/settings.json`.
+- The approval prompt shows the command that will run and its working directory; caller name and purpose are marked as declared by the agent.
+- A first-run path: the welcome page leads from the first saved credential to connecting an agent, with a sample prompt to try.
+- Credential templates and an import preview that shows permissions before anything is saved.
+
+### Changed
+
+- Permissions are named **Allow**, **Ask every time** and **Hidden**.
+- A new visual design across the app: one neutral palette with an accent and a warning color, grouped lists, and the app icon on the welcome page, approval prompt and pending requests.
+- Codex discovery now runs as a command hook, like the other clients, so Orca-managed Codex sessions keep its trust. Reconnect Codex once from **Agent access** after upgrading and trust the new hook.
+- Access records keep only the executable name of an approved command, never its arguments or working directory.
+
+### Fixed
+
+- A rare failure when a client command closed its input before AskKey finished writing to it.
+
+### Known limitations
+
+- No backup or recovery. Keep the originals of your credentials elsewhere.
+- The approval prompt does not yet list the environment variable names a credential is delivered as (#137).
+- All limitations listed for 0.1.0 still apply.
+
 ## [0.1.0] - 2026-10-04
 
 ### Added

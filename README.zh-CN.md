@@ -6,7 +6,7 @@
 
 [English](README.md) | 简体中文
 
-> **[下载最新版本](https://github.com/sudoHG/AskKey/releases/latest)**（经过 Apple 公证的 DMG，需要 macOS 14 或更高版本）。v0.1 没有备份和恢复功能，请自行另存一份凭证原件。
+> **[下载最新版本](https://github.com/sudoHG/AskKey/releases/latest)**（经过 Apple 公证的 DMG，需要 macOS 14 或更高版本）。请旨目前没有备份和恢复功能，请自行另存一份凭证原件。
 
 <p align="center">
   <img src="assets/readme/approval-prompt.png" width="300" alt="请旨的批准弹窗：Claude Code 想用 Staging API 运行 ./deploy.sh，下方是“允许本次”“允许 30 分钟”和“拒绝”按钮（截图为英文界面）">
@@ -124,7 +124,7 @@ AskKey 不保证的事：
 
 退出请旨并删除 `/Applications/Ask Key.app`。对每个已连接的客户端，只移除 [What setup writes](docs/client-integrations.md#what-setup-writes) 中列出的 AskKey 配置项和专属文件，包括 MCP 配置、凭证查询 Hook 和 AskKey 专属的 Hook 信任设置（例如对于 Claude Code，运行 `claude mcp remove askkey --scope user` 并移除 `~/.claude/settings.json` 中的 AskKey 处理器）。保留其他客户端设置和 Hook。应用内没有断开客户端连接的功能。
 
-你也可以选择一并删除本机凭证库。**这会永久销毁所有已保存的凭证，无法撤销；v0.1 没有备份和恢复功能。** 如需删除，请移除 `~/Library/Application Support/AskKey` 目录，并在“钥匙串访问”中删除服务名为 `com.sudohg.askkey.vault` 的钥匙串项目。
+你也可以选择一并删除本机凭证库。**这会永久销毁所有已保存的凭证，无法撤销；请旨目前没有备份和恢复功能。** 如需删除，请移除 `~/Library/Application Support/AskKey` 目录，并在“钥匙串访问”中删除服务名为 `com.sudohg.askkey.vault` 的钥匙串项目。
 
 ## 从源码构建
 
