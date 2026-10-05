@@ -6,7 +6,7 @@ A macOS menu bar app that keeps your credentials encrypted on your Mac and lets 
 
 English | [Simplified Chinese](README.zh-CN.md)
 
-> **[Download the latest release](https://github.com/sudoHG/AskKey/releases/latest)** (notarized DMG, macOS 14+). Version 0.1 has no backup or recovery, so keep the originals of your credentials somewhere else.
+> **[Download the latest release](https://github.com/sudoHG/AskKey/releases/latest)** (notarized DMG, macOS 14+). AskKey has no backup or recovery yet, so keep the originals of your credentials somewhere else.
 
 <p align="center">
   <img src="assets/readme/approval-prompt.png" width="300" alt="AskKey approval prompt: Claude Code wants to use Staging API to run ./deploy.sh, with the buttons Allow once, Allow for 30 minutes and Deny">
@@ -124,7 +124,7 @@ Quit Ask Key, download and verify the new DMG as described in [Install](#install
 
 Quit Ask Key and delete `/Applications/Ask Key.app`. For each connected client, remove only the AskKey entries and owned files listed in [What setup writes](docs/client-integrations.md#what-setup-writes), including MCP configuration, discovery Hooks and AskKey-specific Hook trust settings (for example, for Claude Code, run `claude mcp remove askkey --scope user` and remove AskKey handlers from `~/.claude/settings.json`). Preserve unrelated client settings and Hooks. There is no in-app way to disconnect a client.
 
-You can optionally erase the local credential library as well. **This permanently destroys all stored credentials and cannot be undone; v0.1 has no backup or recovery.** To do so, delete `~/Library/Application Support/AskKey` and use Keychain Access to delete the keychain item with service `com.sudohg.askkey.vault`.
+You can optionally erase the local credential library as well. **This permanently destroys all stored credentials and cannot be undone; AskKey has no backup or recovery.** To do so, delete `~/Library/Application Support/AskKey` and use Keychain Access to delete the keychain item with service `com.sudohg.askkey.vault`.
 
 ## Build from source
 
