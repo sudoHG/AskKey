@@ -67,7 +67,6 @@ extension AppDelegate {
             resetLockedApprovalReminder()
         }
         presentingApproval = true
-        NSApp.activate(ignoringOtherApps: true)
 
         let request = pending.request
         runFrozenApprovalPanel(
