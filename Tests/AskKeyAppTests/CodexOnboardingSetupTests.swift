@@ -47,6 +47,13 @@ final class CodexOnboardingSetupTests: AskKeyAppTestCase {
             XCTAssertTrue(try XCTUnwrap(checked.plan?.codexHookPlan).changed)
             XCTAssertEqual(try Data(contentsOf: fixture.hooksURL), original)
             XCTAssertEqual(try Data(contentsOf: fixture.mcp.configURL), mcpBefore)
+            // A reused legacy key carries an old hash, reported as modified.
+            try JSONSerialization.data(withJSONObject: ["enabled": false, "trusted": "modified"])
+                .write(to: fixture.root.appendingPathComponent("native-state.json"))
+            let applied = try CodexOnboardingSetup.apply(mcp: fixture.mcp, hook: fixture.hook,
+                native: fixture.native, plan: XCTUnwrap(checked.plan))
+            XCTAssertEqual(applied.outcome, .verifiedConnected)
+            XCTAssertEqual(try fixture.native.status(), .enabled)
         }
     }
 

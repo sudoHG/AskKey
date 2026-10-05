@@ -163,7 +163,7 @@ public struct CodexNativeHookClient: Sendable {
                   hash.hasPrefix("sha256:"), hash.count == 71,
                   hash.dropFirst(7).allSatisfy({ $0.isHexDigit }),
                   own["enabled"] is Bool,
-                  ["trusted", "untrusted"].contains(own["trustStatus"] as? String ?? "") else {
+                  ["trusted", "untrusted", "modified"].contains(own["trustStatus"] as? String ?? "") else {
                 throw CodexNativeHookClientError.verificationFailed
             }
             result.append(own)
