@@ -10,7 +10,7 @@ The project started as a fork of [Lokalite](https://github.com/RubenGlez/lokalit
 
 ## Status
 
-v0.1 is normalized and verified on the maintainer's machine (see [#1](https://github.com/sudoHG/AskKey/issues/1)). v0.1.0 is released as a notarized DMG ([release](https://github.com/sudoHG/AskKey/releases/tag/v0.1.0), [#100](https://github.com/sudoHG/AskKey/issues/100)). In the [client verification receipt](https://github.com/sudoHG/AskKey/issues/91#issuecomment-5975659000), Codex and Cursor passed all five steps; Grok CLI passed steps 1–2, and the maintainer decided not to run steps 3–5 for now.
+v0.1 is normalized and verified on the maintainer's machine (see [#1](https://github.com/sudoHG/AskKey/issues/1)). v0.1.0 ([#100](https://github.com/sudoHG/AskKey/issues/100)) and v0.2.0 ([release](https://github.com/sudoHG/AskKey/releases/tag/v0.2.0), [#110](https://github.com/sudoHG/AskKey/issues/110)) are released as notarized DMGs; before notarizing, follow the pre-release checks in [docs/testing.md](docs/testing.md). In the [client verification receipt](https://github.com/sudoHG/AskKey/issues/91#issuecomment-5975659000), Codex and Cursor passed all five steps; Grok CLI passed steps 1–2, and the maintainer decided not to run steps 3–5 for now.
 
 - All work happens through GitHub Issues and pull requests.
 - iCloud backup and recovery were removed from v0.1 in #18. A redesigned backup needs its own issue.
