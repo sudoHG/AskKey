@@ -193,6 +193,10 @@ enum ManagementAuthenticationSubprocess {
             writeAndTerminate(ManagementAuthenticationResponse(outcome: .failed))
             return true
         }
+        // The Touch ID prompt belongs to this process. Bring it forward so the
+        // prompt has focus and the sensor is ready without an extra click; the
+        // parent also yields activation to this process when it is active.
+        NSApp.activate(ignoringOtherApps: true)
         context.evaluatePolicy(
             policy,
             localizedReason: presentation.reason
@@ -351,6 +355,12 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
         defer { payloadData.resetBytes(in: payloadData.startIndex..<payloadData.endIndex) }
         do {
             try process.run()
+            let pid = process.processIdentifier
+            DispatchQueue.main.async {
+                if let prompt = NSRunningApplication(processIdentifier: pid) {
+                    NSApp.yieldActivation(to: prompt)
+                }
+            }
             try input.fileHandleForWriting.write(contentsOf: payloadData)
             try input.fileHandleForWriting.close()
         } catch {
