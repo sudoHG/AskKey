@@ -90,7 +90,7 @@ struct FrozenAgentApprovalPrompt: View {
     }
 
     private var appIcon: some View {
-        Image(nsImage: NSApplication.shared.applicationIconImage ?? NSImage())
+        Image(nsImage: AppIcon.load())
             .resizable()
             .interpolation(.high)
             .frame(width: 64, height: 64)

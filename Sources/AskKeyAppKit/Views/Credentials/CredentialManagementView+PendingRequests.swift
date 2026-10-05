@@ -58,7 +58,7 @@ extension CredentialManagementView {
     ) -> some View {
         let presentation = PendingRequestPresentation(approval: approval)
         return HStack(spacing: Theme.Spacing.md) {
-            Image(nsImage: NSApp.applicationIconImage)
+            Image(nsImage: AppIcon.load())
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 32, height: 32)
@@ -96,7 +96,7 @@ extension CredentialManagementView {
 
     private var pendingCountRow: some View {
         HStack(spacing: Theme.Spacing.md) {
-            Image(nsImage: NSApp.applicationIconImage)
+            Image(nsImage: AppIcon.load())
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 32, height: 32)
