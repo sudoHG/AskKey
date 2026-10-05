@@ -16,5 +16,8 @@ final class AgentApprovalPanelTests: AskKeyAppTestCase {
         XCTAssertTrue(panel.collectionBehavior.contains(.fullScreenAuxiliary))
         XCTAssertFalse(panel.collectionBehavior.contains(.canJoinAllSpaces))
         XCTAssertEqual(panel.level, .modalPanel)
+        XCTAssertTrue(panel.styleMask.contains(.nonactivatingPanel))
+        XCTAssertFalse(panel.becomesKeyOnlyIfNeeded)
+        XCTAssertTrue(panel.canBecomeKey)
     }
 }
