@@ -300,6 +300,11 @@ enum ManagementAuthenticationSubprocess {
 final class ManagementAuthenticationRunner: @unchecked Sendable {
     static let shared = ManagementAuthenticationRunner()
 
+    /// True while a Touch ID prompt process is running. The app ignores the
+    /// focus changes it causes, so the Dock icon does not flicker.
+    static var isPromptShowing: Bool { promptShowing.isSet }
+    private static let promptShowing = ActivationFlag()
+
     private let queue = DispatchQueue(label: "com.sudohg.askkey.authentication")
     private let executableURL: URL?
     private let timeout: TimeInterval
@@ -341,10 +346,12 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
         ) else { return .failed }
         let process = Process()
         let wasActive = ActivationFlag()
+        Self.promptShowing.set()
         // Return focus to the app only when the prompt took it from the app,
         // not when an approval was answered from another app.
         defer {
             DispatchQueue.main.async {
+                Self.promptShowing.clear()
                 // NSApp is nil when the runner is exercised without an app.
                 guard wasActive.isSet, let app = NSApp as NSApplication? else { return }
                 app.activate()
@@ -430,4 +437,6 @@ private final class ActivationFlag: @unchecked Sendable {
     var isSet: Bool { lock.withLock { value } }
 
     func set() { lock.withLock { value = true } }
+
+    func clear() { lock.withLock { value = false } }
 }

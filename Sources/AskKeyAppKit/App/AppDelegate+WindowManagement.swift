@@ -72,7 +72,9 @@ extension AppDelegate {
     }
 
     private func handleManagementDockEvent(_ event: ManagementDockPolicy.Event) {
-        guard !ManagementAuthenticationSubprocess.isActive else { return }
+        // A Touch ID prompt takes focus briefly; keep the Dock state as it was.
+        guard !ManagementAuthenticationSubprocess.isActive,
+              !ManagementAuthenticationRunner.isPromptShowing else { return }
         if isApplyingDockPolicy {
             scheduleManagementDockStateRefresh()
             return
@@ -82,7 +84,8 @@ extension AppDelegate {
     }
 
     private func syncManagementWindowDockState() {
-        guard !ManagementAuthenticationSubprocess.isActive else { return }
+        guard !ManagementAuthenticationSubprocess.isActive,
+              !ManagementAuthenticationRunner.isPromptShowing else { return }
         guard let window = managementWindow else {
             handleManagementDockEvent(.managementWindowState(
                 visible: false,
