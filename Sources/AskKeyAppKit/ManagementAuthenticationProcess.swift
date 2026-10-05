@@ -104,6 +104,9 @@ struct ManagementAuthenticationDescription: Codable, Equatable, Sendable {
 
 private struct ManagementAuthenticationResponse: Codable {
     let outcome: ManagementAuthenticationOutcome
+    /// Whether the prompt still had focus when it finished; false when the
+    /// user switched to another app meanwhile.
+    var promptWasActive: Bool?
 }
 
 private struct ManagementAuthenticationPayload: Codable {
@@ -210,7 +213,9 @@ enum ManagementAuthenticationSubprocess {
                 outcome = .failed
             }
             DispatchQueue.main.async {
-                writeAndTerminate(ManagementAuthenticationResponse(outcome: outcome))
+                writeAndTerminate(ManagementAuthenticationResponse(
+                    outcome: outcome, promptWasActive: NSApp.isActive
+                ))
             }
         }
         return true
@@ -302,8 +307,8 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
 
     /// True while a Touch ID prompt process is running. The app ignores the
     /// focus changes it causes, so the Dock icon does not flicker.
-    static var isPromptShowing: Bool { promptShowing.isSet }
-    private static let promptShowing = ActivationFlag()
+    static var isPromptShowing: Bool { promptCount.value > 0 }
+    private static let promptCount = PromptCounter()
 
     private let queue = DispatchQueue(label: "com.sudohg.askkey.authentication")
     private let executableURL: URL?
@@ -346,14 +351,18 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
         ) else { return .failed }
         let process = Process()
         let wasActive = ActivationFlag()
-        Self.promptShowing.set()
+        let userSwitchedAway = ActivationFlag()
+        Self.promptCount.increment()
         // Return focus to the app only when the prompt took it from the app,
-        // not when an approval was answered from another app.
+        // not when an approval was answered from another app, and not when
+        // the user moved to another app while the prompt was open.
         defer {
             DispatchQueue.main.async {
-                Self.promptShowing.clear()
+                Self.promptCount.decrement()
+                NotificationCenter.default.post(name: .managementAuthenticationPromptDidEnd, object: nil)
                 // NSApp is nil when the runner is exercised without an app.
-                guard wasActive.isSet, let app = NSApp as NSApplication? else { return }
+                guard wasActive.isSet, !userSwitchedAway.isSet,
+                      let app = NSApp as NSApplication? else { return }
                 app.activate()
             }
         }
@@ -377,13 +386,19 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
         do {
             try process.run()
             let pid = process.processIdentifier
+            // Record focus and yield it before the prompt process receives its
+            // payload, so it cannot activate first. Bounded in case the main
+            // thread is busy.
+            let handedOver = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
+                defer { handedOver.signal() }
                 guard let app = NSApp as NSApplication?, app.isActive else { return }
                 wasActive.set()
                 if let prompt = NSRunningApplication(processIdentifier: pid) {
                     app.yieldActivation(to: prompt)
                 }
             }
+            _ = handedOver.wait(timeout: .now() + 2)
             try input.fileHandleForWriting.write(contentsOf: payloadData)
             try input.fileHandleForWriting.close()
         } catch {
@@ -404,6 +419,7 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
               ) else {
             return .failed
         }
+        if response.promptWasActive == false { userSwitchedAway.set() }
         return response.outcome
     }
 
@@ -437,6 +453,21 @@ private final class ActivationFlag: @unchecked Sendable {
     var isSet: Bool { lock.withLock { value } }
 
     func set() { lock.withLock { value = true } }
+}
 
-    func clear() { lock.withLock { value = false } }
+/// Counts running Touch ID prompts; incremented on the worker queue and
+/// decremented on the main queue, so overlapping prompts never clear each other.
+private final class PromptCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int { lock.withLock { count } }
+
+    func increment() { lock.withLock { count += 1 } }
+
+    func decrement() { lock.withLock { count = max(0, count - 1) } }
+}
+
+extension Notification.Name {
+    static let managementAuthenticationPromptDidEnd = Notification.Name("ManagementAuthenticationPromptDidEnd")
 }

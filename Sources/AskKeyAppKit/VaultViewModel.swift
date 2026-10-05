@@ -43,6 +43,7 @@ package final class VaultViewModel {
     package var isLocked = true
     var onboarding = AgentOnboardingCoordinator()
     var errorMessage: String?
+    @ObservationIgnored private var isUnlocking = false
     /// Set by the popover to hand the "new credential" action over to the manager
     /// window: a `MenuBarExtra(.window)` popover closes as soon as a sheet takes
     /// key focus, so the add form can't live there. The manager consumes and
@@ -320,6 +321,10 @@ package final class VaultViewModel {
     }
 
     func unlockForManagement() async {
+        // A second click while Touch ID is showing must not queue another prompt.
+        guard !isUnlocking else { return }
+        isUnlocking = true
+        defer { isUnlocking = false }
         if hasManagementSession {
             renewManagementSession()
             renewSession()

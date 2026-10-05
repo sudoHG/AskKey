@@ -130,7 +130,8 @@ extension AppDelegate {
     }
 
     private func applyManagementDockPolicy() {
-        guard !ManagementAuthenticationSubprocess.isActive else { return }
+        guard !ManagementAuthenticationSubprocess.isActive,
+              !ManagementAuthenticationRunner.isPromptShowing else { return }
         guard !isApplyingDockPolicy else {
             scheduleManagementDockPolicyApplication()
             return
@@ -193,6 +194,19 @@ extension AppDelegate {
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.handleManagementDockEvent(.applicationDidResignActive)
+                }
+            }
+        )
+        // Events are ignored while Touch ID is showing; reconcile afterwards.
+        observers.append(
+            center.addObserver(
+                forName: .managementAuthenticationPromptDidEnd,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard !ManagementAuthenticationRunner.isPromptShowing else { return }
+                    self?.syncManagementWindowDockState()
                 }
             }
         )
