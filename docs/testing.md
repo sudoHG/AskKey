@@ -109,6 +109,16 @@ In credential mode each `xcrun notarytool submit … --wait` runs as:
 
 `PRIVATE_KEY_FILE`, `KEY_ID`, and `ISSUER_ID` are the credential's delivery mappings (file path, key id, and issuer id). The script expands them only in the helper's target shell and never prints their values. Tests may point `ASKKEY_RELEASE_HELPER` at a stub; that override is not a release input. Automation tests must not call a real notary service or use the maintainer's identity.
 
+## Pre-release checks on the maintainer's Mac
+
+CI cannot check focus, Touch ID or real clients. Before notarizing, review the release diff for these behaviors, then install the signed `Release` build at `/Applications/Ask Key.app` and walk through this list once with the maintainer. The planner triggers agent requests itself (for example `askkey run --wait-for-approval` with a harmless command that prints no values, or a Codex session); the maintainer only touches the sensor, clicks decisions and reports what they see. Notarize the same build afterwards; its signature hash must match the one tested.
+
+- Every Touch ID entry: unlock management, reveal and copy a value, revoke a timed allowance, permanently delete, replace on import, settings actions, approving a read and a write. The prompt accepts a finger without a click.
+- With another app's window behind Ask Key, unlock management: Ask Key stays in front afterwards, and its Dock icon does not disappear during the prompt.
+- With the management window open behind another app, an agent request arrives: only the approval prompt appears; after Allow and Touch ID, focus returns to the other app.
+- Clicking the menu-bar item with the management window open behind another app.
+- The sample prompt from Agent access runs as written in a new client session; each supported client that is installed still reports Connected; an SSH request is reminded to look up credentials first.
+
 ## Receipt and review
 
 Follow [the issue workflow](agents/issue-workflow.md) and [the PR template](../.github/pull_request_template.md). Report the base and head SHAs, changed paths, each acceptance command and outcome, Swift passed/failed/skipped counts when run, comparison with the base, and both CI job results. Explain checks omitted under a documentation-only issue rather than claiming they ran. Before pushing, build locally and run the tests for the changed code with `swift test --filter`, plus the hygiene and module checks; the full suite and desktop flows run in CI, and both CI jobs must be green before acceptance. Address conversation comments, submitted reviews, and inline threads as well as CI failures before presenting the PR for acceptance.
