@@ -39,7 +39,7 @@ The welcome page walks you through the same steps.
 
 1. **Store a credential.** Choose **New Credential**, or **Import from File…** to bring in a `.env` file. New credentials default to **Ask every time**.
 2. **Connect your Agent.** Open the **Agent access** page and choose **Connect…** next to Claude Code, Codex, Cursor or Grok CLI. See [Supported clients](#supported-clients).
-3. **Try it once.** Ask your Agent something like "Use Staging API from Ask Key to run `./deploy.sh`". Ask Key shows an approval prompt; choose **Allow once**. The Agent sees the command's output, never the value, and the use appears in **Access records**.
+3. **Try it once.** Send your Agent the sample prompt from **Agent access**, for example "Use Staging API from Ask Key to run a command that checks its variables are set, without printing their values". Ask Key shows an approval prompt; choose **Allow once**. The Agent sees only the command's output, and the use appears in **Access records**. In your projects, ask for real commands such as `./deploy.sh` the same way.
 
 ## How it works
 

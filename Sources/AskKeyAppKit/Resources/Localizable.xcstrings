@@ -15285,25 +15285,25 @@
         }
       }
     },
-    "Find the right credential in Ask Key and run %@": {
+    "Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values": {
       "extractionState": "extracted_with_value",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Find the right credential in Ask Key and run %@"
+            "value": "Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "从请旨里找合适的凭证，跑一下 %@"
+            "value": "从请旨里挑一份凭证，跑一条命令确认变量都已拿到，不要显示值"
           }
         },
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Find the right credential in Ask Key and run %@!!]"
+            "value": "[!!Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values!!]"
           }
         }
       }
@@ -15607,25 +15607,25 @@
         }
       }
     },
-    "Use %1$@ from Ask Key to run %2$@": {
+    "Use %@ from Ask Key to run a command that checks its variables are set, without printing their values": {
       "extractionState": "extracted_with_value",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use %1$@ from Ask Key to run %2$@"
+            "value": "Use %@ from Ask Key to run a command that checks its variables are set, without printing their values"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用请旨里的 %1$@ 跑一下 %2$@"
+            "value": "用请旨里的 %@ 跑一条命令，确认变量都已拿到，不要显示值"
           }
         },
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Use %1$@ from Ask Key to run %2$@!!]"
+            "value": "[!!Use %@ from Ask Key to run a command that checks its variables are set, without printing their values!!]"
           }
         }
       }
