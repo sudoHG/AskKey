@@ -104,9 +104,6 @@ struct ManagementAuthenticationDescription: Codable, Equatable, Sendable {
 
 private struct ManagementAuthenticationResponse: Codable {
     let outcome: ManagementAuthenticationOutcome
-    /// Whether the prompt still had focus when it finished; false when the
-    /// user switched to another app meanwhile.
-    var promptWasActive: Bool?
 }
 
 private struct ManagementAuthenticationPayload: Codable {
@@ -213,9 +210,7 @@ enum ManagementAuthenticationSubprocess {
                 outcome = .failed
             }
             DispatchQueue.main.async {
-                writeAndTerminate(ManagementAuthenticationResponse(
-                    outcome: outcome, promptWasActive: NSApp.isActive
-                ))
+                writeAndTerminate(ManagementAuthenticationResponse(outcome: outcome))
             }
         }
         return true
@@ -314,13 +309,16 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
     private let executableURL: URL?
     private let timeout: TimeInterval
     private let terminationGrace: TimeInterval
+    private let focus: ManagementAuthenticationFocus
 
     init(
         executableURL: URL? = nil,
         timeout: TimeInterval = 5 * 60,
-        terminationGrace: TimeInterval = 0.2
+        terminationGrace: TimeInterval = 0.2,
+        focus: ManagementAuthenticationFocus = .application
     ) {
         self.executableURL = executableURL
+        self.focus = focus
         self.timeout = timeout > 0 ? timeout : 5 * 60
         self.terminationGrace = terminationGrace >= 0 ? terminationGrace : 0.2
     }
@@ -351,19 +349,28 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
         ) else { return .failed }
         let process = Process()
         let wasActive = ActivationFlag()
-        let userSwitchedAway = ActivationFlag()
         Self.promptCount.increment()
         // Return focus to the app only when the prompt took it from the app,
-        // not when an approval was answered from another app, and not when
-        // the user moved to another app while the prompt was open.
+        // not when an approval was answered from another app. The Touch ID
+        // sheet belongs to the system (coreautha); see ManagementAuthenticationFocus.
+        let focus = self.focus
         defer {
             DispatchQueue.main.async {
-                Self.promptCount.decrement()
-                NotificationCenter.default.post(name: .managementAuthenticationPromptDidEnd, object: nil)
-                // NSApp is nil when the runner is exercised without an app.
-                guard wasActive.isSet, !userSwitchedAway.isSet,
-                      let app = NSApp as NSApplication? else { return }
-                app.activate()
+                MainActor.assumeIsolated {
+                    Self.promptCount.decrement()
+                    NotificationCenter.default.post(name: .managementAuthenticationPromptDidEnd, object: nil)
+                    guard wasActive.isSet else { return }
+                    focus.activate()
+                    // The system may hand focus to the next app only after the
+                    // sheet finishes closing; ask again if that happened.
+                    for delay in focus.retryDelays {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                            MainActor.assumeIsolated {
+                                if !focus.isActive() { focus.activate() }
+                            }
+                        }
+                    }
+                }
             }
         }
         process.executableURL = executable
@@ -391,11 +398,11 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
             // thread is busy.
             let handedOver = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
-                defer { handedOver.signal() }
-                guard let app = NSApp as NSApplication?, app.isActive else { return }
-                wasActive.set()
-                if let prompt = NSRunningApplication(processIdentifier: pid) {
-                    app.yieldActivation(to: prompt)
+                MainActor.assumeIsolated {
+                    defer { handedOver.signal() }
+                    guard focus.isActive() else { return }
+                    wasActive.set()
+                    focus.yield(pid)
                 }
             }
             _ = handedOver.wait(timeout: .now() + 2)
@@ -419,7 +426,6 @@ final class ManagementAuthenticationRunner: @unchecked Sendable {
               ) else {
             return .failed
         }
-        if response.promptWasActive == false { userSwitchedAway.set() }
         return response.outcome
     }
 
@@ -453,6 +459,29 @@ private final class ActivationFlag: @unchecked Sendable {
     var isSet: Bool { lock.withLock { value } }
 
     func set() { lock.withLock { value = true } }
+}
+
+/// How the runner hands focus to the Touch ID prompt and takes it back.
+/// Injected so tests can check these decisions without a real application.
+struct ManagementAuthenticationFocus: Sendable {
+    var isActive: @MainActor @Sendable () -> Bool
+    var yield: @MainActor @Sendable (pid_t) -> Void
+    /// Must ignore other apps: when the system sheet closes, macOS has already
+    /// activated the next app and refuses a cooperative request.
+    var activate: @MainActor @Sendable () -> Void
+    var retryDelays: [TimeInterval]
+
+    // NSApp is nil when the runner is exercised without an application.
+    static let application = ManagementAuthenticationFocus(
+        isActive: { (NSApp as NSApplication?)?.isActive ?? false },
+        yield: { pid in
+            guard let app = NSApp as NSApplication?,
+                  let prompt = NSRunningApplication(processIdentifier: pid) else { return }
+            app.yieldActivation(to: prompt)
+        },
+        activate: { (NSApp as NSApplication?)?.activate(ignoringOtherApps: true) },
+        retryDelays: [0.25, 0.75]
+    )
 }
 
 /// Counts running Touch ID prompts; incremented on the worker queue and
