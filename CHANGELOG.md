@@ -17,9 +17,14 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 - A new visual design across the app: one neutral palette with an accent and a warning color, grouped lists, and the app icon on the welcome page, approval prompt and pending requests.
 - Codex discovery now runs as a command hook, like the other clients, so Orca-managed Codex sessions keep its trust. Reconnect Codex once from **Agent access** after upgrading and trust the new hook.
 - Access records keep only the executable name of an approved command, never its arguments or working directory.
+- Approval prompts appear without bringing the Ask Key window forward, Touch ID prompts accept a finger without an extra click, and focus returns to where you were afterwards.
+- The sample prompt on **Agent access** works in any folder and never prints credential values.
 
 ### Fixed
 
+- Replacing a credential on import silently kept its old permission while the screen suggested a new one; the screen now shows that the permission is kept.
+- Access records described denied and failed requests as if they had happened.
+- A pending approval could be left without a prompt when the one before it expired during Touch ID.
 - A rare failure when a client command closed its input before AskKey finished writing to it.
 
 ### Known limitations
