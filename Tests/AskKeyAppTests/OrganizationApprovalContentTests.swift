@@ -22,6 +22,12 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
             XCTAssertEqual(rows[1].detail, appLocalized("New group — created when approved"))
             XCTAssertEqual(rows[2].detail, appLocalizedFormat("%lld credentials, %lld not visible to agents", 4, 1))
             XCTAssertEqual(rows[3].detail, appLocalizedFormat("%lld credentials, %lld not visible to agents", 3, 2))
+            if language == "zh-Hans" {
+                XCTAssertEqual(rows[2].title, "3. 重命名分组“Old” → “New”") // i18n-literal: Assert reviewed Simplified Chinese organization copy.
+                XCTAssertEqual(rows[2].detail, "4 个凭证，其中 1 个 Agent 看不到") // i18n-literal: Assert reviewed Simplified Chinese organization copy.
+                XCTAssertEqual(rows[3].detail, "3 个凭证，其中 2 个 Agent 看不到") // i18n-literal: Assert reviewed Simplified Chinese organization copy.
+                XCTAssertEqual(appLocalized("Proposed organization"), "待执行的整理") // i18n-literal: Assert reviewed Simplified Chinese organization copy.
+            }
             XCTAssertEqual(FrozenApprovalActions.titles(operation: .organize, timedAllowanceEnabled: true),
                 [appLocalized("Approve Organization"), appLocalized("Deny")])
         }
@@ -62,11 +68,17 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
             let request = BrokerApprovalOperationRequest(operationID: "synthetic", credentialID: "", targetID: "credential-library",
                 operation: .organize, payloadDigest: String(repeating: "a", count: 64), callerName: "Synthetic Agent", organizationCredentialIDs: [])
             let content = ApprovalPromptContent(request: request, credentialName: "credential-library")
+            XCTAssertEqual(content.title, language == "zh-Hans"
+                ? "“Synthetic Agent”想整理凭证" // i18n-literal: Assert reviewed Simplified Chinese organization copy.
+                : "“Synthetic Agent” wants to organize credentials")
             XCTAssertFalse(content.title.contains("credential-library"))
             XCTAssertNil(content.commandSummary)
             XCTAssertEqual(content.retryTitle, appLocalized("Authenticate and approve"))
             XCTAssertEqual(content.cancelledAuthenticationNote, appLocalized("You cancelled authentication. Nothing was changed, and the request is still pending."))
             let pending = BrokerPendingApproval(requestID: "request", capability: "capability", request: request)
+            XCTAssertEqual(PendingRequestPresentation(approval: pending).sentence.plainText, language == "zh-Hans"
+                ? "Synthetic Agent 想整理凭证" // i18n-literal: Assert reviewed Simplified Chinese organization copy.
+                : "Synthetic Agent wants to organize credentials")
             XCTAssertFalse(PendingRequestPresentation(approval: pending).sentence.plainText.contains("credential-library"))
         }
     }

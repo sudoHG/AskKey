@@ -5,8 +5,17 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "“%@” wants to organize credentials" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "“%@” 请求整理凭据" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "“%@”想整理凭证" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!“%@” wants to organize credentials!!]" } }
+      }
+    },
+    "%@ wants to organize credentials": {
+      "extractionState": "manual",
+      "generatesSymbol": false,
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@ wants to organize credentials" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@ 想整理凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@ wants to organize credentials!!]" } }
       }
     },
     "Approve Organization": {
@@ -21,7 +30,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Proposed organization" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "拟执行的整理" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "待执行的整理" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Proposed organization!!]" } }
       }
     },
@@ -45,7 +54,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Rename group “%@” → “%@”" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "分组重命名“%@” → “%@”" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重命名分组“%@” → “%@”" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Rename group “%@” → “%@”!!]" } }
       }
     },
@@ -61,7 +70,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "%lld credentials, %lld not visible to agents" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 项凭据，%lld 项对代理不可见" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证，其中 %lld 个 Agent 看不到" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credentials, %lld not visible to agents!!]" } }
       }
     },
