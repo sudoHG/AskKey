@@ -183,7 +183,11 @@ private func componentMCPToolDefinitions() -> [[String: Any]] {
         "caller_name": ["type": "string"], "caller_purpose": ["type": "string"]]
     var create = common
     create["components"] = ["type": "array", "minItems": 1, "maxItems": 64, "items": component]
+    create["usage_instructions"] = ["type": "string", "description": AgentUsageGuide.metadataWrites]
+    create["group"] = ["type": "string", "description": "Reuse a matching group or create it on approved commit. Omitted means Ungrouped."]
     var modify = common
+    modify["usage_instructions"] = ["type": "string", "description": AgentUsageGuide.metadataWrites + " Omitted means unchanged; empty string clears instructions."]
+    modify["group"] = ["type": ["string", "null"], "description": "Omitted means unchanged; null means Ungrouped. Unknown names create groups on approved commit."]
     modify["changes"] = ["type": "array", "minItems": 1, "maxItems": 64,
         "items": ["type": "object", "oneOf": [
             ["properties": ["upsert": component], "required": ["upsert"], "additionalProperties": false],
@@ -192,9 +196,13 @@ private func componentMCPToolDefinitions() -> [[String: Any]] {
     var append = upload
     append["offset"] = ["type": "integer"]
     append["chunk_base64"] = ["type": "string"]
+    var modifyDefinition = definition("modify_credential", "Atomically change components, usage instructions and/or group; omitted fields are preserved. Repeat exact operation_id and payload with request_id/capability to commit.", modify, ["name", "operation_id"])
+    var modifySchema = modifyDefinition["inputSchema"] as! [String: Any]
+    modifySchema["anyOf"] = [["required": ["changes"]], ["required": ["usage_instructions"]], ["required": ["group"]]]
+    modifyDefinition["inputSchema"] = modifySchema
     return [
         definition("create_credential", "Create a whole credential with text/file components under one frozen approval. Files use operation-bound staged references; never local paths.", create, ["name", "operation_id", "components"]),
-        definition("modify_credential", "Atomically upsert/remove named components; omitted components and credential metadata are preserved. Repeat exact operation_id and payload with request_id/capability to commit.", modify, ["name", "operation_id", "changes"]),
+        modifyDefinition,
         definition("begin_component_upload", "Begin encrypted staging for a component in one credential operation.",
             ["operation_id": ["type": "string"], "filename": ["type": "string"], "byte_count": ["type": "integer"]], ["operation_id", "filename", "byte_count"]),
         definition("append_component_upload", "Append a bounded base64 chunk to encrypted component staging.", append, ["upload_id", "capability", "offset", "chunk_base64"]),

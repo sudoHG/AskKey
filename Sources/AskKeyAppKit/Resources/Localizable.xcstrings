@@ -1,6 +1,30 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Unchanged": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unchanged" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "不变" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Unchanged!!]" } }
+      }
+    },
+    "New group — created when approved": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "New group — created when approved" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "新分组 · 批准后创建" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!New group — created when approved!!]" } }
+      }
+    },
+    "None": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "None" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!None!!]" } }
+      }
+    },
     "Requested by": {
       "extractionState": "manual",
       "localizations": {

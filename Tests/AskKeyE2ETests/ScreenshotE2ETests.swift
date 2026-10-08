@@ -86,6 +86,24 @@ final class ScreenshotE2ETests: E2EBaseCase {
         _ = try waitForEvidence("approval-result.json")
     }
 
+    func testMetadataWriteApprovalScreen() throws {
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "approval-metadata-screenshots"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = "en"
+        app.launch()
+        _ = try waitForEvidence("approval-pending.json")
+        XCTAssertTrue(app.buttons["approval-deny"].waitForExistence(timeout: 8))
+        waitForText("Use only for staging API requests.", containing: true)
+        waitForText("Staging Services")
+        waitForText("New group — created when approved")
+        XCTAssertFalse(app.staticTexts["Before"].exists)
+        XCTAssertFalse(app.staticTexts["After"].exists)
+        XCTAssertFalse(app.staticTexts["Unchanged"].exists)
+        capture("15-approval-credential-metadata", approval: true)
+        click("approval-deny")
+        let result = try waitForEvidence("approval-result.json")
+        XCTAssertEqual(result["outcome"] as? String, "denied")
+    }
+
     private func capture(_ name: String, approval: Bool = false) {
         // AppKit's floating approval NSPanel is exposed as a dialog, while the
         // management scene is a window. Query both before taking a window crop.
