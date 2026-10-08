@@ -13,6 +13,7 @@ struct FrozenAgentApprovalPrompt: View {
     let timedAllowanceEnabled: Bool
     var timedAllowanceMinutes: Int = 30
     var writeSummary: BrokerCredentialWriteSummary? = nil
+    var organizationSummary: BrokerOrganizationSummary? = nil
     var revealMaterial: (@MainActor () async throws -> FrozenApprovalMaterial)? = nil
     /// The approval whose system authentication was cancelled. The prompt then
     /// offers to authenticate again for that same decision, or to deny.
@@ -42,6 +43,7 @@ struct FrozenAgentApprovalPrompt: View {
                 .font(Theme.Fonts.body.bold())
                 .foregroundStyle(Theme.text)
                 .multilineTextAlignment(.center)
+                .lineLimit(request.operation == .organize ? 3 : nil)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Theme.Spacing.md)
             if let command = content.commandSummary {
@@ -67,11 +69,18 @@ struct FrozenAgentApprovalPrompt: View {
                 detailsToggle(expanded: expanded)
                     .padding(.top, Theme.Spacing.md)
                 if expanded {
-                    detailRows(details)
-                        .padding(.top, Theme.Spacing.md)
+                    if request.operation == .organize {
+                        ScrollView { detailRows(details) }.frame(maxHeight: 90)
+                            .padding(.top, Theme.Spacing.md)
+                    } else {
+                        detailRows(details).padding(.top, Theme.Spacing.md)
+                    }
                 }
             }
-            if request.operation != .read {
+            if request.operation == .organize {
+                FrozenOrganizationApprovalContent(summary: organizationSummary)
+                    .padding(.top, Theme.Spacing.lg)
+            } else if request.operation != .read {
                 FrozenWriteApprovalContent(writeSummary: writeSummary, revealMaterial: revealMaterial)
                     .padding(.top, Theme.Spacing.lg)
             }
@@ -140,9 +149,11 @@ struct FrozenAgentApprovalPrompt: View {
         VStack(spacing: Theme.Spacing.sm) {
             if let retry = cancelledAuthenticationDecision {
                 ApprovalPromptButton(title: content.retryTitle, primary: true) { finish(retry) }
+                    .disabled(request.operation == .organize && organizationSummary == nil)
                     .accessibilityIdentifier("approval-retry-authentication")
             } else {
                 ApprovalPromptButton(title: primaryTitle, primary: true) { finish(.once) }
+                    .disabled(request.operation == .organize && organizationSummary == nil)
                     .accessibilityIdentifier("approval-allow-once")
                 if request.operation == .read, timedAllowanceEnabled {
                     ApprovalPromptButton(
@@ -179,6 +190,7 @@ struct FrozenAgentApprovalPrompt: View {
         case .create: return appLocalized("Approve Creation")
         case .modify: return appLocalized("Approve Change")
         case .delete: return appLocalized("Approve Deletion")
+        case .organize: return appLocalized("Approve Organization")
         }
     }
 }

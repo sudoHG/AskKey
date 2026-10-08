@@ -26,6 +26,7 @@ struct ApprovalPromptContent: Equatable {
         case .create: title = appLocalizedFormat("“%@” wants to create “%@”", caller, credentialName)
         case .modify: title = appLocalizedFormat("“%@” wants to modify “%@”", caller, credentialName)
         case .delete: title = appLocalizedFormat("“%@” wants to delete “%@”", caller, credentialName)
+        case .organize: title = appLocalizedFormat("“%@” wants to organize credentials", caller)
         }
         let display = request.operation == .read ? request.display : nil
         commandSummary = display?.commandSummary

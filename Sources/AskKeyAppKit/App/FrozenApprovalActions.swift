@@ -13,6 +13,7 @@ enum FrozenApprovalActions {
         case .create: return [appLocalized("Approve Creation"), appLocalized("Deny")]
         case .modify: return [appLocalized("Approve Change"), appLocalized("Deny")]
         case .delete: return [appLocalized("Approve Deletion"), appLocalized("Deny")]
+        case .organize: return [appLocalized("Approve Organization"), appLocalized("Deny")]
         }
     }
 }

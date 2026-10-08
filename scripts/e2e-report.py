@@ -15,6 +15,7 @@ SCREENSHOTS = [
     "08-pending-requests", "09-access-records", "10-settings", "11-locked",
     "12-approval-default", "13-approval-details", "14-approval-cancelled-authentication",
     "15-approval-credential-metadata",
+    "16-approval-organization",
 ]
 
 

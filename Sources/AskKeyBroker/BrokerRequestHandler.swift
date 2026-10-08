@@ -2,6 +2,7 @@ import Foundation
 
 public struct BrokerRequestHandler: Sendable {
     public typealias CatalogProvider = @Sendable (BrokerCancellation) throws -> [BrokerCatalogItem]
+    public typealias CatalogGroupsProvider = @Sendable (BrokerCancellation) throws -> [String]
     public typealias RequestStatusProvider = @Sendable (String, String) throws -> BrokerRequestState?
     public typealias RequestCancellationProvider = @Sendable (String, String) throws -> BrokerRequestState?
     public typealias TextRunProvider = @Sendable (
@@ -15,6 +16,7 @@ public struct BrokerRequestHandler: Sendable {
     public typealias TextWriteCancellationProvider = @Sendable (String, String, String) throws -> BrokerRequestState
 
     private let catalog: CatalogProvider
+    private let catalogGroups: CatalogGroupsProvider
     private let requestStatus: RequestStatusProvider
     private let cancelRequest: RequestCancellationProvider
     private let textRun: TextRunProvider?
@@ -25,6 +27,7 @@ public struct BrokerRequestHandler: Sendable {
 
     public init(
         catalog: @escaping CatalogProvider,
+        catalogGroups: @escaping CatalogGroupsProvider = { _ in [] },
         requestStatus: @escaping RequestStatusProvider,
         cancelRequest: @escaping RequestCancellationProvider = { _, _ in nil },
         textRun: TextRunProvider? = nil,
@@ -34,6 +37,7 @@ public struct BrokerRequestHandler: Sendable {
         cancelTextWrite: TextWriteCancellationProvider? = nil
     ) {
         self.catalog = catalog
+        self.catalogGroups = catalogGroups
         self.requestStatus = requestStatus
         self.cancelRequest = cancelRequest
         self.textRun = textRun
@@ -68,11 +72,13 @@ public struct BrokerRequestHandler: Sendable {
             case "catalog":
                 try cancellation.check()
                 let items = try catalog(cancellation)
+                let groups = try catalogGroups(cancellation)
                 try cancellation.check()
-                guard items.allSatisfy(Self.catalogFieldsFit) else {
+                guard items.allSatisfy(Self.catalogFieldsFit),
+                      groups.allSatisfy({ $0.utf8.count <= BrokerLimits.maximumFieldBytes }) else {
                     return .failure(.internalError)
                 }
-                return .success(.catalog(items))
+                return .success(.catalog(items, groups: groups))
             case "request.status":
                 guard let requestID = request.requestID, let capability = request.capability else {
                     return .failure(.invalidRequest)
@@ -119,6 +125,9 @@ public struct BrokerRequestHandler: Sendable {
                     }
                     throw error
                 }
+                if case .organize = write.action, case .completed(let result) = outcome {
+                    return .success(.organizationWriteResult(operationID: result.operationID))
+                }
                 return .success(.textWriteRequest(outcome))
             case "credential.write.commit":
                 guard let write = request.textWrite,
@@ -127,7 +136,11 @@ public struct BrokerRequestHandler: Sendable {
                       let commitTextWrite else {
                     return .failure(.invalidRequest)
                 }
-                return .success(.textWriteResult(try commitTextWrite(write, requestID, capability)))
+                let result = try commitTextWrite(write, requestID, capability)
+                if case .organize = write.action {
+                    return .success(.organizationWriteResult(operationID: result.operationID))
+                }
+                return .success(.textWriteResult(result))
             case "credential.write.cancel":
                 guard let operationID = request.operationID,
                       let requestID = request.requestID,
@@ -219,7 +232,7 @@ public struct BrokerRequestHandler: Sendable {
     }
 
     private static func catalogFieldsFit(_ item: BrokerCatalogItem) -> Bool {
-        let fields: [String?] = [item.credentialID, item.name, item.usageInstructions, item.environmentVariable]
+        let fields: [String?] = [item.credentialID, item.name, item.usageInstructions, item.environmentVariable, item.group]
             + (item.components ?? []).flatMap { component -> [String?] in [component.name, component.delivery.environmentVariable] }
         return (item.components?.count ?? 0) <= 64 && fields.compactMap { $0 }
             .allSatisfy { $0.utf8.count <= BrokerLimits.maximumFieldBytes }

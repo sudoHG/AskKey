@@ -28,6 +28,7 @@ public final class Vault {
     public let brokerRequests = BrokerRequestRegistry()
     public let approvalRequests: BrokerApprovalStateMachine
     let agentTextWrites = FrozenAgentTextWriteRegistry()
+    let agentOrganizations = FrozenAgentOrganizationRegistry()
 
     // The daemon serves on background threads while the app uses Vault.shared on
     // the main thread (ADR 0014), so the shared key/store are lock-guarded. The
@@ -147,6 +148,13 @@ public final class Vault {
         approvalRequests.configureOperationStateChanged { [weak self] operationID, request, state in
             guard let self else { return }
             if state != .pending, state != .approved {
+                if request?.operation == .organize {
+                    self.agentOrganizations.remove(operationID: operationID)
+                    if let request, state == .denied || state == .cancelled || state == .expired {
+                        self.recordAgentOrganizationAccess(request, result: .denied)
+                    }
+                    return
+                }
                 let frozen = self.agentTextWrites.entry(operationID: operationID)
                 self.agentTextWrites.remove(operationID: operationID)
                 if let approvalRequest = request ?? frozen?.approvalRequest,
@@ -155,6 +163,7 @@ public final class Vault {
                     switch approvalRequest.operation {
                     case .create: operation = .create
                     case .modify: operation = .modify
+                    case .organize: operation = .modify
                     case .delete: operation = .delete
                     case .read: operation = .runtimeRead
                     }

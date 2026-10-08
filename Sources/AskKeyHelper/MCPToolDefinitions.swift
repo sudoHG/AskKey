@@ -32,6 +32,7 @@ private func textWriteToolDefinition(
 }
 
 let mcpToolDefinitions: [[String: Any]] = componentMCPToolDefinitions() + [
+    organizationMCPToolDefinition(),
     [
         "name": "credential_discovery_guard",
         "description": "Client adapter lifecycle hook for PreToolUse credential discovery. Configure as a native MCP tool hook; not a credential lookup or access tool. Does not read secrets or execute commands.",

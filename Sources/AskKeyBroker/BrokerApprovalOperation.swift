@@ -5,4 +5,5 @@ public enum BrokerApprovalOperation: String, Codable, Equatable, Sendable {
     case create
     case modify
     case delete
+    case organize
 }

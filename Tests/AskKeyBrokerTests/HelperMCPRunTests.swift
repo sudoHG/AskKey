@@ -214,7 +214,7 @@ final class HelperMCPRunTests: HelperMCPTestCase {
         XCTAssertEqual(
             Set(definitions?.compactMap { $0["name"] as? String } ?? []),
             [
-                "connection_status", "list_credentials", "run", "credential_discovery_guard",
+                "connection_status", "list_credentials", "run", "credential_discovery_guard", "organize_credentials",
                 "begin_file_write", "append_file_write", "freeze_file_write",
                 "create_text_credential", "modify_text_credential", "delete_credential",
                 "request_status", "request_cancel",

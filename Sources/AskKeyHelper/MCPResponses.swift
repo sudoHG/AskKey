@@ -4,7 +4,7 @@ import AskKeyBroker
 
 func mcpTextWriteResponse(id: Any?, response: BrokerResponse) throws -> [String: Any] {
     switch response {
-    case .success(.textWriteRequest), .success(.textWriteResult):
+    case .success(.textWriteRequest), .success(.textWriteResult), .success(.organizationWriteResult):
         let encoded = try JSONEncoder().encode(response)
         return mcpToolText(id: id, text: String(decoding: encoded, as: UTF8.self))
     case .failure(let code):

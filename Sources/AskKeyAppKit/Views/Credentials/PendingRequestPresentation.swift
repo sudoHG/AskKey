@@ -31,6 +31,7 @@ struct PendingRequestPresentation: Equatable {
         switch operation {
         case .read: return appLocalized("%1$@ wants to use %2$@")
         case .create: return appLocalized("%1$@ wants to create %2$@")
+        case .organize: return appLocalized("“%@” wants to organize credentials")
         case .modify: return appLocalized("%1$@ wants to change %2$@")
         case .delete: return appLocalized("%1$@ wants to delete %2$@")
         }

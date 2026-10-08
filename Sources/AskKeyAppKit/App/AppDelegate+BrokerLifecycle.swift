@@ -178,6 +178,7 @@ extension AppDelegate {
                     throw BrokerProviderError.agentAccessPaused
                 }
             },
+            catalogGroups: { try Vault.shared.brokerCredentialGroups(cancellation: $0) },
             requestStatus: { requestID, capability in
                 if let completed = try Vault.shared.committedAgentFileWriteStatus(
                     requestID: requestID, capability: capability) {

@@ -1,4 +1,5 @@
 import AskKeyBroker
+import AskKeyVault
 import CryptoKit
 import Darwin
 import Foundation
@@ -71,6 +72,10 @@ final class E2EBrokerScenario {
             try await metadataApprovalScreenshot()
             return
         }
+        if scenario == "approval-organization-screenshots" {
+            try await organizationApprovalScreenshot()
+            return
+        }
         let arguments = try makeFrozenRun()
         let pending = try await call("run", arguments, evidence: "run-pending.json")
         let ticket = try pendingTicket(pending)
@@ -110,6 +115,44 @@ final class E2EBrokerScenario {
         try require(try state(consumed) == .consumed, "Ticket did not reach consumed")
         try report("approval-result.json", ["outcome": "executed-once", "firstExitCode": firstCode,
             "replayExitCode": replayCode, "ticketState": "consumed"])
+    }
+
+    private func organizationApprovalScreenshot() async throws {
+        // Only the marked E2E bundle's isolated synthetic library is used.
+        try require(directory == E2EAppRuntime.runDirectory, "Organization fixtures require E2E isolation")
+        try Vault.shared.beginManagementSession(using: .allow)
+        do {
+            for (name, permission) in [("Staging API", CredentialPermission.ask), ("Legacy API", .ask), ("Hidden CI Token", .hidden), ("Retired CI Token", .ask)] {
+                let credential = try Vault.shared.createTextCredential(.init(name: name, value: "synthetic-organization-token",
+                    groupName: "Old Services", permission: permission), using: .allow)
+                if name == "Retired CI Token" { try Vault.shared.deleteTextCredential(id: credential.id, using: .allow) }
+            }
+        } catch {
+            Vault.shared.endManagementSession()
+            throw error
+        }
+        Vault.shared.endManagementSession()
+        let reply = try await call("organize_credentials", [
+            "operation_id": "organization-" + directory.lastPathComponent,
+            "caller_name": "E2E Agent", "caller_purpose": "Organize the synthetic credential library",
+            "operations": [["create_group": "Staging Services"],
+                ["move": ["credential": "Staging API", "group": "Staging Services"]],
+                ["rename_group": ["from": "Old Services", "to": "Renamed Services"]],
+                ["delete_group": "Renamed Services"]]
+        ], evidence: "organization-write-pending.json")
+        guard !reply.isError,
+              case .success(.textWriteRequest(.submitted(let ticket))) = try JSONDecoder().decode(BrokerResponse.self, from: reply.data),
+              ticket.state == .pending else { throw failure("Expected one pending organization write") }
+        try report("approval-pending.json", ["requestID": ticket.requestID])
+        var decision = BrokerRequestState.pending
+        try await waitUntil {
+            let status = try await self.call("request_status", ["request_id": ticket.requestID,
+                "capability": ticket.capability], evidence: "organization-status.json")
+            decision = try self.state(status)
+            return decision != .pending
+        }
+        try require(decision == .denied, "Screenshot organization write must be denied")
+        try report("approval-result.json", ["outcome": "denied"])
     }
 
     private func metadataApprovalScreenshot() async throws {
