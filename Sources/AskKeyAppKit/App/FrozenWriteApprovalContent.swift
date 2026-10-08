@@ -23,43 +23,49 @@ struct FrozenWriteApprovalContent: View {
                 .accessibilityIdentifier("approval-components")
                 metadataContent(content)
             }
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                Text(appLocalized("Frozen Content to Write"))
-                    .font(Theme.Fonts.caption.weight(.semibold))
-                if let revealedMaterial {
-                    HStack {
-                        Text(revealedMaterial.title).lineLimit(1)
-                        Spacer()
-                        Text(revealedMaterial.encoding).foregroundStyle(Theme.textSecondary)
-                        Button(appLocalized("Hide")) { self.revealedMaterial = nil }
-                    }.font(Theme.Fonts.caption)
-                    ScrollView {
-                        Text(verbatim: revealedMaterial.content)
-                            .font(Theme.Fonts.mono)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }.frame(height: 85)
-                } else {
-                    HStack {
-                        Text("••••••••").foregroundStyle(Theme.textSecondary)
-                        Spacer()
-                        Button(appLocalized("Authenticate and View"), action: reveal)
-                            .disabled(revealMaterial == nil || revealing)
-                            .accessibilityIdentifier("approval-reveal-frozen-material")
-                    }
-                    Text(appLocalized("Viewing requires separate authentication and does not approve this request."))
-                        .font(Theme.Fonts.caption).foregroundStyle(Theme.textSecondary)
-                }
-                if revealFailed {
-                    Text(appLocalized("Unable to view: authentication was not completed or the request is no longer valid."))
-                        .font(Theme.Fonts.caption).foregroundStyle(Theme.warning)
-                }
+            if writeSummary?.operation != .delete {
+                frozenContent
             }
-            .padding(Theme.Spacing.md)
-            .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.group))
         }
         .font(Theme.Fonts.secondary)
         .onDisappear { revealTask?.cancel(); revealTask = nil; revealedMaterial = nil }
+    }
+
+    private var frozenContent: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Text(appLocalized("Frozen Content to Write"))
+                .font(Theme.Fonts.caption.weight(.semibold))
+            if let revealedMaterial {
+                HStack {
+                    Text(revealedMaterial.title).lineLimit(1)
+                    Spacer()
+                    Text(revealedMaterial.encoding).foregroundStyle(Theme.textSecondary)
+                    Button(appLocalized("Hide")) { self.revealedMaterial = nil }
+                }.font(Theme.Fonts.caption)
+                ScrollView {
+                    Text(verbatim: revealedMaterial.content)
+                        .font(Theme.Fonts.mono)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(height: 85)
+            } else {
+                HStack {
+                    Text("••••••••").foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Button(appLocalized("Authenticate and View"), action: reveal)
+                        .disabled(revealMaterial == nil || revealing)
+                        .accessibilityIdentifier("approval-reveal-frozen-material")
+                }
+                Text(appLocalized("Viewing requires separate authentication and does not approve this request."))
+                    .font(Theme.Fonts.caption).foregroundStyle(Theme.textSecondary)
+            }
+            if revealFailed {
+                Text(appLocalized("Unable to view: authentication was not completed or the request is no longer valid."))
+                    .font(Theme.Fonts.caption).foregroundStyle(Theme.warning)
+            }
+        }
+        .padding(Theme.Spacing.md)
+        .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.group))
     }
 
     private func metadataContent(_ content: FrozenWriteSummaryContent) -> some View {
@@ -69,14 +75,14 @@ struct FrozenWriteApprovalContent: View {
             ScrollView {
                 summaryRows(content.instructions)
             }
-            .frame(height: 60)
+            .frame(maxHeight: 60)
             .accessibilityIdentifier("approval-usage-instructions")
             Text(appLocalized("Group"))
                 .font(Theme.Fonts.caption.weight(.semibold))
             ScrollView {
                 summaryRows(content.group)
             }
-            .frame(height: 30)
+            .frame(maxHeight: 30)
             .accessibilityIdentifier("approval-group-changes")
             if content.createsGroup {
                 Text(appLocalized("New group — created when approved"))
