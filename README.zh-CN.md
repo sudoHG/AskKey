@@ -6,7 +6,7 @@
 
 [English](README.md) | 简体中文
 
-> **[下载最新版本](https://github.com/sudoHG/AskKey/releases/latest)**（经过 Apple 公证的 DMG，需要 macOS 14 或更高版本）。请旨目前没有备份和恢复功能，请自行另存一份凭证原件。
+> **[下载最新版本](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)**（经过 Apple 公证的 DMG，需要 macOS 14 或更高版本）。请旨目前没有备份和恢复功能，请自行另存一份凭证原件。
 
 <p align="center">
   <img src="assets/readme/approval-prompt.png" width="300" alt="请旨的批准弹窗：Claude Code 想用 Staging API 运行 ./deploy.sh，下方是“允许本次”“允许 30 分钟”和“拒绝”按钮（截图为英文界面）">
@@ -20,11 +20,11 @@ AskKey 把密钥从这条路径里拿出来：Agent 手里没有保存的凭证�
 
 ## 安装
 
-1. 从[最新版本](https://github.com/sudoHG/AskKey/releases/latest)下载 `AskKey-<version>.dmg` 和 `AskKey-<version>.dmg.sha256`。执行下面的命令前，将 `<version>` 替换为下载的版本号。
+1. 下载最新版本的 [AskKey.dmg](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg) 和 [AskKey.dmg.sha256](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg.sha256)。
 2. 在下载目录中校验文件，确认无误后再打开 DMG：
 
    ```bash
-   shasum -a 256 -c AskKey-<version>.dmg.sha256
+   shasum -a 256 -c AskKey.dmg.sha256
    ```
 
    只有校验结果为 `OK` 时才继续。

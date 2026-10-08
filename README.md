@@ -6,7 +6,7 @@ A macOS menu bar app that keeps your credentials encrypted on your Mac and lets 
 
 English | [Simplified Chinese](README.zh-CN.md)
 
-> **[Download the latest release](https://github.com/sudoHG/AskKey/releases/latest)** (notarized DMG, macOS 14+). AskKey has no backup or recovery yet, so keep the originals of your credentials somewhere else.
+> **[Download the latest release](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)** (notarized DMG, macOS 14+). AskKey has no backup or recovery yet, so keep the originals of your credentials somewhere else.
 
 <p align="center">
   <img src="assets/readme/approval-prompt.png" width="300" alt="AskKey approval prompt: Claude Code wants to use Staging API to run ./deploy.sh, with the buttons Allow once, Allow for 30 minutes and Deny">
@@ -20,11 +20,11 @@ AskKey takes the secret out of that path. The agent never holds the stored value
 
 ## Install
 
-1. Download `AskKey-<version>.dmg` and `AskKey-<version>.dmg.sha256` from the [latest release](https://github.com/sudoHG/AskKey/releases/latest). Replace `<version>` below with the downloaded version.
+1. Download [AskKey.dmg](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg) and [AskKey.dmg.sha256](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg.sha256) from the latest release.
 2. In the download directory, verify the checksum before opening the DMG:
 
    ```bash
-   shasum -a 256 -c AskKey-<version>.dmg.sha256
+   shasum -a 256 -c AskKey.dmg.sha256
    ```
 
    Continue only if the check reports `OK`.

@@ -97,6 +97,14 @@ class PackageReleaseTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"{image.name}: OK", result.stdout)
 
+    def assert_notarized_artifacts(self, image):
+        stable = self.output / "AskKey.dmg"
+        self.assertEqual({path.name for path in self.output.iterdir()},
+                         {image.name, image.name + ".sha256", stable.name, stable.name + ".sha256"})
+        self.assertEqual(stable.read_bytes(), image.read_bytes())
+        self.assert_checksum(image)
+        self.assert_checksum(stable)
+
     def attach_image(self, image, mountpoint):
         if diskutil_image_attach_available():
             result = subprocess.run(
@@ -123,6 +131,8 @@ class PackageReleaseTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         image = self.output / f"AskKey-{self.version}-unnotarized.dmg"
         self.assertTrue(image.is_file())
+        self.assertEqual({path.name for path in self.output.iterdir()},
+                         {image.name, image.name + ".sha256"})
         self.assertIn(f"DMG: {image.resolve()}", result.stdout)
         self.assertIn("Notarized: false", result.stdout)
         mountpoint = self.directory / "mounted"
@@ -322,7 +332,7 @@ else:
         image = self.output / f"AskKey-{self.version}.dmg"
         self.assertTrue(image.read_bytes().endswith(b":stapled"))
         self.assertIn("Notarized: true", result.stdout)
-        self.assert_checksum(image)
+        self.assert_notarized_artifacts(image)
         calls = [json.loads(line) for line in trace.read_text().splitlines()]
         submissions = [call for call in calls if call[:3] == ["xcrun", "notarytool", "submit"]]
         self.assertEqual([Path(call[3]).suffix for call in submissions], [".zip", ".dmg"])
@@ -349,7 +359,7 @@ else:
         image = self.output / f"AskKey-{self.version}.dmg"
         self.assertTrue(image.read_bytes().endswith(b":stapled"))
         self.assertIn("Notarized: true", result.stdout)
-        self.assert_checksum(image)
+        self.assert_notarized_artifacts(image)
         calls = [json.loads(line) for line in trace.read_text().splitlines()]
         submissions = [call for call in calls if call[0] == "askkey"]
         self.assertEqual(len(submissions), 2)
@@ -466,14 +476,45 @@ else:
     def test_existing_artifact_is_not_overwritten(self):
         environment, _ = self.mock_tools()
         self.output.mkdir()
-        image = self.output / f"AskKey-{self.version}-unnotarized.dmg"
-        image.write_bytes(b"existing artifact")
-        result = self.run_script(environment=environment)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Output artifacts already exist", result.stderr)
-        self.assertEqual(image.read_bytes(), b"existing artifact")
-        self.assertEqual(list(self.output.iterdir()), [image])
-        self.assertEqual(list(self.scratch.iterdir()), [])
+        for notarize in (False, True):
+            suffix = "" if notarize else "-unnotarized"
+            image_name = f"AskKey-{self.version}{suffix}.dmg"
+            for name in (image_name, image_name + ".sha256"):
+                for kind in ("file", "symlink", "dangling-symlink"):
+                    with self.subTest(notarize=notarize, name=name, kind=kind):
+                        self.assert_existing_artifact_rejected(name, kind, environment, notarize)
+
+    def test_existing_stable_artifact_is_not_overwritten(self):
+        environment, _ = self.mock_tools()
+        self.output.mkdir()
+        for name in ("AskKey.dmg", "AskKey.dmg.sha256"):
+            for kind in ("file", "symlink", "dangling-symlink"):
+                with self.subTest(name=name, kind=kind):
+                    self.assert_existing_artifact_rejected(name, kind, environment, notarize=True)
+
+    def assert_existing_artifact_rejected(self, name, kind, environment, notarize):
+        artifact = self.output / name
+        target = self.directory / "existing-target"
+        target.write_bytes(b"existing artifact")
+        if kind == "file":
+            artifact.write_bytes(b"existing artifact")
+        else:
+            artifact.symlink_to(target if kind == "symlink" else self.directory / "missing-target")
+        try:
+            result = self.run_script(notarize=notarize, environment=environment)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Output artifacts already exist", result.stderr)
+            if kind == "file":
+                self.assertEqual(artifact.read_bytes(), b"existing artifact")
+            else:
+                self.assertTrue(artifact.is_symlink())
+                self.assertEqual(os.readlink(artifact), str(
+                    target if kind == "symlink" else self.directory / "missing-target"))
+            self.assertEqual(target.read_bytes(), b"existing artifact")
+            self.assertEqual(list(self.output.iterdir()), [artifact])
+            self.assertEqual(list(self.scratch.iterdir()), [])
+        finally:
+            artifact.unlink()
 
 
 if __name__ == "__main__":
