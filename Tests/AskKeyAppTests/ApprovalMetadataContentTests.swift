@@ -13,11 +13,13 @@ final class ApprovalMetadataContentTests: AskKeyAppTestCase {
         XCTAssertEqual(appLocalized("Group"), "Group")
         XCTAssertEqual(appLocalized("New group — created when approved"), "New group — created when approved")
         XCTAssertEqual(appLocalized("None"), "None")
+        XCTAssertEqual(appLocalized("Unchanged"), "Unchanged")
         AppLanguage.current = "zh-Hans"
         XCTAssertEqual(appLocalized("Usage instructions"), "使用说明") // i18n-literal: Assert Simplified Chinese metadata approval copy.
         XCTAssertEqual(appLocalized("Group"), "分组") // i18n-literal: Assert Simplified Chinese metadata approval copy.
         XCTAssertEqual(appLocalized("New group — created when approved"), "新分组 · 批准后创建") // i18n-literal: Assert Simplified Chinese metadata approval copy.
         XCTAssertEqual(appLocalized("None"), "无") // i18n-literal: Assert Simplified Chinese metadata approval copy.
+        XCTAssertEqual(appLocalized("Unchanged"), "不变") // i18n-literal: Assert Simplified Chinese unchanged metadata copy.
     }
 
     @MainActor

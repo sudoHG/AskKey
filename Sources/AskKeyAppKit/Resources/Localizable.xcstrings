@@ -1,6 +1,14 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Unchanged": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unchanged" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "不变" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Unchanged!!]" } }
+      }
+    },
     "New group — created when approved": {
       "extractionState": "manual",
       "localizations": {

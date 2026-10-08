@@ -1,8 +1,7 @@
 import SwiftUI
 import AskKeyBroker
 
-/// The frozen content of a create, modify or delete approval: the before and
-/// after summary and the separately authenticated reveal of the values.
+/// The operation's frozen summary and separately authenticated value reveal.
 struct FrozenWriteApprovalContent: View {
     var writeSummary: BrokerCredentialWriteSummary?
     var revealMaterial: (@MainActor () async throws -> FrozenApprovalMaterial)?
@@ -14,22 +13,15 @@ struct FrozenWriteApprovalContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             if let writeSummary {
+                let content = FrozenWriteSummaryContent(summary: writeSummary)
                 ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text(appLocalized("Before"))
-                        ForEach(Array(writeSummary.before.enumerated()), id: \.offset) { _, item in
-                            Text("\(item.name) · \(item.byteCount) B · \(item.delivery.environmentVariable ?? "App")")
-                        }
-                        Text(appLocalized("After"))
-                        ForEach(Array(writeSummary.after.enumerated()), id: \.offset) { _, item in
-                            Text("\(item.name) · \(item.byteCount) B · \(item.delivery.environmentVariable ?? "App")")
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    summaryRows(content.components)
                 }
                 .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.textSecondary)
                 .frame(maxHeight: 70)
-                metadataContent(writeSummary)
+                .accessibilityIdentifier("approval-components")
+                metadataContent(content)
             }
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text(appLocalized("Frozen Content to Write"))
@@ -70,41 +62,23 @@ struct FrozenWriteApprovalContent: View {
         .onDisappear { revealTask?.cancel(); revealTask = nil; revealedMaterial = nil }
     }
 
-    private func metadataContent(_ summary: BrokerCredentialWriteSummary) -> some View {
+    private func metadataContent(_ content: FrozenWriteSummaryContent) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(appLocalized("Usage instructions"))
                 .font(Theme.Fonts.caption.weight(.semibold))
             ScrollView {
-                Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.sm, verticalSpacing: Theme.Spacing.xs) {
-                    GridRow {
-                        Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary).fixedSize()
-                        metadataText(summary.beforeUsageInstructions)
-                    }
-                    GridRow {
-                        Text(appLocalized("After")).foregroundStyle(Theme.textSecondary).fixedSize()
-                        metadataText(summary.afterUsageInstructions)
-                    }
-                }.frame(maxWidth: .infinity, alignment: .leading)
+                summaryRows(content.instructions)
             }
             .frame(height: 60)
             .accessibilityIdentifier("approval-usage-instructions")
             Text(appLocalized("Group"))
                 .font(Theme.Fonts.caption.weight(.semibold))
             ScrollView {
-                Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.sm, verticalSpacing: Theme.Spacing.xs) {
-                    GridRow {
-                        Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary).fixedSize()
-                        metadataText(summary.beforeGroup ?? appLocalized("Ungrouped"))
-                    }
-                    GridRow {
-                        Text(appLocalized("After")).foregroundStyle(Theme.textSecondary).fixedSize()
-                        metadataText(summary.afterGroup ?? appLocalized("Ungrouped"))
-                    }
-                }.frame(maxWidth: .infinity, alignment: .leading)
+                summaryRows(content.group)
             }
             .frame(height: 30)
             .accessibilityIdentifier("approval-group-changes")
-            if summary.createsGroup {
+            if content.createsGroup {
                 Text(appLocalized("New group — created when approved"))
                     .foregroundStyle(Theme.warning)
                     .accessibilityIdentifier("approval-new-group")
@@ -114,8 +88,26 @@ struct FrozenWriteApprovalContent: View {
         .accessibilityIdentifier("approval-credential-metadata")
     }
 
-    private func metadataText(_ value: String?) -> some View {
-        Text(verbatim: value.flatMap { $0.isEmpty ? nil : $0 } ?? appLocalized("None"))
+    private func summaryRows(_ rows: [FrozenWriteSummaryContent.Row]) -> some View {
+        Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.sm, verticalSpacing: Theme.Spacing.xs) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                GridRow {
+                    if let label = row.label {
+                        Text(verbatim: label).foregroundStyle(Theme.textSecondary).fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        ForEach(Array(row.values.enumerated()), id: \.offset) { _, value in
+                            summaryText(value)
+                        }
+                    }
+                    .gridCellColumns(row.label == nil ? 2 : 1)
+                }
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func summaryText(_ value: String) -> some View {
+        Text(verbatim: value)
             .lineLimit(nil)
             .fixedSize(horizontal: false, vertical: true)
             .textSelection(.enabled)
