@@ -55,6 +55,22 @@ final class AgentCredentialMetadataWriteTests: AgentTextWriteTestSupport {
         XCTAssertNil(stored.groupName)
     }
 
+    func testExistingEquivalentGroupsReuseTheSameSpellingAtFreezeAndCommit() throws {
+        let harness = try makeHarness { _ in true }
+        try harness.vault.createCredentialGroup("Staging", using: .allow)
+        try harness.vault.createCredentialGroup("STAGING", using: .allow)
+        let request = AgentTextWriteRequest(operationID: "equivalent-groups", action: .createBundle(
+            name: "Service", components: [component], group: "staging"))
+        let ticket = try submitted(harness.vault.requestAgentTextWrite(request))
+        let summary = try harness.vault.frozenAgentWriteSummary(operationID: request.operationID,
+            requestID: ticket.requestID, capability: ticket.capability)
+        XCTAssertEqual(summary.afterGroup, "STAGING")
+        XCTAssertFalse(summary.createsGroup)
+        let result = try approveAndCommit(request, harness: harness, ticket: ticket)
+        XCTAssertEqual(try harness.vault.revealTextCredential(id: result.credentialID, using: .allow).groupName, summary.afterGroup)
+        XCTAssertEqual(try harness.vault.listCredentialGroups(), ["STAGING", "Staging"])
+    }
+
     func testMetadataOnlyPreservesTextAndFileStorageAndPrivateMetadata() throws {
         let harness = try makeHarness { _ in true }
         let text = try harness.vault.createTextCredential(.init(name: "Text", value: "synthetic-original",

@@ -111,9 +111,12 @@ extension VaultStore {
                 groups.insert(try VaultCrypto.decrypt(encrypted, using: key))
             }
         }
-        let matching = groups.filter { CredentialName.normalized($0) == CredentialName.normalized(name) }
-        guard matching.allSatisfy({ $0 == name }) else { throw VaultError.credentialChanged }
-        guard creationApproved || matching.contains(name) else { throw VaultError.credentialChanged }
+        let matching = groups.sorted().first { CredentialName.normalized($0) == CredentialName.normalized(name) }
+        if let matching {
+            guard matching == name else { throw VaultError.credentialChanged }
+        } else if !creationApproved {
+            throw VaultError.credentialChanged
+        }
         if !stored.contains(name) {
             stored.append(name)
             let encrypted = try VaultCrypto.encrypt(JSONEncoder().encode(stored.sorted()), using: key).base64EncodedString()
