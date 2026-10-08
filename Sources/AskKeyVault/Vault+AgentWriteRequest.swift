@@ -10,6 +10,7 @@ extension Vault {
         }
     ) throws -> AgentTextWriteRequestOutcome {
         try validateAgentTextWrite(request)
+        if case .organize = request.action { return try requestAgentOrganization(request) }
         // Resolve upload capabilities outside the gate/registry locks. Legacy file
         // commit takes the coordinator lock before acquiring the exclusive gate.
         let alreadyFrozen = agentTextWrites.entry(operationID: request.operationID) != nil
@@ -97,6 +98,9 @@ extension Vault {
         capability: String
     ) throws -> BrokerRequestState {
         try agentTextWrites.synchronized {
+            if agentOrganizations.entry(operationID: operationID) != nil {
+                return try cancelAgentOrganization(operationID: operationID, requestID: requestID, capability: capability)
+            }
             guard let frozen = agentTextWrites.entry(operationID: operationID) else {
                 throw BrokerApprovalError.requestNotFound
             }

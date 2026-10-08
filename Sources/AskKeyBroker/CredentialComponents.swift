@@ -149,6 +149,7 @@ public extension AgentTextWriteAction {
         case .create, .createBundle: return .create
         case .modify, .modifyBundle: return .modify
         case .delete: return .delete
+        case .organize: return .organize
         }
     }
 
@@ -156,6 +157,7 @@ public extension AgentTextWriteAction {
         switch self {
         case .create(let name, _), .modify(let name, _), .delete(let name),
              .createBundle(let name, _, _, _), .modifyBundle(let name, _, _, _): return name
+        case .organize: return ""
         }
     }
 }
@@ -173,6 +175,12 @@ public extension AgentTextWriteRequest {
     }
 
     var isBounded: Bool {
+        if case .organize(let operations) = action {
+            return !operationID.isEmpty && !operations.isEmpty && operations.count <= 64
+                && operations.allSatisfy(\.isBounded)
+                && [operationID, callerName, callerPurpose].compactMap { $0 }
+                    .allSatisfy { $0.utf8.count <= BrokerLimits.maximumFieldBytes }
+        }
         var fields = [operationID, action.credentialName, callerName, callerPurpose].compactMap { $0 }
         guard !operationID.isEmpty, !action.credentialName.isEmpty else { return false }
         func add(_ component: BrokerCredentialComponentInput) -> Bool {
@@ -192,6 +200,7 @@ public extension AgentTextWriteRequest {
         switch action {
         case .create(_, let value), .modify(_, let value): fields.append(value)
         case .delete: break
+        case .organize: return false // Handled above, without a single-credential name.
         case .createBundle(_, let components, let instructions, let group):
             guard !components.isEmpty, components.count <= 64, components.allSatisfy(add) else { return false }
             fields += [instructions, group].compactMap { $0 }

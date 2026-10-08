@@ -12,6 +12,8 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
     public let callerPurpose: String?
     /// App-derived presentation only; never an authorization input.
     public let display: Display?
+    /// App-side batch binding. Never included in a Broker response.
+    public let organizationCredentialIDs: [String]?
 
     public init(
         operationID: String,
@@ -23,7 +25,8 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
         callerName: String? = nil,
         callerPurpose: String? = nil,
         retransmissionDigest: String? = nil,
-        display: Display? = nil
+        display: Display? = nil,
+        organizationCredentialIDs: [String]? = nil
     ) {
         self.operationID = operationID
         self.credentialID = credentialID
@@ -35,10 +38,11 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
         self.callerName = callerName
         self.callerPurpose = callerPurpose
         self.display = display
+        self.organizationCredentialIDs = organizationCredentialIDs
     }
 
-    // Preserve equality over exactly the pre-existing fields. Display changes
-    // must not affect submission, retransmission or consumption.
+    // Authorization fields, including the batch subject, bind retransmission
+    // and consumption. Display changes remain presentation-only.
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.operationID == rhs.operationID
             && lhs.credentialID == rhs.credentialID
@@ -49,6 +53,7 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
             && lhs.credentialName == rhs.credentialName
             && lhs.callerName == rhs.callerName
             && lhs.callerPurpose == rhs.callerPurpose
+            && lhs.organizationCredentialIDs == rhs.organizationCredentialIDs
     }
 
     public struct Display: Equatable, Sendable {
@@ -89,6 +94,7 @@ extension BrokerApprovalOperationRequest {
             && credentialName == other.credentialName
             && callerName == other.callerName
             && callerPurpose == other.callerPurpose
+            && organizationCredentialIDs == other.organizationCredentialIDs
             && retransmissionDigest == other.retransmissionDigest
             && constantTimeEqual(payloadDigest, other.payloadDigest)
     }

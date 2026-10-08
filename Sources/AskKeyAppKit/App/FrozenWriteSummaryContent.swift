@@ -40,7 +40,7 @@ struct FrozenWriteSummaryContent {
         switch operation {
         case .create:
             return after.isEmpty ? [] : [.init(label: nil, values: after)]
-        case .delete, .read:
+        case .delete, .read, .organize:
             return before.isEmpty ? [] : [.init(label: nil, values: before)]
         case .modify:
             if unchanged {

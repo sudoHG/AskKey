@@ -126,7 +126,7 @@ final class ReviewCatalogLimitTests: XCTestCase {
         try server.start()
         defer { server.stop() }
         let response = try BrokerSocketClient(socketPath: socketPath).send(.init(version: BrokerProtocolVersion.current, method: "catalog"))
-        guard case .success(.catalog(let catalog)) = response else { return XCTFail("Expected a usable catalog") }
+        guard case .success(.catalog(let catalog, _)) = response else { return XCTFail("Expected a usable catalog") }
         XCTAssertEqual(catalog.count, 2)
         let text = try XCTUnwrap(catalog.first { $0.name == "Usable" })
         XCTAssertEqual(text.usageInstructions, boundary)

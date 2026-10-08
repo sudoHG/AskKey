@@ -17,6 +17,7 @@ extension Vault {
         var groupAssignment: String?
         var createsGroup = false
         switch request.action {
+        case .organize: throw BrokerApprovalError.invalidRequest
         case let .create(name, value):
             credentialID = UUID().uuidString
             let record = try preparedRecord(
@@ -193,7 +194,7 @@ extension Vault {
         if let expiresAt = record.expiresAt {
             let expiry = try parseAgentWriteExpiry(expiresAt)
             if expiry <= currentDate {
-                approvalRequests.cancelPending(credentialID: record.id)
+                approvalRequests.cancelPendingForExpiry(credentialID: record.id)
                 throw VaultError.credentialUnavailable
             }
         }

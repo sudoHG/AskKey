@@ -15,6 +15,11 @@ func callMCPTool(
         return mcpToolText(id: id, text: String(decoding: output, as: UTF8.self))
     case "connection_status":
         return mcpToolText(id: id, text: try connectionStatus(client: client))
+    case "organize_credentials":
+        guard let operations = parseMCPOrganization(arguments) else {
+            return mcpFailure(id: id, code: -32602, message: "operations must contain 1 to 64 valid group operations")
+        }
+        return try callMCPTextWrite(id: id, action: .organize(operations), arguments: arguments, client: client)
     case "begin_component_upload":
         guard let operationID = arguments["operation_id"] as? String,
               let filename = arguments["filename"] as? String,
@@ -181,13 +186,13 @@ func callMCPTool(
         // including an unavailable Broker, so parallel calls cannot jump ahead.
         defer { discoveryGuard.catalogAttemptFinished(token: arguments["discovery_token"] as? String) }
         let response = try client.send(.init(version: BrokerProtocolVersion.current, method: "catalog"))
-        guard case .success(.catalog(let items)) = response else {
+        guard case .success(.catalog(let items, let groups)) = response else {
             if case .failure(let code) = response {
                 return try mcpBrokerFailure(id: id, code: code)
             }
             return try mcpStatusError(id: id, status: "unexpected_response")
         }
-        let encoded = try JSONEncoder().encode(items)
+        let encoded = try JSONEncoder().encode(MCPCredentialCatalog(credentials: items, groups: groups ?? []))
         return mcpToolText(id: id, text: String(decoding: encoded, as: UTF8.self), guidance: AgentUsageGuide.catalogDescription)
     case "run":
         guard let credentials = arguments["credentials"] as? [String], !credentials.isEmpty,

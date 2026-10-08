@@ -174,6 +174,10 @@ extension AppDelegate {
                         requestID: $0.requestID, capability: $0.capability
                     )
                 },
+                organizationSummary: pending.flatMap {
+                    try? Vault.shared.frozenAgentOrganizationSummary(operationID: $0.request.operationID,
+                        requestID: $0.requestID, capability: $0.capability)
+                },
                 revealMaterial: pending.map { frozenPending in
                     { [weak self] in
                         guard let self, Self.screenState() == .unlocked else {

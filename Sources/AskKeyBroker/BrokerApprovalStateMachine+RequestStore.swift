@@ -38,7 +38,6 @@ extension BrokerApprovalStateMachine {
     static func valid(_ request: BrokerApprovalOperationRequest) -> Bool {
         let required = [
             request.operationID,
-            request.credentialID,
             request.targetID,
             request.payloadDigest,
         ]
@@ -47,7 +46,7 @@ extension BrokerApprovalStateMachine {
         } && [request.credentialName, request.callerName, request.callerPurpose]
             .compactMap { $0 }
             .allSatisfy { $0.utf8.count <= BrokerLimits.maximumFieldBytes }
-            && (request.operation == .create || request.targetID == request.credentialID)
+            && validSubject(request)
             && [request.retransmissionDigest].compactMap { $0 }.allSatisfy {
                 $0.utf8.count == 64 && $0.unicodeScalars.allSatisfy {
                     CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0)
@@ -57,6 +56,20 @@ extension BrokerApprovalStateMachine {
             && request.payloadDigest.unicodeScalars.allSatisfy {
                 CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0)
             }
+    }
+
+    private static func validSubject(_ request: BrokerApprovalOperationRequest) -> Bool {
+        if request.operation == .organize {
+            guard request.credentialID.isEmpty, request.targetID == "credential-library",
+                  request.credentialName == nil, request.display == nil,
+                  let ids = request.organizationCredentialIDs else { return false }
+            return ids == Array(Set(ids)).sorted() && ids.allSatisfy {
+                !$0.isEmpty && $0.utf8.count <= BrokerLimits.maximumFieldBytes
+            }
+        }
+        return request.organizationCredentialIDs == nil && !request.credentialID.isEmpty
+            && request.credentialID.utf8.count <= BrokerLimits.maximumFieldBytes
+            && (request.operation == .create || request.targetID == request.credentialID)
     }
 
     func makeRetentionRoom() throws {

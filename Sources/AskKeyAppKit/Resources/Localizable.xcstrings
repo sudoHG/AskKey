@@ -1,6 +1,103 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "“%@” wants to organize credentials": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "“%@” wants to organize credentials" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "“%@”想整理凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!“%@” wants to organize credentials!!]" } }
+      }
+    },
+    "%@ wants to organize credentials": {
+      "extractionState": "manual",
+      "generatesSymbol": false,
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@ wants to organize credentials" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@ 想整理凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@ wants to organize credentials!!]" } }
+      }
+    },
+    "Approve Organization": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Approve Organization" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "批准整理" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Approve Organization!!]" } }
+      }
+    },
+    "Proposed organization": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Proposed organization" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "待执行的整理" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Proposed organization!!]" } }
+      }
+    },
+    "Move %@: %@ → %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Move %@: %@ → %@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "移动 %@：%@ → %@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Move %@: %@ → %@!!]" } }
+      }
+    },
+    "Create group “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Create group “%@”" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "创建分组“%@”" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Create group “%@”!!]" } }
+      }
+    },
+    "Rename group “%@” → “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Rename group “%@” → “%@”" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重命名分组“%@” → “%@”" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Rename group “%@” → “%@”!!]" } }
+      }
+    },
+    "Delete group “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delete group “%@”" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "删除分组“%@”" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Delete group “%@”!!]" } }
+      }
+    },
+    "%lld credential": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld credential" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credential!!]" } }
+      }
+    },
+    "%lld credentials": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld credentials" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credentials!!]" } }
+      }
+    },
+    "%lld credential, %lld not visible to agents": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld credential, %lld not visible to agents" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证，其中 %lld 个 Agent 看不到" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credential, %lld not visible to agents!!]" } }
+      }
+    },
+    "%lld credentials, %lld not visible to agents": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld credentials, %lld not visible to agents" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证，其中 %lld 个 Agent 看不到" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credentials, %lld not visible to agents!!]" } }
+      }
+    },
     "Unchanged": {
       "extractionState": "manual",
       "localizations": {

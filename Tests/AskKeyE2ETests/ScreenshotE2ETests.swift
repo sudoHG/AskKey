@@ -104,6 +104,25 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertEqual(result["outcome"] as? String, "denied")
     }
 
+    func testOrganizationApprovalScreen() throws {
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "approval-organization-screenshots"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = "en"
+        app.launch()
+        _ = try waitForEvidence("approval-pending.json")
+        XCTAssertTrue(app.buttons["approval-deny"].waitForExistence(timeout: 8))
+        XCTAssertEqual(app.buttons["approval-allow-once"].label, "Approve Organization")
+        waitForText("Create group “Staging Services”", containing: true)
+        waitForText("Staging API: Old Services → Staging Services", containing: true)
+        waitForText("Rename group “Old Services” → “Renamed Services”", containing: true)
+        waitForText("3 credentials, 2 not visible to agents", containing: true)
+        XCTAssertFalse(app.buttons["approval-reveal-frozen-material"].exists)
+        XCTAssertFalse(app.buttons["approval-allow-timed"].exists)
+        capture("16-approval-organization", approval: true)
+        click("approval-deny")
+        let result = try waitForEvidence("approval-result.json")
+        XCTAssertEqual(result["outcome"] as? String, "denied")
+    }
+
     private func capture(_ name: String, approval: Bool = false) {
         // AppKit's floating approval NSPanel is exposed as a dialog, while the
         // management scene is a window. Query both before taking a window crop.

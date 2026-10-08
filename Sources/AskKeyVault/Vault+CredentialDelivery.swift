@@ -47,7 +47,7 @@ extension Vault {
             let expiresAt = try record.expiresAt.map { try parseExpiry($0) }
             let expired = expiresAt.map { $0 <= now } ?? false
             if expired {
-                approvalRequests.cancelPending(credentialID: record.id)
+                approvalRequests.cancelPendingForExpiry(credentialID: record.id)
                 try fileDeliveryManager.get().revoke(credentialID: record.id)
             }
             return BrokerCatalogItem(
@@ -114,7 +114,7 @@ extension Vault {
                     declaredPurpose: callerPurpose,
                     executableBasename: executableBasename
                 ))
-                approvalRequests.cancelPending(credentialID: record.id)
+                approvalRequests.cancelPendingForExpiry(credentialID: record.id)
                 try fileDeliveryManager.get().revoke(credentialID: record.id)
                 throw VaultError.credentialUnavailable
             }

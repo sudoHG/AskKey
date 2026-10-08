@@ -8,10 +8,14 @@ extension Vault {
         requestID: String,
         capability: String
     ) throws -> AgentTextWriteResult {
+        if case .organize = request.action {
+            return try commitAgentOrganization(request, requestID: requestID, capability: capability)
+        }
         let operation: CredentialAccessEvent.Operation
         switch request.action {
         case .create, .createBundle: operation = .create
         case .modify, .modifyBundle: operation = .modify
+        case .organize: operation = .modify
         case .delete: operation = .delete
         }
         var credentialID = agentTextWrites.entry(operationID: request.operationID)?
