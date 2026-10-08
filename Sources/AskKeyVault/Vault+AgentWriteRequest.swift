@@ -97,10 +97,10 @@ extension Vault {
         requestID: String,
         capability: String
     ) throws -> BrokerRequestState {
-        try agentTextWrites.synchronized {
-            if agentOrganizations.entry(operationID: operationID) != nil {
-                return try cancelAgentOrganization(operationID: operationID, requestID: requestID, capability: capability)
-            }
+        if agentOrganizations.entry(operationID: operationID) != nil {
+            return try cancelAgentOrganization(operationID: operationID, requestID: requestID, capability: capability)
+        }
+        return try agentTextWrites.synchronized {
             guard let frozen = agentTextWrites.entry(operationID: operationID) else {
                 throw BrokerApprovalError.requestNotFound
             }

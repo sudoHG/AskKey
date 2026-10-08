@@ -10,6 +10,7 @@ extension Vault {
         }
         let snapshot = try store.agentOrganizationSnapshot(key: key)
         var assignments = try snapshot.assignments(key: key)
+        var storedGroupNames = Set(snapshot.storedGroups)
         var groupNames = Set(snapshot.storedGroups).union(assignments.values)
         var knownGroups = Set(groupNames.filter { group in
             let members = snapshot.records.filter { assignments[$0.id].map(CredentialName.normalized) == CredentialName.normalized(group) }
@@ -38,6 +39,9 @@ extension Vault {
         }
         func members(_ group: String) -> [CredentialRecord] {
             records.values.filter { assignments[$0.id].map(normalized) == normalized(group) }.sorted { $0.id < $1.id }
+        }
+        func nonvisible(_ members: [CredentialRecord]) -> Int {
+            members.filter { $0.deletedAt != nil || $0.permission == CredentialPermission.hidden.rawValue }.count
         }
         func assign(_ id: String, to group: String?) throws {
             guard var record = records[id] else { throw VaultError.credentialUnavailable }
@@ -73,24 +77,41 @@ extension Vault {
             case .createGroup(let raw):
                 let display = try name(raw)
                 namedGroups.insert(normalized(display))
-                guard !groupNames.contains(where: { normalized($0) == normalized(display) }) else {
+                guard !knownGroups.contains(normalized(display)) else {
                     throw VaultError.credentialUnavailable
                 }
-                groupNames.insert(display)
+                if let existing = groupNames.sorted().first(where: { normalized($0) == normalized(display) }) {
+                    let existingMembers = members(existing)
+                    summary.append(.existingGroup(name: existing, members: existingMembers.count, nonvisible: nonvisible(existingMembers)))
+                } else {
+                    groupNames.insert(display)
+                    storedGroupNames.insert(display)
+                    summary.append(.createGroup(display))
+                }
                 knownGroups.insert(normalized(display))
-                summary.append(.createGroup(display))
             case .renameGroup(let rawFrom, let rawTo):
                 let from = try existingGroup(rawFrom)
-                let to = try name(rawTo)
-                namedGroups.insert(normalized(to))
-                guard !groupNames.contains(where: { normalized($0) == normalized(to) }) else {
+                let proposed = try name(rawTo)
+                namedGroups.insert(normalized(proposed))
+                guard !knownGroups.contains(normalized(proposed)) else {
                     throw VaultError.credentialUnavailable
                 }
+                let existing = groupNames.sorted().first { normalized($0) == normalized(proposed) }
+                let to = existing ?? proposed
                 let affectedMembers = members(from)
-                summary.append(.renameGroup(from: from, to: to, members: affectedMembers.count,
-                    nonvisible: affectedMembers.filter { $0.deletedAt != nil || $0.permission == CredentialPermission.hidden.rawValue }.count))
+                if let existing {
+                    let targetMembers = members(existing)
+                    summary.append(.mergeGroup(from: from, to: to, members: affectedMembers.count,
+                        nonvisible: nonvisible(affectedMembers), targetMembers: targetMembers.count,
+                        targetNonvisible: nonvisible(targetMembers)))
+                } else {
+                    summary.append(.renameGroup(from: from, to: to, members: affectedMembers.count,
+                        nonvisible: nonvisible(affectedMembers)))
+                    storedGroupNames.insert(to)
+                }
                 for record in affectedMembers { try assign(record.id, to: to) }
                 groupNames = Set(groupNames.filter { normalized($0) != normalized(from) })
+                storedGroupNames = Set(storedGroupNames.filter { normalized($0) != normalized(from) })
                 groupNames.insert(to)
                 knownGroups.remove(normalized(from))
                 knownGroups.insert(normalized(to))
@@ -98,16 +119,17 @@ extension Vault {
                 let group = try existingGroup(raw)
                 let affectedMembers = members(group)
                 summary.append(.deleteGroup(name: group, members: affectedMembers.count,
-                    nonvisible: affectedMembers.filter { $0.deletedAt != nil || $0.permission == CredentialPermission.hidden.rawValue }.count))
+                    nonvisible: nonvisible(affectedMembers)))
                 for record in affectedMembers { try assign(record.id, to: nil) }
                 groupNames = Set(groupNames.filter { normalized($0) != normalized(group) })
+                storedGroupNames = Set(storedGroupNames.filter { normalized($0) != normalized(group) })
                 knownGroups.remove(normalized(group))
             }
         }
         let before = affected.sorted().compactMap { original[$0] }
         let after = affected.sorted().compactMap { records[$0] }
         let groups = try snapshot.groupStates(names: namedGroups, key: key)
-        let finalNames = groupNames.filter { namedGroups.contains(normalized($0)) }.sorted()
+        let finalNames = storedGroupNames.filter { namedGroups.contains(normalized($0)) }.sorted()
         let presentation = BrokerOrganizationSummary(operations: summary)
         struct ApprovalContents: Encodable {
             let requestDigest: String

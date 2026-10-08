@@ -1,6 +1,30 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Group already exists — no changes. %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Group already exists — no changes. %@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "分组已存在，不会更改。%@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Group already exists — no changes. %@!!]" } }
+      }
+    },
+    "Merge group “%@” into existing group “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Merge group “%@” into existing group “%@”" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "将分组“%@”合并到已有分组“%@”" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Merge group “%@” into existing group “%@”!!]" } }
+      }
+    },
+    "Source: %@. Existing group: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Source: %@. Existing group: %@." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "来源：%@；已有分组：%@。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Source: %@. Existing group: %@.!!]" } }
+      }
+    },
     "“%@” wants to organize credentials": {
       "extractionState": "manual",
       "localizations": {

@@ -127,6 +127,17 @@ final class E2EBrokerScenario {
                     groupName: "Old Services", permission: permission), using: .allow)
                 if name == "Retired CI Token" { try Vault.shared.deleteTextCredential(id: credential.id, using: .allow) }
             }
+            for (name, group, permission, recycled) in [
+                ("Private Service Token", "Existing Private Services", CredentialPermission.hidden, false),
+                ("Merge API", "Merge Source", .ask, false),
+                ("Hidden Merge Source", "Merge Source", .hidden, false),
+                ("Hidden Merge Target", "Existing Merge Services", .hidden, false),
+                ("Retired Merge Target", "Existing Merge Services", .ask, true),
+            ] {
+                let credential = try Vault.shared.createTextCredential(.init(name: name, value: "synthetic-organization-token",
+                    groupName: group, permission: permission), using: .allow)
+                if recycled { try Vault.shared.deleteTextCredential(id: credential.id, using: .allow) }
+            }
         } catch {
             Vault.shared.endManagementSession()
             throw error
@@ -138,7 +149,9 @@ final class E2EBrokerScenario {
             "operations": [["create_group": "Staging Services"],
                 ["move": ["credential": "Staging API", "group": "Staging Services"]],
                 ["rename_group": ["from": "Old Services", "to": "Renamed Services"]],
-                ["delete_group": "Renamed Services"]]
+                ["delete_group": "Renamed Services"],
+                ["create_group": "existing private services"],
+                ["rename_group": ["from": "Merge Source", "to": "existing merge services"]]]
         ], evidence: "organization-write-pending.json")
         guard !reply.isError,
               case .success(.textWriteRequest(.submitted(let ticket))) = try JSONDecoder().decode(BrokerResponse.self, from: reply.data),

@@ -166,7 +166,7 @@ extension BrokerApprovalStateMachine {
             guard entry.request.matchesForConsumption(operationRequest) else {
                 throw BrokerApprovalError.payloadMismatch
             }
-            if entry.state == .pending || entry.state == .approved { entry.state = .cancelled }
+            if !entry.committing, entry.state == .pending || entry.state == .approved { entry.state = .cancelled }
         }.state
     }
 

@@ -20,6 +20,7 @@ struct AgentOrganizationGroupState: Codable, Equatable {
     let names: [String]
     let storedNames: [String]
     let memberIDs: [String]
+    let memberDigests: [String]
 }
 
 struct AgentOrganizationSnapshot {
@@ -47,11 +48,16 @@ struct AgentOrganizationSnapshot {
     func groupStates(names: Set<String>, key: SymmetricKey) throws -> [AgentOrganizationGroupState] {
         let assignments = try assignments(key: key)
         let allNames = Set(storedGroups).union(assignments.values)
-        return names.sorted().map { normalized in
-            .init(normalizedName: normalized,
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try names.sorted().map { normalized in
+            let members = records.filter { assignments[$0.id].map(CredentialName.normalized) == normalized }
+                .sorted { $0.id < $1.id }
+            return .init(normalizedName: normalized,
                 names: allNames.filter { CredentialName.normalized($0) == normalized }.sorted(),
                 storedNames: storedGroups.filter { CredentialName.normalized($0) == normalized }.sorted(),
-                memberIDs: assignments.filter { CredentialName.normalized($0.value) == normalized }.keys.sorted())
+                memberIDs: members.map(\.id),
+                memberDigests: try members.map { Vault.componentDigest(try encoder.encode($0)) })
         }
     }
 }

@@ -102,11 +102,11 @@ final class AgentTextWriteApprovalLifecycleTests: AgentTextWriteTestSupport {
         }
         XCTAssertEqual(
             try machine.status(requestID: modifyTicket.requestID, capability: modifyTicket.capability),
-            .cancelled
+            .expired
         )
         XCTAssertEqual(
             try machine.status(requestID: deleteTicket.requestID, capability: deleteTicket.capability),
-            .cancelled
+            .expired
         )
         XCTAssertEqual(
             try harness.vault.revealTextCredential(id: existing.id, using: .allow).value,
