@@ -97,9 +97,9 @@ Desktop tests exercise shared App/Broker/helper behavior, but system authenticat
 
 ## Release packaging
 
-[package-release.sh](../scripts/package-release.sh) writes a DMG and SHA-256 checksum to `.build/release-artifacts` by default. That directory is not SwiftPM's `.build/release` symlink, which resolves into the build products tree. Pass `--output` to choose another directory.
+[package-release.sh](../scripts/package-release.sh) writes notarized releases as four files: `AskKey-<version>.dmg`, `AskKey-<version>.dmg.sha256`, `AskKey.dmg`, and `AskKey.dmg.sha256`. The stable-named DMG is a byte-identical copy made after all notarization, stapling and Gatekeeper checks pass. Each checksum file names its corresponding DMG. Any existing file or symlink at an output name aborts packaging before any output file is written. The default output directory is `.build/release-artifacts`, not SwiftPM's `.build/release` symlink, which resolves into the build products tree. Pass `--output` to choose another directory.
 
-Notarization needs exactly one of `ASKKEY_NOTARY_PROFILE` (a `notarytool` keychain profile) or `--notary-credential <name>` (an Ask Key credential). `--no-notarize` skips notarization for synthetic packaging checks and cannot be combined with `--notary-credential`. The two notarization modes cannot be combined.
+Notarization needs exactly one of `ASKKEY_NOTARY_PROFILE` (a `notarytool` keychain profile) or `--notary-credential <name>` (an Ask Key credential). `--no-notarize` skips notarization for synthetic packaging checks, writes only `AskKey-<version>-unnotarized.dmg` and its checksum, and cannot be combined with `--notary-credential`. The two notarization modes cannot be combined.
 
 In credential mode each `xcrun notarytool submit … --wait` runs as:
 
@@ -118,6 +118,7 @@ CI cannot check focus, Touch ID or real clients. Before notarizing, review the r
 - With the management window open behind another app, an agent request arrives: only the approval prompt appears; after Allow and Touch ID, focus returns to the other app.
 - Clicking the menu-bar item with the management window open behind another app.
 - The sample prompt from Agent access runs as written in a new client session; each supported client that is installed still reports Connected; an SSH request is reminded to look up credentials first.
+- After notarization, verify both checksum files in the output directory with `shasum -a 256 -c AskKey-<version>.dmg.sha256` and `shasum -a 256 -c AskKey.dmg.sha256` (replace `<version>` with the release version). Upload all four files (`AskKey-<version>.dmg`, `AskKey-<version>.dmg.sha256`, `AskKey.dmg`, and `AskKey.dmg.sha256`) to the draft release. Obtain the maintainer's explicit approval before pushing the tag or publishing the release, as required by [ADR 0006](adr/0006-release-process.md).
 
 ## Receipt and review
 

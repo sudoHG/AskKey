@@ -160,12 +160,19 @@ if [[ "$NOTARIZE" == true ]]; then
 fi
 
 # Do not expose a release-named image until every requested check succeeds.
-[[ ! -e "$OUTPUT/$DMG_NAME" && ! -L "$OUTPUT/$DMG_NAME" && \
-   ! -e "$OUTPUT/$DMG_NAME.sha256" && ! -L "$OUTPUT/$DMG_NAME.sha256" ]] \
-  || fail "Output artifacts already exist; choose an empty output directory"
+OUTPUT_NAMES=("$DMG_NAME" "$DMG_NAME.sha256")
+if [[ "$NOTARIZE" == true ]]; then OUTPUT_NAMES+=("AskKey.dmg" "AskKey.dmg.sha256"); fi
+for name in "${OUTPUT_NAMES[@]}"; do
+  [[ ! -e "$OUTPUT/$name" && ! -L "$OUTPUT/$name" ]] \
+    || fail "Output artifacts already exist; choose an empty output directory"
+done
 mkdir -p "$OUTPUT"
 OUTPUT="$(CDPATH= cd -- "$OUTPUT" && pwd -P)"
 ditto "$DMG" "$OUTPUT/$DMG_NAME" || fail "Cannot write the DMG to the output directory"
 (cd "$OUTPUT" && shasum -a 256 "$DMG_NAME" >"$DMG_NAME.sha256")
+if [[ "$NOTARIZE" == true ]]; then
+  ditto "$OUTPUT/$DMG_NAME" "$OUTPUT/AskKey.dmg" || fail "Cannot write the stable-named DMG"
+  (cd "$OUTPUT" && shasum -a 256 AskKey.dmg >AskKey.dmg.sha256)
+fi
 SHA256="$(awk '{print $1}' "$OUTPUT/$DMG_NAME.sha256")"
 printf 'DMG: %s\nSHA-256: %s\nNotarized: %s\n' "$OUTPUT/$DMG_NAME" "$SHA256" "$NOTARIZE"
