@@ -91,8 +91,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>AskKey</string>
-  <key>CFBundleDisplayName</key><string>AskKey</string>
+  <key>CFBundleName</key><string>Ask Key</string>
+  <key>CFBundleDisplayName</key><string>Ask Key</string>
+  <key>LSHasLocalizedDisplayName</key><true/>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleExecutable</key><string>AskKeyApp</string>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
