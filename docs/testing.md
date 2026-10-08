@@ -113,6 +113,7 @@ In credential mode each `xcrun notarytool submit … --wait` runs as:
 
 CI cannot check focus, Touch ID or real clients. Before notarizing, review the release diff for these behaviors, then install the signed `Release` build at `/Applications/Ask Key.app` and walk through this list once with the maintainer. The planner triggers agent requests itself (for example `askkey run --wait-for-approval` with a harmless command that prints no values, or a Codex session); the maintainer only touches the sensor, clicks decisions and reports what they see. Notarize the same build afterwards; its signature hash must match the one tested.
 
+- With Simplified Chinese first in the Mac's preferred languages and the app language set to Follow System, Finder and the Touch ID prompt show 请旨; with English first, both show Ask Key. Finder can retain a stale name in the Launch Services cache until the app is re-registered or the Mac restarts.
 - Every Touch ID entry: unlock management, reveal and copy a value, revoke a timed allowance, permanently delete, replace on import, settings actions, approving a read and a write. The prompt accepts a finger without a click.
 - With another app's window behind Ask Key, unlock management: Ask Key stays in front afterwards, and its Dock icon does not disappear during the prompt.
 - With the management window open behind another app, an agent request arrives: only the approval prompt appears; after Allow and Touch ID, focus returns to the other app.

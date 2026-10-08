@@ -213,8 +213,10 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0"><dict>
-          <key>CFBundleName</key><string>AskKey</string>
-          <key>CFBundleDisplayName</key><string>AskKey</string>
+          <key>CFBundleName</key><string>Ask Key</string>
+          <key>CFBundleDisplayName</key><string>Ask Key</string>
+          <key>LSHasLocalizedDisplayName</key><true/>
+          <key>CFBundleDevelopmentRegion</key><string>en</string>
           <key>CFBundleExecutable</key><string>AskKeyApp</string>
           <key>CFBundleIdentifier</key><string>com.sudohg.askkey.auth-test</string>
           <key>CFBundlePackageType</key><string>APPL</string>
