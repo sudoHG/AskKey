@@ -67,7 +67,7 @@ extension Vault {
             throw BrokerApprovalError.payloadMismatch
         }
         if let expiresAt = frozen.credentialExpiresAt, expiresAt <= currentDate {
-            cancelAgentWrites(credentialID: frozen.approvalRequest.credentialID)
+            cancelAgentWritesForExpiry(credentialID: frozen.approvalRequest.credentialID)
             throw VaultError.credentialUnavailable
         }
         do {
@@ -90,7 +90,7 @@ extension Vault {
             notifySnapshotRelevantChange()
             return result
         } catch VaultError.credentialUnavailable {
-            cancelAgentWrites(credentialID: frozen.approvalRequest.credentialID)
+            cancelAgentWritesForExpiry(credentialID: frozen.approvalRequest.credentialID)
             throw VaultError.credentialUnavailable
         } catch BrokerApprovalError.alreadyConsumed {
             guard let committed = try completedAgentTextWrite(
@@ -115,9 +115,9 @@ extension Vault {
         }
     }
 
-    private func cancelAgentWrites(credentialID: String) {
+    private func cancelAgentWritesForExpiry(credentialID: String) {
         brokerRequests.cancelPending(credentialID: credentialID)
-        approvalRequests.cancelPending(credentialID: credentialID)
+        approvalRequests.cancelPendingForExpiry(credentialID: credentialID)
     }
 
     private func completedAgentTextWrite(

@@ -98,18 +98,20 @@ final class AgentOrganizationTests: AgentOrganizationTestSupport {
         }
     }
 
-    func testOccupiedRenameAndDuplicateCreationRejectWithGenericError() throws {
+    func testVisibleOccupiedRenameAndDuplicateCreationRejectWithGenericError() throws {
         let harness = try makeHarness { _ in true }
         try credential("Visible", group: "Source", harness: harness)
-        try credential("Hidden", group: "Occupied", permission: .hidden, harness: harness)
-        for operation: BrokerOrganizationOperation in [.renameGroup(from: "Source", to: "OCCUPIED"), .createGroup("occupied")] {
+        try credential("Visible Target", group: "Occupied", harness: harness)
+        try harness.vault.createCredentialGroup("Empty", using: .allow)
+        for operation: BrokerOrganizationOperation in [.renameGroup(from: "Source", to: "OCCUPIED"), .createGroup("occupied"),
+            .createGroup("empty"), .renameGroup(from: "Source", to: "EMPTY")] {
             XCTAssertThrowsError(try harness.vault.requestAgentTextWrite(request([operation]))) { error in
                 guard case VaultError.credentialUnavailable = error else { return XCTFail("Expected generic unavailable, got \(error)") }
             }
         }
         let batch = request([.renameGroup(from: "source", to: "  Destination  ")])
         _ = try commit(batch, harness: harness, ticket: approve(batch, harness: harness))
-        XCTAssertEqual(try harness.vault.brokerCredentialGroups(), ["Destination"])
+        XCTAssertEqual(try harness.vault.brokerCredentialGroups(), ["Destination", "Empty", "Occupied"])
     }
 
     func testAllowAndTimedReadAllowanceNeverSkipOrganizationApproval() throws {

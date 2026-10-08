@@ -5,6 +5,30 @@ import AskKeyBroker
 @testable import AskKeyAppKit
 
 final class OrganizationApprovalContentTests: AskKeyAppTestCase {
+    func testInvisibleExistingTargetsShowNoOpAndMergeTruthInBothLanguages() {
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        let summary = BrokerOrganizationSummary(operations: [
+            .existingGroup(name: "Target", members: 1, nonvisible: 1),
+            .mergeGroup(from: "Source", to: "Target", members: 4, nonvisible: 1, targetMembers: 2, targetNonvisible: 2),
+        ])
+        for language in ["en", "zh-Hans"] {
+            AppLanguage.current = language
+            let rows = FrozenOrganizationSummaryContent(summary: summary).rows
+            if language == "en" {
+                XCTAssertEqual(rows[0].title, "1. Create group “Target”")
+                XCTAssertEqual(rows[0].detail, "Group already exists — no changes. 1 credential, 1 not visible to agents")
+                XCTAssertEqual(rows[1].title, "2. Merge group “Source” into existing group “Target”")
+                XCTAssertEqual(rows[1].detail, "Source: 4 credentials, 1 not visible to agents. Existing group: 2 credentials, 2 not visible to agents.")
+            } else {
+                XCTAssertEqual(rows[0].title, "1. 创建分组“Target”") // i18n-literal: Assert reviewed Simplified Chinese no-op copy.
+                XCTAssertEqual(rows[0].detail, "分组已存在，不会更改。1 个凭证，其中 1 个 Agent 看不到") // i18n-literal: Assert reviewed Simplified Chinese no-op copy.
+                XCTAssertEqual(rows[1].title, "2. 将分组“Source”合并到已有分组“Target”") // i18n-literal: Assert reviewed Simplified Chinese merge copy.
+                XCTAssertEqual(rows[1].detail, "来源：4 个凭证，其中 1 个 Agent 看不到；已有分组：2 个凭证，其中 2 个 Agent 看不到。") // i18n-literal: Assert reviewed Simplified Chinese merge counts.
+            }
+        }
+    }
+
     func testOrderedRowsShowGroupEffectsAndNonvisibleCountsInBothLanguages() {
         let previous = AppLanguage.current
         defer { AppLanguage.current = previous }
@@ -66,8 +90,11 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
         let request = BrokerApprovalOperationRequest(operationID: "synthetic", credentialID: "", targetID: "credential-library",
             operation: .organize, payloadDigest: String(repeating: "a", count: 64),
             callerName: "Synthetic Agent", callerPurpose: String(repeating: "Synthetic purpose ", count: 200), organizationCredentialIDs: [])
-        let summary = BrokerOrganizationSummary(operations: (0..<64).map {
-            .move(credential: "API \($0)", from: String(repeating: "Original group ", count: 15), to: "Staging")
+        let summary = BrokerOrganizationSummary(operations: (0..<64).map { index in
+            index.isMultiple(of: 2)
+                ? .existingGroup(name: String(repeating: "Existing group ", count: 15), members: 1, nonvisible: 1)
+                : .mergeGroup(from: String(repeating: "Original group ", count: 15), to: String(repeating: "Existing group ", count: 15),
+                    members: 4, nonvisible: 1, targetMembers: 2, targetNonvisible: 2)
         })
         var reveals = 0
         for language in ["en", "zh-Hans"] {

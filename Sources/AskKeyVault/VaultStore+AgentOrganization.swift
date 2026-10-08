@@ -49,13 +49,15 @@ extension VaultStore {
             }
             // Merge only named groups into transaction-current state; unrelated
             // App group edits survive this batch.
-            var groups = Set(snapshot.storedGroups).union(try snapshot.assignments(key: key).values)
+            var groups = Set(snapshot.storedGroups)
             groups = Set(groups.filter { !names.contains(CredentialName.normalized($0)) })
             groups.formUnion(frozen.finalGroupNames)
-            let value = try VaultCrypto.encrypt(JSONEncoder().encode(groups.sorted()), using: key).base64EncodedString()
             for record in frozen.after { try credentialForPersistence(record).update(db) }
-            try db.execute(sql: "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
-                arguments: [Vault.credentialGroupsConfigKey, value])
+            if groups != Set(snapshot.storedGroups) {
+                let value = try VaultCrypto.encrypt(JSONEncoder().encode(groups.sorted()), using: key).base64EncodedString()
+                try db.execute(sql: "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
+                    arguments: [Vault.credentialGroupsConfigKey, value])
+            }
             try AgentWriteOperationRecord(operationId: frozen.request.operationID, payloadDigest: frozen.digest,
                 credentialId: "", operation: BrokerApprovalOperation.organize.rawValue,
                 committedAt: sharedDateFormatter.string(from: committedAt), requestId: requestID,

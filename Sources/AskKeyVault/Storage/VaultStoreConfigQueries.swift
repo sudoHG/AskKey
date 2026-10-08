@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import GRDB
 
 extension VaultStore {
@@ -21,24 +22,35 @@ extension VaultStore {
         }
     }
 
-    func replaceCredentialGroupsConfig(
-        key: String,
-        value: String,
-        clearingCredentialIDs: [String],
+    func editCredentialGroup(
+        _ name: String,
+        key: SymmetricKey,
+        deleting: Bool,
         updatedAt: String
-    ) throws {
+    ) throws -> [String] {
         try db.write { db in
+            let configKey = Vault.credentialGroupsConfigKey
+            let current = try ConfigRecord.fetchOne(db, key: configKey)?.value
+            var groups = Set(try AgentOrganizationSnapshot.storedGroups(current, key: key))
+            if deleting { groups.remove(name) } else { groups.insert(name) }
+            let value = try VaultCrypto.encrypt(JSONEncoder().encode(groups.sorted()), using: key).base64EncodedString()
             try db.execute(
                 sql: "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
-                arguments: [key, value]
+                arguments: [configKey, value]
             )
-            for id in clearingCredentialIDs {
-                guard let fetched = try CredentialRecord.fetchOne(db, key: id) else { continue }
-                var record = try authenticatedCredential(fetched)
-                record.encryptedGroupName = nil
-                record.updatedAt = updatedAt
-                try credentialForPersistence(record).update(db)
+            var clearedIDs: [String] = []
+            if deleting {
+                for fetched in try CredentialRecord.fetchAll(db) {
+                    var record = try authenticatedCredential(fetched)
+                    guard let encrypted = record.encryptedGroupName,
+                          try VaultCrypto.decrypt(encrypted, using: key) == name else { continue }
+                    record.encryptedGroupName = nil
+                    record.updatedAt = updatedAt
+                    try credentialForPersistence(record).update(db)
+                    clearedIDs.append(record.id)
+                }
             }
+            return clearedIDs
         }
     }
 }

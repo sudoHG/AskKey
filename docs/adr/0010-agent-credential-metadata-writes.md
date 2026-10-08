@@ -14,9 +14,9 @@ specified in [ADR 0001](0001-domain-storage-and-schema.md).
 ## Decision
 
 - Agents may propose usage-instruction changes, group assignment, and group
-  creation, rename and deletion as approved writes. Group rename and deletion
-  through a batch tool are deferred to #162; #161 implements instructions,
-  assignment and creation only. Permission changes, access records, stored-value
+  creation, rename and deletion as approved writes. #161 added instructions,
+  assignment and creation; #162 added batch organization, including group rename
+  and deletion. Permission changes, access records, stored-value
   reveal and local erase remain authenticated App operations.
 - Every metadata write requires explicit write approval and separate system
   authentication. Allow permission and timed read allowances never authorize it.
@@ -52,7 +52,10 @@ remain organizational data rather than grants of access.
 `organize_credentials` accepts 1–64 ordered operations: `move` (visible credential
 name and a visible group name or `null`), `create_group`, `rename_group` (`from`
 and `to`), and `delete_group`. A move may also name a group created earlier in
-the batch. Rename rejects an occupied normalized name; merging uses moves.
+the batch. Create and rename reject catalog-visible occupied names, including
+empty stored groups. Agent-invisible names freeze like absent names. The App
+shows existing-group creation as a no-op and rename as a merge, with source and
+target counts; renamed members reuse the target's existing spelling.
 Deletion removes only the group and ungroups all members, including Hidden and
 recycled members. Neither permissions nor credential deletion is available.
 
@@ -67,9 +70,12 @@ successful wire result contains only the operation ID.
 
 The approval digest binds the ordered request and caller data, full before and
 after states of affected records, and the spelling, existence and membership of
-named groups. Commit revalidates these snapshots inside one SQL transaction that
+named groups, including full member states of an invisible target. Commit
+revalidates these snapshots inside one SQL transaction that
 persists all records, the group changes and the idempotency receipt. Unrelated
-App group edits are preserved. A changed affected record or named group rejects
+App group edits are preserved. Every stored-group writer reads, merges and
+writes inside one SQL transaction; App create/delete also take the exclusive
+agent-access gate. A changed affected record or named group rejects
 the whole transaction. Existing Hidden members remain included; newly Hidden
 members invalidate the frozen state. Only explicitly moved credentials must be
 unexpired and can shorten the approval deadline. Rename/delete-only members,
@@ -90,5 +96,8 @@ remain outside the scrolling area within the 680-point budget in English and
 Simplified Chinese. The catalog returns a top-level `credentials` list and
 `groups`: empty groups and groups with an active visible member. Hidden-only
 and recycled-only groups are absent and use the existing generic not-found
-response. This additive tool keeps Broker protocol version 1 and leaves runtime
+response for operations requiring an existing visible group. Create and rename
+targets reveal no invisible-group existence before approval. Cancellation is
+serialized with organization commit and cannot cancel reserved consumption.
+This additive tool keeps Broker protocol version 1 and leaves runtime
 delivery and the App's group editor unchanged.

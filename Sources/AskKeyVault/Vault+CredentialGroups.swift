@@ -47,9 +47,10 @@ extension Vault {
         try authorizeManagement(authenticator, reason: CredentialManagementCopy.manageReason)
         let key = try requireKey()
         let name = try CredentialName.displayName(from: rawName)
-        var groups = Set(try storedCredentialGroups(key: key))
-        groups.insert(name)
-        try persistCredentialGroups(groups.sorted(), key: key)
+        let wasPaused = try agentAccessGate.beginExclusiveChange()
+        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        _ = try store.editCredentialGroup(name, key: key, deleting: false,
+            updatedAt: sharedDateFormatter.string(from: currentDate))
         notifySnapshotRelevantChange()
     }
 
@@ -64,21 +65,8 @@ extension Vault {
         let deliveryManager = try fileDeliveryManager.get()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
         defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
-        var groups = Set(try storedCredentialGroups(key: key))
-        groups.remove(name)
-        let matchingIDs = try (store.fetchAllCredentials() + store.fetchRecycledCredentials())
-            .compactMap { record -> String? in
-                guard let encrypted = record.encryptedGroupName,
-                      try VaultCrypto.decrypt(encrypted, using: key) == name else { return nil }
-                return record.id
-            }
-        let encrypted = try encryptedCredentialGroups(groups.sorted(), key: key)
-        try store.replaceCredentialGroupsConfig(
-            key: Self.credentialGroupsConfigKey,
-            value: encrypted,
-            clearingCredentialIDs: matchingIDs,
-            updatedAt: sharedDateFormatter.string(from: currentDate)
-        )
+        let matchingIDs = try store.editCredentialGroup(name, key: key, deleting: true,
+            updatedAt: sharedDateFormatter.string(from: currentDate))
         for id in matchingIDs {
             brokerRequests.cancelPending(credentialID: id)
             approvalRequests.cancelPending(credentialID: id)
@@ -96,16 +84,5 @@ extension Vault {
             [String].self,
             from: VaultCrypto.decryptData(encrypted, using: key)
         )
-    }
-
-    private func persistCredentialGroups(_ groups: [String], key: SymmetricKey) throws {
-        try store.setConfigValue(
-            key: Self.credentialGroupsConfigKey,
-            value: try encryptedCredentialGroups(groups, key: key)
-        )
-    }
-
-    func encryptedCredentialGroups(_ groups: [String], key: SymmetricKey) throws -> String {
-        try VaultCrypto.encrypt(JSONEncoder().encode(groups), using: key).base64EncodedString()
     }
 }

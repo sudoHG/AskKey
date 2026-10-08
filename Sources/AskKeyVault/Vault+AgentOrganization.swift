@@ -33,8 +33,10 @@ extension Vault {
     }
 
     func cancelAgentOrganization(operationID: String, requestID: String, capability: String) throws -> BrokerRequestState {
-        guard let frozen = agentOrganizations.entry(operationID: operationID) else { throw BrokerApprovalError.requestNotFound }
-        return try approvalRequests.cancel(requestID: requestID, capability: capability, operationRequest: frozen.approvalRequest)
+        try agentOrganizations.synchronized {
+            guard let frozen = agentOrganizations.entry(operationID: operationID) else { throw BrokerApprovalError.requestNotFound }
+            return try approvalRequests.cancel(requestID: requestID, capability: capability, operationRequest: frozen.approvalRequest)
+        }
     }
 
     public func frozenAgentOrganizationSummary(operationID: String, requestID: String,

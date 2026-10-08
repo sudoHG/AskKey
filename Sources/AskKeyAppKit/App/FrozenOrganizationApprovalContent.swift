@@ -21,9 +21,18 @@ struct FrozenOrganizationSummaryContent {
             case .createGroup(let name):
                 title = appLocalizedFormat("Create group “%@”", name)
                 detail = appLocalized("New group — created when approved")
+            case .existingGroup(let name, let members, let nonvisible):
+                title = appLocalizedFormat("Create group “%@”", name)
+                detail = appLocalizedFormat("Group already exists — no changes. %@",
+                    Self.memberCountDescription(members: members, nonvisible: nonvisible))
             case .renameGroup(let from, let to, let members, let nonvisible):
                 title = appLocalizedFormat("Rename group “%@” → “%@”", from, to)
                 detail = Self.memberCountDescription(members: members, nonvisible: nonvisible)
+            case .mergeGroup(let from, let to, let members, let nonvisible, let targetMembers, let targetNonvisible):
+                title = appLocalizedFormat("Merge group “%@” into existing group “%@”", from, to)
+                detail = appLocalizedFormat("Source: %@. Existing group: %@.",
+                    Self.memberCountDescription(members: members, nonvisible: nonvisible),
+                    Self.memberCountDescription(members: targetMembers, nonvisible: targetNonvisible))
             case .deleteGroup(let name, let members, let nonvisible):
                 title = appLocalizedFormat("Delete group “%@”", name)
                 detail = Self.memberCountDescription(members: members, nonvisible: nonvisible)
