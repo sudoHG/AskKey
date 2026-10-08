@@ -61,6 +61,31 @@ final class ApprovalMetadataContentTests: AskKeyAppTestCase {
         let long = size(group: String(repeating: "Wide Group ", count: 23))
         XCTAssertEqual(long.width, FrozenAgentApprovalPrompt.width)
         XCTAssertEqual(long.height, short.height, accuracy: 1, "Complete group text must scroll within a bounded region")
-        XCTAssertLessThan(long.height, 800)
+        XCTAssertLessThan(long.height, 680)
+    }
+
+    @MainActor
+    func testCreateApprovalKeepsActionsWithinCIVisibleScreenHeight() {
+        _ = NSApplication.shared
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        let request = BrokerApprovalOperationRequest(operationID: "synthetic", credentialID: "synthetic",
+            targetID: "synthetic", operation: .create, payloadDigest: String(repeating: "a", count: 64),
+            credentialName: "Staging API", callerName: "E2E Agent")
+        for language in ["en", "zh-Hans"] {
+            AppLanguage.current = language
+            for instructions in ["Use only for staging API requests. Consume STAGING_TOKEN; keep values out of logs.",
+                                 String(repeating: "Guidance\n", count: 400)] {
+                let summary = BrokerCredentialWriteSummary(credentialName: "Staging API", operation: .create,
+                    before: [], after: [.init(name: "token", payloadKind: .text, byteCount: 24,
+                        delivery: .environmentVariable("STAGING_TOKEN"), masked: true)],
+                    beforeDigest: nil, afterDigest: nil, beforeUsageInstructions: nil,
+                    afterUsageInstructions: instructions, beforeGroup: nil, afterGroup: "Staging Services", createsGroup: true)
+                let size = NSHostingView(rootView: FrozenAgentApprovalPrompt(request: request, timedAllowanceEnabled: true,
+                    writeSummary: summary, finish: { _ in })).fittingSize
+                XCTAssertEqual(size.width, FrozenAgentApprovalPrompt.width)
+                XCTAssertLessThan(size.height, 680, "Approval and Deny must fit the 768-point CI screen with menu bar and Dock")
+            }
+        }
     }
 }

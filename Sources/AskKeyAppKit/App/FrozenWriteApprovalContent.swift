@@ -71,30 +71,38 @@ struct FrozenWriteApprovalContent: View {
     }
 
     private func metadataContent(_ summary: BrokerCredentialWriteSummary) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(appLocalized("Usage instructions"))
                 .font(Theme.Fonts.caption.weight(.semibold))
             ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary)
-                    metadataText(summary.beforeUsageInstructions)
-                    Text(appLocalized("After")).foregroundStyle(Theme.textSecondary)
-                    metadataText(summary.afterUsageInstructions)
+                Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.sm, verticalSpacing: Theme.Spacing.xs) {
+                    GridRow {
+                        Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary).fixedSize()
+                        metadataText(summary.beforeUsageInstructions)
+                    }
+                    GridRow {
+                        Text(appLocalized("After")).foregroundStyle(Theme.textSecondary).fixedSize()
+                        metadataText(summary.afterUsageInstructions)
+                    }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 100)
+            .frame(height: 60)
             .accessibilityIdentifier("approval-usage-instructions")
             Text(appLocalized("Group"))
                 .font(Theme.Fonts.caption.weight(.semibold))
             ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary)
-                    metadataText(summary.beforeGroup ?? appLocalized("Ungrouped"))
-                    Text(appLocalized("After")).foregroundStyle(Theme.textSecondary)
-                    metadataText(summary.afterGroup ?? appLocalized("Ungrouped"))
+                Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.sm, verticalSpacing: Theme.Spacing.xs) {
+                    GridRow {
+                        Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary).fixedSize()
+                        metadataText(summary.beforeGroup ?? appLocalized("Ungrouped"))
+                    }
+                    GridRow {
+                        Text(appLocalized("After")).foregroundStyle(Theme.textSecondary).fixedSize()
+                        metadataText(summary.afterGroup ?? appLocalized("Ungrouped"))
+                    }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 70)
+            .frame(height: 30)
             .accessibilityIdentifier("approval-group-changes")
             if summary.createsGroup {
                 Text(appLocalized("New group — created when approved"))
