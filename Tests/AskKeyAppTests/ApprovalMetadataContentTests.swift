@@ -42,4 +42,25 @@ final class ApprovalMetadataContentTests: AskKeyAppTestCase {
         XCTAssertLessThan(size.height, 650, "Instructions scroll rather than growing the prompt without bound")
         XCTAssertEqual(reveals, 0, "Catalog-visible metadata requires no reveal authentication")
     }
+
+    @MainActor
+    func testLongGroupNamesDoNotPushApprovalActionsOutsideThePrompt() {
+        _ = NSApplication.shared
+        let request = BrokerApprovalOperationRequest(operationID: "synthetic", credentialID: "synthetic",
+            targetID: "synthetic", operation: .modify, payloadDigest: String(repeating: "a", count: 64),
+            credentialName: "Staging Service")
+        func size(group: String) -> NSSize {
+            let summary = BrokerCredentialWriteSummary(credentialName: "Staging Service", operation: .modify,
+                before: [], after: [], beforeDigest: nil, afterDigest: nil,
+                beforeUsageInstructions: "Original", afterUsageInstructions: String(repeating: "Guidance\n", count: 400),
+                beforeGroup: group, afterGroup: group, createsGroup: true)
+            return NSHostingView(rootView: FrozenAgentApprovalPrompt(request: request, timedAllowanceEnabled: true,
+                writeSummary: summary, finish: { _ in })).fittingSize
+        }
+        let short = size(group: "Staging")
+        let long = size(group: String(repeating: "Wide Group ", count: 23))
+        XCTAssertEqual(long.width, FrozenAgentApprovalPrompt.width)
+        XCTAssertEqual(long.height, short.height, accuracy: 1, "Complete group text must scroll within a bounded region")
+        XCTAssertLessThan(long.height, 800)
+    }
 }

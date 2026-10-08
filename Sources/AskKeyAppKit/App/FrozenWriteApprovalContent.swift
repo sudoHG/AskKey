@@ -86,10 +86,16 @@ struct FrozenWriteApprovalContent: View {
             .accessibilityIdentifier("approval-usage-instructions")
             Text(appLocalized("Group"))
                 .font(Theme.Fonts.caption.weight(.semibold))
-            Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary)
-            metadataText(summary.beforeGroup ?? appLocalized("Ungrouped"))
-            Text(appLocalized("After")).foregroundStyle(Theme.textSecondary)
-            metadataText(summary.afterGroup ?? appLocalized("Ungrouped"))
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary)
+                    metadataText(summary.beforeGroup ?? appLocalized("Ungrouped"))
+                    Text(appLocalized("After")).foregroundStyle(Theme.textSecondary)
+                    metadataText(summary.afterGroup ?? appLocalized("Ungrouped"))
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 70)
+            .accessibilityIdentifier("approval-group-changes")
             if summary.createsGroup {
                 Text(appLocalized("New group — created when approved"))
                     .foregroundStyle(Theme.warning)
