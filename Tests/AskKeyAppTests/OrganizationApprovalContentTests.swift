@@ -33,6 +33,31 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
         }
     }
 
+    func testRenameAndDeleteMemberCountsPluralizeAndOmitZeroNonvisibleInBothLanguages() {
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        let cases = [
+            (members: 0, nonvisible: 0, english: "0 credentials", chinese: "0 个凭证"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
+            (members: 1, nonvisible: 0, english: "1 credential", chinese: "1 个凭证"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
+            (members: 2, nonvisible: 0, english: "2 credentials", chinese: "2 个凭证"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
+            (members: 1, nonvisible: 1, english: "1 credential, 1 not visible to agents", chinese: "1 个凭证，其中 1 个 Agent 看不到"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
+            (members: 2, nonvisible: 1, english: "2 credentials, 1 not visible to agents", chinese: "2 个凭证，其中 1 个 Agent 看不到"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
+            (members: 2, nonvisible: 2, english: "2 credentials, 2 not visible to agents", chinese: "2 个凭证，其中 2 个 Agent 看不到"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
+        ]
+        for language in ["en", "zh-Hans"] {
+            AppLanguage.current = language
+            for testCase in cases {
+                let summary = BrokerOrganizationSummary(operations: [
+                    .renameGroup(from: "Old", to: "New", members: testCase.members, nonvisible: testCase.nonvisible),
+                    .deleteGroup(name: "Unused", members: testCase.members, nonvisible: testCase.nonvisible),
+                ])
+                let rows = FrozenOrganizationSummaryContent(summary: summary).rows
+                let expected = language == "en" ? testCase.english : testCase.chinese
+                XCTAssertEqual(rows.map(\.detail), [expected, expected], "\(language), \(testCase.members) members, \(testCase.nonvisible) nonvisible")
+            }
+        }
+    }
+
     @MainActor
     func testMaximumBatchAndExpandedDetailsKeepActionsWithin680PointsWithoutReveal() {
         _ = NSApplication.shared

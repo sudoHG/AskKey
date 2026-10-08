@@ -66,6 +66,30 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Delete group “%@”!!]" } }
       }
     },
+    "%lld credential": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld credential" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credential!!]" } }
+      }
+    },
+    "%lld credentials": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld credentials" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credentials!!]" } }
+      }
+    },
+    "%lld credential, %lld not visible to agents": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld credential, %lld not visible to agents" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证，其中 %lld 个 Agent 看不到" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credential, %lld not visible to agents!!]" } }
+      }
+    },
     "%lld credentials, %lld not visible to agents": {
       "extractionState": "manual",
       "localizations": {

@@ -23,13 +23,24 @@ struct FrozenOrganizationSummaryContent {
                 detail = appLocalized("New group — created when approved")
             case .renameGroup(let from, let to, let members, let nonvisible):
                 title = appLocalizedFormat("Rename group “%@” → “%@”", from, to)
-                detail = appLocalizedFormat("%lld credentials, %lld not visible to agents", members, nonvisible)
+                detail = Self.memberCountDescription(members: members, nonvisible: nonvisible)
             case .deleteGroup(let name, let members, let nonvisible):
                 title = appLocalizedFormat("Delete group “%@”", name)
-                detail = appLocalizedFormat("%lld credentials, %lld not visible to agents", members, nonvisible)
+                detail = Self.memberCountDescription(members: members, nonvisible: nonvisible)
             }
             return .init(title: String(index + 1) + ". " + title, detail: detail)
         }
+    }
+
+    private static func memberCountDescription(members: Int, nonvisible: Int) -> String {
+        if nonvisible > 0 {
+            return members == 1
+                ? appLocalizedFormat("%lld credential, %lld not visible to agents", members, nonvisible)
+                : appLocalizedFormat("%lld credentials, %lld not visible to agents", members, nonvisible)
+        }
+        return members == 1
+            ? appLocalizedFormat("%lld credential", members)
+            : appLocalizedFormat("%lld credentials", members)
     }
 }
 
