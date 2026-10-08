@@ -67,6 +67,10 @@ final class E2EBrokerScenario {
             try await checkRestart()
             return
         }
+        if scenario == "approval-metadata-screenshots" {
+            try await metadataApprovalScreenshot()
+            return
+        }
         let arguments = try makeFrozenRun()
         let pending = try await call("run", arguments, evidence: "run-pending.json")
         let ticket = try pendingTicket(pending)
@@ -106,6 +110,31 @@ final class E2EBrokerScenario {
         try require(try state(consumed) == .consumed, "Ticket did not reach consumed")
         try report("approval-result.json", ["outcome": "executed-once", "firstExitCode": firstCode,
             "replayExitCode": replayCode, "ticketState": "consumed"])
+    }
+
+    private func metadataApprovalScreenshot() async throws {
+        let reply = try await call("create_credential", [
+            "operation_id": "metadata-" + directory.lastPathComponent,
+            "name": "Staging API", "caller_name": "E2E Agent",
+            "caller_purpose": "Save a synthetic staging credential",
+            "components": [["name": "token", "text": "synthetic-metadata-token",
+                "delivery": ["type": "environment_variable", "environment_variable": "STAGING_TOKEN"]]],
+            "usage_instructions": "Use only for staging API requests. Consume STAGING_TOKEN; keep values out of logs.",
+            "group": "Staging Services"
+        ], evidence: "metadata-write-pending.json")
+        guard !reply.isError,
+              case .success(.textWriteRequest(.submitted(let ticket))) = try JSONDecoder().decode(BrokerResponse.self, from: reply.data),
+              ticket.state == .pending else { throw failure("Expected pending metadata write") }
+        try report("approval-pending.json", ["requestID": ticket.requestID])
+        var decision = BrokerRequestState.pending
+        try await waitUntil {
+            let status = try await self.call("request_status", ["request_id": ticket.requestID,
+                "capability": ticket.capability], evidence: "metadata-status.json")
+            decision = try self.state(status)
+            return decision != .pending
+        }
+        try require(decision == .denied, "Screenshot metadata write must be denied")
+        try report("approval-result.json", ["outcome": "denied"])
     }
 
     private func makeFrozenRun() throws -> [String: Any] {

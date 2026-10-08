@@ -4,6 +4,8 @@
 
 Accepted. Carries forward the retained Broker decisions of legacy ADR 0027.
 
+[ADR 0010](0010-agent-credential-metadata-writes.md) amends the App-only group-management rule to allow approved agent metadata and group writes.
+
 ## Context
 
 Local agents need discovery, approved runtime delivery and separately approved writes while management stays in the App. Client-supplied identities cannot securely partition programs running as the same macOS user. The [security policy](../../SECURITY.md) states that boundary explicitly.

@@ -88,6 +88,12 @@ public enum BrokerCredentialComponentChange: Codable, Equatable, Sendable {
     case remove(String)
 }
 
+/// Nil on the action preserves the group; Ungrouped explicitly clears it.
+public enum BrokerCredentialGroupChange: Codable, Equatable, Sendable {
+    case named(String)
+    case ungrouped
+}
+
 public struct BrokerCredentialComponentSummary: Equatable, Sendable {
     public let name: String
     public let payloadKind: BrokerCatalogPayloadKind
@@ -104,7 +110,7 @@ public struct BrokerCredentialComponentSummary: Equatable, Sendable {
     }
 }
 
-/// App-only approval projection; no values, upload capabilities or plaintext.
+/// App-only approval projection; no credential values or upload capabilities.
 public struct BrokerCredentialWriteSummary: Equatable, Sendable {
     public let credentialName: String
     public let operation: BrokerApprovalOperation
@@ -112,16 +118,28 @@ public struct BrokerCredentialWriteSummary: Equatable, Sendable {
     public let after: [BrokerCredentialComponentSummary]
     public let beforeDigest: String?
     public let afterDigest: String?
+    public let beforeUsageInstructions: String?
+    public let afterUsageInstructions: String?
+    public let beforeGroup: String?
+    public let afterGroup: String?
+    public let createsGroup: Bool
 
     public init(credentialName: String, operation: BrokerApprovalOperation,
                 before: [BrokerCredentialComponentSummary], after: [BrokerCredentialComponentSummary],
-                beforeDigest: String?, afterDigest: String?) {
+                beforeDigest: String?, afterDigest: String?,
+                beforeUsageInstructions: String? = nil, afterUsageInstructions: String? = nil,
+                beforeGroup: String? = nil, afterGroup: String? = nil, createsGroup: Bool = false) {
         self.credentialName = credentialName
         self.operation = operation
         self.before = before
         self.after = after
         self.beforeDigest = beforeDigest
         self.afterDigest = afterDigest
+        self.beforeUsageInstructions = beforeUsageInstructions
+        self.afterUsageInstructions = afterUsageInstructions
+        self.beforeGroup = beforeGroup
+        self.afterGroup = afterGroup
+        self.createsGroup = createsGroup
     }
 }
 
@@ -137,7 +155,7 @@ public extension AgentTextWriteAction {
     var credentialName: String {
         switch self {
         case .create(let name, _), .modify(let name, _), .delete(let name),
-             .createBundle(let name, _), .modifyBundle(let name, _): return name
+             .createBundle(let name, _, _, _), .modifyBundle(let name, _, _, _): return name
         }
     }
 }
@@ -146,8 +164,8 @@ public extension AgentTextWriteRequest {
     var componentFileReferences: [BrokerComponentFileReference] {
         let components: [BrokerCredentialComponentInput]
         switch action {
-        case .createBundle(_, let inputs): components = inputs
-        case .modifyBundle(_, let changes):
+        case .createBundle(_, let inputs, _, _): components = inputs
+        case .modifyBundle(_, let changes, _, _):
             components = changes.compactMap { if case .upsert(let input) = $0 { return input }; return nil }
         default: components = []
         }
@@ -174,10 +192,13 @@ public extension AgentTextWriteRequest {
         switch action {
         case .create(_, let value), .modify(_, let value): fields.append(value)
         case .delete: break
-        case .createBundle(_, let components):
+        case .createBundle(_, let components, let instructions, let group):
             guard !components.isEmpty, components.count <= 64, components.allSatisfy(add) else { return false }
-        case .modifyBundle(_, let changes):
-            guard !changes.isEmpty, changes.count <= 64 else { return false }
+            fields += [instructions, group].compactMap { $0 }
+        case .modifyBundle(_, let changes, let instructions, let group):
+            guard (!changes.isEmpty || instructions != nil || group != nil), changes.count <= 64 else { return false }
+            if let instructions { fields.append(instructions) }
+            if case .named(let name) = group { fields.append(name) }
             for change in changes {
                 switch change {
                 case .upsert(let component): guard add(component) else { return false }

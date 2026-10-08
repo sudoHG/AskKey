@@ -14,6 +14,8 @@ extension Vault {
         let credentialExpiresAt: Date?
         let operation: BrokerApprovalOperation
         var beforeRecord: CredentialRecord?
+        var groupAssignment: String?
+        var createsGroup = false
         switch request.action {
         case let .create(name, value):
             credentialID = UUID().uuidString
@@ -39,15 +41,19 @@ extension Vault {
             updated.updatedAt = sharedDateFormatter.string(from: currentDate)
             mutation = .modify(updated, expectedUpdatedAt: existing.updatedAt)
             operation = .modify
-        case let .createBundle(name, inputs):
+        case let .createBundle(name, inputs, instructions, group):
             credentialID = UUID().uuidString
             let components = try inputs.map { try componentInput($0, files: files) }
+            if let group {
+                (groupAssignment, createsGroup) = try resolvedAgentGroup(group, key: key)
+            }
             mutation = .create(try preparedBundleRecord(
-                from: .init(name: name, components: components, permission: .ask),
+                from: .init(name: name, components: components, usageInstructions: instructions ?? "",
+                    groupName: groupAssignment, permission: .ask),
                 id: credentialID, key: key, existing: nil))
             credentialExpiresAt = nil
             operation = .create
-        case let .modifyBundle(name, changes):
+        case let .modifyBundle(name, changes, instructions, group):
             let existing = try availableTextCredential(named: name, key: key, requiresText: false,
                 callerHint: request.callerName, declaredPurpose: request.callerPurpose)
             beforeRecord = existing
@@ -75,12 +81,25 @@ extension Vault {
             }
             components = try CredentialBundleValidator.validatedComponents(components)
             var updated = existing
-            updated.payloadKind = CredentialPayloadKind.bundle.rawValue
-            updated.encryptedPayload = try VaultCrypto.encrypt(JSONEncoder().encode(components), using: key)
-            updated.encryptedEnvironmentVariable = nil
-            updated.encryptedOriginalFilename = nil
-            updated.byteSize = nil
-            updated.contentDigest = nil
+            if !changes.isEmpty {
+                updated.payloadKind = CredentialPayloadKind.bundle.rawValue
+                updated.encryptedPayload = try VaultCrypto.encrypt(JSONEncoder().encode(components), using: key)
+                updated.encryptedEnvironmentVariable = nil
+                updated.encryptedOriginalFilename = nil
+                updated.byteSize = nil
+                updated.contentDigest = nil
+            }
+            if let instructions {
+                try CredentialFieldValidation.usageInstructions(instructions)
+                updated.encryptedUsageInstructions = try VaultCrypto.encrypt(instructions, using: key)
+            }
+            switch group {
+            case .named(let name):
+                (groupAssignment, createsGroup) = try resolvedAgentGroup(name, key: key)
+                updated.encryptedGroupName = try groupAssignment.map { try VaultCrypto.encrypt($0, using: key) }
+            case .ungrouped: updated.encryptedGroupName = nil
+            case nil: break
+            }
             updated.updatedAt = sharedDateFormatter.string(from: currentDate)
             mutation = .modify(updated, expectedUpdatedAt: existing.updatedAt)
             operation = .modify
@@ -102,14 +121,19 @@ extension Vault {
         let credentialName = try CredentialName.displayName(from: request.action.credentialName)
         let before = try beforeRecord.map { try credentialComponents(from: $0, key: key) } ?? []
         let after: [CredentialComponentInput]
+        let afterRecord: CredentialRecord?
         switch mutation {
         case .create(let record), .modify(let record, _):
             after = try credentialComponents(from: record, key: key)
-        case .delete: after = []
+            afterRecord = record
+        case .delete: after = []; afterRecord = nil
         }
-        let summary = try componentSummary(name: credentialName, operation: operation, before: before, after: after)
+        let summary = try componentSummary(name: credentialName, operation: operation, before: before, after: after,
+            beforeRecord: beforeRecord, afterRecord: afterRecord, createsGroup: createsGroup, key: key)
         let approvalDigest = Self.componentDigest(try JSONEncoder().encode([
-            digest, credentialID, summary.beforeDigest ?? "", summary.afterDigest ?? ""
+            digest, credentialID, summary.beforeDigest, summary.afterDigest,
+            summary.beforeUsageInstructions, summary.afterUsageInstructions,
+            summary.beforeGroup, summary.afterGroup, String(createsGroup)
         ]))
         let approval = BrokerApprovalOperationRequest(
             operationID: request.operationID,
@@ -129,8 +153,18 @@ extension Vault {
             credentialExpiresAt: credentialExpiresAt,
             mutation: mutation,
             beforeRecord: beforeRecord,
-            summary: summary
+            summary: summary,
+            groupAssignment: groupAssignment
         )
+    }
+
+    private func resolvedAgentGroup(_ rawName: String, key: SymmetricKey) throws -> (String, Bool) {
+        let name = try CredentialName.displayName(from: rawName)
+        let normalized = CredentialName.normalized(name)
+        if let existing = try credentialGroupNames(key: key).first(where: { CredentialName.normalized($0) == normalized }) {
+            return (existing, false)
+        }
+        return (name, true)
     }
 
     private func availableTextCredential(
@@ -190,7 +224,9 @@ extension Vault {
     }
 
     private func componentSummary(name: String, operation: BrokerApprovalOperation,
-        before: [CredentialComponentInput], after: [CredentialComponentInput]) throws -> BrokerCredentialWriteSummary {
+        before: [CredentialComponentInput], after: [CredentialComponentInput],
+        beforeRecord: CredentialRecord?, afterRecord: CredentialRecord?, createsGroup: Bool,
+        key: SymmetricKey) throws -> BrokerCredentialWriteSummary {
         func projections(_ inputs: [CredentialComponentInput]) -> [BrokerCredentialComponentSummary] {
             inputs.map { input in
                 let kind: BrokerCatalogPayloadKind
@@ -208,6 +244,11 @@ extension Vault {
         return .init(credentialName: name, operation: operation,
             before: projections(before), after: projections(after),
             beforeDigest: before.isEmpty ? nil : Self.componentDigest(try encoder.encode(before)),
-            afterDigest: after.isEmpty ? nil : Self.componentDigest(try encoder.encode(after)))
+            afterDigest: after.isEmpty ? nil : Self.componentDigest(try encoder.encode(after)),
+            beforeUsageInstructions: try beforeRecord.map { try VaultCrypto.decrypt($0.encryptedUsageInstructions, using: key) },
+            afterUsageInstructions: try afterRecord.map { try VaultCrypto.decrypt($0.encryptedUsageInstructions, using: key) },
+            beforeGroup: try beforeRecord?.encryptedGroupName.map { try VaultCrypto.decrypt($0, using: key) },
+            afterGroup: try afterRecord?.encryptedGroupName.map { try VaultCrypto.decrypt($0, using: key) },
+            createsGroup: createsGroup)
     }
 }

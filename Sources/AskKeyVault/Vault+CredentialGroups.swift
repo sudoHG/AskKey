@@ -26,7 +26,10 @@ extension Vault {
 
     public func listCredentialGroups() throws -> [String] {
         try requireManagementSession()
-        let key = try requireKey()
+        return try credentialGroupNames(key: requireKey())
+    }
+
+    func credentialGroupNames(key: SymmetricKey) throws -> [String] {
         var groups = Set(try storedCredentialGroups(key: key))
         for record in try (store.fetchAllCredentials() + store.fetchRecycledCredentials()) {
             if let encrypted = record.encryptedGroupName {

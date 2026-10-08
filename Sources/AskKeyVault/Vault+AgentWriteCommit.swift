@@ -76,7 +76,8 @@ extension Vault {
                     frozen,
                     requestID: requestID,
                     capabilityDigest: agentTextWriteCapabilityDigest(capability),
-                    clock: { currentDate }
+                    clock: { currentDate },
+                    credentialGroupsKey: try requireKey()
                 )
             }
             agentTextWrites.remove(operationID: request.operationID)

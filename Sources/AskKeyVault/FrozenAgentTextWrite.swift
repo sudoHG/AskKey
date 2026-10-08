@@ -9,4 +9,5 @@ struct FrozenAgentTextWrite {
     let mutation: FrozenAgentTextMutation
     var beforeRecord: CredentialRecord? = nil
     var summary: BrokerCredentialWriteSummary? = nil
+    var groupAssignment: String? = nil
 }

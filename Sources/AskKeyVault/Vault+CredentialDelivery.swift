@@ -31,10 +31,11 @@ extension Vault {
             guard permission != .hidden else { return nil }
             let name = try VaultCrypto.decrypt(record.encryptedDisplayName, using: key)
             let instructions = try VaultCrypto.decrypt(record.encryptedUsageInstructions, using: key)
+            let group = try record.encryptedGroupName.map { try VaultCrypto.decrypt($0, using: key) }
             let environmentVariable = try record.encryptedEnvironmentVariable.map {
                 try VaultCrypto.decrypt($0, using: key)
             }
-            guard [name, instructions, environmentVariable]
+            guard [name, instructions, environmentVariable, group]
                 .compactMap({ $0 })
                 .allSatisfy({ $0.utf8.count <= BrokerLimits.maximumFieldBytes }) else {
                 throw VaultError.databaseError("Credential catalog field exceeds the Broker limit.")
@@ -58,7 +59,8 @@ extension Vault {
                 expired: expired,
                 components: try credentialComponents(from: record, key: key).map {
                     BrokerCatalogComponent(name: $0.name, payloadKind: $0.value.payloadKind == .file ? .file : .text, delivery: $0.delivery)
-                }
+                },
+                group: group
             )
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }

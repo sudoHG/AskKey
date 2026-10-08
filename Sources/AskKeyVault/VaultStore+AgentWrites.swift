@@ -24,7 +24,8 @@ extension VaultStore {
         capabilityDigest: String,
         clock: () -> Date,
         resultDigest: String? = nil,
-        expectedFileDigest: Data? = nil
+        expectedFileDigest: Data? = nil,
+        credentialGroupsKey: SymmetricKey? = nil
     ) throws -> AgentTextWriteResult {
         try db.write { db in
             let committedAt = clock()
@@ -40,6 +41,10 @@ extension VaultStore {
                 return .init(operationID: existing.operationId, credentialID: existing.credentialId)
             }
 
+            if let group = frozen.groupAssignment {
+                guard let key = credentialGroupsKey else { throw VaultError.vaultLocked }
+                try commitAgentGroup(group, creationApproved: frozen.summary?.createsGroup == true, key: key, db: db)
+            }
             let credentialID: String
             let operation: BrokerApprovalOperation
             switch frozen.mutation {
@@ -86,6 +91,33 @@ extension VaultStore {
                 resultDigest: resultDigest
             ).insert(db)
             return .init(operationID: frozen.operationID, credentialID: credentialID)
+        }
+    }
+
+    /// Merge against transaction-current groups so concurrent writes cannot
+    /// overwrite another group's creation or change the approved spelling.
+    private func commitAgentGroup(_ name: String, creationApproved: Bool, key: SymmetricKey, db: Database) throws {
+        let configKey = Vault.credentialGroupsConfigKey
+        var stored: [String] = []
+        if let value = try ConfigRecord.filter(Column("key") == configKey).fetchOne(db)?.value {
+            guard let bytes = Data(base64Encoded: value) else { throw VaultError.databaseError("Credential groups are invalid.") }
+            stored = try JSONDecoder().decode([String].self, from: VaultCrypto.decryptData(bytes, using: key))
+        }
+        var groups = Set(stored)
+        // Include groups represented only by active or recycled credentials.
+        for raw in try CredentialRecord.fetchAll(db) {
+            let record = try authenticatedCredential(raw)
+            if let encrypted = record.encryptedGroupName {
+                groups.insert(try VaultCrypto.decrypt(encrypted, using: key))
+            }
+        }
+        let matching = groups.filter { CredentialName.normalized($0) == CredentialName.normalized(name) }
+        guard matching.allSatisfy({ $0 == name }) else { throw VaultError.credentialChanged }
+        guard creationApproved || matching.contains(name) else { throw VaultError.credentialChanged }
+        if !stored.contains(name) {
+            stored.append(name)
+            let encrypted = try VaultCrypto.encrypt(JSONEncoder().encode(stored.sorted()), using: key).base64EncodedString()
+            try db.execute(sql: "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", arguments: [configKey, encrypted])
         }
     }
 

@@ -39,16 +39,28 @@ func callMCPTool(
     case "create_credential":
         guard let credentialName = arguments["name"] as? String,
               let raw = arguments["components"] as? [[String: Any]],
+              arguments["usage_instructions"] == nil || arguments["usage_instructions"] is String,
+              arguments["group"] == nil || arguments["group"] is String,
               let components = parseMCPComponents(raw) else {
             return mcpFailure(id: id, code: -32602, message: "name and valid components are required")
         }
-        return try callMCPTextWrite(id: id, action: .createBundle(name: credentialName, components: components),
+        return try callMCPTextWrite(id: id, action: .createBundle(name: credentialName, components: components,
+            usageInstructions: arguments["usage_instructions"] as? String, group: arguments["group"] as? String),
             arguments: arguments, client: client)
     case "modify_credential":
         guard let credentialName = arguments["name"] as? String,
-              let raw = arguments["changes"] as? [[String: Any]], !raw.isEmpty, raw.count <= 64 else {
-            return mcpFailure(id: id, code: -32602, message: "name and valid changes are required")
+              arguments["usage_instructions"] == nil || arguments["usage_instructions"] is String,
+              arguments["group"] == nil || arguments["group"] is String || arguments["group"] is NSNull,
+              arguments["changes"] == nil || arguments["changes"] is [[String: Any]],
+              arguments["changes"] != nil || arguments["usage_instructions"] != nil || arguments["group"] != nil else {
+            return mcpFailure(id: id, code: -32602, message: "name and valid changes, usage_instructions or group are required")
         }
+        let raw = arguments["changes"] as? [[String: Any]] ?? []
+        guard raw.count <= 64, arguments["changes"] == nil || !raw.isEmpty else {
+            return mcpFailure(id: id, code: -32602, message: "changes must contain between 1 and 64 entries")
+        }
+        let group: BrokerCredentialGroupChange? = arguments["group"] is NSNull ? .ungrouped
+            : (arguments["group"] as? String).map { .named($0) }
         var changes: [BrokerCredentialComponentChange] = []
         for item in raw {
             if let remove = item["remove"] as? String, item.count == 1 {
@@ -60,7 +72,8 @@ func callMCPTool(
                 return mcpFailure(id: id, code: -32602, message: "Each change requires one upsert or remove")
             }
         }
-        return try callMCPTextWrite(id: id, action: .modifyBundle(name: credentialName, changes: changes),
+        return try callMCPTextWrite(id: id, action: .modifyBundle(name: credentialName, changes: changes,
+            usageInstructions: arguments["usage_instructions"] as? String, group: group),
             arguments: arguments, client: client)
     case "begin_file_write":
         guard let operationID = arguments["operation_id"] as? String,

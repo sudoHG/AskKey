@@ -29,6 +29,7 @@ struct FrozenWriteApprovalContent: View {
                 .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.textSecondary)
                 .frame(maxHeight: 70)
+                metadataContent(writeSummary)
             }
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text(appLocalized("Frozen Content to Write"))
@@ -67,6 +68,44 @@ struct FrozenWriteApprovalContent: View {
         }
         .font(Theme.Fonts.secondary)
         .onDisappear { revealTask?.cancel(); revealTask = nil; revealedMaterial = nil }
+    }
+
+    private func metadataContent(_ summary: BrokerCredentialWriteSummary) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Text(appLocalized("Usage instructions"))
+                .font(Theme.Fonts.caption.weight(.semibold))
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary)
+                    metadataText(summary.beforeUsageInstructions)
+                    Text(appLocalized("After")).foregroundStyle(Theme.textSecondary)
+                    metadataText(summary.afterUsageInstructions)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 100)
+            .accessibilityIdentifier("approval-usage-instructions")
+            Text(appLocalized("Group"))
+                .font(Theme.Fonts.caption.weight(.semibold))
+            Text(appLocalized("Before")).foregroundStyle(Theme.textSecondary)
+            metadataText(summary.beforeGroup ?? appLocalized("Ungrouped"))
+            Text(appLocalized("After")).foregroundStyle(Theme.textSecondary)
+            metadataText(summary.afterGroup ?? appLocalized("Ungrouped"))
+            if summary.createsGroup {
+                Text(appLocalized("New group — created when approved"))
+                    .foregroundStyle(Theme.warning)
+                    .accessibilityIdentifier("approval-new-group")
+            }
+        }
+        .font(Theme.Fonts.caption)
+        .accessibilityIdentifier("approval-credential-metadata")
+    }
+
+    private func metadataText(_ value: String?) -> some View {
+        Text(verbatim: value.flatMap { $0.isEmpty ? nil : $0 } ?? appLocalized("None"))
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func reveal() {

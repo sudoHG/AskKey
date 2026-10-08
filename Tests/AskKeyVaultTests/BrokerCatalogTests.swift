@@ -4,7 +4,7 @@ import AskKeyBroker
 @testable import AskKeyVault
 
 final class BrokerCatalogTests: XCTestCase {
-    func testCatalogExcludesHiddenCredentialsAndAllSensitiveMetadata() throws {
+    func testCatalogExposesVisibleGroupsAndExcludesHiddenCredentialsValuesAndPrivateNotes() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -34,7 +34,7 @@ final class BrokerCatalogTests: XCTestCase {
 
         XCTAssertEqual(
             try vault.brokerCredentialCatalog(now: Date(timeIntervalSince1970: 2)),
-            [.init(credentialID: visible.id, name: "VISIBLE", payloadKind: .text, usageInstructions: "Use for builds", environmentVariable: "API_KEY", expired: true, components: [.init(name: "API_KEY", payloadKind: .text, delivery: .environmentVariable("API_KEY"))])]
+            [.init(credentialID: visible.id, name: "VISIBLE", payloadKind: .text, usageInstructions: "Use for builds", environmentVariable: "API_KEY", expired: true, components: [.init(name: "API_KEY", payloadKind: .text, delivery: .environmentVariable("API_KEY"))], group: "Production")]
         )
     }
 
@@ -68,7 +68,8 @@ final class BrokerCatalogTests: XCTestCase {
         let bytes = try JSONEncoder().encode(response)
         let json = try XCTUnwrap(String(data: bytes, encoding: .utf8))
         XCTAssertTrue(json.contains("VISIBLE"))
-        for forbidden in ["must-not-cross-socket", "private", "sensitive-group"] {
+        XCTAssertTrue(json.contains("sensitive-group"), "Visible group names are catalog metadata")
+        for forbidden in ["must-not-cross-socket", "private"] {
             XCTAssertFalse(json.contains(forbidden), forbidden)
         }
 
