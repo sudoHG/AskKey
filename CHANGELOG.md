@@ -2,6 +2,27 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
+## [0.3.0] - 2026-10-08
+
+### Added
+
+- Agents can write a credential's usage instructions and group when they create or modify it through `create_credential` and `modify_credential`, including changes to only the instructions or group. A group name that does not exist yet is created when the write is approved. The approval shows the instructions and the group in full.
+- `organize_credentials`: agents can move credentials and create, rename or delete groups in one batch of up to 64 steps, approved once with one Touch ID. The batch applies completely or not at all. Renaming or deleting a group also covers credentials that agents cannot see, and the approval says how many there are. Deleting a group only ungroups its credentials.
+- `list_credentials` shows each credential's group and lists the groups agents can see.
+- Each release also publishes `AskKey.dmg` and `AskKey.dmg.sha256`, so `https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg` always downloads the latest version.
+
+### Changed
+
+- The app is named 请旨 on Chinese systems and Ask Key elsewhere, in Finder, Spotlight, Login Items and system prompts. Finder can show the old name until macOS refreshes its cache.
+- Write approvals show only what applies to the operation: a creation shows what will be written, a deletion what will be removed, and a change compares only the fields that change.
+- `list_credentials` returns an object with `credentials` and `groups` instead of a bare list. Scripts that parse its output need updating.
+
+### Known limitations
+
+- No backup or recovery. Keep the originals of your credentials elsewhere.
+- The approval prompt does not yet list the environment variable names a credential is delivered as (#137).
+- All limitations listed for 0.1.0 still apply.
+
 ## [0.2.0] - 2026-10-05
 
 ### Added
