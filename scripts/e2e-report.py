@@ -16,6 +16,7 @@ SCREENSHOTS = [
     "12-approval-default", "13-approval-details", "14-approval-cancelled-authentication",
     "15-approval-credential-metadata",
     "16-approval-organization",
+    "17-approval-organization-existing-targets",
 ]
 
 
