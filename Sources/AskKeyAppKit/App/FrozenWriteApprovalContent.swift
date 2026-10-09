@@ -25,44 +25,99 @@ struct FrozenWriteApprovalContent: View {
                         .accessibilityIdentifier("approval-change-summary")
                 }
                 if !content.components.isEmpty { items(content) }
-                if !content.valueComponents.isEmpty {
-                    valueBox(heading: content.valueHeading, components: content.valueComponents)
-                }
                 instructions(content)
                 group(content)
-                if let after = content.afterApproval {
-                    ApprovalSection(title: appLocalized("After you approve"), identifier: "approval-after-approval") {
-                        Text(verbatim: after).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
             } else if operation == .create || operation == .modify {
-                valueBox(heading: appLocalizedFormat("New value (provided by %@)", requester), components: [])
+                // Without the summary the value can still be viewed before deciding.
+                ApprovalSection(title: appLocalized("Items"), identifier: "approval-components",
+                                accessory: { revealButton }) { valueDetails }
             }
         }
         .onDisappear { revealTask?.cancel(); revealTask = nil; revealedMaterial = nil }
     }
 
     private func items(_ content: FrozenWriteSummaryContent) -> some View {
-        ApprovalSection(title: appLocalizedFormat("Items (%lld)", content.itemCount), tag: content.componentsTag,
-                        identifier: "approval-components") {
+        let hasValues = !content.valueComponents.isEmpty
+        return ApprovalSection(title: content.itemsHeading, name: appLocalized("Items"), identifier: "approval-components",
+                               accessory: { if hasValues { revealButton } }) {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 ForEach(Array(content.components.enumerated()), id: \.offset) { _, component in
-                    VStack(alignment: .leading, spacing: 2) {
-                        ApprovalLineText(line: component.line, tag: component.tag)
-                        ForEach(Array(component.notes.enumerated()), id: \.offset) { _, note in
-                            ApprovalLineText(line: note)
-                                .font(Theme.Fonts.caption)
-                                .foregroundStyle(Theme.textSecondary)
+                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ApprovalLineText(line: component.line, tag: component.tag)
+                            ForEach(Array(component.notes.enumerated()), id: \.offset) { _, note in
+                                ApprovalLineText(line: note)
+                                    .font(Theme.Fonts.caption)
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            if component.overwrites {
+                                Text(appLocalized("If you approve, the old value is overwritten and can't be recovered."))
+                                    .font(Theme.Fonts.caption)
+                                    .foregroundStyle(Theme.warning)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        if component.carriesValue {
+                            Text(verbatim: "••••••").foregroundStyle(Theme.textSecondary).fixedSize()
+                                .accessibilityLabel(Text(appLocalized("Hidden value")))
                         }
                     }
                 }
-                if content.overwritesValues {
-                    Text(appLocalized("A replaced value overwrites the old one. There is no history."))
-                        .font(Theme.Fonts.caption)
-                        .foregroundStyle(Theme.textSecondary)
+                if hasValues { valueDetails }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var revealButton: some View {
+        if revealedMaterial != nil {
+            Button(appLocalized("Hide")) { revealedMaterial = nil }
+                .buttonStyle(.plain)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.accent)
+                .fixedSize()
+        } else {
+            Button(appLocalized("Authenticate to View"), action: reveal)
+                .buttonStyle(.plain)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.accent)
+                .fixedSize()
+                .disabled(revealMaterial == nil || revealing)
+                .accessibilityIdentifier("approval-reveal-frozen-material")
+        }
+    }
+
+    @ViewBuilder
+    private var valueDetails: some View {
+        if let revealedMaterial {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                HStack {
+                    Text(revealedMaterial.title).lineLimit(1)
+                    Spacer()
+                    Text(revealedMaterial.encoding).foregroundStyle(Theme.textSecondary)
+                }
+                .font(Theme.Fonts.caption)
+                ApprovalScrollArea(space: "approval-revealed-value", unit: .lines(height: 15), maxHeight: 85,
+                                   indicatorOffset: Theme.Spacing.sm - 2) { _ in
+                    Text(verbatim: revealedMaterial.content)
+                        .font(Theme.Fonts.mono)
+                        .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .padding(Theme.Spacing.sm)
+            .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.control))
+            .accessibilityIdentifier("approval-revealed-value")
+        } else {
+            Text(appLocalized("Saved as is if you approve. Viewing needs another authentication; it doesn't approve."))
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if revealFailed {
+            Text(appLocalized("Unable to view: authentication was not completed or the request is no longer valid."))
+                .font(Theme.Fonts.caption).foregroundStyle(Theme.warning)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -78,9 +133,37 @@ struct FrozenWriteApprovalContent: View {
         case .changed(let before, let after):
             ApprovalSection(title: appLocalized("Instructions for agents"), tag: content.instructionsTag,
                             identifier: "approval-usage-instructions") {
-                comparison(before: Text(verbatim: before), after: Text(verbatim: after))
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    comparison(before: diffText(content.instructionsDiff?.before, placeholder: before),
+                               after: diffText(content.instructionsDiff?.after, placeholder: after))
+                    if let removed = content.instructionsDiff?.removedPhrases, !removed.isEmpty {
+                        Text(appLocalizedFormat("Removed phrases: %@",
+                            removed.map(ApprovalCopy.quote).joined(separator: appLocalized("List separator"))))
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("approval-instructions-removed")
+                    }
+                }
             }
         }
+    }
+
+    /// Removed words in red with a line through them, added words in green.
+    private func diffText(_ runs: [ApprovalTextDiff.Run]?, placeholder: String) -> Text {
+        guard let runs, !runs.isEmpty else { return Text(verbatim: placeholder) }
+        return Text(runs.reduce(into: AttributedString()) { result, run in
+            var part = AttributedString(run.text)
+            switch run.kind {
+            case .same: break
+            case .removed:
+                part.foregroundColor = Theme.warning
+                part.strikethroughStyle = .single
+            case .added:
+                part.foregroundColor = ApprovalTag.new.color
+            }
+            result += part
+        })
     }
 
     @ViewBuilder
@@ -105,7 +188,7 @@ struct FrozenWriteApprovalContent: View {
             if createsGroup {
                 HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
                     ApprovalTagView(tag: .newGroup)
-                    Text(appLocalized("created when you approve"))
+                    Text(appLocalized("Created when you approve"))
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -128,57 +211,6 @@ struct FrozenWriteApprovalContent: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-    }
-
-    private func valueBox(heading: String, components: [FrozenWriteSummaryContent.Component]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text(verbatim: heading)
-                .font(Theme.Fonts.caption.weight(.semibold))
-                .fixedSize(horizontal: false, vertical: true)
-            if let revealedMaterial {
-                HStack {
-                    Text(revealedMaterial.title).lineLimit(1)
-                    Spacer()
-                    Text(revealedMaterial.encoding).foregroundStyle(Theme.textSecondary)
-                    Button(appLocalized("Hide")) { self.revealedMaterial = nil }
-                }.font(Theme.Fonts.caption)
-                ApprovalScrollArea(space: "approval-revealed-value", unit: .lines(height: 15), maxHeight: 85,
-                                   indicatorOffset: Theme.Spacing.sm) { _ in
-                    Text(verbatim: revealedMaterial.content)
-                        .font(Theme.Fonts.mono)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            } else {
-                ForEach(Array(components.enumerated()), id: \.offset) { _, component in
-                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
-                        Text(verbatim: component.name).lineLimit(1).truncationMode(.middle)
-                        Text(verbatim: ApprovalCopy.bytes(component.byteCount)).foregroundStyle(Theme.textSecondary).fixedSize()
-                        Spacer(minLength: Theme.Spacing.xs)
-                        Text(verbatim: "••••••••").foregroundStyle(Theme.textSecondary).fixedSize()
-                    }
-                }
-                Button(appLocalized("Authenticate to View"), action: reveal)
-                    .disabled(revealMaterial == nil || revealing)
-                    .accessibilityIdentifier("approval-reveal-frozen-material")
-                Text(appLocalized("This is the value saved if you approve. Viewing needs another authentication and does not approve the request."))
-                    .font(Theme.Fonts.caption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if revealFailed {
-                Text(appLocalized("Unable to view: authentication was not completed or the request is no longer valid."))
-                    .font(Theme.Fonts.caption).foregroundStyle(Theme.warning)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .font(Theme.Fonts.secondary)
-        .padding(Theme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.group))
-        .approvalScrollMarker()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("approval-value-box")
     }
 
     private func reveal() {

@@ -15,7 +15,7 @@ enum FrozenApprovalActions {
         case .modify:
             return Primary(title: valueOnlyChange ? appLocalized("Replace Value") : appLocalized("Save Changes"),
                 role: .primary)
-        case .delete: return Primary(title: appLocalized("Move to Trash"), role: .destructive)
+        case .delete: return Primary(title: appLocalized("Move to Recycle Bin"), role: .destructive)
         case .organize:
             let title: String
             switch steps {
@@ -33,7 +33,7 @@ enum FrozenApprovalActions {
 
     /// What the timed allowance covers, stated under its button.
     static func timedScope(minutes: Int) -> String {
-        appLocalizedFormat("For %lld minutes, any agent or command run by this macOS user can read this credential without asking. Changes are never included.", minutes)
+        appLocalizedFormat("For %lld minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.", minutes)
     }
 
     /// Retries the decision the user chose before cancelling authentication.

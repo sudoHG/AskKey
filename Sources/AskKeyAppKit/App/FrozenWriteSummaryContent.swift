@@ -9,9 +9,13 @@ struct FrozenWriteSummaryContent: Equatable {
         let tag: ApprovalTag?
         let line: ApprovalLine
         let notes: [ApprovalLine]
-        /// Listed in the value box: its value is new or may have been replaced.
+        /// Its value is new: the row shows masked dots and can be viewed.
         let carriesValue: Bool
+        /// A replaced value: the row warns that the old one is overwritten.
+        let overwrites: Bool
         let byteCount: Int
+        /// How the change summary names this item's change; nil when unchanged.
+        var change: String? = nil
     }
 
     enum Change: Equatable {
@@ -23,21 +27,21 @@ struct FrozenWriteSummaryContent: Equatable {
     }
 
     let operation: BrokerApprovalOperation
-    /// Modify only: "Changes: … · Unchanged: …".
+    /// Modify only: "Changes: the value of TOKEN · Unchanged: …".
     let changeSummary: String?
     /// Empty when a modify leaves every item as it was.
     let components: [Component]
     let itemCount: Int
-    let componentsTag: ApprovalTag?
-    let overwritesValues: Bool
+    let itemsHeading: String
     let instructions: Change
     let instructionsTag: ApprovalTag?
+    let instructionsDiff: ApprovalTextDiff?
     let group: Change
     let groupTag: ApprovalTag?
     let createsGroup: Bool
-    let afterApproval: String?
+    /// What approving does, stated under the primary button.
+    let consequence: String?
     let valueOnlyChange: Bool
-    let valueHeading: String
 
     var valueComponents: [Component] { components.filter(\.carriesValue) }
 
@@ -48,13 +52,19 @@ struct FrozenWriteSummaryContent: Equatable {
             ? Self.modifiedComponents(summary, requester: requester)
             : (summary.operation == .delete ? summary.before : summary.after).map {
                 Component(name: $0.name, tag: nil, line: Self.line($0), notes: [],
-                    carriesValue: summary.operation == .create, byteCount: $0.byteCount)
+                    carriesValue: summary.operation == .create, overwrites: false, byteCount: $0.byteCount)
             }
         let componentsChanged = !modify || components.contains { $0.tag != .unchanged }
         self.components = componentsChanged ? components : []
         itemCount = (summary.operation == .delete ? summary.before : summary.after).count
-        componentsTag = modify && componentsChanged ? .changed : nil
-        overwritesValues = components.contains { [.replaced, .mayBeReplaced, .changed].contains($0.tag) }
+        switch summary.operation {
+        case .create:
+            itemsHeading = appLocalizedFormat("Items (%1$lld, values provided by %2$@)", itemCount, requester)
+        case .modify where components.contains(where: \.carriesValue):
+            itemsHeading = appLocalizedFormat("Items (%1$lld, new values provided by %2$@)", itemCount, requester)
+        case .read, .modify, .delete, .organize:
+            itemsHeading = appLocalizedFormat("Items (%lld)", itemCount)
+        }
 
         let beforeInstructions = summary.beforeUsageInstructions ?? ""
         let afterInstructions = summary.afterUsageInstructions ?? ""
@@ -76,48 +86,52 @@ struct FrozenWriteSummaryContent: Equatable {
             group = .current(Self.groupText(summary.afterGroup))
         }
         instructionsTag = modify && instructionsChanged ? .changed : nil
+        instructionsDiff = modify && instructionsChanged
+            ? ApprovalTextDiff(before: beforeInstructions, after: afterInstructions) : nil
         groupTag = modify && groupChanged ? .changed : nil
         createsGroup = summary.createsGroup && (summary.operation == .create || summary.operation == .modify)
-        changeSummary = modify ? Self.changeSummary(items: componentsChanged,
-            instructions: instructionsChanged, group: groupChanged) : nil
+        changeSummary = modify ? Self.changeSummary(components, instructions: instructionsChanged, group: groupChanged) : nil
         valueOnlyChange = modify && componentsChanged && !instructionsChanged && !groupChanged
-            && components.allSatisfy { [.unchanged, .replaced, .mayBeReplaced].contains($0.tag) }
+            && components.allSatisfy { $0.tag == .unchanged || $0.tag == .replaced }
         switch summary.operation {
         case .create:
-            afterApproval = appLocalized("The credential's agent permission will be Ask every time: agents need your approval each time they use it.")
+            consequence = appLocalized("Its agent permission will be Ask every time, so agents need your approval for each use.")
         case .delete:
-            afterApproval = appLocalized("It moves to the Recycle Bin for 30 days and can be restored there, then it is removed permanently. Agents can't use or see it meanwhile.")
+            consequence = appLocalized("It moves to the Recycle Bin for 30 days and can be restored there, then it is removed permanently. Agents can't use or see it meanwhile.")
         case .read, .modify, .organize:
-            afterApproval = nil
+            consequence = nil
         }
-        valueHeading = summary.operation == .create
-            ? appLocalizedFormat("Value to save (provided by %@)", requester)
-            : appLocalizedFormat("New value (provided by %@)", requester)
     }
 
-    /// The summary carries one digest over all items, so a same-size item can
-    /// be proven unchanged or replaced only when nothing else differs.
+    /// Each item is matched by name and tagged from its own value digest.
     private static func modifiedComponents(_ summary: BrokerCredentialWriteSummary,
         requester: String) -> [Component] {
         let digestsEqual = summary.beforeDigest != nil && summary.beforeDigest == summary.afterDigest
-        let soleReplacement = !digestsEqual && summary.beforeDigest != nil && summary.afterDigest != nil
-            && summary.before == summary.after && summary.after.count == 1
         let before = Dictionary(summary.before.map { (normalized($0.name), $0) }, uniquingKeysWith: { first, _ in first })
         let afterNames = Set(summary.after.map { normalized($0.name) })
         var rows = summary.after.map { after -> Component in
             guard let old = before[normalized(after.name)] else {
                 return Component(name: after.name, tag: .new, line: line(after), notes: [],
-                    carriesValue: true, byteCount: after.byteCount)
+                    carriesValue: true, overwrites: false, byteCount: after.byteCount,
+                    change: appLocalizedFormat("%@ added", after.name))
             }
-            if old.byteCount != after.byteCount || old.payloadKind != after.payloadKind {
-                var notes = [ApprovalLine(appLocalizedFormat("old value %1$@ → new value %2$@ (new value from %3$@)",
+            let valueChanged: Bool
+            if let oldDigest = old.valueDigest, let newDigest = after.valueDigest {
+                valueChanged = oldDigest != newDigest
+            } else {
+                // Without per-item digests, claim a replacement unless nothing changed.
+                valueChanged = old.byteCount != after.byteCount || old.payloadKind != after.payloadKind || !digestsEqual
+            }
+            if valueChanged {
+                var notes = [ApprovalLine(appLocalizedFormat("Old value %1$@ → new value %2$@ (new value from %3$@)",
                     ApprovalCopy.bytes(old.byteCount), ApprovalCopy.bytes(after.byteCount), requester))]
                 if old.delivery != after.delivery {
                     notes.append(previous(ApprovalCopy.delivery(old.delivery)))
                 }
                 return Component(name: after.name, tag: .replaced,
                     line: ApprovalLine(after.name + " · ") + ApprovalCopy.delivery(after.delivery),
-                    notes: notes, carriesValue: true, byteCount: after.byteCount)
+                    notes: notes, carriesValue: true, overwrites: true, byteCount: after.byteCount,
+                    change: appLocalizedFormat("the value of %@", after.name))
             }
             if old.delivery != after.delivery || old.masked != after.masked || old.name != after.name {
                 var notes = [previous(line(old))]
@@ -126,27 +140,18 @@ struct FrozenWriteSummaryContent: Equatable {
                         ? appLocalized("Now masked when shown in Ask Key")
                         : appLocalized("Now shown in full in Ask Key")))
                 }
-                notes.append(ApprovalLine(appLocalized("Same size; Ask Key can't tell whether the value was replaced. Authenticate to view.")))
                 return Component(name: after.name, tag: .changed, line: line(after), notes: notes,
-                    carriesValue: true, byteCount: after.byteCount)
+                    carriesValue: false, overwrites: false, byteCount: after.byteCount,
+                    change: old.delivery != after.delivery
+                        ? appLocalizedFormat("how %@ is given to programs", after.name)
+                        : appLocalizedFormat("the settings of %@", after.name))
             }
-            if digestsEqual {
-                return Component(name: after.name, tag: .unchanged, line: line(after), notes: [],
-                    carriesValue: false, byteCount: after.byteCount)
-            }
-            if soleReplacement {
-                return Component(name: after.name, tag: .replaced,
-                    line: ApprovalLine(after.name + " · ") + ApprovalCopy.delivery(after.delivery),
-                    notes: [ApprovalLine(appLocalizedFormat("old value %1$@ → new value %2$@ (new value from %3$@)",
-                        ApprovalCopy.bytes(old.byteCount), ApprovalCopy.bytes(after.byteCount), requester))],
-                    carriesValue: true, byteCount: after.byteCount)
-            }
-            return Component(name: after.name, tag: .mayBeReplaced, line: line(after),
-                notes: [ApprovalLine(appLocalized("Same size and delivery; Ask Key can't tell whether the value was replaced. Authenticate to view."))],
-                carriesValue: true, byteCount: after.byteCount)
+            return Component(name: after.name, tag: .unchanged, line: line(after), notes: [],
+                carriesValue: false, overwrites: false, byteCount: after.byteCount)
         }
         rows += summary.before.filter { !afterNames.contains(normalized($0.name)) }.map {
-            Component(name: $0.name, tag: .removed, line: line($0), notes: [], carriesValue: false, byteCount: $0.byteCount)
+            Component(name: $0.name, tag: .removed, line: line($0), notes: [], carriesValue: false,
+                overwrites: false, byteCount: $0.byteCount, change: appLocalizedFormat("%@ removed", $0.name))
         }
         return rows
     }
@@ -161,15 +166,20 @@ struct FrozenWriteSummaryContent: Equatable {
         return ApprovalLine(parts.first ?? "") + line + ApprovalLine(parts.dropFirst().joined())
     }
 
-    private static func changeSummary(items: Bool, instructions: Bool, group: Bool) -> String {
-        let sections = [(appLocalized("items"), items), (appLocalized("instructions"), instructions),
-                        (appLocalized("group"), group)]
+    /// Names what changes and what stays, item by item; never a section name
+    /// standing in for the items.
+    private static func changeSummary(_ components: [Component], instructions: Bool, group: Bool) -> String {
+        var changed = components.compactMap(\.change)
+        var unchanged = components.filter { $0.change == nil }.map(\.name)
+        let instructionsName = appLocalized("Change summary: instructions")
+        let groupName = appLocalized("group")
+        if instructions { changed.append(instructionsName) } else { unchanged.append(instructionsName) }
+        if group { changed.append(groupName) } else { unchanged.append(groupName) }
         let separator = appLocalized("List separator")
-        let changed = sections.filter(\.1).map(\.0).joined(separator: separator)
-        let unchanged = sections.filter { !$0.1 }.map(\.0).joined(separator: separator)
         if changed.isEmpty { return appLocalized("Nothing changes") }
-        if unchanged.isEmpty { return appLocalizedFormat("Changes: %@", changed) }
-        return appLocalizedFormat("Changes: %1$@ · Unchanged: %2$@", changed, unchanged)
+        if unchanged.isEmpty { return appLocalizedFormat("Changes: %@", changed.joined(separator: separator)) }
+        return appLocalizedFormat("Changes: %1$@ · Unchanged: %2$@",
+            changed.joined(separator: separator), unchanged.joined(separator: separator))
     }
 
     private static func instructionsText(_ value: String) -> String {

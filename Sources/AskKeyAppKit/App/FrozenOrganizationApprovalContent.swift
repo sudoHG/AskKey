@@ -15,7 +15,7 @@ struct FrozenOrganizationSummaryContent: Equatable {
     /// Deleting or merging groups cannot be undone in one step.
     let isDestructive: Bool
 
-    init(summary: BrokerOrganizationSummary) {
+    init(summary: BrokerOrganizationSummary, requester: String) {
         rows = summary.operations.enumerated().map { index, operation in
             let tag: ApprovalTag?
             let title: String
@@ -40,11 +40,15 @@ struct FrozenOrganizationSummaryContent: Equatable {
             case .renameGroup(let from, let to, let members, let hidden):
                 tag = nil
                 title = appLocalizedFormat("Rename the group %1$@ to %2$@", ApprovalCopy.quoted(from), ApprovalCopy.quoted(to))
-                detail = Self.contents(members: members, hidden: hidden)
+                detail = members == 0
+                    ? appLocalized("When it's renamed, the group is empty.")
+                    : appLocalizedFormat("When it's renamed, the group has %@.", ApprovalCopy.members(members, hidden: hidden))
             case .mergeGroup(let from, let to, let members, let hidden, let targetMembers, let targetHidden):
+                // The requester asked for a rename; the target exists but is
+                // hidden from it, so the batch merges the two groups.
                 tag = .merge
-                title = appLocalizedFormat("Merge the group %1$@ into the existing group %2$@",
-                    ApprovalCopy.quoted(from), ApprovalCopy.quoted(to))
+                title = appLocalizedFormat("%1$@ asked to rename %2$@ to %3$@; %3$@ already exists and is hidden from it, so the groups merge.",
+                    requester, ApprovalCopy.quoted(from), ApprovalCopy.quoted(to))
                 detail = ApprovalCopy.sentences([
                     appLocalizedFormat("%1$@ disappears and %2$@ will have %3$@.", ApprovalCopy.quoted(from),
                         ApprovalCopy.quoted(to), ApprovalCopy.members(members + targetMembers, hidden: hidden + targetHidden)),
@@ -100,7 +104,7 @@ struct FrozenOrganizationApprovalContent: View {
                     }
                 }
                 .textSelection(.enabled)
-                .approvalScrollMarker()
+                .approvalScrollMarker(step: true)
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("approval-organization-step-\(row.number)")
             }

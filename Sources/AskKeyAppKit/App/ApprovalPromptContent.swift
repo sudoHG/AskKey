@@ -15,7 +15,9 @@ struct ApprovalPromptContent: Equatable {
     let title: String
     /// The whole command line, never shortened.
     let command: String?
-    /// What a read hands the command if allowed, one line per variable.
+    /// What a read hands the command if allowed: a heading naming the
+    /// credential and how many items, then one line per variable.
+    let receivesHeading: String
     let receives: [ApprovalLine]
     let purpose: String?
     let detailRows: [Row]
@@ -28,12 +30,15 @@ struct ApprovalPromptContent: Equatable {
         if request.operation == .organize {
             title = Self.organizationTitle(requester: requester, steps: organizationSteps)
         } else {
+            let object = request.operation == .modify && valueOnlyChange
+                ? ApprovalCopy.credentialValue(credentialName) : ApprovalCopy.quoted(credentialName)
             title = EmphasizedSentence(format: Self.titleFormat(request.operation, valueOnlyChange: valueOnlyChange),
-                arguments: [requester, ApprovalCopy.quoted(credentialName)]).plainText
+                arguments: [requester, object]).plainText
         }
         let display = request.operation == .read ? request.display : nil
         command = display?.commandLine
-        receives = request.operation == .read ? Self.receives(display, credentialName: credentialName) : []
+        (receivesHeading, receives) = request.operation == .read
+            ? Self.receives(display, credentialName: credentialName) : ("", [])
         purpose = request.callerPurpose.flatMap { $0.isEmpty ? nil : $0 }
         var rows: [Row] = []
         if let directory = display?.workingDirectory, !directory.isEmpty {
@@ -52,7 +57,7 @@ struct ApprovalPromptContent: Equatable {
         case .create: return appLocalized("%1$@ wants to create the credential %2$@")
         case .modify:
             return valueOnlyChange
-                ? appLocalized("%1$@ wants to replace the value of %2$@")
+                ? appLocalized("%1$@ wants to replace %2$@")
                 : appLocalized("%1$@ wants to change the credential %2$@")
         case .delete: return appLocalized("%1$@ wants to delete the credential %2$@")
         case .organize: return appLocalized("%@ wants to reorganize your groups")
@@ -68,25 +73,28 @@ struct ApprovalPromptContent: Equatable {
 
     var cancelledAuthenticationNote: String {
         operation == .read
-            ? appLocalized("You cancelled authentication. The credential was not delivered, and the request is still pending.")
+            ? appLocalized("You cancelled authentication. Nothing was given to the command, and the request is still pending.")
             : appLocalized("You cancelled authentication. Nothing was changed, and the request is still pending.")
     }
 
     /// Variable names only; a multi-item credential's mapping is not opened
     /// before approval, so its items are described without names.
-    static func receives(_ display: BrokerApprovalOperationRequest.Display?, credentialName: String) -> [ApprovalLine] {
-        guard let display else { return [] }
+    static func receives(_ display: BrokerApprovalOperationRequest.Display?,
+                         credentialName: String) -> (heading: String, rows: [ApprovalLine]) {
+        let heading = appLocalized("If you allow, this command receives")
+        guard let display else { return (heading, []) }
         let name = ApprovalCopy.quoted(credentialName)
         guard let environment = display.environmentVariables, let files = display.temporaryFileVariables else {
-            return [ApprovalLine(appLocalizedFormat(
-                "The items of %@ that are set to be given to programs (names are shown after you approve)", name))]
+            return (heading, [ApprovalLine(appLocalizedFormat(
+                "The items of %@ that are set to be given to programs (names are shown after you approve)", name))])
         }
-        let rows = environment.map {
-            ApprovalLine(format: appLocalized("%1$@ · as environment variable %2$@"), plain: [name], code: [$0])
-        } + files.map {
-            ApprovalLine(format: appLocalized("%1$@ · as a temporary file (path in %2$@, removed within 5 minutes)"),
-                plain: [name], code: [$0])
+        let rows = environment.map { ApprovalLine(format: appLocalized("→ Environment variable %@"), code: [$0]) }
+            + files.map { ApprovalLine(format: appLocalized("→ Temporary file (path in %@, removed within 5 minutes)"), code: [$0]) }
+        switch rows.count {
+        case 0: return (heading, [ApprovalLine(appLocalized("Nothing from this credential is given to the command"))])
+        case 1: return (appLocalizedFormat("If you allow, this command receives 1 item from %@", name), rows)
+        default:
+            return (appLocalizedFormat("If you allow, this command receives %1$lld items from %2$@", rows.count, name), rows)
         }
-        return rows.isEmpty ? [ApprovalLine(appLocalized("Nothing from this credential is given to the command"))] : rows
     }
 }

@@ -186,6 +186,9 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
                     "Quoted name: %@": "“%@”",
                     "Sentence separator": " ",
                     "New group tag": "New group",
+                    "Credential value: %@": "the value of %@",
+                    "Removed phrases: %@": "Removed: %@",
+                    "Change summary: instructions": "instructions for agents",
                 ]
                 XCTAssertEqual(english, allowedAliases[key], "English value must match the key or a declared alias: \(key)")
             }

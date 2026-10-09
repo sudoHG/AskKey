@@ -228,6 +228,20 @@ extension Vault {
         before: [CredentialComponentInput], after: [CredentialComponentInput],
         beforeRecord: CredentialRecord?, afterRecord: CredentialRecord?, createsGroup: Bool,
         key: SymmetricKey) throws -> BrokerCredentialWriteSummary {
+        // Presentation only: lets the App tag each component exactly. The
+        // approval digest below still covers the components as a whole.
+        let digestKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: key, salt: Data(),
+            info: Data("AskKey approval component value digest v1".utf8), outputByteCount: 32)
+        func valueDigest(_ value: CredentialComponentValue) -> String {
+            func field(_ bytes: Data) -> Data { withUnsafeBytes(of: UInt64(bytes.count).bigEndian) { Data($0) } + bytes }
+            let material: Data
+            switch value {
+            case .text(let text): material = Data("text".utf8) + field(Data(text.utf8))
+            case .file(let filename, let bytes): material = Data("file".utf8) + field(Data(filename.utf8)) + field(bytes)
+            }
+            return Data(HMAC<SHA256>.authenticationCode(for: material, using: digestKey))
+                .map { String(format: "%02x", $0) }.joined()
+        }
         func projections(_ inputs: [CredentialComponentInput]) -> [BrokerCredentialComponentSummary] {
             inputs.map { input in
                 let kind: BrokerCatalogPayloadKind
@@ -237,7 +251,7 @@ extension Vault {
                 case .file(_, let bytes): kind = .file; count = bytes.count
                 }
                 return .init(name: input.name, payloadKind: kind, byteCount: count,
-                    delivery: input.delivery, masked: input.masked)
+                    delivery: input.delivery, masked: input.masked, valueDigest: valueDigest(input.value))
             }
         }
         let encoder = JSONEncoder()

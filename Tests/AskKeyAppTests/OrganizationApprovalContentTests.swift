@@ -14,7 +14,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
 
     func testRegularStepsReadAsSentences() {
         Fixtures.withLanguages { language in
-            let content = FrozenOrganizationSummaryContent(summary: Fixtures.regularOrganization)
+            let content = FrozenOrganizationSummaryContent(summary: Fixtures.regularOrganization, requester: "Claude Code")
             XCTAssertEqual(content.rows.map(\.number), [1, 2, 3, 4])
             XCTAssertEqual(content.rows.map(\.tag), [nil, nil, nil, nil])
             XCTAssertNil(content.rows[0].detail, "a new group needs no second line")
@@ -28,7 +28,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                     "Rename the group “Old Services” to “Renamed Services”",
                     "Delete the group “Temp”",
                 ])
-                XCTAssertEqual(details, [nil, nil, "It has 3 credentials (2 hidden from agents).",
+                XCTAssertEqual(details, [nil, nil, "When it's renamed, the group has 3 credentials (2 hidden from agents).",
                     "Its 1 credential won't be deleted and will become “Ungrouped”."])
             } else {
                 XCTAssertEqual(titles, [
@@ -37,7 +37,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                     "把分组「Old Services」改名为「Renamed Services」", // i18n-literal: Assert the Simplified Chinese organize step.
                     "删除分组「Temp」", // i18n-literal: Assert the Simplified Chinese organize step.
                 ])
-                XCTAssertEqual(details, [nil, nil, "组里有 3 个凭证（其中 2 个对 Agent 隐藏）。", // i18n-literal: Assert the Simplified Chinese step detail.
+                XCTAssertEqual(details, [nil, nil, "改名时组里有 3 个凭证（其中 2 个对 Agent 隐藏）。", // i18n-literal: Assert the Simplified Chinese step detail.
                     "组里 1 个凭证不会被删除，会变成「未分组」。"]) // i18n-literal: Assert the Simplified Chinese step detail.
             }
         }
@@ -45,7 +45,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
 
     func testExistingGroupAndMergeStartWithTheirTagsAndStateTheResult() {
         Fixtures.withLanguages { language in
-            let content = FrozenOrganizationSummaryContent(summary: Fixtures.existingAndMerge)
+            let content = FrozenOrganizationSummaryContent(summary: Fixtures.existingAndMerge, requester: "Claude Code")
             XCTAssertEqual(content.rows.map(\.tag), [.noChange, .merge])
             XCTAssertTrue(content.isDestructive, "a merge cannot be undone automatically")
             if language == "en" {
@@ -53,14 +53,16 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                 XCTAssertEqual(plain(content.rows[0].title), "Create the group “Existing Private Services”")
                 XCTAssertEqual(content.rows[0].detail,
                     "This group already exists, so nothing is created or changed. It has 1 credential (1 hidden from agents).")
-                XCTAssertEqual(plain(content.rows[1].title), "Merge the group “Merge Source” into the existing group “Existing Merge Services”")
+                XCTAssertEqual(plain(content.rows[1].title),
+                    "Claude Code asked to rename “Merge Source” to “Existing Merge Services”; “Existing Merge Services” already exists and is hidden from it, so the groups merge.")
                 XCTAssertEqual(plain(content.rows[1].detail),
                     "“Merge Source” disappears and “Existing Merge Services” will have 4 credentials (3 hidden from agents). A merge can't be undone automatically.")
             } else {
                 XCTAssertEqual(content.rows.map(\.tag?.title), ["无变化", "合并"]) // i18n-literal: Assert Simplified Chinese organize tags.
                 XCTAssertEqual(content.rows[0].detail,
                     "这个分组已经存在，不会新建或改动任何内容。组里有 1 个凭证（其中 1 个对 Agent 隐藏）。") // i18n-literal: Assert the Simplified Chinese no-op detail.
-                XCTAssertEqual(plain(content.rows[1].title), "把分组「Merge Source」合并到已有分组「Existing Merge Services」") // i18n-literal: Assert the Simplified Chinese merge step.
+                XCTAssertEqual(plain(content.rows[1].title),
+                    "Claude Code 请求的是把「Merge Source」改名为「Existing Merge Services」；「Existing Merge Services」已存在且对它隐藏，所以实际会合并。") // i18n-literal: Assert the Simplified Chinese merge step.
                 XCTAssertEqual(plain(content.rows[1].detail),
                     "合并后「Merge Source」消失，「Existing Merge Services」共有 4 个凭证（其中 3 个对 Agent 隐藏）。合并无法自动撤销。") // i18n-literal: Assert the Simplified Chinese merge result.
             }
@@ -74,20 +76,20 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                 .deleteGroup(name: "Unused", members: 0, nonvisible: 0),
                 .existingGroup(name: "Shared", members: 0, nonvisible: 0),
             ])
-            let details = FrozenOrganizationSummaryContent(summary: summary).rows.map { plain($0.detail) }
+            let details = FrozenOrganizationSummaryContent(summary: summary, requester: "Claude Code").rows.map { plain($0.detail) }
             XCTAssertEqual(details, language == "en"
-                ? ["It has 2 credentials.", "The group is empty.",
+                ? ["When it's renamed, the group has 2 credentials.", "The group is empty.",
                    "This group already exists, so nothing is created or changed. The group is empty."]
-                : ["组里有 2 个凭证。", "组里没有凭证。", "这个分组已经存在，不会新建或改动任何内容。组里没有凭证。"]) // i18n-literal: Assert Simplified Chinese member counts.
+                : ["改名时组里有 2 个凭证。", "组里没有凭证。", "这个分组已经存在，不会新建或改动任何内容。组里没有凭证。"]) // i18n-literal: Assert Simplified Chinese member counts.
             XCTAssertFalse(FrozenOrganizationSummaryContent(summary: BrokerOrganizationSummary(operations: [
                 .createGroup("New"), .move(credential: "API", from: nil, to: "New"),
-            ])).isDestructive)
+            ]), requester: "Claude Code").isDestructive)
         }
     }
 
     func testTwelveStepsAreNumberedAndCountedInTitleAndButton() {
         Fixtures.withLanguages { language in
-            let content = FrozenOrganizationSummaryContent(summary: Fixtures.twelveSteps)
+            let content = FrozenOrganizationSummaryContent(summary: Fixtures.twelveSteps, requester: "Claude Code")
             XCTAssertEqual(content.rows.map(\.number), Array(1...12))
             let title = ApprovalPromptContent(request: Fixtures.request(.organize), credentialName: "credential-library",
                                               organizationSteps: content.rows.count).title

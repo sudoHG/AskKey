@@ -93,8 +93,38 @@ final class ApprovalCardLayoutTests: AskKeyAppTestCase {
         Fixtures.withLanguages { language in
             let collapsed = height(Fixtures.prompt(.readDefault))
             XCTAssertGreaterThan(height(Fixtures.prompt(.readDetails)), collapsed, "\(language): Details expand in place")
-            XCTAssertLessThan(height(Fixtures.prompt(.readCancelled)), collapsed, "\(language): one retry replaces two allow buttons")
+            let retryOnce = FrozenAgentApprovalPrompt(request: Fixtures.request(.read, display: Fixtures.display()),
+                timedAllowanceEnabled: true, cancelledAuthenticationDecision: .once, finish: { _ in })
+            XCTAssertLessThan(height(retryOnce), collapsed, "\(language): one retry replaces two allow buttons")
+            XCTAssertGreaterThan(height(Fixtures.prompt(.readCancelled)), height(retryOnce),
+                                 "\(language): the timed retry keeps its scope line")
             XCTAssertLessThan(height(Fixtures.prompt(.readWithoutTimed)), collapsed)
         }
+    }
+
+    func testShortCreateCardsFitWithoutScrolling() {
+        Fixtures.withLanguages { language in
+            for card in [Fixtures.Card.createOneItem, .createTwoItems] {
+                XCTAssertLessThan(height(Fixtures.prompt(card)), FrozenAgentApprovalPrompt.maximumHeight - 1,
+                                  "\(language) \(card.rawValue): one or two items, short instructions and a group fit")
+            }
+        }
+    }
+
+    func testOverflowingCardsShrinkTheIconBeforeScrolling() {
+        func height(_ maximum: CGFloat) -> CGFloat {
+            NSHostingView(rootView: ApprovalCardLayout(maximumHeight: maximum) {
+                Color.clear.frame(minHeight: 40, idealHeight: 64, maxHeight: 64)
+                    .layoutValue(key: ApprovalCardCompactHeightKey.self, value: 40)
+                Color.clear.frame(height: 100)
+                ScrollView { Color.clear.frame(height: 300) }
+                    .layoutValue(key: ApprovalCardFlexibleKey.self, value: true)
+            }
+            .frame(width: FrozenAgentApprovalPrompt.contentWidth)
+            .fixedSize(horizontal: false, vertical: true)).fittingSize.height
+        }
+        XCTAssertEqual(height(500), 464, accuracy: 1, "a card that fits keeps the large icon")
+        XCTAssertEqual(height(450), 440, accuracy: 1, "a smaller icon can avoid scrolling")
+        XCTAssertEqual(height(300), 300, accuracy: 1, "then the body scrolls inside the cap")
     }
 }

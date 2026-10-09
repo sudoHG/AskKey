@@ -1,12 +1,25 @@
 import AppKit
 import SwiftUI
 
-/// A fixed card section: its heading, an optional status tag, then content.
-struct ApprovalSection<Content: View>: View {
+/// A fixed card section: its heading, an optional status tag and trailing
+/// control, then content. The overflow line names it while it is hidden.
+struct ApprovalSection<Content: View, Accessory: View>: View {
     let title: String
-    var tag: ApprovalTag?
+    let tag: ApprovalTag?
+    let name: String?
     let identifier: String
-    @ViewBuilder let content: Content
+    let accessory: Accessory
+    let content: Content
+
+    init(title: String, tag: ApprovalTag? = nil, name: String? = nil, identifier: String,
+         @ViewBuilder accessory: () -> Accessory, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.tag = tag
+        self.name = name
+        self.identifier = identifier
+        self.accessory = accessory()
+        self.content = content()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
@@ -14,7 +27,10 @@ struct ApprovalSection<Content: View>: View {
                 Text(verbatim: title)
                     .font(Theme.Fonts.caption.weight(.semibold))
                     .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let tag { ApprovalTagView(tag: tag) }
+                Spacer(minLength: Theme.Spacing.sm)
+                accessory
             }
             content
                 .font(Theme.Fonts.secondary)
@@ -22,9 +38,16 @@ struct ApprovalSection<Content: View>: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .approvalScrollMarker()
+        .approvalScrollMarker(name: name ?? title)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
+    }
+}
+
+extension ApprovalSection where Accessory == EmptyView {
+    init(title: String, tag: ApprovalTag? = nil, name: String? = nil, identifier: String,
+         @ViewBuilder content: () -> Content) {
+        self.init(title: title, tag: tag, name: name, identifier: identifier, accessory: { EmptyView() }, content: content)
     }
 }
 
@@ -51,7 +74,7 @@ extension ApprovalTag {
         case .changed: return ApprovalTagPalette.blue
         case .new: return ApprovalTagPalette.green
         case .newGroup: return Theme.text
-        case .replaced, .mayBeReplaced, .merge: return ApprovalTagPalette.orange
+        case .replaced, .merge: return ApprovalTagPalette.orange
         case .removed: return Theme.warning
         }
     }

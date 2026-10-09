@@ -56,6 +56,9 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
             XCTAssertFalse(quoted.contains(" "), "spaces inside a name never break")
             XCTAssertEqual(quoted.filter { $0 == "\u{2060}" }.count, "Staging API".count + 1)
             XCTAssertEqual(plain(ApprovalCopy.group(nil)), language == "en" ? "“Ungrouped”" : "「未分组」") // i18n-literal: Chinese ungrouped name.
+            // A wrapped value-only title keeps the name together with its "value of" wording.
+            let valueTitle = content(.modify, valueOnly: true).title
+            XCTAssertTrue(valueTitle.contains(language == "en" ? "f\u{2060}\u{00A0}\u{2060}“" : "」\u{2060}的\u{2060}值")) // i18n-literal: Chinese value suffix.
         }
     }
 
@@ -65,9 +68,12 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
             let read = content(.read, display: Fixtures.display(command: longCommand))
             XCTAssertEqual(read.command, longCommand, "the command is never shortened in the middle")
             XCTAssertEqual(read.purpose, "Deploy the staging site")
-            XCTAssertEqual(read.receives.map { plain($0.plainText) }, [language == "en"
-                ? "“Staging API” · as environment variable STAGING_API_TOKEN"
-                : "「Staging API」· 作为环境变量 STAGING_API_TOKEN"]) // i18n-literal: Assert the Simplified Chinese delivery row.
+            XCTAssertEqual(plain(read.receivesHeading), language == "en"
+                ? "If you allow, this command receives 1 item from “Staging API”"
+                : "批准后这个命令会拿到「Staging API」里的 1 项") // i18n-literal: Assert the Simplified Chinese receives heading.
+            XCTAssertEqual(read.receives.map(\.plainText), [language == "en"
+                ? "→ Environment variable STAGING_API_TOKEN"
+                : "→ 环境变量 STAGING_API_TOKEN"]) // i18n-literal: Assert the Simplified Chinese delivery row.
             XCTAssertEqual(read.receives.first?.segments.filter(\.code).map(\.text), ["STAGING_API_TOKEN"])
             XCTAssertEqual(read.detailRows.map(\.label), language == "en"
                 ? ["Runs in", "Requested by"] : ["运行目录", "请求方"]) // i18n-literal: Assert Simplified Chinese detail labels.
@@ -75,34 +81,39 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
                 ? "Claude Code (name provided by the requester; Ask Key can't verify it)"
                 : "Claude Code（名称由请求方提供，请旨无法核实）"]) // i18n-literal: Assert the Simplified Chinese requester row.
             XCTAssertEqual(read.detailRows.first?.monospaced, true)
-            let headings = ["Command to run", "If you allow, this command receives", "Stated purpose (not verified)", "Details"]
-                .map { appLocalized($0) }
+            let headings = ["Command to run", "Stated purpose (not verified)", "Details"].map { appLocalized($0) }
             XCTAssertEqual(headings, language == "en"
-                ? ["Command to run", "If you allow, this command receives", "Stated purpose (not verified)", "Details"] : [
-                "要运行的命令", "批准后这个命令会拿到", "对方说的用途（未核实）", "详细信息", // i18n-literal: Assert Simplified Chinese read headings.
+                ? ["Command to run", "Stated purpose (not verified)", "Details"] : [
+                "要运行的命令", "对方说的用途（未核实）", "详细信息", // i18n-literal: Assert Simplified Chinese read headings.
             ])
         }
     }
 
     func testReadDeliveryRowsCoverFilesMultiItemCredentialsAndNoDelivery() {
         Fixtures.withLanguages { language in
-            let file = content(.read, display: Fixtures.display(environment: [], files: ["STAGING_CERT_FILE"]))
+            let file = content(.read, display: Fixtures.display(environment: ["DEPLOY_HOST"], files: ["SSH_KEY_FILE"]))
             let bundle = content(.read, display: Fixtures.display(environment: nil, files: nil))
             let nothing = content(.read, display: Fixtures.display(environment: [], files: []))
+            let headings = [file, bundle, nothing].map { plain($0.receivesHeading) }
             let rows = [file, bundle, nothing].map { $0.receives.map { plain($0.plainText) } }
             if language == "en" {
+                XCTAssertEqual(headings, ["If you allow, this command receives 2 items from “Staging API”",
+                    "If you allow, this command receives", "If you allow, this command receives"])
                 XCTAssertEqual(rows, [
-                    ["“Staging API” · as a temporary file (path in STAGING_CERT_FILE, removed within 5 minutes)"],
+                    ["→ Environment variable DEPLOY_HOST", "→ Temporary file (path in SSH_KEY_FILE, removed within 5 minutes)"],
                     ["The items of “Staging API” that are set to be given to programs (names are shown after you approve)"],
                     ["Nothing from this credential is given to the command"],
                 ])
             } else {
+                XCTAssertEqual(headings, ["批准后这个命令会拿到「Staging API」里的 2 项", // i18n-literal: Assert the Simplified Chinese receives heading.
+                    "批准后这个命令会拿到", "批准后这个命令会拿到"]) // i18n-literal: Assert the Simplified Chinese receives heading.
                 XCTAssertEqual(rows, [
-                    ["「Staging API」· 作为临时文件（路径在 STAGING_CERT_FILE，最多 5 分钟后删除）"], // i18n-literal: Assert the Simplified Chinese file row.
+                    ["→ 环境变量 DEPLOY_HOST", "→ 临时文件（路径在 SSH_KEY_FILE，最多 5 分钟后删除）"], // i18n-literal: Assert Simplified Chinese delivery rows.
                     ["「Staging API」里设为交给程序的所有项（具体名称批准后才能看到）"], // i18n-literal: Assert the Simplified Chinese bundle row.
                     ["不交给这个命令任何值"], // i18n-literal: Assert the Simplified Chinese no-delivery row.
                 ])
             }
+            XCTAssertFalse(rows[0].joined().contains("Staging API"), "rows never repeat the credential name")
             XCTAssertTrue(content(.delete, display: Fixtures.display()).receives.isEmpty)
             XCTAssertNil(content(.create, display: Fixtures.display()).command, "write cards never show a run target")
         }
@@ -124,10 +135,10 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
                 XCTAssertEqual(titles, [
                     ["Allow Once", "Allow for 30 Minutes", "Deny"], ["Allow Once", "Deny"],
                     ["Create Credential", "Deny"], ["Save Changes", "Deny"], ["Replace Value", "Deny"],
-                    ["Move to Trash", "Deny"], ["Apply 4 Steps", "Deny"], ["Apply 1 Step", "Deny"],
+                    ["Move to Recycle Bin", "Deny"], ["Apply 4 Steps", "Deny"], ["Apply 1 Step", "Deny"],
                 ])
                 XCTAssertEqual(FrozenApprovalActions.timedScope(minutes: 30),
-                    "For 30 minutes, any agent or command run by this macOS user can read this credential without asking. Changes are never included.")
+                    "For 30 minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.")
             } else {
                 XCTAssertEqual(titles, [
                     ["允许本次", "30 分钟内都允许", "拒绝"], ["允许本次", "拒绝"], // i18n-literal: Assert Simplified Chinese read buttons.
@@ -135,7 +146,7 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
                     ["移到回收站", "拒绝"], ["执行这 4 步", "拒绝"], ["执行这 1 步", "拒绝"], // i18n-literal: Assert Simplified Chinese write buttons.
                 ])
                 XCTAssertEqual(FrozenApprovalActions.timedScope(minutes: 30),
-                    "30 分钟内，这个 macOS 用户下的任何 Agent 或命令读取这个凭证都不再询问；不包括修改。") // i18n-literal: Assert the Simplified Chinese timed scope.
+                    "30 分钟内，你这个 Mac 账户下的任何 Agent 或命令读取这个凭证都不再询问；修改或删除它仍要你批准。") // i18n-literal: Assert the Simplified Chinese timed scope.
             }
             XCTAssertEqual(FrozenApprovalActions.primary(operation: .delete).role, .destructive)
             XCTAssertEqual(FrozenApprovalActions.primary(operation: .organize, steps: 2, destructive: true).role, .destructive)
@@ -154,36 +165,40 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
                 FrozenApprovalActions.retry(.once, primary: trash, minutes: 30),
             ]
             XCTAssertEqual(retries, language == "en"
-                ? ["Authenticate and Allow Once", "Authenticate and Allow for 30 Minutes", "Authenticate and Move to Trash"]
+                ? ["Authenticate and Allow Once", "Authenticate and Allow for 30 Minutes", "Authenticate and Move to Recycle Bin"]
                 : ["重新验证，允许本次", "重新验证，30 分钟内都允许", "重新验证，移到回收站"]) // i18n-literal: Assert Simplified Chinese retry buttons.
             XCTAssertEqual(content(.read).cancelledAuthenticationNote, language == "en"
-                ? "You cancelled authentication. The credential was not delivered, and the request is still pending."
-                : "你取消了验证，凭证没有交付，请求仍在等待。") // i18n-literal: Assert the Simplified Chinese cancelled note.
+                ? "You cancelled authentication. Nothing was given to the command, and the request is still pending."
+                : "你取消了验证，命令没有拿到任何东西，请求仍在等待。") // i18n-literal: Assert the Simplified Chinese cancelled note.
         }
     }
 
     func testFooterAndOverflowCopyInBothLanguages() {
         Fixtures.withLanguages { language in
-            let footer = appLocalizedFormat("Expires in %@", "4:59") + " · " + appLocalized("Esc to decide later in Pending requests")
+            let footer = appLocalizedFormat("Expires in %@ and nothing is handed over", "4:59") + " · "
+                + appLocalized("Esc to hide; decide in Pending requests before it expires")
             let hints = [
-                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 120, hiddenMarkers: 3),
-                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 20, hiddenMarkers: 1),
-                ApprovalOverflow.hint(unit: .lines(height: 15), hiddenHeight: 46, hiddenMarkers: 0),
-                ApprovalOverflow.hint(unit: .lines(height: 15), hiddenHeight: 10, hiddenMarkers: 0),
-                ApprovalOverflow.hint(unit: .sections, hiddenHeight: 80, hiddenMarkers: 2),
-                ApprovalOverflow.hint(unit: .sections, hiddenHeight: 8, hiddenMarkers: 0),
-                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 0.5, hiddenMarkers: 0),
+                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 120, hiddenSteps: 3, hiddenNames: [appLocalized("Details")]),
+                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 20, hiddenSteps: 1),
+                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 20, hiddenNames: [appLocalized("Details")]),
+                ApprovalOverflow.hint(unit: .lines(height: 15), hiddenHeight: 46),
+                ApprovalOverflow.hint(unit: .lines(height: 15), hiddenHeight: 10),
+                ApprovalOverflow.hint(unit: .sections, hiddenHeight: 80,
+                                      hiddenNames: [appLocalized("Group"), appLocalized("Details")]),
+                ApprovalOverflow.hint(unit: .sections, hiddenHeight: 8),
+                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 0.5),
             ]
             if language == "en" {
-                XCTAssertEqual(footer, "Expires in 4:59 · Esc to decide later in Pending requests")
-                XCTAssertEqual(hints, ["3 more steps — scroll to see them", "1 more step — scroll to see it",
+                XCTAssertEqual(footer, "Expires in 4:59 and nothing is handed over · Esc to hide; decide in Pending requests before it expires")
+                XCTAssertEqual(appLocalized("Pending requests"), "Pending requests", "the footer uses the sidebar's item name")
+                XCTAssertEqual(hints, ["3 more steps — scroll to see them", "1 more step — scroll to see it", "Below: Details",
                     "3 more lines — scroll to see them", "1 more line — scroll to see it",
-                    "2 more sections below — scroll to see them", "More below — scroll to see it", nil])
+                    "Below: Group, Details", "More below — scroll to see it", nil])
             } else {
-                XCTAssertEqual(footer, "4:59 后自动失效 · Esc 先收起，稍后在「待处理请求」里决定") // i18n-literal: Assert the Simplified Chinese footer.
-                XCTAssertEqual(hints, ["还有 3 步，向下滚动查看", "还有 1 步，向下滚动查看", // i18n-literal: Assert Simplified Chinese overflow hints.
+                XCTAssertEqual(footer, "4:59 后自动作废，不会交出任何东西 · Esc 先收起，过期前可在「待处理请求」里决定") // i18n-literal: Assert the Simplified Chinese footer.
+                XCTAssertEqual(hints, ["还有 3 步，向下滚动查看", "还有 1 步，向下滚动查看", "下面还有：详细信息", // i18n-literal: Assert Simplified Chinese overflow hints.
                     "还有 3 行，向下滚动查看", "还有 1 行，向下滚动查看", // i18n-literal: Assert Simplified Chinese overflow hints.
-                    "下面还有 2 部分，向下滚动查看", "下面还有内容，向下滚动查看", nil]) // i18n-literal: Assert Simplified Chinese overflow hints.
+                    "下面还有：分组、详细信息", "下面还有内容，向下滚动查看", nil]) // i18n-literal: Assert Simplified Chinese overflow hints.
             }
         }
     }

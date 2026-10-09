@@ -1,9 +1,11 @@
+import CryptoKit
 import XCTest
 import AskKeyBroker
 @testable import AskKeyAppKit
+@testable import AskKeyVault
 
-/// Write cards: plain-language item rows, status tags, the change summary,
-/// the value box and what happens after approval.
+/// Write cards: plain-language item rows with exact status tags, change
+/// summaries that name what changes, and what happens after approval.
 @MainActor
 final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
     private typealias Fixtures = ApprovalCardFixtures
@@ -23,28 +25,26 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
               afterUsageInstructions: "Use for release checks.", beforeGroup: "Release Tools", afterGroup: "Release Tools")
     }
 
-    func testCreateListsEveryItemInPlainWordsAndStatesThePermission() {
+    func testCreateListsEveryItemWithItsValueAndStatesThePermission() {
         Fixtures.withLanguages { language in
             let create = content(Fixtures.createSummary)
             if language == "en" {
+                XCTAssertEqual(create.itemsHeading, "Items (3, values provided by Claude Code)")
                 XCTAssertEqual(lines(create), [
                     "TOKEN · 28 bytes · given to programs as environment variable RELEASE_CHECK_TOKEN",
                     "CERT · 1,234 bytes · given to programs as a temporary file (path in RELEASE_CERT_FILE)",
                     "RECOVERY_CODE · 16 bytes · kept in Ask Key only, never given to agents",
                 ])
-                XCTAssertEqual(create.afterApproval,
-                    "The credential's agent permission will be Ask every time: agents need your approval each time they use it.")
-                XCTAssertEqual(create.valueHeading, "Value to save (provided by Claude Code)")
-                XCTAssertEqual(appLocalizedFormat("Items (%lld)", create.itemCount), "Items (3)")
+                XCTAssertEqual(create.consequence,
+                    "Its agent permission will be Ask every time, so agents need your approval for each use.")
             } else {
+                XCTAssertEqual(create.itemsHeading, "凭证内容（3 项，值由 Claude Code 提供）") // i18n-literal: Assert the Simplified Chinese items heading.
                 XCTAssertEqual(lines(create), [
                     "TOKEN · 28 字节 · 使用时作为环境变量 RELEASE_CHECK_TOKEN 交给程序", // i18n-literal: Assert the Simplified Chinese item row.
                     "CERT · 1,234 字节 · 使用时作为临时文件交给程序（路径在 RELEASE_CERT_FILE）", // i18n-literal: Assert the Simplified Chinese item row.
                     "RECOVERY_CODE · 16 字节 · 只存在请旨里，不交给任何 Agent", // i18n-literal: Assert the Simplified Chinese item row.
                 ])
-                XCTAssertEqual(create.afterApproval, "这个凭证的 Agent 权限是「每次询问」：Agent 每次使用都要你批准。") // i18n-literal: Assert the Simplified Chinese permission statement.
-                XCTAssertEqual(create.valueHeading, "要保存的值（由 Claude Code 提供）") // i18n-literal: Assert the Simplified Chinese value heading.
-                XCTAssertEqual(appLocalizedFormat("Items (%lld)", create.itemCount), "凭证内容（3 项）") // i18n-literal: Assert the Simplified Chinese items heading.
+                XCTAssertEqual(create.consequence, "这个凭证的 Agent 权限是「每次询问」：Agent 每次使用都要你批准。") // i18n-literal: Assert the Simplified Chinese permission statement.
             }
             XCTAssertEqual(create.components.map(\.tag), [nil, nil, nil], "create rows carry no status tags")
             XCTAssertEqual(create.components.first?.line.segments.filter(\.code).map(\.text), ["RELEASE_CHECK_TOKEN"])
@@ -56,88 +56,127 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         }
     }
 
-    func testMetadataOnlyChangeFoldsUnchangedSectionsIntoTheSummary() {
+    func testMetadataOnlyChangeNamesWhatChangesAndFoldsTheItems() {
         Fixtures.withLanguages { language in
             let modify = content(Fixtures.metadataSummary)
-            XCTAssertTrue(modify.components.isEmpty, "unchanged items collapse into the summary line")
-            XCTAssertTrue(modify.valueComponents.isEmpty, "no value box without a new or replaced value")
+            XCTAssertTrue(modify.components.isEmpty, "unchanged items fold into the summary line")
+            XCTAssertTrue(modify.valueComponents.isEmpty)
             XCTAssertEqual(modify.instructionsTag, .changed)
             XCTAssertEqual(modify.group, .unchanged)
             XCTAssertFalse(modify.valueOnlyChange)
-            if language == "en" {
-                XCTAssertEqual(modify.changeSummary, "Changes: instructions · Unchanged: items, group")
-                XCTAssertEqual(modify.instructions, .changed(before: "Use for release checks.", after: "Use only for the nightly release check."))
-                XCTAssertEqual([appLocalized("Before"), appLocalized("After")], ["Before", "After"])
-            } else {
-                XCTAssertEqual(modify.changeSummary, "会改动：使用说明 · 不变：凭证内容、分组") // i18n-literal: Assert the Simplified Chinese change summary.
-                XCTAssertEqual([appLocalized("Before"), appLocalized("After")], ["原来", "改为"]) // i18n-literal: Assert Simplified Chinese comparison labels.
-            }
+            XCTAssertNil(modify.consequence)
+            XCTAssertEqual(modify.changeSummary, language == "en"
+                ? "Changes: instructions for agents · Unchanged: TOKEN, USER, group"
+                : "会改动：给 Agent 的使用说明 · 不变：TOKEN、USER、分组") // i18n-literal: Assert the Simplified Chinese change summary.
         }
     }
 
-    func testValueOnlyChangeTagsTheReplacementAndNamesWhoProvidedIt() {
+    func testValueOnlyChangeTagsTheReplacementAndWarnsAboutTheOldValue() {
         Fixtures.withLanguages { language in
             let modify = content(Fixtures.valueSummary)
             XCTAssertTrue(modify.valueOnlyChange)
             XCTAssertEqual(modify.components.map(\.tag), [.replaced])
-            XCTAssertEqual(modify.componentsTag, .changed)
-            XCTAssertTrue(modify.overwritesValues)
+            XCTAssertEqual(modify.components.map(\.overwrites), [true])
             XCTAssertEqual(modify.valueComponents.map(\.byteCount), [52])
             XCTAssertEqual(modify.instructions, .unchanged)
             let replacement = modify.components.first?.notes.map(\.plainText)
             if language == "en" {
                 XCTAssertEqual(lines(modify), ["TOKEN · given to programs as environment variable RELEASE_CHECK_TOKEN"])
-                XCTAssertEqual(replacement, ["old value 40 bytes → new value 52 bytes (new value from Claude Code)"])
-                XCTAssertEqual(modify.changeSummary, "Changes: items · Unchanged: instructions, group")
-                XCTAssertEqual(modify.valueHeading, "New value (provided by Claude Code)")
-                XCTAssertEqual(ApprovalTag.replaced.title, "Replaced")
+                XCTAssertEqual(replacement, ["Old value 40 bytes → new value 52 bytes (new value from Claude Code)"])
+                XCTAssertEqual(modify.changeSummary, "Changes: the value of TOKEN · Unchanged: instructions for agents, group")
+                XCTAssertEqual(modify.itemsHeading, "Items (1, new values provided by Claude Code)")
+                XCTAssertEqual(appLocalized("If you approve, the old value is overwritten and can't be recovered."),
+                               "If you approve, the old value is overwritten and can't be recovered.")
             } else {
                 XCTAssertEqual(replacement, ["旧值 40 字节 → 新值 52 字节（新值由 Claude Code 提供）"]) // i18n-literal: Assert the Simplified Chinese replacement row.
-                XCTAssertEqual(modify.changeSummary, "会改动：凭证内容 · 不变：使用说明、分组") // i18n-literal: Assert the Simplified Chinese change summary.
-                XCTAssertEqual(ApprovalTag.replaced.title, "替换") // i18n-literal: Assert the Simplified Chinese tag.
+                XCTAssertEqual(modify.changeSummary, "会改动：TOKEN 的值 · 不变：给 Agent 的使用说明、分组") // i18n-literal: Assert the Simplified Chinese change summary.
+                XCTAssertEqual(modify.itemsHeading, "凭证内容（1 项，新值由 Claude Code 提供）") // i18n-literal: Assert the Simplified Chinese items heading.
+                XCTAssertEqual(appLocalized("If you approve, the old value is overwritten and can't be recovered."),
+                               "批准后旧值会被覆盖，无法找回。") // i18n-literal: Assert the Simplified Chinese overwrite line.
             }
         }
     }
 
-    func testAddedItemMarksSameSizeItemsAsPossiblyReplaced() {
+    func testAddedItemLeavesTheOthersUnchanged() {
         Fixtures.withLanguages { language in
             let modify = content(Fixtures.addedSummary)
-            XCTAssertEqual(modify.components.map(\.tag), [.mayBeReplaced, .mayBeReplaced, .new])
-            XCTAssertEqual(modify.valueComponents.map(\.name), ["TOKEN", "USER", "CERT"])
+            XCTAssertEqual(modify.components.map(\.tag), [.unchanged, .unchanged, .new])
+            XCTAssertEqual(modify.valueComponents.map(\.name), ["CERT"], "only the new value is listed")
             XCTAssertFalse(modify.valueOnlyChange)
-            XCTAssertEqual(modify.components.first?.notes.map(\.plainText), [language == "en"
-                ? "Same size and delivery; Ask Key can't tell whether the value was replaced. Authenticate to view."
-                : "大小和交付方式没变，无法确认值是否被替换；可验证后查看"]) // i18n-literal: Assert the Simplified Chinese uncertainty line.
-            XCTAssertEqual([ApprovalTag.mayBeReplaced, .new].map(\.title), language == "en"
-                ? ["May be replaced", "New"] : ["可能已替换", "新增"]) // i18n-literal: Assert Simplified Chinese tags.
+            XCTAssertEqual(modify.changeSummary, language == "en"
+                ? "Changes: CERT added · Unchanged: TOKEN, USER, instructions for agents, group"
+                : "会改动：新增 CERT · 不变：TOKEN、USER、给 Agent 的使用说明、分组") // i18n-literal: Assert the Simplified Chinese change summary.
+            XCTAssertEqual([ApprovalTag.unchanged, .new, .replaced].map(\.title), language == "en"
+                ? ["Unchanged", "New", "Replaced"] : ["不变", "新增", "替换"]) // i18n-literal: Assert Simplified Chinese tags.
         }
     }
 
-    func testOnlyProvableStatesAreClaimed() {
+    func testEachItemIsTaggedFromItsOwnValueDigest() {
         let previous = AppLanguage.current
         defer { AppLanguage.current = previous }
         AppLanguage.current = "en"
         let token = Fixtures.token
         let user = Fixtures.user
-        // Equal digests prove nothing changed; the items section collapses.
-        XCTAssertTrue(content(modification(before: [token], after: [token], beforeDigest: "same", afterDigest: "same")).components.isEmpty)
-        // A lone same-size item whose digest changed was replaced.
-        XCTAssertEqual(content(modification(before: [token], after: [token])).components.map(\.tag), [.replaced])
-        // Missing digests prove nothing.
-        XCTAssertEqual(content(modification(before: [token], after: [token], beforeDigest: nil, afterDigest: nil))
-            .components.map(\.tag), [.mayBeReplaced])
-        // Two same-size items: either may be the replaced one.
-        XCTAssertEqual(content(modification(before: [token, user], after: [token, user])).components.map(\.tag),
-                       [.mayBeReplaced, .mayBeReplaced])
+        let rotated = Fixtures.component("TOKEN", bytes: 28, .environmentVariable("RELEASE_CHECK_TOKEN"), value: "rotated")
+        XCTAssertEqual(content(modification(before: [token, user], after: [rotated, user])).components.map(\.tag),
+                       [.replaced, .unchanged], "same size and delivery, different value")
+        XCTAssertTrue(content(modification(before: [token, user], after: [token, user],
+                                           beforeDigest: "same", afterDigest: "same")).components.isEmpty)
         let moved = Fixtures.component("TOKEN", bytes: 28, .temporaryFile("RELEASE_CHECK_FILE"))
         let changed = content(modification(before: [token, user], after: [moved]))
         XCTAssertEqual(changed.components.map(\.tag), [.changed, .removed])
-        XCTAssertEqual(changed.components.first?.notes.map(\.plainText), [
-            "Before: TOKEN · 28 bytes · given to programs as environment variable RELEASE_CHECK_TOKEN",
-            "Same size; Ask Key can't tell whether the value was replaced. Authenticate to view.",
-        ])
-        XCTAssertEqual(changed.valueComponents.map(\.name), ["TOKEN"], "a re-sent value may differ, so it can be viewed")
-        XCTAssertEqual([ApprovalTag.changed, .removed].map(\.title), ["Changed", "Removed"])
+        XCTAssertEqual(changed.components.first?.notes.map(\.plainText),
+                       ["Before: TOKEN · 28 bytes · given to programs as environment variable RELEASE_CHECK_TOKEN"])
+        XCTAssertTrue(changed.valueComponents.isEmpty, "a new delivery for the same value adds no value to view")
+        XCTAssertEqual(changed.changeSummary,
+                       "Changes: how TOKEN is given to programs, USER removed · Unchanged: instructions for agents, group")
+        // Summaries without per-item digests claim a replacement rather than "unchanged".
+        let legacy = BrokerCredentialComponentSummary(name: "TOKEN", payloadKind: .text, byteCount: 28,
+            delivery: .environmentVariable("RELEASE_CHECK_TOKEN"), masked: true)
+        XCTAssertEqual(content(modification(before: [legacy], after: [legacy])).components.map(\.tag), [.replaced])
+    }
+
+    func testVaultRotationOfOneSameLengthItemShowsReplacedAndUnchanged() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyCardDigest-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let vault = Vault(store: try VaultStore(path: directory.appendingPathComponent("vault.db").path),
+                          key: SymmetricKey(data: Data(repeating: 0x42, count: 32)))
+        try vault.beginManagementSession(using: .allow)
+        _ = try vault.createBundleCredential(.init(name: "Release Check", components: [
+            .init(name: "USER", value: .text("synthetic-user"), delivery: .environmentVariable("RELEASE_USER")),
+            .init(name: "TOKEN", value: .text("synthetic-token-aaaa"), delivery: .environmentVariable("RELEASE_TOKEN")),
+        ], usageInstructions: "Use for release checks.", groupName: nil, permission: .ask), using: .allow)
+        let request = AgentTextWriteRequest(operationID: "rotate", action: .modifyBundle(name: "Release Check", changes: [
+            .upsert(.init(name: "TOKEN", value: .text("synthetic-token-bbbb"), delivery: .environmentVariable("RELEASE_TOKEN"))),
+        ]))
+        guard case .submitted(let ticket) = try vault.requestAgentTextWrite(request) else { return XCTFail("Expected a pending write") }
+        let summary = try vault.frozenAgentWriteSummary(operationID: request.operationID,
+            requestID: ticket.requestID, capability: ticket.capability)
+        let card = content(summary)
+        XCTAssertEqual(card.components.map(\.name), ["USER", "TOKEN"])
+        XCTAssertEqual(card.components.map(\.tag), [.unchanged, .replaced])
+        XCTAssertEqual(card.valueComponents.map(\.name), ["TOKEN"])
+        XCTAssertTrue(card.valueOnlyChange)
+    }
+
+    func testInstructionEditsAreHighlightedWordByWord() {
+        let diff = ApprovalTextDiff(before: "Use for release checks. Keep values out of logs.",
+                                    after: "Use only for the nightly release checks.")
+        XCTAssertEqual(diff.before.map(\.text).joined(), "Use for release checks. Keep values out of logs.")
+        XCTAssertEqual(diff.after.map(\.text).joined(), "Use only for the nightly release checks.")
+        XCTAssertEqual(diff.after.filter { $0.kind == .added }.map(\.text), ["only ", "the nightly "])
+        XCTAssertEqual(diff.removedPhrases, ["Keep values out of logs"])
+        let chinese = ApprovalTextDiff(before: "只用于发布检查，不要写进日志。", after: "只用于夜间发布检查。") // i18n-literal: Synthetic Chinese instructions.
+        XCTAssertEqual(chinese.after.filter { $0.kind == .added }.map(\.text), ["夜间"]) // i18n-literal: Synthetic Chinese diff.
+        XCTAssertEqual(chinese.removedPhrases, ["不要写进日志"]) // i18n-literal: Synthetic Chinese diff.
+        Fixtures.withLanguages { language in
+            XCTAssertEqual(appLocalizedFormat("Removed phrases: %@", ApprovalCopy.quote("Keep values out of logs.")), language == "en"
+                ? "Removed: “Keep values out of logs.”" : "删掉了：「Keep values out of logs.」") // i18n-literal: Assert the Simplified Chinese removed line.
+            let modify = content(Fixtures.metadataSummary)
+            XCTAssertEqual(modify.instructionsDiff?.removedPhrases, ["checks"])
+            XCTAssertEqual(modify.instructionsDiff?.after.filter { $0.kind == .added }.map(\.text), ["only ", "the nightly ", "check"])
+        }
     }
 
     func testDeleteShowsWhatIsDeletedAndWhereItGoes() {
@@ -145,21 +184,18 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
             let delete = content(Fixtures.deleteSummary)
             XCTAssertEqual(delete.components.map(\.tag), [nil, nil])
             XCTAssertTrue(delete.valueComponents.isEmpty)
-            XCTAssertEqual(delete.itemCount, 2)
+            XCTAssertEqual(delete.itemsHeading, language == "en" ? "Items (2)" : "凭证内容（2 项）") // i18n-literal: Assert the Simplified Chinese items heading.
             XCTAssertEqual(delete.instructions, .current("Use for release checks."))
-            XCTAssertEqual(delete.afterApproval, language == "en"
+            XCTAssertEqual(delete.consequence, language == "en"
                 ? "It moves to the Recycle Bin for 30 days and can be restored there, then it is removed permanently. Agents can't use or see it meanwhile."
                 : "凭证会移到回收站保留 30 天，期间可以在回收站恢复，之后永久删除。这段时间里 Agent 不能使用，也看不到它。") // i18n-literal: Assert the Simplified Chinese delete statement.
-            XCTAssertEqual([appLocalized("Instructions for agents"), appLocalized("Group"), appLocalized("After you approve")],
-                language == "en" ? ["Instructions for agents", "Group", "After you approve"]
-                    : ["给 Agent 的使用说明", "分组", "批准后"]) // i18n-literal: Assert Simplified Chinese section headings.
         }
     }
 
     func testNewGroupTagIsNeutralAndExplained() {
         Fixtures.withLanguages { language in
-            XCTAssertEqual([ApprovalTag.newGroup.title, appLocalized("created when you approve")], language == "en"
-                ? ["New group", "created when you approve"] : ["新分组", "批准后创建"]) // i18n-literal: Assert the Simplified Chinese new-group tag.
+            XCTAssertEqual([ApprovalTag.newGroup.title, appLocalized("Created when you approve")], language == "en"
+                ? ["New group", "Created when you approve"] : ["新分组", "批准后创建"]) // i18n-literal: Assert the Simplified Chinese new-group tag.
             XCTAssertEqual(ApprovalTag.newGroup.color, Theme.text, "a new group is not a warning")
             XCTAssertEqual(ApprovalTag.removed.color, Theme.warning)
             XCTAssertEqual(ApprovalTag.unchanged.color, Theme.textSecondary)

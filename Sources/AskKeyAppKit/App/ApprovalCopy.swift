@@ -10,7 +10,17 @@ enum ApprovalCopy {
     }
 
     static func quoted(_ name: String) -> String {
-        appLocalizedFormat("Quoted name: %@", unbreakable(name))
+        quote(unbreakable(name))
+    }
+
+    /// Quotes free text, such as a removed phrase, without keeping it whole.
+    static func quote(_ text: String) -> String {
+        appLocalizedFormat("Quoted name: %@", text)
+    }
+
+    /// "the value of “X”" in the current language, kept on one line together.
+    static func credentialValue(_ name: String) -> String {
+        unbreakable(appLocalizedFormat("Credential value: %@", quote(name)))
     }
 
     /// Word joiners and no-break spaces keep a name on one line when it fits;
@@ -92,7 +102,7 @@ struct ApprovalLine: Equatable {
 
 /// Small status labels on neutral backgrounds. Color carries risk, not novelty.
 enum ApprovalTag: Equatable {
-    case unchanged, changed, new, newGroup, replaced, mayBeReplaced, removed, noChange, merge
+    case unchanged, changed, new, newGroup, replaced, removed, noChange, merge
 
     var title: String {
         switch self {
@@ -101,7 +111,6 @@ enum ApprovalTag: Equatable {
         case .new: return appLocalized("New")
         case .newGroup: return appLocalized("New group tag")
         case .replaced: return appLocalized("Replaced")
-        case .mayBeReplaced: return appLocalized("May be replaced")
         case .removed: return appLocalized("Removed")
         case .noChange: return appLocalized("No change")
         case .merge: return appLocalized("Merge")

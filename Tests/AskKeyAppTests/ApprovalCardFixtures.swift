@@ -8,7 +8,7 @@ import AskKeyBroker
 enum ApprovalCardFixtures {
     enum Card: String, CaseIterable {
         case readDefault, readDetails, readFile, readCancelled, readWithoutTimed, readLongCommand, readBundle
-        case create, modifyMetadata, modifyValue, modifyAdded, delete
+        case create, createOneItem, createTwoItems, modifyMetadata, modifyValue, modifyAdded, delete
         case organize, organizeExistingAndMerge, organizeTwelveSteps
     }
 
@@ -35,9 +35,11 @@ enum ApprovalCardFixtures {
               environmentVariables: environment, temporaryFileVariables: files)
     }
 
+    /// The digest stands in for the vault-keyed value digest; equal digests mean an equal value.
     static func component(_ name: String, bytes: Int, _ delivery: BrokerComponentDelivery,
-                          kind: BrokerCatalogPayloadKind = .text) -> BrokerCredentialComponentSummary {
-        .init(name: name, payloadKind: kind, byteCount: bytes, delivery: delivery, masked: true)
+                          kind: BrokerCatalogPayloadKind = .text, value: String? = nil) -> BrokerCredentialComponentSummary {
+        .init(name: name, payloadKind: kind, byteCount: bytes, delivery: delivery, masked: true,
+              valueDigest: "digest-" + (value ?? name))
     }
 
     static let token = component("TOKEN", bytes: 28, .environmentVariable("RELEASE_CHECK_TOKEN"))
@@ -50,6 +52,17 @@ enum ApprovalCardFixtures {
         beforeUsageInstructions: nil, afterUsageInstructions: "Use only for the release smoke check. Keep values out of logs.",
         beforeGroup: nil, afterGroup: "Release Tools", createsGroup: true)
 
+    static let createOneItemSummary = BrokerCredentialWriteSummary(credentialName: "Deploy Host", operation: .create,
+        before: [], after: [component("DEPLOY_HOST", bytes: 18, .environmentVariable("DEPLOY_HOST"))],
+        beforeDigest: nil, afterDigest: "after", beforeUsageInstructions: nil,
+        afterUsageInstructions: "Use only for the staging deploy script.", beforeGroup: nil, afterGroup: "Staging", createsGroup: true)
+
+    static let createTwoItemsSummary = BrokerCredentialWriteSummary(credentialName: "Staging SSH", operation: .create,
+        before: [], after: [component("SSH_USER", bytes: 7, .environmentVariable("SSH_USER")),
+                            component("SSH_KEY", bytes: 411, .temporaryFile("SSH_KEY_FILE"), kind: .file)],
+        beforeDigest: nil, afterDigest: "after", beforeUsageInstructions: nil,
+        afterUsageInstructions: "Use for SSH to the staging host only.", beforeGroup: nil, afterGroup: "Staging", createsGroup: false)
+
     static let metadataSummary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
         before: [token, user], after: [token, user], beforeDigest: "same", afterDigest: "same",
         beforeUsageInstructions: "Use for release checks.", afterUsageInstructions: "Use only for the nightly release check.",
@@ -57,7 +70,7 @@ enum ApprovalCardFixtures {
 
     static let valueSummary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
         before: [component("TOKEN", bytes: 40, .environmentVariable("RELEASE_CHECK_TOKEN"))],
-        after: [component("TOKEN", bytes: 52, .environmentVariable("RELEASE_CHECK_TOKEN"))],
+        after: [component("TOKEN", bytes: 52, .environmentVariable("RELEASE_CHECK_TOKEN"), value: "rotated")],
         beforeDigest: "old", afterDigest: "new", beforeUsageInstructions: "Use for release checks.",
         afterUsageInstructions: "Use for release checks.", beforeGroup: "Release Tools", afterGroup: "Release Tools")
 
@@ -118,6 +131,10 @@ enum ApprovalCardFixtures {
                          timedAllowanceEnabled: true, finish: { _ in })
         case .create:
             return write(.create, createSummary)
+        case .createOneItem:
+            return write(.create, createOneItemSummary, purpose: "Save the staging deploy host")
+        case .createTwoItems:
+            return write(.create, createTwoItemsSummary, purpose: "Save the staging SSH login")
         case .modifyMetadata:
             return write(.modify, metadataSummary)
         case .modifyValue:

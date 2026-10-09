@@ -8,26 +8,24 @@ enum ApprovalOverflowUnit: Equatable {
 }
 
 enum ApprovalOverflow {
-    /// The line shown while content is hidden below; nil once the end is visible.
-    static func hint(unit: ApprovalOverflowUnit, hiddenHeight: CGFloat, hiddenMarkers: Int) -> String? {
+    /// The line shown while content is hidden below; nil once the end is
+    /// visible. Steps are counted; other hidden sections are named.
+    static func hint(unit: ApprovalOverflowUnit, hiddenHeight: CGFloat, hiddenSteps: Int = 0,
+                     hiddenNames: [String] = []) -> String? {
         guard hiddenHeight > 1 else { return nil }
-        switch unit {
-        case .lines(let height):
+        if case .lines(let height) = unit {
             let lines = max(1, Int(((hiddenHeight - 1) / max(height, 1)).rounded(.up)))
             return lines == 1
                 ? appLocalized("1 more line — scroll to see it")
                 : appLocalizedFormat("%lld more lines — scroll to see them", lines)
-        case .steps where hiddenMarkers > 0:
-            return hiddenMarkers == 1
-                ? appLocalized("1 more step — scroll to see it")
-                : appLocalizedFormat("%lld more steps — scroll to see them", hiddenMarkers)
-        case .sections where hiddenMarkers > 0:
-            return hiddenMarkers == 1
-                ? appLocalized("1 more section below — scroll to see it")
-                : appLocalizedFormat("%lld more sections below — scroll to see them", hiddenMarkers)
-        case .steps, .sections:
-            return appLocalized("More below — scroll to see it")
         }
+        if unit == .steps, hiddenSteps > 0 {
+            return hiddenSteps == 1
+                ? appLocalized("1 more step — scroll to see it")
+                : appLocalizedFormat("%lld more steps — scroll to see them", hiddenSteps)
+        }
+        guard !hiddenNames.isEmpty else { return appLocalized("More below — scroll to see it") }
+        return appLocalizedFormat("Below: %@", hiddenNames.joined(separator: appLocalized("List separator")))
     }
 }
 
@@ -43,7 +41,7 @@ struct ApprovalScrollArea<Content: View>: View {
     @ViewBuilder let content: (ScrollViewProxy) -> Content
     @State private var contentFrame: CGRect = .zero
     @State private var viewport: CGFloat = 0
-    @State private var markers: [CGFloat] = []
+    @State private var markers: [ApprovalScrollMarkerValue] = []
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xs) {
@@ -79,8 +77,11 @@ struct ApprovalScrollArea<Content: View>: View {
     private var overflows: Bool { contentFrame.height > viewport + 1 && viewport > 0 }
 
     private var hint: String? {
-        ApprovalOverflow.hint(unit: unit, hiddenHeight: contentFrame.maxY - viewport,
-            hiddenMarkers: markers.filter { $0 > viewport + 1 }.count)
+        let hidden = markers.filter { $0.maxY > viewport + 1 }
+        var names: [String] = []
+        for name in hidden.compactMap(\.name) where !names.contains(name) { names.append(name) }
+        return ApprovalOverflow.hint(unit: unit, hiddenHeight: contentFrame.maxY - viewport,
+            hiddenSteps: hidden.filter(\.step).count, hiddenNames: names)
     }
 
     private var indicator: some View {
@@ -100,7 +101,7 @@ struct ApprovalScrollArea<Content: View>: View {
     private func hintLabel(_ text: String) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
             if hint != nil { Image(systemName: "chevron.down").imageScale(.small) }
-            Text(verbatim: text)
+            Text(verbatim: text).lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.8)
         }
         .font(Theme.Fonts.caption)
         .foregroundStyle(Theme.textSecondary)
@@ -111,17 +112,28 @@ struct ApprovalScrollArea<Content: View>: View {
 }
 
 extension View {
-    /// Marks a step or section whose bottom edge the overflow line counts.
-    func approvalScrollMarker() -> some View { modifier(ApprovalScrollMarker()) }
+    /// Marks a section, named in the overflow line, or a counted step.
+    func approvalScrollMarker(name: String? = nil, step: Bool = false) -> some View {
+        modifier(ApprovalScrollMarker(name: name, step: step))
+    }
+}
+
+struct ApprovalScrollMarkerValue: Equatable {
+    let maxY: CGFloat
+    let name: String?
+    let step: Bool
 }
 
 private struct ApprovalScrollMarker: ViewModifier {
+    let name: String?
+    let step: Bool
     @Environment(\.approvalScrollSpace) private var space
 
     func body(content: Content) -> some View {
         content.background(GeometryReader { geometry in
-            Color.clear.preference(key: ApprovalScrollMarkerKey.self,
-                value: space.map { [$0: [geometry.frame(in: .named($0)).maxY]] } ?? [:])
+            Color.clear.preference(key: ApprovalScrollMarkerKey.self, value: space.map {
+                [$0: [ApprovalScrollMarkerValue(maxY: geometry.frame(in: .named($0)).maxY, name: name, step: step)]]
+            } ?? [:])
         })
     }
 }
@@ -153,8 +165,9 @@ private struct ApprovalScrollViewportKey: PreferenceKey {
 }
 
 private struct ApprovalScrollMarkerKey: PreferenceKey {
-    static let defaultValue: [String: [CGFloat]] = [:]
-    static func reduce(value: inout [String: [CGFloat]], nextValue: () -> [String: [CGFloat]]) {
+    static let defaultValue: [String: [ApprovalScrollMarkerValue]] = [:]
+    static func reduce(value: inout [String: [ApprovalScrollMarkerValue]],
+                       nextValue: () -> [String: [ApprovalScrollMarkerValue]]) {
         value.merge(nextValue()) { $0 + $1 }
     }
 }
@@ -179,8 +192,17 @@ struct ApprovalCardLayout: Layout {
         }
     }
 
+    /// A card that would overflow first shrinks the parts that can be
+    /// compact, such as the icon, then lets the body scroll.
     private func heights(width: CGFloat, subviews: Subviews) -> [CGFloat] {
-        var heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
+        func measure(compact: Bool) -> [CGFloat] {
+            subviews.map { subview in
+                let height = compact ? subview[ApprovalCardCompactHeightKey.self] : nil
+                return subview.sizeThatFits(ProposedViewSize(width: width, height: height)).height
+            }
+        }
+        var heights = measure(compact: false)
+        if heights.reduce(0, +) > maximumHeight { heights = measure(compact: true) }
         let excess = heights.reduce(0, +) - maximumHeight
         if excess > 0, let index = subviews.firstIndex(where: { $0[ApprovalCardFlexibleKey.self] }) {
             heights[index] = max(minimumFlexibleHeight, heights[index] - excess)
@@ -191,4 +213,9 @@ struct ApprovalCardLayout: Layout {
 
 struct ApprovalCardFlexibleKey: LayoutValueKey {
     static let defaultValue = false
+}
+
+/// The height a part takes on a card that would otherwise overflow.
+struct ApprovalCardCompactHeightKey: LayoutValueKey {
+    static let defaultValue: CGFloat? = nil
 }

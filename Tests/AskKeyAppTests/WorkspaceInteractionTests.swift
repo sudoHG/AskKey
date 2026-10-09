@@ -112,7 +112,7 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         let writeActions: [(BrokerApprovalOperation, String, String)] = [
             (.create, "新建凭证", "Create Credential"),
             (.modify, "保存修改", "Save Changes"),
-            (.delete, "移到回收站", "Move to Trash"),
+            (.delete, "移到回收站", "Move to Recycle Bin"),
         ]
         for (operation, chinese, _) in writeActions {
             XCTAssertEqual(FrozenApprovalActions.titles(operation: operation, timedAllowanceEnabled: true),
