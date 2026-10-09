@@ -8,8 +8,9 @@ import AskKeyBroker
 /// each decision's consequence.
 struct FrozenAgentApprovalPrompt: View {
     static let width: CGFloat = 300
-    /// Keeps the actions on the 768-point CI screen with menu bar and Dock.
-    static let maximumHeight: CGFloat = 680
+    /// Keeps the whole card, footer included, above the Dock on the
+    /// 768-point CI screen, where the panel's top sits under the menu bar.
+    static let maximumHeight: CGFloat = 640
     static let contentWidth = width - 2 * Theme.Spacing.lg
     static let commandLineHeight = ceil(NSLayoutManager().defaultLineHeight(
         for: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)))

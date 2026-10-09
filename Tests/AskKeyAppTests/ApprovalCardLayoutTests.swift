@@ -16,7 +16,8 @@ final class ApprovalCardLayoutTests: AskKeyAppTestCase {
         return size.height
     }
 
-    func testEveryCardTypeStaysWithin680PointsInBothLanguages() {
+    func testEveryCardTypeStaysWithinTheCapInBothLanguages() {
+        XCTAssertLessThanOrEqual(FrozenAgentApprovalPrompt.maximumHeight, 680)
         Fixtures.withLanguages { language in
             for card in Fixtures.Card.allCases {
                 XCTAssertLessThanOrEqual(height(Fixtures.prompt(card)), FrozenAgentApprovalPrompt.maximumHeight,
