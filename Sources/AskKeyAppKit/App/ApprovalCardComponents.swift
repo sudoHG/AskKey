@@ -1,75 +1,14 @@
 import AppKit
 import SwiftUI
 
-/// A section of the card's Details: its heading, an optional status tag and
-/// trailing control, then content.
-struct ApprovalSection<Content: View, Accessory: View>: View {
-    let title: String
-    let tag: ApprovalTag?
-    let identifier: String
-    let accessory: Accessory
-    let content: Content
-
-    init(title: String, tag: ApprovalTag? = nil, identifier: String,
-         @ViewBuilder accessory: () -> Accessory, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.tag = tag
-        self.identifier = identifier
-        self.accessory = accessory()
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
-                Text(verbatim: title)
-                    .font(Theme.Fonts.caption.weight(.semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let tag { ApprovalTagView(tag: tag) }
-                Spacer(minLength: Theme.Spacing.sm)
-                accessory
-            }
-            content
-                .font(Theme.Fonts.secondary)
-                .foregroundStyle(Theme.text)
-        }
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(identifier)
-    }
-}
-
-extension ApprovalSection where Accessory == EmptyView {
-    init(title: String, tag: ApprovalTag? = nil, identifier: String, @ViewBuilder content: () -> Content) {
-        self.init(title: title, tag: tag, identifier: identifier, accessory: { EmptyView() }, content: content)
-    }
-}
-
-struct ApprovalTagView: View {
-    let tag: ApprovalTag
-
-    var body: some View {
-        Text(verbatim: tag.title)
-            .font(Theme.Fonts.caption.weight(.semibold))
-            .foregroundStyle(tag.color)
-            .padding(.horizontal, Theme.Spacing.xs)
-            .padding(.vertical, 1)
-            .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Spacing.xs))
-            .fixedSize()
-    }
-}
-
 extension ApprovalTag {
     /// Grey for no change, blue for edits, green for additions, orange for
-    /// replaced values and merges, red for removals; new groups stay neutral.
+    /// replaced values and merges, red for removals.
     var color: Color {
         switch self {
         case .unchanged, .noChange: return Theme.textSecondary
         case .changed: return ApprovalTagPalette.blue
         case .new: return ApprovalTagPalette.green
-        case .newGroup: return Theme.text
         case .replaced, .merge: return ApprovalTagPalette.orange
         case .removed: return Theme.warning
         }
@@ -106,7 +45,7 @@ struct ApprovalLineText: View {
         var result = AttributedString()
         if let tag {
             var label = AttributedString("\u{2009}" + tag.title + "\u{2009}")
-            label.font = Theme.Fonts.caption.weight(.semibold)
+            label.font = Theme.Fonts.secondary.weight(.semibold)
             label.foregroundColor = tag.color
             label.backgroundColor = Theme.neutralSubtle
             result += label + AttributedString(" ")

@@ -1,17 +1,9 @@
-import AppKit
 import AskKeyBroker
 
-/// The card's title, subtitle and Details rows, derived from the pending
-/// request and, for write and organize cards, their frozen summaries. The
-/// requester's name and purpose are self-declared; the command, working
-/// directory and delivered names come from the App-derived display summary.
+/// The card's title and subtitle, derived from the pending request and, for
+/// write and organize cards, their frozen summaries. The requester's name is
+/// self-declared; the command comes from the App-derived display summary.
 struct ApprovalPromptContent: Equatable {
-    struct Row: Equatable {
-        let label: String
-        let value: String
-        var monospaced = false
-    }
-
     /// One sentence naming who wants to do what with which object.
     let title: String
     /// Write and organize cards: one short line under the title. Read cards
@@ -20,7 +12,6 @@ struct ApprovalPromptContent: Equatable {
     /// Read cards: the one-line command, already middle-truncated by the display summary.
     let commandSummary: String?
     let fullCommand: String?
-    let rows: [Row]
 
     init(request: BrokerApprovalOperationRequest, credentialName: String,
          write: FrozenWriteSummaryContent? = nil, organization: FrozenOrganizationSummaryContent? = nil) {
@@ -42,19 +33,6 @@ struct ApprovalPromptContent: Equatable {
         let display = request.operation == .read ? request.display : nil
         commandSummary = display?.commandSummary
         fullCommand = display?.commandLine
-        var rows: [Row] = []
-        if let display {
-            rows.append(Row(label: appLocalized("Command gets"), value: Self.receives(display)))
-            if let directory = display.workingDirectory, !directory.isEmpty {
-                rows.append(Row(label: appLocalized("Runs in"), value: directory, monospaced: true))
-            }
-        }
-        rows.append(Row(label: appLocalized("Requested by"),
-            value: appLocalizedFormat("%@ (name provided by the requester; Ask Key can't verify it)", requester)))
-        if let purpose = request.callerPurpose, !purpose.isEmpty {
-            rows.append(Row(label: appLocalized("Stated purpose"), value: appLocalizedFormat("%@ (not verified)", purpose)))
-        }
-        self.rows = rows
     }
 
     /// Shared with the pending list so both say the same sentence.
@@ -87,39 +65,5 @@ struct ApprovalPromptContent: Equatable {
 
     private static func sentence(_ format: String, _ arguments: String...) -> String {
         EmphasizedSentence(format: format, arguments: arguments).plainText
-    }
-
-    /// What the command gets and how, one line per variable. A multi-item
-    /// credential's mapping is not opened before approval, so its items are
-    /// described without names.
-    static func receives(_ display: BrokerApprovalOperationRequest.Display) -> String {
-        guard let environment = display.environmentVariables, let files = display.temporaryFileVariables else {
-            return appLocalized("The items set to be given to programs (names are shown after you approve)")
-        }
-        let lines = environment.map { appLocalizedFormat("Environment variable %@", $0) }
-            + files.map { appLocalizedFormat("Temporary file (path in %@, removed within 5 minutes)", $0) }
-        return lines.isEmpty
-            ? appLocalized("Nothing from this credential is given to the command")
-            : lines.joined(separator: "\n")
-    }
-
-    /// Rows for Details. The full command leads when the one-line subtitle
-    /// cannot show all of it.
-    func detailRows(commandFits: Bool) -> [Row] {
-        guard let fullCommand, !fullCommand.isEmpty, !commandFits else { return rows }
-        return [Row(label: appLocalized("Command"), value: fullCommand, monospaced: true)] + rows
-    }
-
-    /// Whether "to run <command>" shows the whole command on one line of the
-    /// given width: not truncated by the display summary and not clipped.
-    func commandFits(prefix: String, width: CGFloat) -> Bool {
-        guard let commandSummary, commandSummary == fullCommand else { return false }
-        let prefixWidth = (prefix + " " as NSString).size(
-            withAttributes: [.font: NSFont.systemFont(ofSize: 13)]
-        ).width
-        let commandWidth = (commandSummary as NSString).size(
-            withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)]
-        ).width
-        return prefixWidth + commandWidth <= width
     }
 }

@@ -185,7 +185,6 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
                     "Component list separator": ", ",
                     "Sentence separator": " ",
                     "Clause separator": ", ",
-                    "New group tag": "New group",
                     "Create credential button": "Create",
                     "Removed phrases: %@": "Removed: %@",
                 ]

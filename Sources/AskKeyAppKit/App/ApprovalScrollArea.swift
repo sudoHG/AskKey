@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A region that scrolls when its content is taller than the space it gets.
-/// While anything is hidden, a thin bar stays visible beside it.
+/// While anything is hidden, a thin bar stays visible beside it and the edge
+/// where lines continue fades out, so no line looks cut in half.
 struct ApprovalScrollArea<Content: View>: View {
     let space: String
     var maxHeight: CGFloat?
@@ -23,6 +24,15 @@ struct ApprovalScrollArea<Content: View>: View {
         }
         .scrollIndicators(.never)
         .coordinateSpace(name: space)
+        .mask {
+            VStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                    .frame(height: hiddenAbove ? Self.fade : 0)
+                Color.black
+                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: hiddenBelow ? Self.fade : 0)
+            }
+        }
         .accessibilityIdentifier(identifier ?? space)
         .frame(maxHeight: maxHeight)
         .background(GeometryReader { geometry in
@@ -35,7 +45,10 @@ struct ApprovalScrollArea<Content: View>: View {
         .onPreferenceChange(ApprovalScrollViewportKey.self) { viewport = $0[space] ?? 0 }
     }
 
+    private static var fade: CGFloat { 24 }
     private var overflows: Bool { contentFrame.height > viewport + 1 && viewport > 0 }
+    private var hiddenAbove: Bool { overflows && contentFrame.minY < -1 }
+    private var hiddenBelow: Bool { overflows && contentFrame.maxY > viewport + 1 }
 
     private var indicator: some View {
         let overflow = max(contentFrame.height - viewport, 1)

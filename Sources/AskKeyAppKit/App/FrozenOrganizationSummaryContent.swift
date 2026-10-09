@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 import AskKeyBroker
 
 /// Each frozen step as a sentence. Counts come from the summary, which
@@ -117,38 +117,5 @@ struct FrozenOrganizationSummaryContent: Equatable {
         members == 0
             ? appLocalized("The group is empty.")
             : appLocalizedFormat("It has %@.", ApprovalCopy.members(members, hidden: hidden))
-    }
-}
-
-/// The ordered steps, shown in Details.
-struct FrozenOrganizationApprovalContent: View {
-    let content: FrozenOrganizationSummaryContent
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            ForEach(content.rows, id: \.number) { row in
-                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
-                    Text(verbatim: "\(row.number).")
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(minWidth: 18, alignment: .trailing)
-                    VStack(alignment: .leading, spacing: 2) {
-                        ApprovalLineText(line: ApprovalLine(row.title), tag: row.tag)
-                            .foregroundStyle(Theme.text)
-                        if let detail = row.detail {
-                            Text(verbatim: detail)
-                                .font(Theme.Fonts.caption)
-                                .foregroundStyle(Theme.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-                .textSelection(.enabled)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("approval-organization-step-\(row.number)")
-            }
-        }
-        .font(Theme.Fonts.secondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

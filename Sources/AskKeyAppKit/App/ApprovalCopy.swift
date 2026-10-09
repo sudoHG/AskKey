@@ -16,12 +16,6 @@ enum ApprovalCopy {
         quoted(name ?? appLocalized("Ungrouped"))
     }
 
-    static func bytes(_ count: Int) -> String {
-        count == 1
-            ? appLocalized("1 byte")
-            : appLocalizedFormat("%@ bytes", count.formatted(.number.locale(AppLanguage.locale(for: AppLanguage.current))))
-    }
-
     /// Rule-5 delivery wording; the variable name is the code argument.
     static func delivery(_ delivery: BrokerComponentDelivery) -> ApprovalLine {
         switch delivery {
@@ -95,17 +89,16 @@ struct ApprovalLine: Equatable {
     }
 }
 
-/// Small status labels on neutral backgrounds in Details. Color carries risk,
-/// not novelty.
+/// Status labels in Details, at the text size on a neutral background.
+/// Color carries risk, not novelty.
 enum ApprovalTag: Equatable {
-    case unchanged, changed, new, newGroup, replaced, removed, noChange, merge
+    case unchanged, changed, new, replaced, removed, noChange, merge
 
     var title: String {
         switch self {
         case .unchanged: return appLocalized("Unchanged")
         case .changed: return appLocalized("Changed")
         case .new: return appLocalized("New")
-        case .newGroup: return appLocalized("New group tag")
         case .replaced: return appLocalized("Replaced")
         case .removed: return appLocalized("Removed")
         case .noChange: return appLocalized("No change")

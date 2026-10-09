@@ -37,6 +37,7 @@ struct FrozenAgentApprovalPrompt: View {
         let write: FrozenWriteSummaryContent?
         let organization: FrozenOrganizationSummaryContent?
         let content: ApprovalPromptContent
+        let details: ApprovalDetailsContent
         let buttons: [FrozenApprovalActions.Button]
     }
 
@@ -44,13 +45,16 @@ struct FrozenAgentApprovalPrompt: View {
         let requester = ApprovalCopy.requester(request)
         let write = isRead || isOrganize ? nil : writeSummary.map { FrozenWriteSummaryContent(summary: $0, requester: requester) }
         let organization = isOrganize ? organizationSummary.map { FrozenOrganizationSummaryContent(summary: $0, requester: requester) } : nil
-        let content = ApprovalPromptContent(request: request,
-            credentialName: trustedCredentialName ?? request.credentialName ?? request.targetID,
+        let credentialName = trustedCredentialName ?? request.credentialName ?? request.targetID
+        let content = ApprovalPromptContent(request: request, credentialName: credentialName,
             write: write, organization: organization)
+        let details = ApprovalDetailsContent(request: request, credentialName: credentialName, write: write,
+            organization: organization, timedAllowanceEnabled: timedAllowanceEnabled,
+            timedAllowanceMinutes: timedAllowanceMinutes)
         let buttons = FrozenApprovalActions.buttons(operation: request.operation, timedAllowanceEnabled: timedAllowanceEnabled,
             minutes: timedAllowanceMinutes, valueOnlyChange: write?.valueOnlyChange ?? false,
             destructive: write?.isDestructive ?? organization?.isDestructive ?? false)
-        return Presentation(write: write, organization: organization, content: content, buttons: buttons)
+        return Presentation(write: write, organization: organization, content: content, details: details, buttons: buttons)
     }
 
     var body: some View {
@@ -74,7 +78,7 @@ struct FrozenAgentApprovalPrompt: View {
             detailsToggle(expanded: expanded)
                 .padding(.top, Theme.Spacing.md)
             if expanded {
-                details(content, write: presentation.write, organization: presentation.organization)
+                details(presentation.details)
                     .padding(.top, Theme.Spacing.md)
                     .layoutValue(key: ApprovalCardFlexibleKey.self, value: 1)
             }
@@ -155,46 +159,11 @@ struct FrozenAgentApprovalPrompt: View {
         .accessibilityIdentifier("approval-details")
     }
 
-    private func details(_ content: ApprovalPromptContent, write: FrozenWriteSummaryContent?,
-                         organization: FrozenOrganizationSummaryContent?) -> some View {
-        let rows = content.detailRows(commandFits: content.commandFits(prefix: appLocalized("to run"),
-                                                                       width: Self.contentWidth))
-        return ApprovalScrollArea(space: "approval-details",
-                                  identifier: isOrganize ? "approval-organization-operations" : "approval-details-rows") {
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                Rectangle().fill(Theme.separator).frame(height: 1)
-                Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.md, verticalSpacing: Theme.Spacing.sm) {
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                        GridRow {
-                            Text(verbatim: row.label)
-                                .foregroundStyle(Theme.textSecondary)
-                                .fixedSize()
-                            Text(verbatim: row.value)
-                                .font(row.monospaced ? Theme.Fonts.mono : Theme.Fonts.body)
-                                .foregroundStyle(Theme.text)
-                                .textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                }
-                .font(Theme.Fonts.body)
-                if isRead, timedAllowanceEnabled {
-                    Text(verbatim: FrozenApprovalActions.timedScope(minutes: timedAllowanceMinutes))
-                        .font(Theme.Fonts.caption)
-                        .foregroundStyle(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, Theme.Spacing.xs)
-                        .accessibilityIdentifier("approval-timed-scope")
-                }
-                if let organization {
-                    FrozenOrganizationApprovalContent(content: organization)
-                        .padding(.top, Theme.Spacing.xs)
-                } else if !isRead && !isOrganize {
-                    FrozenWriteApprovalContent(operation: request.operation, content: write, revealMaterial: revealMaterial)
-                        .padding(.top, Theme.Spacing.xs)
-                }
-            }
+    /// Scrolls inside the card's cap; edges fade while lines are hidden.
+    private func details(_ details: ApprovalDetailsContent) -> some View {
+        ApprovalScrollArea(space: "approval-details",
+                           identifier: isOrganize ? "approval-organization-operations" : "approval-details-rows") {
+            ApprovalDetailsView(content: details, revealMaterial: revealMaterial)
         }
     }
 

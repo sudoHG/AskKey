@@ -131,59 +131,14 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
         }
     }
 
-    func testReadDetailsHoldTheRequesterPurposeDeliveryAndTimedScope() {
-        Fixtures.withLanguages { language in
-            let read = ApprovalPromptContent(request: Fixtures.request(.read, display: Fixtures.display()), credentialName: "Staging API")
-            XCTAssertTrue(read.commandFits(prefix: appLocalized("to run"), width: FrozenAgentApprovalPrompt.contentWidth))
-            let rows = read.detailRows(commandFits: true)
-            if language == "en" {
-                XCTAssertEqual(rows.map(\.label), ["Command gets", "Runs in", "Requested by", "Stated purpose"])
-                XCTAssertEqual(rows.map(\.value), ["Environment variable STAGING_API_TOKEN", "~/web",
-                    "Claude Code (name provided by the requester; Ask Key can't verify it)",
-                    "Deploy the staging site (not verified)"])
-                XCTAssertEqual(FrozenApprovalActions.timedScope(minutes: 30),
-                    "For 30 minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.")
-            } else {
-                XCTAssertEqual(rows.map(\.label), ["命令会拿到", "运行目录", "请求方", "对方说的用途"]) // i18n-literal: Chinese detail labels.
-                XCTAssertEqual(rows.map(\.value), ["环境变量 STAGING_API_TOKEN", "~/web", // i18n-literal: Chinese detail values.
-                    "Claude Code（名称由请求方提供，请旨无法核实）", "Deploy the staging site（未核实）"]) // i18n-literal: Chinese detail values.
-                XCTAssertEqual(FrozenApprovalActions.timedScope(minutes: 30),
-                    "30 分钟内，你这个 Mac 账户下的任何 Agent 或命令读取这个凭证都不再询问；修改或删除它仍要你批准。") // i18n-literal: Chinese timed scope.
-            }
-            XCTAssertEqual(rows.map(\.monospaced), [false, true, false, false])
-        }
-    }
-
-    func testReadDetailsDescribeFilesBundlesAndLongCommands() {
-        Fixtures.withLanguages { language in
-            func receives(_ display: BrokerApprovalOperationRequest.Display) -> String {
-                ApprovalPromptContent.receives(display)
-            }
-            let values = [
-                receives(Fixtures.display(environment: ["DEPLOY_HOST"], files: ["SSH_KEY_FILE"])),
-                receives(Fixtures.display(environment: nil, files: nil)),
-                receives(Fixtures.display(environment: [], files: [])),
-            ]
-            XCTAssertEqual(values, language == "en" ? [
-                "Environment variable DEPLOY_HOST\nTemporary file (path in SSH_KEY_FILE, removed within 5 minutes)",
-                "The items set to be given to programs (names are shown after you approve)",
-                "Nothing from this credential is given to the command",
-            ] : [
-                "环境变量 DEPLOY_HOST\n临时文件（路径在 SSH_KEY_FILE，最多 5 分钟后删除）", // i18n-literal: Chinese delivery rows.
-                "设为交给程序的所有项（具体名称批准后才能看到）", // i18n-literal: Chinese bundle row.
-                "不交给这个命令任何值", // i18n-literal: Chinese no-delivery row.
-            ])
-            let command = "./deploy.sh " + (1...30).map { "--flag-\($0) value" }.joined(separator: " ")
-            let long = ApprovalPromptContent(request: Fixtures.request(.read, display: Fixtures.display(command: command)),
-                                             credentialName: "Staging API")
-            XCTAssertFalse(long.commandFits(prefix: appLocalized("to run"), width: FrozenAgentApprovalPrompt.contentWidth))
-            let rows = long.detailRows(commandFits: false)
-            XCTAssertEqual(rows.first?.label, language == "en" ? "Command" : "命令") // i18n-literal: Chinese command label.
-            XCTAssertEqual(rows.first?.value, command, "Details show the whole command")
-            XCTAssertTrue(rows.first?.monospaced == true)
-            XCTAssertNil(ApprovalPromptContent(request: Fixtures.request(.create, display: Fixtures.display()),
-                                               credentialName: "Staging API").commandSummary, "write cards never show a run target")
-        }
+    func testReadSubtitleKeepsTheV02OneLineCommand() {
+        let command = "./deploy.sh " + (1...30).map { "--flag-\($0) value" }.joined(separator: " ")
+        let long = ApprovalPromptContent(request: Fixtures.request(.read, display: Fixtures.display(command: command)),
+                                         credentialName: "Staging API")
+        XCTAssertEqual(long.fullCommand, command)
+        XCTAssertNotEqual(long.commandSummary, command, "the subtitle shortens a long command in the middle")
+        XCTAssertNil(ApprovalPromptContent(request: Fixtures.request(.create, display: Fixtures.display()),
+                                           credentialName: "Staging API").commandSummary, "write cards never show a run target")
     }
 
     func testNamesAreQuotedInBothLanguagesAndNeverShortened() {

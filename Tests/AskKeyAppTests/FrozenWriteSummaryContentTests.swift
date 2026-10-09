@@ -4,19 +4,14 @@ import AskKeyBroker
 @testable import AskKeyAppKit
 @testable import AskKeyVault
 
-/// Write cards: the subtitle that says what a change does, and in Details
-/// plain-language item rows with exact status tags and what happens after
-/// approval.
+/// Write cards: exact per-item tags, what counts as a value-only or
+/// irreversible change, the instruction diff, and the subtitle.
 @MainActor
 final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
     private typealias Fixtures = ApprovalCardFixtures
 
     private func content(_ summary: BrokerCredentialWriteSummary) -> FrozenWriteSummaryContent {
         FrozenWriteSummaryContent(summary: summary, requester: "Claude Code")
-    }
-
-    private func lines(_ content: FrozenWriteSummaryContent) -> [String] {
-        content.components.map(\.line.plainText)
     }
 
     private func modification(before: [BrokerCredentialComponentSummary], after: [BrokerCredentialComponentSummary],
@@ -26,91 +21,64 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
               afterUsageInstructions: "Use for release checks.", beforeGroup: "Release Tools", afterGroup: "Release Tools")
     }
 
-    func testCreateListsEveryItemWithItsValueAndStatesThePermission() {
+    func testCreateCarriesEveryItemAndItsInstructions() {
+        let create = content(Fixtures.createSummary)
+        XCTAssertEqual(create.components.map(\.name), ["TOKEN", "CERT", "RECOVERY_CODE"])
+        XCTAssertEqual(create.components.map(\.tag), [nil, nil, nil], "create rows carry no status tags")
+        XCTAssertEqual(create.valueComponents.map(\.name), ["TOKEN", "CERT", "RECOVERY_CODE"])
+        XCTAssertEqual(create.instructions, "Use only for the release smoke check. Keep values out of logs.")
+        XCTAssertNil(create.groupChange, "the subtitle names the group")
+        XCTAssertFalse(create.isDestructive)
+    }
+
+    func testMetadataOnlyChangeLeavesEveryItemUnchanged() {
+        let modify = content(Fixtures.metadataSummary)
+        XCTAssertEqual(modify.components.map(\.tag), [.unchanged, .unchanged])
+        XCTAssertTrue(modify.changedComponents.isEmpty)
+        XCTAssertTrue(modify.valueComponents.isEmpty)
+        XCTAssertNotNil(modify.instructionsDiff)
+        XCTAssertNil(modify.groupChange)
+        XCTAssertFalse(modify.valueOnlyChange)
+        XCTAssertFalse(modify.isDestructive)
+    }
+
+    func testValueOnlyChangeIsIrreversible() {
+        let modify = content(Fixtures.valueSummary)
+        XCTAssertTrue(modify.valueOnlyChange)
+        XCTAssertTrue(modify.isDestructive)
+        XCTAssertEqual(modify.changedComponents.map(\.tag), [.replaced])
+        XCTAssertEqual(modify.valueComponents.map(\.name), ["TOKEN"])
+        XCTAssertNil(modify.instructionsDiff)
+    }
+
+    func testAddedItemLosesNothing() {
+        let modify = content(Fixtures.addedSummary)
+        XCTAssertEqual(modify.components.map(\.tag), [.unchanged, .unchanged, .new])
+        XCTAssertEqual(modify.changedComponents.map(\.name), ["CERT"])
+        XCTAssertEqual(modify.valueComponents.map(\.name), ["CERT"], "only the new value can be viewed")
+        XCTAssertFalse(modify.valueOnlyChange)
+        XCTAssertFalse(modify.isDestructive)
+    }
+
+    func testGroupChangeNamesBothGroupsAndANewGroup() {
         Fixtures.withLanguages { language in
-            let create = content(Fixtures.createSummary)
-            if language == "en" {
-                XCTAssertEqual(create.itemsHeading, "Items (3, values provided by Claude Code)")
-                XCTAssertEqual(lines(create), [
-                    "TOKEN · 28 bytes · given to programs as environment variable RELEASE_CHECK_TOKEN",
-                    "CERT · 1,234 bytes · given to programs as a temporary file (path in RELEASE_CERT_FILE)",
-                    "RECOVERY_CODE · 16 bytes · kept in Ask Key only, never given to agents",
-                ])
-                XCTAssertEqual(create.consequence,
-                    "Its agent permission will be Ask every time, so agents need your approval for each use.")
-            } else {
-                XCTAssertEqual(create.itemsHeading, "凭证内容（3 项，值由 Claude Code 提供）") // i18n-literal: Assert the Simplified Chinese items heading.
-                XCTAssertEqual(lines(create), [
-                    "TOKEN · 28 字节 · 使用时作为环境变量 RELEASE_CHECK_TOKEN 交给程序", // i18n-literal: Assert the Simplified Chinese item row.
-                    "CERT · 1,234 字节 · 使用时作为临时文件交给程序（路径在 RELEASE_CERT_FILE）", // i18n-literal: Assert the Simplified Chinese item row.
-                    "RECOVERY_CODE · 16 字节 · 只存在请旨里，不交给任何 Agent", // i18n-literal: Assert the Simplified Chinese item row.
-                ])
-                XCTAssertEqual(create.consequence, "这个凭证的 Agent 权限是「每次询问」：Agent 每次使用都要你批准。") // i18n-literal: Assert the Simplified Chinese permission statement.
-            }
-            XCTAssertEqual(create.components.map(\.tag), [nil, nil, nil], "create rows carry no status tags")
-            XCTAssertEqual(create.components.first?.line.segments.filter(\.code).map(\.text), ["RELEASE_CHECK_TOKEN"])
-            XCTAssertEqual(create.valueComponents.map(\.name), ["TOKEN", "CERT", "RECOVERY_CODE"])
-            XCTAssertEqual(create.instructions, .current("Use only for the release smoke check. Keep values out of logs."))
-            XCTAssertEqual(create.group, .current("“Release Tools”"))
-            XCTAssertTrue(create.createsGroup)
-            XCTAssertFalse(create.isDestructive)
+            let moved = content(Fixtures.instructionsAndGroupSummary).groupChange
+            XCTAssertEqual(moved, .init(before: "“Release Tools”", after: "“Operations”", createsGroup: false))
+            let ungrouped = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
+                before: [Fixtures.token], after: [Fixtures.token], beforeDigest: "same", afterDigest: "same",
+                beforeGroup: nil, afterGroup: "Operations", createsGroup: true)
+            XCTAssertEqual(content(ungrouped).groupChange, .init(before: language == "en" ? "“Ungrouped”" : "“未分组”", // i18n-literal: Chinese ungrouped name.
+                                                                 after: "“Operations”", createsGroup: true))
         }
     }
 
-    func testMetadataOnlyChangeTagsEveryItemUnchanged() {
-        Fixtures.withLanguages { language in
-            let modify = content(Fixtures.metadataSummary)
-            XCTAssertEqual(modify.components.map(\.tag), [.unchanged, .unchanged], "Details list every item with its tag")
-            XCTAssertTrue(modify.valueComponents.isEmpty)
-            XCTAssertEqual(modify.instructionsTag, .changed)
-            XCTAssertEqual(modify.group, .unchanged)
-            XCTAssertFalse(modify.valueOnlyChange)
-            XCTAssertFalse(modify.isDestructive)
-            XCTAssertNil(modify.consequence)
-            XCTAssertEqual(modify.subtitle, language == "en"
-                ? "Changes the instructions (some instruction text is deleted)"
-                : "更改使用说明（删掉了部分说明）") // i18n-literal: Assert the Simplified Chinese change subtitle.
-        }
-    }
-
-    func testValueOnlyChangeTagsTheReplacementAndWarnsAboutTheOldValue() {
-        Fixtures.withLanguages { language in
-            let modify = content(Fixtures.valueSummary)
-            XCTAssertTrue(modify.valueOnlyChange)
-            XCTAssertTrue(modify.isDestructive)
-            XCTAssertEqual(modify.components.map(\.tag), [.replaced])
-            XCTAssertEqual(modify.components.map(\.overwrites), [true])
-            XCTAssertEqual(modify.valueComponents.map(\.byteCount), [52])
-            XCTAssertEqual(modify.instructions, .unchanged)
-            let replacement = modify.components.first?.notes.map(\.plainText)
-            if language == "en" {
-                XCTAssertEqual(lines(modify), ["TOKEN · given to programs as environment variable RELEASE_CHECK_TOKEN"])
-                XCTAssertEqual(replacement, ["Old value 40 bytes → new value 52 bytes (new value from Claude Code)"])
-                XCTAssertEqual(modify.subtitle, "The old value can't be recovered")
-                XCTAssertEqual(modify.itemsHeading, "Items (1, new values provided by Claude Code)")
-                XCTAssertEqual(appLocalized("If you approve, the old value is overwritten and can't be recovered."),
-                               "If you approve, the old value is overwritten and can't be recovered.")
-            } else {
-                XCTAssertEqual(replacement, ["旧值 40 字节 → 新值 52 字节（新值由 Claude Code 提供）"]) // i18n-literal: Assert the Simplified Chinese replacement row.
-                XCTAssertEqual(modify.subtitle, "旧值将无法找回") // i18n-literal: Assert the Simplified Chinese value subtitle.
-                XCTAssertEqual(modify.itemsHeading, "凭证内容（1 项，新值由 Claude Code 提供）") // i18n-literal: Assert the Simplified Chinese items heading.
-                XCTAssertEqual(appLocalized("If you approve, the old value is overwritten and can't be recovered."),
-                               "批准后旧值会被覆盖，无法找回。") // i18n-literal: Assert the Simplified Chinese overwrite line.
-            }
-        }
-    }
-
-    func testAddedItemLeavesTheOthersUnchanged() {
-        Fixtures.withLanguages { language in
-            let modify = content(Fixtures.addedSummary)
-            XCTAssertEqual(modify.components.map(\.tag), [.unchanged, .unchanged, .new])
-            XCTAssertEqual(modify.valueComponents.map(\.name), ["CERT"], "only the new value is listed")
-            XCTAssertFalse(modify.valueOnlyChange)
-            XCTAssertFalse(modify.isDestructive, "adding an item loses nothing")
-            XCTAssertEqual(modify.subtitle, language == "en" ? "Adds 1 item" : "新增 1 项") // i18n-literal: Assert the Simplified Chinese change subtitle.
-            XCTAssertEqual([ApprovalTag.unchanged, .new, .replaced].map(\.title), language == "en"
-                ? ["Unchanged", "New", "Replaced"] : ["不变", "新增", "替换"]) // i18n-literal: Assert Simplified Chinese tags.
-        }
+    func testDeleteListsTheItemsAndLosesNothing() {
+        let delete = content(Fixtures.deleteSummary)
+        XCTAssertEqual(delete.components.map(\.name), ["TOKEN", "USER"])
+        XCTAssertEqual(delete.components.map(\.tag), [nil, nil])
+        XCTAssertTrue(delete.valueComponents.isEmpty)
+        XCTAssertNil(delete.subtitle, "the card states the Recycle Bin for every delete")
+        XCTAssertFalse(delete.isDestructive, "a deleted credential can be restored")
     }
 
     func testEachItemIsTaggedFromItsOwnValueDigest() {
@@ -127,8 +95,7 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         let moved = Fixtures.component("TOKEN", bytes: 28, .temporaryFile("RELEASE_CHECK_FILE"))
         let changed = content(modification(before: [token, user], after: [moved]))
         XCTAssertEqual(changed.components.map(\.tag), [.changed, .removed])
-        XCTAssertEqual(changed.components.first?.notes.map(\.plainText),
-                       ["Before: TOKEN · 28 bytes · given to programs as environment variable RELEASE_CHECK_TOKEN"])
+        XCTAssertEqual(changed.changedComponents.map(\.name), ["TOKEN", "USER"])
         XCTAssertTrue(changed.valueComponents.isEmpty, "a new delivery for the same value adds no value to view")
         XCTAssertEqual(changed.subtitle, "Changes the settings of 1 item, removes 1 item; the removed value can't be recovered")
         XCTAssertTrue(changed.isDestructive)
@@ -169,6 +136,9 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         XCTAssertEqual(diff.after.map(\.text).joined(), "Use only for the nightly release checks.")
         XCTAssertEqual(diff.after.filter { $0.kind == .added }.map(\.text), ["only ", "the nightly "])
         XCTAssertEqual(diff.removedPhrases, ["Keep values out of logs"])
+        XCTAssertEqual(diff.merged.map(\.kind), [.same, .added, .same, .added, .same, .removed, .same])
+        XCTAssertEqual(diff.merged.filter { $0.kind != .added }.map(\.text).joined(), diff.before.map(\.text).joined())
+        XCTAssertEqual(diff.merged.filter { $0.kind != .removed }.map(\.text).joined(), diff.after.map(\.text).joined())
         let chinese = ApprovalTextDiff(before: "只用于发布检查，不要写进日志。", after: "只用于夜间发布检查。") // i18n-literal: Synthetic Chinese instructions.
         XCTAssertEqual(chinese.after.filter { $0.kind == .added }.map(\.text), ["夜间"]) // i18n-literal: Synthetic Chinese diff.
         XCTAssertEqual(chinese.removedPhrases, ["不要写进日志"]) // i18n-literal: Synthetic Chinese diff.
@@ -178,31 +148,6 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
             let modify = content(Fixtures.metadataSummary)
             XCTAssertEqual(modify.instructionsDiff?.removedPhrases, ["checks"])
             XCTAssertEqual(modify.instructionsDiff?.after.filter { $0.kind == .added }.map(\.text), ["only ", "the nightly ", "check"])
-        }
-    }
-
-    func testDeleteShowsWhatIsDeletedAndWhereItGoes() {
-        Fixtures.withLanguages { language in
-            let delete = content(Fixtures.deleteSummary)
-            XCTAssertEqual(delete.components.map(\.tag), [nil, nil])
-            XCTAssertTrue(delete.valueComponents.isEmpty)
-            XCTAssertEqual(delete.itemsHeading, language == "en" ? "Items (2)" : "凭证内容（2 项）") // i18n-literal: Assert the Simplified Chinese items heading.
-            XCTAssertEqual(delete.instructions, .current("Use for release checks."))
-            XCTAssertNil(delete.subtitle, "the card states the Recycle Bin for every delete")
-            XCTAssertFalse(delete.isDestructive, "a deleted credential can be restored")
-            XCTAssertEqual(delete.consequence, language == "en"
-                ? "It moves to the Recycle Bin for 30 days and can be restored there, then it is removed permanently. Agents can't use or see it meanwhile."
-                : "凭证会移到回收站保留 30 天，期间可以在回收站恢复，之后永久删除。这段时间里 Agent 不能使用，也看不到它。") // i18n-literal: Assert the Simplified Chinese delete statement.
-        }
-    }
-
-    func testNewGroupTagIsNeutralAndExplained() {
-        Fixtures.withLanguages { language in
-            XCTAssertEqual([ApprovalTag.newGroup.title, appLocalized("Created when you approve")], language == "en"
-                ? ["New group", "Created when you approve"] : ["新分组", "批准后创建"]) // i18n-literal: Assert the Simplified Chinese new-group tag.
-            XCTAssertEqual(ApprovalTag.newGroup.color, Theme.text, "a new group is not a warning")
-            XCTAssertEqual(ApprovalTag.removed.color, Theme.warning)
-            XCTAssertEqual(ApprovalTag.unchanged.color, Theme.textSecondary)
         }
     }
 
