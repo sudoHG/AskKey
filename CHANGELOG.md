@@ -14,7 +14,7 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 ### Changed
 
 - The app is named 请旨 on Chinese systems and Ask Key elsewhere, in Finder, Spotlight, Login Items and system prompts. Finder can show the old name until macOS refreshes its cache.
-- Write approvals show only what applies to the operation: a creation shows what will be written, a deletion what will be removed, and a change compares only the fields that change.
+- Approval cards say what is changing and what happens next. Titles name the object, for example "wants to create the credential" or "wants to replace the value of". Commands appear in full, items are described in plain words, each item is tagged Unchanged, Replaced or New, and edits to agent instructions are highlighted. Each card also states the result of approving, such as the permission of a new credential, the Recycle Bin for deletions, or the scope of a 30-minute allowance. Long lists say how much more there is instead of being cut off.
 - `list_credentials` returns an object with `credentials` and `groups` instead of a bare list. Scripts that parse its output need updating.
 
 ### Known limitations
