@@ -12,8 +12,10 @@ struct FrozenOrganizationSummaryContent: Equatable {
     }
 
     let rows: [Row]
-    /// Deleting or merging groups cannot be undone in one step.
+    /// A merge can't be undone automatically.
     let isDestructive: Bool
+    /// "6 steps, one of which merges groups, affecting 3 hidden credentials".
+    let subtitle: String
 
     init(summary: BrokerOrganizationSummary, requester: String) {
         rows = summary.operations.enumerated().map { index, operation in
@@ -64,12 +66,51 @@ struct FrozenOrganizationSummaryContent: Equatable {
             }
             return Row(number: index + 1, tag: tag, title: title, detail: detail)
         }
-        isDestructive = summary.operations.contains {
-            switch $0 {
-            case .deleteGroup, .mergeGroup: return true
-            case .move, .createGroup, .existingGroup, .renameGroup: return false
+        let merges = summary.operations.filter {
+            if case .mergeGroup = $0 { return true } else { return false }
+        }.count
+        isDestructive = merges > 0
+        var subtitle = rows.count == 1 ? appLocalized("1 step") : appLocalizedFormat("%lld steps", rows.count)
+        if merges == 1 {
+            subtitle = appLocalizedFormat("%@, one of which merges groups", subtitle)
+        } else if merges > 1 {
+            subtitle = appLocalizedFormat("%1$@, %2$lld of which merge groups", subtitle, merges)
+        }
+        let hidden = Self.hiddenCredentials(summary)
+        if hidden == 1 {
+            subtitle = appLocalizedFormat("%@, affecting 1 hidden credential", subtitle)
+        } else if hidden > 1 {
+            subtitle = appLocalizedFormat("%1$@, affecting %2$lld hidden credentials", subtitle, hidden)
+        }
+        self.subtitle = subtitle
+    }
+
+    /// Hidden credentials whose group the batch renames, merges away or
+    /// deletes. Each step's counts include credentials an earlier step already
+    /// moved into that group, so those are counted once.
+    static func hiddenCredentials(_ summary: BrokerOrganizationSummary) -> Int {
+        var counted: [String: Int] = [:]
+        var total = 0
+        func leave(_ group: String, hidden: Int) -> Int {
+            let key = ApprovalCopy.matchKey(group)
+            defer { counted[key] = nil }
+            return max(0, hidden - counted[key, default: 0])
+        }
+        for operation in summary.operations {
+            switch operation {
+            case .renameGroup(let from, let to, _, let hidden):
+                total += leave(from, hidden: hidden)
+                counted[ApprovalCopy.matchKey(to)] = hidden
+            case .mergeGroup(let from, let to, _, let hidden, _, _):
+                total += leave(from, hidden: hidden)
+                counted[ApprovalCopy.matchKey(to), default: 0] += hidden
+            case .deleteGroup(let name, _, let hidden):
+                total += leave(name, hidden: hidden)
+            case .move, .createGroup, .existingGroup:
+                break
             }
         }
+        return total
     }
 
     private static func contents(members: Int, hidden: Int) -> String {
@@ -79,8 +120,7 @@ struct FrozenOrganizationSummaryContent: Equatable {
     }
 }
 
-/// The ordered steps; the card's scrolling body counts them while any are
-/// still below the visible part.
+/// The ordered steps, shown in Details.
 struct FrozenOrganizationApprovalContent: View {
     let content: FrozenOrganizationSummaryContent
 
@@ -104,7 +144,6 @@ struct FrozenOrganizationApprovalContent: View {
                     }
                 }
                 .textSelection(.enabled)
-                .approvalScrollMarker(step: true)
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("approval-organization-step-\(row.number)")
             }

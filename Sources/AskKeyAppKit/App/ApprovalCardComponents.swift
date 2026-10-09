@@ -1,21 +1,19 @@
 import AppKit
 import SwiftUI
 
-/// A fixed card section: its heading, an optional status tag and trailing
-/// control, then content. The overflow line names it while it is hidden.
+/// A section of the card's Details: its heading, an optional status tag and
+/// trailing control, then content.
 struct ApprovalSection<Content: View, Accessory: View>: View {
     let title: String
     let tag: ApprovalTag?
-    let name: String?
     let identifier: String
     let accessory: Accessory
     let content: Content
 
-    init(title: String, tag: ApprovalTag? = nil, name: String? = nil, identifier: String,
+    init(title: String, tag: ApprovalTag? = nil, identifier: String,
          @ViewBuilder accessory: () -> Accessory, @ViewBuilder content: () -> Content) {
         self.title = title
         self.tag = tag
-        self.name = name
         self.identifier = identifier
         self.accessory = accessory()
         self.content = content()
@@ -38,16 +36,14 @@ struct ApprovalSection<Content: View, Accessory: View>: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .approvalScrollMarker(name: name ?? title)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
     }
 }
 
 extension ApprovalSection where Accessory == EmptyView {
-    init(title: String, tag: ApprovalTag? = nil, name: String? = nil, identifier: String,
-         @ViewBuilder content: () -> Content) {
-        self.init(title: title, tag: tag, name: name, identifier: identifier, accessory: { EmptyView() }, content: content)
+    init(title: String, tag: ApprovalTag? = nil, identifier: String, @ViewBuilder content: () -> Content) {
+        self.init(title: title, tag: tag, identifier: identifier, accessory: { EmptyView() }, content: content)
     }
 }
 
@@ -129,8 +125,8 @@ enum ApprovalButtonRole: Equatable {
 }
 
 /// Full-width stacked alert button: the one filled accent action, a white
-/// bordered secondary action, or a bordered red action whose effect is hard
-/// to undo. "Deny" is secondary, never red.
+/// bordered secondary action, or a bordered red action whose effect can't be
+/// undone, which is never the default. "Deny" is secondary, never red.
 struct ApprovalPromptButton: View {
     let title: String
     let role: ApprovalButtonRole

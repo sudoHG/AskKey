@@ -1,11 +1,12 @@
 import SwiftUI
 import AskKeyBroker
 
-/// The write card's fixed sections and the separately authenticated value view.
+/// A write card's Details: the items with their status tags, the
+/// instructions and group, what approving does, and the separately
+/// authenticated value view.
 struct FrozenWriteApprovalContent: View {
     let operation: BrokerApprovalOperation
     var content: FrozenWriteSummaryContent?
-    var requester: String
     var revealMaterial: (@MainActor () async throws -> FrozenApprovalMaterial)?
     @State private var revealedMaterial: FrozenApprovalMaterial?
     @State private var revealing = false
@@ -15,18 +16,14 @@ struct FrozenWriteApprovalContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             if let content {
-                if let summary = content.changeSummary {
-                    Text(verbatim: summary)
-                        .font(Theme.Fonts.secondary)
-                        .foregroundStyle(Theme.text)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .approvalScrollMarker()
-                        .accessibilityIdentifier("approval-change-summary")
-                }
                 if !content.components.isEmpty { items(content) }
                 instructions(content)
                 group(content)
+                if let consequence = content.consequence {
+                    ApprovalSection(title: appLocalized("After you approve"), identifier: "approval-consequence") {
+                        Text(verbatim: consequence).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             } else if operation == .create || operation == .modify {
                 // Without the summary the value can still be viewed before deciding.
                 ApprovalSection(title: appLocalized("Items"), identifier: "approval-components",
@@ -38,7 +35,7 @@ struct FrozenWriteApprovalContent: View {
 
     private func items(_ content: FrozenWriteSummaryContent) -> some View {
         let hasValues = !content.valueComponents.isEmpty
-        return ApprovalSection(title: content.itemsHeading, name: appLocalized("Items"), identifier: "approval-components",
+        return ApprovalSection(title: content.itemsHeading, identifier: "approval-components",
                                accessory: { if hasValues { revealButton } }) {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 ForEach(Array(content.components.enumerated()), id: \.offset) { _, component in
@@ -97,8 +94,8 @@ struct FrozenWriteApprovalContent: View {
                     Text(revealedMaterial.encoding).foregroundStyle(Theme.textSecondary)
                 }
                 .font(Theme.Fonts.caption)
-                ApprovalScrollArea(space: "approval-revealed-value", unit: .lines(height: 15), maxHeight: 85,
-                                   indicatorOffset: Theme.Spacing.sm - 2) { _ in
+                ApprovalScrollArea(space: "approval-revealed-value", maxHeight: 85,
+                                   indicatorOffset: Theme.Spacing.sm - 2) {
                     Text(verbatim: revealedMaterial.content)
                         .font(Theme.Fonts.mono)
                         .textSelection(.enabled)
@@ -138,7 +135,7 @@ struct FrozenWriteApprovalContent: View {
                                after: diffText(content.instructionsDiff?.after, placeholder: after))
                     if let removed = content.instructionsDiff?.removedPhrases, !removed.isEmpty {
                         Text(appLocalizedFormat("Removed phrases: %@",
-                            removed.map(ApprovalCopy.quote).joined(separator: appLocalized("List separator"))))
+                            removed.map(ApprovalCopy.quoted).joined(separator: appLocalized("List separator"))))
                             .font(Theme.Fonts.caption)
                             .foregroundStyle(Theme.warning)
                             .fixedSize(horizontal: false, vertical: true)

@@ -2,204 +2,232 @@ import XCTest
 import AskKeyBroker
 @testable import AskKeyAppKit
 
-/// Titles, read-card sections and buttons in English and Simplified Chinese.
+/// Every card is one sentence, one short line and its buttons, in English and
+/// Simplified Chinese; everything else is in Details.
 @MainActor
 final class ApprovalPromptContentTests: AskKeyAppTestCase {
     private typealias Fixtures = ApprovalCardFixtures
+    private typealias Card = ApprovalCardFixtures.Card
 
-    private func plain(_ text: String) -> String {
-        text.replacingOccurrences(of: "\u{2060}", with: "").replacingOccurrences(of: "\u{00A0}", with: " ")
+    private struct Expected {
+        let title: String
+        let subtitle: String?
+        let buttons: [String]
     }
 
-    private func content(_ operation: BrokerApprovalOperation, display: BrokerApprovalOperationRequest.Display? = nil,
-                         valueOnly: Bool = false, steps: Int? = nil) -> ApprovalPromptContent {
-        ApprovalPromptContent(request: Fixtures.request(operation, display: display), credentialName: "Staging API",
-                              valueOnlyChange: valueOnly, organizationSteps: steps)
-    }
+    private let english: [Card: Expected] = [
+        .readDefault: .init(title: "“Claude Code” wants to use “Staging API”", subtitle: "to run ./deploy.sh --env staging",
+                            buttons: ["Allow Once", "Allow for 30 Minutes", "Deny"]),
+        .readWithoutTimed: .init(title: "“Claude Code” wants to use “Staging API”", subtitle: "to run ./deploy.sh --env staging",
+                                 buttons: ["Allow Once", "Deny"]),
+        .create: .init(title: "“Claude Code” wants to create the credential “Release Check”",
+                       subtitle: "In the new group “Release Tools”", buttons: ["Create", "Deny"]),
+        .createTwoItems: .init(title: "“Claude Code” wants to create the credential “Staging SSH”",
+                               subtitle: "In the group “Staging”", buttons: ["Create", "Deny"]),
+        .createUngrouped: .init(title: "“Claude Code” wants to create the credential “Deploy Host”", subtitle: nil,
+                                buttons: ["Create", "Deny"]),
+        .modifyValue: .init(title: "“Claude Code” wants to replace the value of “Release Check”",
+                            subtitle: "The old value can't be recovered", buttons: ["Replace", "Deny"]),
+        .modifySomeValues: .init(title: "“Claude Code” wants to replace TOKEN in “Release Check”",
+                                 subtitle: "The old value can't be recovered", buttons: ["Replace", "Deny"]),
+        .modifyMetadata: .init(title: "“Claude Code” wants to change “Release Check”",
+                               subtitle: "Changes the instructions (some instruction text is deleted)", buttons: ["Change", "Deny"]),
+        .modifyInstructionsAndGroup: .init(title: "“Claude Code” wants to change “Release Check”",
+                                           subtitle: "Changes the instructions and the group", buttons: ["Change", "Deny"]),
+        .modifyAdded: .init(title: "“Claude Code” wants to change “Release Check”", subtitle: "Adds 1 item",
+                            buttons: ["Change", "Deny"]),
+        .modifyRemoved: .init(title: "“Claude Code” wants to change “Release Check”",
+                              subtitle: "Removes 1 item; the removed value can't be recovered", buttons: ["Change", "Deny"]),
+        .modifyMixed: .init(title: "“Claude Code” wants to change “Release Check”",
+                            subtitle: "Replaces 1 value, changes the group; the old value can't be recovered",
+                            buttons: ["Change", "Deny"]),
+        .delete: .init(title: "“Claude Code” wants to delete “Release Check”",
+                       subtitle: "Moves to the Recycle Bin; restorable for 30 days", buttons: ["Delete", "Deny"]),
+        .organize: .init(title: "“Claude Code” wants to organize your groups",
+                         subtitle: "4 steps, affecting 2 hidden credentials", buttons: ["Apply", "Deny"]),
+        .organizeExistingAndMerge: .init(title: "“Claude Code” wants to organize your groups",
+                                         subtitle: "2 steps, one of which merges groups, affecting 1 hidden credential",
+                                         buttons: ["Apply", "Deny"]),
+        .organizeTwelveSteps: .init(title: "“Claude Code” wants to organize your groups",
+                                    subtitle: "12 steps, affecting 3 hidden credentials", buttons: ["Apply", "Deny"]),
+    ]
 
-    func testTitlesNameTheObjectInBothLanguages() {
+    // i18n-literal: Simplified Chinese card copy from the #177 table.
+    private let chinese: [Card: Expected] = [
+        .readDefault: .init(title: "“Claude Code”想使用“Staging API”", subtitle: "用于运行 ./deploy.sh --env staging", // i18n-literal: Chinese read card.
+                            buttons: ["允许本次", "允许 30 分钟", "拒绝"]), // i18n-literal: Chinese read buttons.
+        .readWithoutTimed: .init(title: "“Claude Code”想使用“Staging API”", subtitle: "用于运行 ./deploy.sh --env staging", // i18n-literal: Chinese read card.
+                                 buttons: ["允许本次", "拒绝"]), // i18n-literal: Chinese read buttons.
+        .create: .init(title: "“Claude Code”想新建凭证“Release Check”", subtitle: "放进新分组“Release Tools”", // i18n-literal: Chinese create card.
+                       buttons: ["新建", "拒绝"]), // i18n-literal: Chinese create buttons.
+        .createTwoItems: .init(title: "“Claude Code”想新建凭证“Staging SSH”", subtitle: "放进“Staging”", // i18n-literal: Chinese create card.
+                               buttons: ["新建", "拒绝"]), // i18n-literal: Chinese create buttons.
+        .createUngrouped: .init(title: "“Claude Code”想新建凭证“Deploy Host”", subtitle: nil, // i18n-literal: Chinese create card.
+                                buttons: ["新建", "拒绝"]), // i18n-literal: Chinese create buttons.
+        .modifyValue: .init(title: "“Claude Code”想替换“Release Check”的值", subtitle: "旧值将无法找回", // i18n-literal: Chinese value card.
+                            buttons: ["替换", "拒绝"]), // i18n-literal: Chinese value buttons.
+        .modifySomeValues: .init(title: "“Claude Code”想替换“Release Check”的 TOKEN", subtitle: "旧值将无法找回", // i18n-literal: Chinese value card.
+                                 buttons: ["替换", "拒绝"]), // i18n-literal: Chinese value buttons.
+        .modifyMetadata: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "更改使用说明（删掉了部分说明）", // i18n-literal: Chinese change card.
+                               buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
+        .modifyInstructionsAndGroup: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "更改使用说明和分组", // i18n-literal: Chinese change card.
+                                           buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
+        .modifyAdded: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "新增 1 项", // i18n-literal: Chinese change card.
+                            buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
+        .modifyRemoved: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "移除 1 项，移除的值将无法找回", // i18n-literal: Chinese change card.
+                              buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
+        .modifyMixed: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "替换 1 项的值，更改分组，旧值将无法找回", // i18n-literal: Chinese change card.
+                            buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
+        .delete: .init(title: "“Claude Code”想删除“Release Check”", subtitle: "移到回收站，30 天内可恢复", // i18n-literal: Chinese delete card.
+                       buttons: ["删除", "拒绝"]), // i18n-literal: Chinese delete buttons.
+        .organize: .init(title: "“Claude Code”想整理分组", subtitle: "共 4 步，会动到 2 个隐藏的凭证", // i18n-literal: Chinese organize card.
+                         buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.
+        .organizeExistingAndMerge: .init(title: "“Claude Code”想整理分组", // i18n-literal: Chinese organize card.
+                                         subtitle: "共 2 步，其中一步会合并分组，会动到 1 个隐藏的凭证", // i18n-literal: Chinese organize card.
+                                         buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.
+        .organizeTwelveSteps: .init(title: "“Claude Code”想整理分组", subtitle: "共 12 步，会动到 3 个隐藏的凭证", // i18n-literal: Chinese organize card.
+                                    buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.
+    ]
+
+    func testEveryCardShowsItsTitleSubtitleAndButtonsInBothLanguages() {
+        XCTAssertEqual(Set(english.keys), Set(chinese.keys))
         Fixtures.withLanguages { language in
-            let titles = [
-                content(.read), content(.create), content(.modify, valueOnly: true), content(.modify),
-                content(.delete), content(.organize, steps: 4), content(.organize, steps: 1), content(.organize),
-            ].map { plain($0.title) }
-            if language == "en" {
-                XCTAssertEqual(titles, [
-                    "Claude Code wants to use the credential “Staging API”",
-                    "Claude Code wants to create the credential “Staging API”",
-                    "Claude Code wants to replace the value of “Staging API”",
-                    "Claude Code wants to change the credential “Staging API”",
-                    "Claude Code wants to delete the credential “Staging API”",
-                    "Claude Code wants to reorganize your groups (4 steps)",
-                    "Claude Code wants to reorganize your groups (1 step)",
-                    "Claude Code wants to reorganize your groups",
-                ])
-            } else {
-                XCTAssertEqual(titles, [
-                    "Claude Code 想使用凭证「Staging API」", // i18n-literal: Assert the Simplified Chinese approval title.
-                    "Claude Code 想新建凭证「Staging API」", // i18n-literal: Assert the Simplified Chinese approval title.
-                    "Claude Code 想替换凭证「Staging API」的值", // i18n-literal: Assert the Simplified Chinese approval title.
-                    "Claude Code 想修改凭证「Staging API」", // i18n-literal: Assert the Simplified Chinese approval title.
-                    "Claude Code 想删除凭证「Staging API」", // i18n-literal: Assert the Simplified Chinese approval title.
-                    "Claude Code 想调整分组（共 4 步）", // i18n-literal: Assert the Simplified Chinese approval title.
-                    "Claude Code 想调整分组（共 1 步）", // i18n-literal: Assert the Simplified Chinese approval title.
-                    "Claude Code 想调整分组", // i18n-literal: Assert the Simplified Chinese approval title.
-                ])
+            for (card, expected) in language == "en" ? english : chinese {
+                let copy = Fixtures.copy(card)
+                XCTAssertEqual(copy.title, expected.title, "\(language) \(card.rawValue)")
+                XCTAssertEqual(copy.subtitle, expected.subtitle, "\(language) \(card.rawValue)")
+                XCTAssertEqual(copy.buttons, expected.buttons, "\(language) \(card.rawValue)")
             }
         }
     }
 
-    func testNamesKeepTheirQuotesAndWrapAsAWhole() {
-        Fixtures.withLanguages { language in
-            let quoted = ApprovalCopy.quoted("Staging API")
-            XCTAssertEqual(plain(quoted), language == "en" ? "“Staging API”" : "「Staging API」") // i18n-literal: Chinese corner brackets.
-            XCTAssertFalse(quoted.contains(" "), "spaces inside a name never break")
-            XCTAssertEqual(quoted.filter { $0 == "\u{2060}" }.count, "Staging API".count + 1)
-            XCTAssertEqual(plain(ApprovalCopy.group(nil)), language == "en" ? "“Ungrouped”" : "「未分组」") // i18n-literal: Chinese ungrouped name.
-            // A wrapped value-only title keeps the name together with its "value of" wording.
-            let valueTitle = content(.modify, valueOnly: true).title
-            XCTAssertTrue(valueTitle.contains(language == "en" ? "f\u{2060}\u{00A0}\u{2060}“" : "」\u{2060}的\u{2060}值")) // i18n-literal: Chinese value suffix.
+    func testIrreversibleActionsAreRedAndNeverTheDefault() {
+        let destructive: Set<Card> = [.modifyValue, .modifySomeValues, .modifyRemoved, .modifyMixed, .organizeExistingAndMerge]
+        for card in Card.allCases {
+            let buttons = Fixtures.prompt(card).presentation.buttons
+            XCTAssertEqual(buttons.first?.role, destructive.contains(card) ? .destructive : .primary, card.rawValue)
+            XCTAssertEqual(buttons.first?.decision, .once)
+            XCTAssertEqual(buttons.last?.role, .secondary, "Deny is never red")
+            XCTAssertEqual(buttons.filter { $0.role == .primary }.count, destructive.contains(card) ? 0 : 1, card.rawValue)
         }
     }
 
-    func testReadCardShowsTheFullCommandWhatItReceivesAndTheUnverifiedPurpose() {
-        let longCommand = "./deploy.sh " + (1...30).map { "--flag-\($0) value" }.joined(separator: " ")
+    func testCancelledAuthenticationKeepsTheSameButtonsAndAddsOneGrayLine() {
         Fixtures.withLanguages { language in
-            let read = content(.read, display: Fixtures.display(command: longCommand))
-            XCTAssertEqual(read.command, longCommand, "the command is never shortened in the middle")
-            XCTAssertEqual(read.purpose, "Deploy the staging site")
-            XCTAssertEqual(plain(read.receivesHeading), language == "en"
-                ? "If you allow, this command receives 1 item from “Staging API”"
-                : "批准后这个命令会拿到「Staging API」里的 1 项") // i18n-literal: Assert the Simplified Chinese receives heading.
-            XCTAssertEqual(read.receives.map(\.plainText), [language == "en"
-                ? "→ Environment variable STAGING_API_TOKEN"
-                : "→ 环境变量 STAGING_API_TOKEN"]) // i18n-literal: Assert the Simplified Chinese delivery row.
-            XCTAssertEqual(read.receives.first?.segments.filter(\.code).map(\.text), ["STAGING_API_TOKEN"])
-            XCTAssertEqual(read.detailRows.map(\.label), language == "en"
-                ? ["Runs in", "Requested by"] : ["运行目录", "请求方"]) // i18n-literal: Assert Simplified Chinese detail labels.
-            XCTAssertEqual(read.detailRows.map(\.value), ["~/web", language == "en"
-                ? "Claude Code (name provided by the requester; Ask Key can't verify it)"
-                : "Claude Code（名称由请求方提供，请旨无法核实）"]) // i18n-literal: Assert the Simplified Chinese requester row.
-            XCTAssertEqual(read.detailRows.first?.monospaced, true)
-            let headings = ["Command to run", "Stated purpose (not verified)", "Details"].map { appLocalized($0) }
-            XCTAssertEqual(headings, language == "en"
-                ? ["Command to run", "Stated purpose (not verified)", "Details"] : [
-                "要运行的命令", "对方说的用途（未核实）", "详细信息", // i18n-literal: Assert Simplified Chinese read headings.
-            ])
-        }
-    }
-
-    func testReadDeliveryRowsCoverFilesMultiItemCredentialsAndNoDelivery() {
-        Fixtures.withLanguages { language in
-            let file = content(.read, display: Fixtures.display(environment: ["DEPLOY_HOST"], files: ["SSH_KEY_FILE"]))
-            let bundle = content(.read, display: Fixtures.display(environment: nil, files: nil))
-            let nothing = content(.read, display: Fixtures.display(environment: [], files: []))
-            let headings = [file, bundle, nothing].map { plain($0.receivesHeading) }
-            let rows = [file, bundle, nothing].map { $0.receives.map { plain($0.plainText) } }
-            if language == "en" {
-                XCTAssertEqual(headings, ["If you allow, this command receives 2 items from “Staging API”",
-                    "If you allow, this command receives", "If you allow, this command receives"])
-                XCTAssertEqual(rows, [
-                    ["→ Environment variable DEPLOY_HOST", "→ Temporary file (path in SSH_KEY_FILE, removed within 5 minutes)"],
-                    ["The items of “Staging API” that are set to be given to programs (names are shown after you approve)"],
-                    ["Nothing from this credential is given to the command"],
-                ])
-            } else {
-                XCTAssertEqual(headings, ["批准后这个命令会拿到「Staging API」里的 2 项", // i18n-literal: Assert the Simplified Chinese receives heading.
-                    "批准后这个命令会拿到", "批准后这个命令会拿到"]) // i18n-literal: Assert the Simplified Chinese receives heading.
-                XCTAssertEqual(rows, [
-                    ["→ 环境变量 DEPLOY_HOST", "→ 临时文件（路径在 SSH_KEY_FILE，最多 5 分钟后删除）"], // i18n-literal: Assert Simplified Chinese delivery rows.
-                    ["「Staging API」里设为交给程序的所有项（具体名称批准后才能看到）"], // i18n-literal: Assert the Simplified Chinese bundle row.
-                    ["不交给这个命令任何值"], // i18n-literal: Assert the Simplified Chinese no-delivery row.
-                ])
+            let read = Fixtures.prompt(.readDefault).presentation.buttons
+            for decision in [BrokerApprovalDecision.timedAllow(duration: nil), .once] {
+                let cancelled = FrozenAgentApprovalPrompt(request: Fixtures.request(.read, display: Fixtures.display()),
+                    timedAllowanceEnabled: true, cancelledAuthenticationDecision: decision, finish: { _ in })
+                XCTAssertEqual(cancelled.presentation.buttons, read, "\(language): same buttons in the same order")
+                XCTAssertEqual(cancelled.presentation.buttons.first?.decision, .once, "the default never becomes the timed option")
+                XCTAssertEqual(cancelled.presentation.buttons.first?.role, .primary)
             }
-            XCTAssertFalse(rows[0].joined().contains("Staging API"), "rows never repeat the credential name")
-            XCTAssertTrue(content(.delete, display: Fixtures.display()).receives.isEmpty)
-            XCTAssertNil(content(.create, display: Fixtures.display()).command, "write cards never show a run target")
+            var write = Fixtures.prompt(.modifyMixed)
+            let buttons = write.presentation.buttons
+            write.cancelledAuthenticationDecision = .once
+            XCTAssertEqual(write.presentation.buttons, buttons)
+            XCTAssertEqual(appLocalized("Authentication cancelled. Nothing was handed over."), language == "en"
+                ? "Authentication cancelled. Nothing was handed over." : "已取消验证，未交出任何内容") // i18n-literal: Chinese cancelled note.
         }
     }
 
-    func testButtonsStateTheirConsequenceInBothLanguages() {
+    func testReadDetailsHoldTheRequesterPurposeDeliveryAndTimedScope() {
         Fixtures.withLanguages { language in
-            let titles = [
-                FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
-                FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
-                FrozenApprovalActions.titles(operation: .create, timedAllowanceEnabled: true),
-                FrozenApprovalActions.titles(operation: .modify, timedAllowanceEnabled: true),
-                FrozenApprovalActions.titles(operation: .modify, timedAllowanceEnabled: true, valueOnlyChange: true),
-                FrozenApprovalActions.titles(operation: .delete, timedAllowanceEnabled: true),
-                FrozenApprovalActions.titles(operation: .organize, timedAllowanceEnabled: true, steps: 4),
-                FrozenApprovalActions.titles(operation: .organize, timedAllowanceEnabled: true, steps: 1),
-            ]
+            let read = ApprovalPromptContent(request: Fixtures.request(.read, display: Fixtures.display()), credentialName: "Staging API")
+            XCTAssertTrue(read.commandFits(prefix: appLocalized("to run"), width: FrozenAgentApprovalPrompt.contentWidth))
+            let rows = read.detailRows(commandFits: true)
             if language == "en" {
-                XCTAssertEqual(titles, [
-                    ["Allow Once", "Allow for 30 Minutes", "Deny"], ["Allow Once", "Deny"],
-                    ["Create Credential", "Deny"], ["Save Changes", "Deny"], ["Replace Value", "Deny"],
-                    ["Move to Recycle Bin", "Deny"], ["Apply 4 Steps", "Deny"], ["Apply 1 Step", "Deny"],
-                ])
+                XCTAssertEqual(rows.map(\.label), ["Command gets", "Runs in", "Requested by", "Stated purpose"])
+                XCTAssertEqual(rows.map(\.value), ["Environment variable STAGING_API_TOKEN", "~/web",
+                    "Claude Code (name provided by the requester; Ask Key can't verify it)",
+                    "Deploy the staging site (not verified)"])
                 XCTAssertEqual(FrozenApprovalActions.timedScope(minutes: 30),
                     "For 30 minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.")
             } else {
-                XCTAssertEqual(titles, [
-                    ["允许本次", "30 分钟内都允许", "拒绝"], ["允许本次", "拒绝"], // i18n-literal: Assert Simplified Chinese read buttons.
-                    ["新建凭证", "拒绝"], ["保存修改", "拒绝"], ["替换值", "拒绝"], // i18n-literal: Assert Simplified Chinese write buttons.
-                    ["移到回收站", "拒绝"], ["执行这 4 步", "拒绝"], ["执行这 1 步", "拒绝"], // i18n-literal: Assert Simplified Chinese write buttons.
-                ])
+                XCTAssertEqual(rows.map(\.label), ["命令会拿到", "运行目录", "请求方", "对方说的用途"]) // i18n-literal: Chinese detail labels.
+                XCTAssertEqual(rows.map(\.value), ["环境变量 STAGING_API_TOKEN", "~/web", // i18n-literal: Chinese detail values.
+                    "Claude Code（名称由请求方提供，请旨无法核实）", "Deploy the staging site（未核实）"]) // i18n-literal: Chinese detail values.
                 XCTAssertEqual(FrozenApprovalActions.timedScope(minutes: 30),
-                    "30 分钟内，你这个 Mac 账户下的任何 Agent 或命令读取这个凭证都不再询问；修改或删除它仍要你批准。") // i18n-literal: Assert the Simplified Chinese timed scope.
+                    "30 分钟内，你这个 Mac 账户下的任何 Agent 或命令读取这个凭证都不再询问；修改或删除它仍要你批准。") // i18n-literal: Chinese timed scope.
             }
-            XCTAssertEqual(FrozenApprovalActions.primary(operation: .delete).role, .destructive)
-            XCTAssertEqual(FrozenApprovalActions.primary(operation: .organize, steps: 2, destructive: true).role, .destructive)
-            XCTAssertEqual(FrozenApprovalActions.primary(operation: .organize, steps: 2).role, .primary)
-            XCTAssertEqual(FrozenApprovalActions.primary(operation: .create).role, .primary)
+            XCTAssertEqual(rows.map(\.monospaced), [false, true, false, false])
         }
     }
 
-    func testCancelledAuthenticationRetriesTheOriginalChoice() {
+    func testReadDetailsDescribeFilesBundlesAndLongCommands() {
         Fixtures.withLanguages { language in
-            let read = FrozenApprovalActions.primary(operation: .read)
-            let trash = FrozenApprovalActions.primary(operation: .delete)
-            let retries = [
-                FrozenApprovalActions.retry(.once, primary: read, minutes: 30),
-                FrozenApprovalActions.retry(.timedAllow(duration: nil), primary: read, minutes: 30),
-                FrozenApprovalActions.retry(.once, primary: trash, minutes: 30),
+            func receives(_ display: BrokerApprovalOperationRequest.Display) -> String {
+                ApprovalPromptContent.receives(display)
+            }
+            let values = [
+                receives(Fixtures.display(environment: ["DEPLOY_HOST"], files: ["SSH_KEY_FILE"])),
+                receives(Fixtures.display(environment: nil, files: nil)),
+                receives(Fixtures.display(environment: [], files: [])),
             ]
-            XCTAssertEqual(retries, language == "en"
-                ? ["Authenticate and Allow Once", "Authenticate and Allow for 30 Minutes", "Authenticate and Move to Recycle Bin"]
-                : ["重新验证，允许本次", "重新验证，30 分钟内都允许", "重新验证，移到回收站"]) // i18n-literal: Assert Simplified Chinese retry buttons.
-            XCTAssertEqual(content(.read).cancelledAuthenticationNote, language == "en"
-                ? "You cancelled authentication. Nothing was given to the command, and the request is still pending."
-                : "你取消了验证，命令没有拿到任何东西，请求仍在等待。") // i18n-literal: Assert the Simplified Chinese cancelled note.
+            XCTAssertEqual(values, language == "en" ? [
+                "Environment variable DEPLOY_HOST\nTemporary file (path in SSH_KEY_FILE, removed within 5 minutes)",
+                "The items set to be given to programs (names are shown after you approve)",
+                "Nothing from this credential is given to the command",
+            ] : [
+                "环境变量 DEPLOY_HOST\n临时文件（路径在 SSH_KEY_FILE，最多 5 分钟后删除）", // i18n-literal: Chinese delivery rows.
+                "设为交给程序的所有项（具体名称批准后才能看到）", // i18n-literal: Chinese bundle row.
+                "不交给这个命令任何值", // i18n-literal: Chinese no-delivery row.
+            ])
+            let command = "./deploy.sh " + (1...30).map { "--flag-\($0) value" }.joined(separator: " ")
+            let long = ApprovalPromptContent(request: Fixtures.request(.read, display: Fixtures.display(command: command)),
+                                             credentialName: "Staging API")
+            XCTAssertFalse(long.commandFits(prefix: appLocalized("to run"), width: FrozenAgentApprovalPrompt.contentWidth))
+            let rows = long.detailRows(commandFits: false)
+            XCTAssertEqual(rows.first?.label, language == "en" ? "Command" : "命令") // i18n-literal: Chinese command label.
+            XCTAssertEqual(rows.first?.value, command, "Details show the whole command")
+            XCTAssertTrue(rows.first?.monospaced == true)
+            XCTAssertNil(ApprovalPromptContent(request: Fixtures.request(.create, display: Fixtures.display()),
+                                               credentialName: "Staging API").commandSummary, "write cards never show a run target")
         }
     }
 
-    func testFooterAndOverflowCopyInBothLanguages() {
+    func testNamesAreQuotedInBothLanguagesAndNeverShortened() {
+        let name = String(repeating: "Long Credential Name ", count: 12)
         Fixtures.withLanguages { language in
-            let footer = appLocalizedFormat("Expires in %@ and nothing is handed over", "4:59") + " · "
-                + appLocalized("Esc to hide; decide in Pending requests before it expires")
-            let hints = [
-                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 120, hiddenSteps: 3, hiddenNames: [appLocalized("Details")]),
-                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 20, hiddenSteps: 1),
-                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 20, hiddenNames: [appLocalized("Details")]),
-                ApprovalOverflow.hint(unit: .lines(height: 15), hiddenHeight: 46),
-                ApprovalOverflow.hint(unit: .lines(height: 15), hiddenHeight: 10),
-                ApprovalOverflow.hint(unit: .sections, hiddenHeight: 80,
-                                      hiddenNames: [appLocalized("Group"), appLocalized("Details")]),
-                ApprovalOverflow.hint(unit: .sections, hiddenHeight: 8),
-                ApprovalOverflow.hint(unit: .steps, hiddenHeight: 0.5),
-            ]
-            if language == "en" {
-                XCTAssertEqual(footer, "Expires in 4:59 and nothing is handed over · Esc to hide; decide in Pending requests before it expires")
-                XCTAssertEqual(appLocalized("Pending requests"), "Pending requests", "the footer uses the sidebar's item name")
-                XCTAssertEqual(hints, ["3 more steps — scroll to see them", "1 more step — scroll to see it", "Below: Details",
-                    "3 more lines — scroll to see them", "1 more line — scroll to see it",
-                    "Below: Group, Details", "More below — scroll to see it", nil])
-            } else {
-                XCTAssertEqual(footer, "4:59 后自动作废，不会交出任何东西 · Esc 先收起，过期前可在「待处理请求」里决定") // i18n-literal: Assert the Simplified Chinese footer.
-                XCTAssertEqual(hints, ["还有 3 步，向下滚动查看", "还有 1 步，向下滚动查看", "下面还有：详细信息", // i18n-literal: Assert Simplified Chinese overflow hints.
-                    "还有 3 行，向下滚动查看", "还有 1 行，向下滚动查看", // i18n-literal: Assert Simplified Chinese overflow hints.
-                    "下面还有：分组、详细信息", "下面还有内容，向下滚动查看", nil]) // i18n-literal: Assert Simplified Chinese overflow hints.
+            XCTAssertEqual(ApprovalCopy.quoted("Staging API"), "“Staging API”")
+            XCTAssertEqual(ApprovalCopy.group(nil), language == "en" ? "“Ungrouped”" : "“未分组”") // i18n-literal: Chinese ungrouped name.
+            let title = ApprovalPromptContent(request: Fixtures.request(.read, name: name), credentialName: name).title
+            XCTAssertTrue(title.contains("“" + name + "”"))
+        }
+    }
+
+    func testFooterInBothLanguages() {
+        Fixtures.withLanguages { language in
+            let footer = appLocalizedFormat("Expires in %@", "4:11") + " · " + appLocalized("Esc to decide later")
+            XCTAssertEqual(footer, language == "en" ? "Expires in 4:11 · Esc to decide later" : "4:11 后失效 · Esc 稍后处理") // i18n-literal: Chinese footer.
+            XCTAssertEqual(appLocalized("Details"), language == "en" ? "Details" : "详细信息") // i18n-literal: Chinese Details link.
+        }
+    }
+
+    func testPendingListSaysTheCardTitle() {
+        Fixtures.withLanguages { language in
+            let sentences = [
+                Fixtures.request(.read, display: Fixtures.display()), Fixtures.request(.read),
+                Fixtures.request(.create), Fixtures.request(.modify), Fixtures.request(.delete), Fixtures.request(.organize),
+            ].map { request in
+                PendingRequestPresentation(approval: BrokerPendingApproval(requestID: "request", capability: "capability",
+                    request: request, trustedCredentialName: "Staging API")).sentence.plainText
             }
+            XCTAssertEqual(sentences, language == "en" ? [
+                "“Claude Code” wants to use “Staging API” to run ./deploy.sh --env staging",
+                "“Claude Code” wants to use “Staging API”",
+                "“Claude Code” wants to create the credential “Staging API”",
+                "“Claude Code” wants to change “Staging API”",
+                "“Claude Code” wants to delete “Staging API”",
+                "“Claude Code” wants to organize your groups",
+            ] : [
+                "“Claude Code”想使用“Staging API”运行 ./deploy.sh --env staging", // i18n-literal: Chinese pending sentence.
+                "“Claude Code”想使用“Staging API”", // i18n-literal: Chinese pending sentence.
+                "“Claude Code”想新建凭证“Staging API”", // i18n-literal: Chinese pending sentence.
+                "“Claude Code”想修改“Staging API”", // i18n-literal: Chinese pending sentence.
+                "“Claude Code”想删除“Staging API”", // i18n-literal: Chinese pending sentence.
+                "“Claude Code”想整理分组", // i18n-literal: Chinese pending sentence.
+            ])
         }
     }
 }

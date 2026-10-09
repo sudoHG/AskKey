@@ -1,100 +1,125 @@
+import AppKit
 import AskKeyBroker
 
-/// Copy shown by the approval card, derived from the pending request. The
+/// The card's title, subtitle and Details rows, derived from the pending
+/// request and, for write and organize cards, their frozen summaries. The
 /// requester's name and purpose are self-declared; the command, working
 /// directory and delivered names come from the App-derived display summary.
 struct ApprovalPromptContent: Equatable {
     struct Row: Equatable {
         let label: String
         let value: String
-        let monospaced: Bool
+        var monospaced = false
     }
 
-    let operation: BrokerApprovalOperation
-    let requester: String
+    /// One sentence naming who wants to do what with which object.
     let title: String
-    /// The whole command line, never shortened.
-    let command: String?
-    /// What a read hands the command if allowed: a heading naming the
-    /// credential and how many items, then one line per variable.
-    let receivesHeading: String
-    let receives: [ApprovalLine]
-    let purpose: String?
-    let detailRows: [Row]
+    /// Write and organize cards: one short line under the title. Read cards
+    /// show their command there instead.
+    let subtitle: String?
+    /// Read cards: the one-line command, already middle-truncated by the display summary.
+    let commandSummary: String?
+    let fullCommand: String?
+    let rows: [Row]
 
     init(request: BrokerApprovalOperationRequest, credentialName: String,
-         valueOnlyChange: Bool = false, organizationSteps: Int? = nil) {
+         write: FrozenWriteSummaryContent? = nil, organization: FrozenOrganizationSummaryContent? = nil) {
         let requester = ApprovalCopy.requester(request)
-        self.requester = requester
-        operation = request.operation
-        if request.operation == .organize {
-            title = Self.organizationTitle(requester: requester, steps: organizationSteps)
-        } else {
-            let object = request.operation == .modify && valueOnlyChange
-                ? ApprovalCopy.credentialValue(credentialName) : ApprovalCopy.quoted(credentialName)
-            title = EmphasizedSentence(format: Self.titleFormat(request.operation, valueOnlyChange: valueOnlyChange),
-                arguments: [requester, object]).plainText
+        switch request.operation {
+        case .read, .create, .delete:
+            title = Self.sentence(Self.titleFormat(request.operation), requester, credentialName)
+        case .modify:
+            title = Self.modifyTitle(requester: requester, credentialName: credentialName, write: write)
+        case .organize:
+            title = Self.sentence(Self.titleFormat(.organize), requester)
+        }
+        switch request.operation {
+        case .read: subtitle = nil
+        case .create, .modify: subtitle = write?.subtitle
+        case .delete: subtitle = appLocalized("Moves to the Recycle Bin; restorable for 30 days")
+        case .organize: subtitle = organization?.subtitle
         }
         let display = request.operation == .read ? request.display : nil
-        command = display?.commandLine
-        (receivesHeading, receives) = request.operation == .read
-            ? Self.receives(display, credentialName: credentialName) : ("", [])
-        purpose = request.callerPurpose.flatMap { $0.isEmpty ? nil : $0 }
+        commandSummary = display?.commandSummary
+        fullCommand = display?.commandLine
         var rows: [Row] = []
-        if let directory = display?.workingDirectory, !directory.isEmpty {
-            rows.append(Row(label: appLocalized("Runs in"), value: directory, monospaced: true))
+        if let display {
+            rows.append(Row(label: appLocalized("Command gets"), value: Self.receives(display)))
+            if let directory = display.workingDirectory, !directory.isEmpty {
+                rows.append(Row(label: appLocalized("Runs in"), value: directory, monospaced: true))
+            }
         }
         rows.append(Row(label: appLocalized("Requested by"),
-            value: appLocalizedFormat("%@ (name provided by the requester; Ask Key can't verify it)", requester),
-            monospaced: false))
-        detailRows = rows
+            value: appLocalizedFormat("%@ (name provided by the requester; Ask Key can't verify it)", requester)))
+        if let purpose = request.callerPurpose, !purpose.isEmpty {
+            rows.append(Row(label: appLocalized("Stated purpose"), value: appLocalizedFormat("%@ (not verified)", purpose)))
+        }
+        self.rows = rows
     }
 
-    /// Shared with the pending list so both name the object the same way.
-    static func titleFormat(_ operation: BrokerApprovalOperation, valueOnlyChange: Bool = false) -> String {
+    /// Shared with the pending list so both say the same sentence.
+    static func titleFormat(_ operation: BrokerApprovalOperation) -> String {
         switch operation {
-        case .read: return appLocalized("%1$@ wants to use the credential %2$@")
-        case .create: return appLocalized("%1$@ wants to create the credential %2$@")
-        case .modify:
-            return valueOnlyChange
-                ? appLocalized("%1$@ wants to replace %2$@")
-                : appLocalized("%1$@ wants to change the credential %2$@")
-        case .delete: return appLocalized("%1$@ wants to delete the credential %2$@")
-        case .organize: return appLocalized("%@ wants to reorganize your groups")
+        case .read: return appLocalized("“%1$@” wants to use “%2$@”")
+        case .create: return appLocalized("“%1$@” wants to create the credential “%2$@”")
+        case .modify: return appLocalized("“%1$@” wants to change “%2$@”")
+        case .delete: return appLocalized("“%1$@” wants to delete “%2$@”")
+        case .organize: return appLocalized("“%@” wants to organize your groups")
         }
     }
 
-    static func organizationTitle(requester: String, steps: Int?) -> String {
-        guard let steps else { return appLocalizedFormat("%@ wants to reorganize your groups", requester) }
-        return steps == 1
-            ? appLocalizedFormat("%@ wants to reorganize your groups (1 step)", requester)
-            : appLocalizedFormat("%1$@ wants to reorganize your groups (%2$lld steps)", requester, steps)
+    /// A change that only replaces values names them: the value of the
+    /// credential, or the replaced items when others stay as they are.
+    private static func modifyTitle(requester: String, credentialName: String,
+                                    write: FrozenWriteSummaryContent?) -> String {
+        guard let write, write.valueOnlyChange else {
+            return sentence(titleFormat(.modify), requester, credentialName)
+        }
+        let replaced = write.components.filter { $0.tag == .replaced }.map(\.name)
+        if replaced.count < write.components.count {
+            return sentence(appLocalized("“%1$@” wants to replace %3$@ in “%2$@”"), requester, credentialName,
+                            replaced.joined(separator: appLocalized("List separator")))
+        }
+        return replaced.count == 1
+            ? sentence(appLocalized("“%1$@” wants to replace the value of “%2$@”"), requester, credentialName)
+            : sentence(appLocalized("“%1$@” wants to replace the values of “%2$@”"), requester, credentialName)
     }
 
-    var cancelledAuthenticationNote: String {
-        operation == .read
-            ? appLocalized("You cancelled authentication. Nothing was given to the command, and the request is still pending.")
-            : appLocalized("You cancelled authentication. Nothing was changed, and the request is still pending.")
+    private static func sentence(_ format: String, _ arguments: String...) -> String {
+        EmphasizedSentence(format: format, arguments: arguments).plainText
     }
 
-    /// Variable names only; a multi-item credential's mapping is not opened
-    /// before approval, so its items are described without names.
-    static func receives(_ display: BrokerApprovalOperationRequest.Display?,
-                         credentialName: String) -> (heading: String, rows: [ApprovalLine]) {
-        let heading = appLocalized("If you allow, this command receives")
-        guard let display else { return (heading, []) }
-        let name = ApprovalCopy.quoted(credentialName)
+    /// What the command gets and how, one line per variable. A multi-item
+    /// credential's mapping is not opened before approval, so its items are
+    /// described without names.
+    static func receives(_ display: BrokerApprovalOperationRequest.Display) -> String {
         guard let environment = display.environmentVariables, let files = display.temporaryFileVariables else {
-            return (heading, [ApprovalLine(appLocalizedFormat(
-                "The items of %@ that are set to be given to programs (names are shown after you approve)", name))])
+            return appLocalized("The items set to be given to programs (names are shown after you approve)")
         }
-        let rows = environment.map { ApprovalLine(format: appLocalized("→ Environment variable %@"), code: [$0]) }
-            + files.map { ApprovalLine(format: appLocalized("→ Temporary file (path in %@, removed within 5 minutes)"), code: [$0]) }
-        switch rows.count {
-        case 0: return (heading, [ApprovalLine(appLocalized("Nothing from this credential is given to the command"))])
-        case 1: return (appLocalizedFormat("If you allow, this command receives 1 item from %@", name), rows)
-        default:
-            return (appLocalizedFormat("If you allow, this command receives %1$lld items from %2$@", rows.count, name), rows)
-        }
+        let lines = environment.map { appLocalizedFormat("Environment variable %@", $0) }
+            + files.map { appLocalizedFormat("Temporary file (path in %@, removed within 5 minutes)", $0) }
+        return lines.isEmpty
+            ? appLocalized("Nothing from this credential is given to the command")
+            : lines.joined(separator: "\n")
+    }
+
+    /// Rows for Details. The full command leads when the one-line subtitle
+    /// cannot show all of it.
+    func detailRows(commandFits: Bool) -> [Row] {
+        guard let fullCommand, !fullCommand.isEmpty, !commandFits else { return rows }
+        return [Row(label: appLocalized("Command"), value: fullCommand, monospaced: true)] + rows
+    }
+
+    /// Whether "to run <command>" shows the whole command on one line of the
+    /// given width: not truncated by the display summary and not clipped.
+    func commandFits(prefix: String, width: CGFloat) -> Bool {
+        guard let commandSummary, commandSummary == fullCommand else { return false }
+        let prefixWidth = (prefix + " " as NSString).size(
+            withAttributes: [.font: NSFont.systemFont(ofSize: 13)]
+        ).width
+        let commandWidth = (commandSummary as NSString).size(
+            withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)]
+        ).width
+        return prefixWidth + commandWidth <= width
     }
 }

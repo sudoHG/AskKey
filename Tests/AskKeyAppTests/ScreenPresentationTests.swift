@@ -33,18 +33,18 @@ final class ScreenPresentationTests: WorkspaceVisualContractTestSupport {
             trustedCredentialName: "demo-api"
         )
         let presentation = PendingRequestPresentation(approval: approval)
-        XCTAssertEqual(unjoined(presentation.sentence.plainText), "Demo Agent 想使用凭证「demo-api」") // i18n-literal: Expected Simplified Chinese catalog value.
+        XCTAssertEqual(presentation.sentence.plainText, "“Demo Agent”想使用“demo-api”") // i18n-literal: Expected Simplified Chinese catalog value.
         XCTAssertFalse(presentation.sentence.plainText.contains("unverified purpose"))
         let now = Date(timeIntervalSince1970: 1_000)
         XCTAssertEqual(
             PendingRequestPresentation.expiry(deadline: now.addingTimeInterval(214), now: now),
-            "3:34 后自动失效" // i18n-literal: Expected Simplified Chinese catalog value.
+            "3:34 后失效" // i18n-literal: Expected Simplified Chinese catalog value.
         )
         AppLanguage.current = "en"
         defer { AppLanguage.current = "zh-Hans" }
         XCTAssertEqual(
-            unjoined(PendingRequestPresentation(approval: approval).sentence.plainText),
-            "Demo Agent wants to use the credential “demo-api”"
+            PendingRequestPresentation(approval: approval).sentence.plainText,
+            "“Demo Agent” wants to use “demo-api”"
         )
     }
 
@@ -67,13 +67,8 @@ final class ScreenPresentationTests: WorkspaceVisualContractTestSupport {
             trustedCredentialName: "demo-api"
         )
         let sentence = PendingRequestPresentation(approval: approval).sentence
-        XCTAssertEqual(unjoined(sentence.plainText), "Demo Agent 想使用凭证「demo-api」运行 ./deploy.sh --env staging") // i18n-literal: Expected Simplified Chinese catalog value.
+        XCTAssertEqual(sentence.plainText, "“Demo Agent”想使用“demo-api”运行 ./deploy.sh --env staging") // i18n-literal: Expected Simplified Chinese catalog value.
         XCTAssertEqual(sentence.runs.last, .init(text: "./deploy.sh --env staging", argument: 2))
-    }
-
-    /// Names are joined with invisible word joiners so they wrap as a whole.
-    private func unjoined(_ text: String) -> String {
-        text.replacingOccurrences(of: "\u{2060}", with: "").replacingOccurrences(of: "\u{00A0}", with: " ")
     }
 
     func testAccessRecordsGroupByDayNewestFirstWithColoredResults() {
