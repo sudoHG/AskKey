@@ -107,8 +107,8 @@ final class Batch4SettingsLanguageTests: AskKeyAppTestCase {
     func testFrozenWriteRevealAndApprovalReasonsStayLanguagePure() {
         AppLanguage.current = "zh-Hans"
         let chineseReveal = FrozenWriteRevealCopy.content(before: "old", after: "new")
-        XCTAssertTrue(chineseReveal.contains("修改前"))
-        XCTAssertTrue(chineseReveal.contains("修改后"))
+        XCTAssertTrue(chineseReveal.contains("原来"))
+        XCTAssertTrue(chineseReveal.contains("改为"))
         XCTAssertFalse(chineseReveal.contains("Before"))
         XCTAssertFalse(chineseReveal.contains("After"))
         XCTAssertEqual(
@@ -124,8 +124,8 @@ final class Batch4SettingsLanguageTests: AskKeyAppTestCase {
         let englishReveal = FrozenWriteRevealCopy.content(before: "old", after: "new")
         XCTAssertTrue(englishReveal.contains("Before"))
         XCTAssertTrue(englishReveal.contains("After"))
-        XCTAssertFalse(englishReveal.contains("修改前"))
-        XCTAssertFalse(englishReveal.contains("修改后"))
+        XCTAssertFalse(englishReveal.contains("原来"))
+        XCTAssertFalse(englishReveal.contains("改为"))
         AppLanguage.current = "en"
     }
 

@@ -103,16 +103,16 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         AppLanguage.current = "zh-Hans"
         XCTAssertEqual(
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
-            ["允许本次", "允许 30 分钟", "拒绝"]
+            ["允许本次", "30 分钟内都允许", "拒绝"]
         )
         XCTAssertEqual(
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
             ["允许本次", "拒绝"]
         )
         let writeActions: [(BrokerApprovalOperation, String, String)] = [
-            (.create, "批准创建", "Approve Creation"),
-            (.modify, "批准修改", "Approve Change"),
-            (.delete, "批准删除", "Approve Deletion"),
+            (.create, "新建凭证", "Create Credential"),
+            (.modify, "保存修改", "Save Changes"),
+            (.delete, "移到回收站", "Move to Recycle Bin"),
         ]
         for (operation, chinese, _) in writeActions {
             XCTAssertEqual(FrozenApprovalActions.titles(operation: operation, timedAllowanceEnabled: true),
@@ -120,9 +120,9 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         }
         AppLanguage.current = "en"
         XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
-                       ["Allow once", "Allow for 30 minutes", "Deny"])
+                       ["Allow Once", "Allow for 30 Minutes", "Deny"])
         XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
-                       ["Allow once", "Deny"])
+                       ["Allow Once", "Deny"])
         for (operation, _, english) in writeActions {
             XCTAssertEqual(FrozenApprovalActions.titles(operation: operation, timedAllowanceEnabled: true),
                            [english, "Deny"])

@@ -176,7 +176,6 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
                 let allowedAliases = [
                     "AskKey": "Ask Key",
                     "Always Allow": "Allow",
-                    "Allow Once": "Allow once",
                     "Do Not Allow Agent": "Hidden",
                     "Agent approvals": "Agent",
                     "List separator": ", ",
@@ -184,6 +183,12 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
                     "Ask: Agents wait for your approval each time.": "Ask every time: Agents wait for your approval each time.",
                     "New credentials default to Ask.": "New credentials default to Ask every time.",
                     "Component list separator": ", ",
+                    "Quoted name: %@": "“%@”",
+                    "Sentence separator": " ",
+                    "New group tag": "New group",
+                    "Credential value: %@": "the value of %@",
+                    "Removed phrases: %@": "Removed: %@",
+                    "Change summary: instructions": "instructions for agents",
                 ]
                 XCTAssertEqual(english, allowedAliases[key], "English value must match the key or a declared alias: \(key)")
             }

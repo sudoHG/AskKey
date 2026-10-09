@@ -1,137 +1,137 @@
-import AppKit
-import SwiftUI
 import XCTest
 import AskKeyBroker
 @testable import AskKeyAppKit
 
+/// Organize cards: steps as sentences, no-change and merge tags, hidden
+/// counts and the step-counting button in both languages.
+@MainActor
 final class OrganizationApprovalContentTests: AskKeyAppTestCase {
-    func testInvisibleExistingTargetsShowNoOpAndMergeTruthInBothLanguages() {
-        let previous = AppLanguage.current
-        defer { AppLanguage.current = previous }
-        let summary = BrokerOrganizationSummary(operations: [
-            .existingGroup(name: "Target", members: 1, nonvisible: 1),
-            .mergeGroup(from: "Source", to: "Target", members: 4, nonvisible: 1, targetMembers: 2, targetNonvisible: 2),
-        ])
-        for language in ["en", "zh-Hans"] {
-            AppLanguage.current = language
-            let rows = FrozenOrganizationSummaryContent(summary: summary).rows
+    private typealias Fixtures = ApprovalCardFixtures
+
+    private func plain(_ text: String?) -> String? {
+        text?.replacingOccurrences(of: "\u{2060}", with: "").replacingOccurrences(of: "\u{00A0}", with: " ")
+    }
+
+    func testRegularStepsReadAsSentences() {
+        Fixtures.withLanguages { language in
+            let content = FrozenOrganizationSummaryContent(summary: Fixtures.regularOrganization, requester: "Claude Code")
+            XCTAssertEqual(content.rows.map(\.number), [1, 2, 3, 4])
+            XCTAssertEqual(content.rows.map(\.tag), [nil, nil, nil, nil])
+            XCTAssertNil(content.rows[0].detail, "a new group needs no second line")
+            XCTAssertTrue(content.isDestructive, "deleting a group is styled as destructive")
+            let titles = content.rows.map { plain($0.title) }
+            let details = content.rows.map { plain($0.detail) }
             if language == "en" {
-                XCTAssertEqual(rows[0].title, "1. Create group “Target”")
-                XCTAssertEqual(rows[0].detail, "Group already exists — no changes. 1 credential, 1 not visible to agents")
-                XCTAssertEqual(rows[1].title, "2. Merge group “Source” into existing group “Target”")
-                XCTAssertEqual(rows[1].detail, "Source: 4 credentials, 1 not visible to agents. Existing group: 2 credentials, 2 not visible to agents.")
-            } else {
-                XCTAssertEqual(rows[0].title, "1. 创建分组“Target”") // i18n-literal: Assert reviewed Simplified Chinese no-op copy.
-                XCTAssertEqual(rows[0].detail, "分组已存在，不会更改。1 个凭证，其中 1 个 Agent 看不到") // i18n-literal: Assert reviewed Simplified Chinese no-op copy.
-                XCTAssertEqual(rows[1].title, "2. 将分组“Source”合并到已有分组“Target”") // i18n-literal: Assert reviewed Simplified Chinese merge copy.
-                XCTAssertEqual(rows[1].detail, "来源：4 个凭证，其中 1 个 Agent 看不到；已有分组：2 个凭证，其中 2 个 Agent 看不到。") // i18n-literal: Assert reviewed Simplified Chinese merge counts.
-            }
-        }
-    }
-
-    func testOrderedRowsShowGroupEffectsAndNonvisibleCountsInBothLanguages() {
-        let previous = AppLanguage.current
-        defer { AppLanguage.current = previous }
-        let summary = BrokerOrganizationSummary(operations: [.move(credential: "API", from: nil, to: "Staging"),
-            .createGroup("New"), .renameGroup(from: "Old", to: "New", members: 4, nonvisible: 1),
-            .deleteGroup(name: "Unused", members: 3, nonvisible: 2)])
-        for language in ["en", "zh-Hans"] {
-            AppLanguage.current = language
-            let rows = FrozenOrganizationSummaryContent(summary: summary).rows
-            XCTAssertEqual(rows.count, 4)
-            XCTAssertTrue(rows[0].title.hasPrefix("1. "))
-            XCTAssertTrue(rows[0].title.contains("API"))
-            XCTAssertTrue(rows[0].title.contains(appLocalized("Ungrouped")))
-            XCTAssertTrue(rows[1].title.hasPrefix("2. "))
-            XCTAssertEqual(rows[1].detail, appLocalized("New group — created when approved"))
-            XCTAssertEqual(rows[2].detail, appLocalizedFormat("%lld credentials, %lld not visible to agents", 4, 1))
-            XCTAssertEqual(rows[3].detail, appLocalizedFormat("%lld credentials, %lld not visible to agents", 3, 2))
-            if language == "zh-Hans" {
-                XCTAssertEqual(rows[2].title, "3. 重命名分组“Old” → “New”") // i18n-literal: Assert reviewed Simplified Chinese organization copy.
-                XCTAssertEqual(rows[2].detail, "4 个凭证，其中 1 个 Agent 看不到") // i18n-literal: Assert reviewed Simplified Chinese organization copy.
-                XCTAssertEqual(rows[3].detail, "3 个凭证，其中 2 个 Agent 看不到") // i18n-literal: Assert reviewed Simplified Chinese organization copy.
-                XCTAssertEqual(appLocalized("Proposed organization"), "待执行的整理") // i18n-literal: Assert reviewed Simplified Chinese organization copy.
-            }
-            XCTAssertEqual(FrozenApprovalActions.titles(operation: .organize, timedAllowanceEnabled: true),
-                [appLocalized("Approve Organization"), appLocalized("Deny")])
-        }
-    }
-
-    func testRenameAndDeleteMemberCountsPluralizeAndOmitZeroNonvisibleInBothLanguages() {
-        let previous = AppLanguage.current
-        defer { AppLanguage.current = previous }
-        let cases = [
-            (members: 0, nonvisible: 0, english: "0 credentials", chinese: "0 个凭证"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
-            (members: 1, nonvisible: 0, english: "1 credential", chinese: "1 个凭证"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
-            (members: 2, nonvisible: 0, english: "2 credentials", chinese: "2 个凭证"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
-            (members: 1, nonvisible: 1, english: "1 credential, 1 not visible to agents", chinese: "1 个凭证，其中 1 个 Agent 看不到"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
-            (members: 2, nonvisible: 1, english: "2 credentials, 1 not visible to agents", chinese: "2 个凭证，其中 1 个 Agent 看不到"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
-            (members: 2, nonvisible: 2, english: "2 credentials, 2 not visible to agents", chinese: "2 个凭证，其中 2 个 Agent 看不到"), // i18n-literal: Assert reviewed Simplified Chinese member counts.
-        ]
-        for language in ["en", "zh-Hans"] {
-            AppLanguage.current = language
-            for testCase in cases {
-                let summary = BrokerOrganizationSummary(operations: [
-                    .renameGroup(from: "Old", to: "New", members: testCase.members, nonvisible: testCase.nonvisible),
-                    .deleteGroup(name: "Unused", members: testCase.members, nonvisible: testCase.nonvisible),
+                XCTAssertEqual(titles, [
+                    "Create the group “Staging Services”",
+                    "Move the credential “Staging API” from “Old Services” to “Staging Services”",
+                    "Rename the group “Old Services” to “Renamed Services”",
+                    "Delete the group “Temp”",
                 ])
-                let rows = FrozenOrganizationSummaryContent(summary: summary).rows
-                let expected = language == "en" ? testCase.english : testCase.chinese
-                XCTAssertEqual(rows.map(\.detail), [expected, expected], "\(language), \(testCase.members) members, \(testCase.nonvisible) nonvisible")
+                XCTAssertEqual(details, [nil, nil, "When it's renamed, the group has 3 credentials (2 hidden from agents).",
+                    "Its 1 credential won't be deleted and will become “Ungrouped”."])
+            } else {
+                XCTAssertEqual(titles, [
+                    "新建分组「Staging Services」", // i18n-literal: Assert the Simplified Chinese organize step.
+                    "把凭证「Staging API」从「Old Services」移到「Staging Services」", // i18n-literal: Assert the Simplified Chinese organize step.
+                    "把分组「Old Services」改名为「Renamed Services」", // i18n-literal: Assert the Simplified Chinese organize step.
+                    "删除分组「Temp」", // i18n-literal: Assert the Simplified Chinese organize step.
+                ])
+                XCTAssertEqual(details, [nil, nil, "改名时组里有 3 个凭证（其中 2 个对 Agent 隐藏）。", // i18n-literal: Assert the Simplified Chinese step detail.
+                    "组里 1 个凭证不会被删除，会变成「未分组」。"]) // i18n-literal: Assert the Simplified Chinese step detail.
             }
         }
     }
 
-    @MainActor
-    func testMaximumBatchAndExpandedDetailsKeepActionsWithin680PointsWithoutReveal() {
-        _ = NSApplication.shared
-        let previous = AppLanguage.current
-        defer { AppLanguage.current = previous }
-        let request = BrokerApprovalOperationRequest(operationID: "synthetic", credentialID: "", targetID: "credential-library",
-            operation: .organize, payloadDigest: String(repeating: "a", count: 64),
-            callerName: "Synthetic Agent", callerPurpose: String(repeating: "Synthetic purpose ", count: 200), organizationCredentialIDs: [])
-        let summary = BrokerOrganizationSummary(operations: (0..<64).map { index in
-            index.isMultiple(of: 2)
-                ? .existingGroup(name: String(repeating: "Existing group ", count: 15), members: 1, nonvisible: 1)
-                : .mergeGroup(from: String(repeating: "Original group ", count: 15), to: String(repeating: "Existing group ", count: 15),
-                    members: 4, nonvisible: 1, targetMembers: 2, targetNonvisible: 2)
-        })
-        var reveals = 0
-        for language in ["en", "zh-Hans"] {
-            AppLanguage.current = language
-            for (expanded, cancelled) in [(false, false), (true, false), (true, true)] {
-                let view = FrozenAgentApprovalPrompt(request: request, timedAllowanceEnabled: true,
-                    organizationSummary: summary, revealMaterial: { reveals += 1; throw CancellationError() },
-                    cancelledAuthenticationDecision: cancelled ? .once : nil,
-                    detailsExpanded: expanded, finish: { _ in })
-                let size = NSHostingView(rootView: view).fittingSize
-                XCTAssertEqual(size.width, 300)
-                XCTAssertLessThanOrEqual(size.height, 680, "Every operation scrolls with Approve and Deny outside the scrolling area")
+    func testExistingGroupAndMergeStartWithTheirTagsAndStateTheResult() {
+        Fixtures.withLanguages { language in
+            let content = FrozenOrganizationSummaryContent(summary: Fixtures.existingAndMerge, requester: "Claude Code")
+            XCTAssertEqual(content.rows.map(\.tag), [.noChange, .merge])
+            XCTAssertTrue(content.isDestructive, "a merge cannot be undone automatically")
+            if language == "en" {
+                XCTAssertEqual(content.rows.map(\.tag?.title), ["No change", "Merge"])
+                XCTAssertEqual(plain(content.rows[0].title), "Create the group “Existing Private Services”")
+                XCTAssertEqual(content.rows[0].detail,
+                    "This group already exists, so nothing is created or changed. It has 1 credential (1 hidden from agents).")
+                XCTAssertEqual(plain(content.rows[1].title),
+                    "Claude Code asked to rename “Merge Source” to “Existing Merge Services”; “Existing Merge Services” already exists and is hidden from it, so the groups merge.")
+                XCTAssertEqual(plain(content.rows[1].detail),
+                    "“Merge Source” disappears and “Existing Merge Services” will have 4 credentials (3 hidden from agents). A merge can't be undone automatically.")
+            } else {
+                XCTAssertEqual(content.rows.map(\.tag?.title), ["无变化", "合并"]) // i18n-literal: Assert Simplified Chinese organize tags.
+                XCTAssertEqual(content.rows[0].detail,
+                    "这个分组已经存在，不会新建或改动任何内容。组里有 1 个凭证（其中 1 个对 Agent 隐藏）。") // i18n-literal: Assert the Simplified Chinese no-op detail.
+                XCTAssertEqual(plain(content.rows[1].title),
+                    "Claude Code 请求的是把「Merge Source」改名为「Existing Merge Services」；「Existing Merge Services」已存在且对它隐藏，所以实际会合并。") // i18n-literal: Assert the Simplified Chinese merge step.
+                XCTAssertEqual(plain(content.rows[1].detail),
+                    "合并后「Merge Source」消失，「Existing Merge Services」共有 4 个凭证（其中 3 个对 Agent 隐藏）。合并无法自动撤销。") // i18n-literal: Assert the Simplified Chinese merge result.
             }
         }
-        XCTAssertEqual(reveals, 0)
     }
 
-    func testOrganizationPromptCopyOmitsCredentialTargetAndOffersWriteAuthenticationRetry() {
-        let previous = AppLanguage.current
-        defer { AppLanguage.current = previous }
-        for language in ["en", "zh-Hans"] {
-            AppLanguage.current = language
-            let request = BrokerApprovalOperationRequest(operationID: "synthetic", credentialID: "", targetID: "credential-library",
-                operation: .organize, payloadDigest: String(repeating: "a", count: 64), callerName: "Synthetic Agent", organizationCredentialIDs: [])
-            let content = ApprovalPromptContent(request: request, credentialName: "credential-library")
-            XCTAssertEqual(content.title, language == "zh-Hans"
-                ? "“Synthetic Agent”想整理凭证" // i18n-literal: Assert reviewed Simplified Chinese organization copy.
-                : "“Synthetic Agent” wants to organize credentials")
-            XCTAssertFalse(content.title.contains("credential-library"))
-            XCTAssertNil(content.commandSummary)
-            XCTAssertEqual(content.retryTitle, appLocalized("Authenticate and approve"))
-            XCTAssertEqual(content.cancelledAuthenticationNote, appLocalized("You cancelled authentication. Nothing was changed, and the request is still pending."))
-            let pending = BrokerPendingApproval(requestID: "request", capability: "capability", request: request)
-            XCTAssertEqual(PendingRequestPresentation(approval: pending).sentence.plainText, language == "zh-Hans"
-                ? "Synthetic Agent 想整理凭证" // i18n-literal: Assert reviewed Simplified Chinese organization copy.
-                : "Synthetic Agent wants to organize credentials")
-            XCTAssertFalse(PendingRequestPresentation(approval: pending).sentence.plainText.contains("credential-library"))
+    func testHiddenClauseIsOmittedAtZeroAndEmptyGroupsSaySo() {
+        Fixtures.withLanguages { language in
+            let summary = BrokerOrganizationSummary(operations: [
+                .renameGroup(from: "Old", to: "New", members: 2, nonvisible: 0),
+                .deleteGroup(name: "Unused", members: 0, nonvisible: 0),
+                .existingGroup(name: "Shared", members: 0, nonvisible: 0),
+            ])
+            let details = FrozenOrganizationSummaryContent(summary: summary, requester: "Claude Code").rows.map { plain($0.detail) }
+            XCTAssertEqual(details, language == "en"
+                ? ["When it's renamed, the group has 2 credentials.", "The group is empty.",
+                   "This group already exists, so nothing is created or changed. The group is empty."]
+                : ["改名时组里有 2 个凭证。", "组里没有凭证。", "这个分组已经存在，不会新建或改动任何内容。组里没有凭证。"]) // i18n-literal: Assert Simplified Chinese member counts.
+            XCTAssertFalse(FrozenOrganizationSummaryContent(summary: BrokerOrganizationSummary(operations: [
+                .createGroup("New"), .move(credential: "API", from: nil, to: "New"),
+            ]), requester: "Claude Code").isDestructive)
+        }
+    }
+
+    func testTwelveStepsAreNumberedAndCountedInTitleAndButton() {
+        Fixtures.withLanguages { language in
+            let content = FrozenOrganizationSummaryContent(summary: Fixtures.twelveSteps, requester: "Claude Code")
+            XCTAssertEqual(content.rows.map(\.number), Array(1...12))
+            let title = ApprovalPromptContent(request: Fixtures.request(.organize), credentialName: "credential-library",
+                                              organizationSteps: content.rows.count).title
+            XCTAssertFalse(title.contains("credential-library"))
+            let primary = FrozenApprovalActions.primary(operation: .organize, steps: 12, destructive: content.isDestructive)
+            XCTAssertEqual(primary.role, .destructive)
+            if language == "en" {
+                XCTAssertEqual(title, "Claude Code wants to reorganize your groups (12 steps)")
+                XCTAssertEqual(primary.title, "Apply 12 Steps")
+                XCTAssertEqual(plain(content.rows[1].title), "Move the credential “Service 2” from “Ungrouped” to “Group 1”")
+            } else {
+                XCTAssertEqual(title, "Claude Code 想调整分组（共 12 步）") // i18n-literal: Assert the Simplified Chinese organize title.
+                XCTAssertEqual(primary.title, "执行这 12 步") // i18n-literal: Assert the Simplified Chinese organize button.
+                XCTAssertEqual(plain(content.rows[1].title), "把凭证「Service 2」从「未分组」移到「Group 1」") // i18n-literal: Assert the Simplified Chinese move step.
+            }
+        }
+    }
+
+    func testPendingListUsesTheSameObjectNamingVerbs() {
+        Fixtures.withLanguages { language in
+            let sentences = [
+                Fixtures.request(.read, display: Fixtures.display()), Fixtures.request(.read),
+                Fixtures.request(.create), Fixtures.request(.modify), Fixtures.request(.delete), Fixtures.request(.organize),
+            ].map { request in
+                plain(PendingRequestPresentation(approval: BrokerPendingApproval(requestID: "request", capability: "capability",
+                    request: request, trustedCredentialName: "Staging API")).sentence.plainText)
+            }
+            XCTAssertEqual(sentences, language == "en" ? [
+                "Claude Code wants to use the credential “Staging API” to run ./deploy.sh --env staging",
+                "Claude Code wants to use the credential “Staging API”",
+                "Claude Code wants to create the credential “Staging API”",
+                "Claude Code wants to change the credential “Staging API”",
+                "Claude Code wants to delete the credential “Staging API”",
+                "Claude Code wants to reorganize your groups",
+            ] : [
+                "Claude Code 想使用凭证「Staging API」运行 ./deploy.sh --env staging", // i18n-literal: Assert the Simplified Chinese pending sentence.
+                "Claude Code 想使用凭证「Staging API」", // i18n-literal: Assert the Simplified Chinese pending sentence.
+                "Claude Code 想新建凭证「Staging API」", // i18n-literal: Assert the Simplified Chinese pending sentence.
+                "Claude Code 想修改凭证「Staging API」", // i18n-literal: Assert the Simplified Chinese pending sentence.
+                "Claude Code 想删除凭证「Staging API」", // i18n-literal: Assert the Simplified Chinese pending sentence.
+                "Claude Code 想调整分组", // i18n-literal: Assert the Simplified Chinese pending sentence.
+            ])
         }
     }
 }

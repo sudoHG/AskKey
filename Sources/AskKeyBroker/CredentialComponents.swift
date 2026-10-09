@@ -100,13 +100,19 @@ public struct BrokerCredentialComponentSummary: Equatable, Sendable {
     public let byteCount: Int
     public let delivery: BrokerComponentDelivery
     public let masked: Bool
+    /// App-side only: a vault-keyed digest of this component's value, so an
+    /// approval card can tell exactly which values change. Never part of a
+    /// Broker response and never logged.
+    public let valueDigest: String?
 
-    public init(name: String, payloadKind: BrokerCatalogPayloadKind, byteCount: Int, delivery: BrokerComponentDelivery, masked: Bool) {
+    public init(name: String, payloadKind: BrokerCatalogPayloadKind, byteCount: Int, delivery: BrokerComponentDelivery,
+                masked: Bool, valueDigest: String? = nil) {
         self.name = name
         self.payloadKind = payloadKind
         self.byteCount = byteCount
         self.delivery = delivery
         self.masked = masked
+        self.valueDigest = valueDigest
     }
 }
 
