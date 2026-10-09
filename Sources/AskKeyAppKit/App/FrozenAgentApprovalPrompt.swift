@@ -2,18 +2,16 @@ import AppKit
 import SwiftUI
 import AskKeyBroker
 
-/// The approval card in the native alert layout: app icon, a title naming who
-/// wants to do what to which object, fixed sections that scroll as one body
-/// when the card would outgrow the screen, and stacked actions that state
-/// each decision's consequence.
+/// The approval card in the native alert layout: app icon, one sentence
+/// naming who wants to do what with which object, one short line under it,
+/// a collapsed Details section and stacked actions. Expanded details scroll
+/// inside the capped card so the actions stay visible.
 struct FrozenAgentApprovalPrompt: View {
     static let width: CGFloat = 300
     /// Keeps the whole card, footer included, above the Dock on the
     /// 768-point CI screen, where the panel's top sits under the menu bar.
     static let maximumHeight: CGFloat = 640
     static let contentWidth = width - 2 * Theme.Spacing.lg
-    static let commandLineHeight = ceil(NSLayoutManager().defaultLineHeight(
-        for: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)))
 
     let request: BrokerApprovalOperationRequest
     var trustedCredentialName: String? = nil
@@ -23,8 +21,8 @@ struct FrozenAgentApprovalPrompt: View {
     var writeSummary: BrokerCredentialWriteSummary? = nil
     var organizationSummary: BrokerOrganizationSummary? = nil
     var revealMaterial: (@MainActor () async throws -> FrozenApprovalMaterial)? = nil
-    /// The approval whose system authentication was cancelled. The card then
-    /// offers to authenticate again for that same decision, or to deny.
+    /// The approval whose system authentication was cancelled. The card keeps
+    /// the same buttons in the same order and says that nothing was handed over.
     var cancelledAuthenticationDecision: BrokerApprovalDecision? = nil
     var detailsExpanded = false
     let finish: (BrokerApprovalDecision?) -> Void
@@ -32,30 +30,44 @@ struct FrozenAgentApprovalPrompt: View {
 
     private var isRead: Bool { request.operation == .read }
     private var isOrganize: Bool { request.operation == .organize }
-    /// Write and organize cards are long, so their icon is smaller.
-    private var compact: Bool { !isRead }
 
-    var body: some View {
-        let _ = AppLanguage.store.resolved
+    /// What the card says and which buttons it offers, from the request and
+    /// its frozen summary.
+    struct Presentation {
+        let write: FrozenWriteSummaryContent?
+        let organization: FrozenOrganizationSummaryContent?
+        let content: ApprovalPromptContent
+        let details: ApprovalDetailsContent
+        let buttons: [FrozenApprovalActions.Button]
+    }
+
+    var presentation: Presentation {
         let requester = ApprovalCopy.requester(request)
         let write = isRead || isOrganize ? nil : writeSummary.map { FrozenWriteSummaryContent(summary: $0, requester: requester) }
         let organization = isOrganize ? organizationSummary.map { FrozenOrganizationSummaryContent(summary: $0, requester: requester) } : nil
-        let content = ApprovalPromptContent(request: request,
-            credentialName: trustedCredentialName ?? request.credentialName ?? request.targetID,
-            valueOnlyChange: write?.valueOnlyChange ?? false, organizationSteps: organization?.rows.count)
-        let primary = FrozenApprovalActions.primary(operation: request.operation,
-            valueOnlyChange: write?.valueOnlyChange ?? false, steps: organization?.rows.count,
-            destructive: organization?.isDestructive ?? false)
-        let topPadding = compact ? Theme.Spacing.lg : Theme.Spacing.xl
-        ApprovalCardLayout(maximumHeight: Self.maximumHeight - topPadding - Theme.Spacing.lg) {
-            icon
-                .padding(.bottom, Theme.Spacing.md)
-                .layoutValue(key: ApprovalCardCompactHeightKey.self, value: 40 + Theme.Spacing.md)
-            title(content.title)
-            cardBody(content, write: write, organization: organization)
-                .layoutValue(key: ApprovalCardFlexibleKey.self, value: true)
+        let credentialName = trustedCredentialName ?? request.credentialName ?? request.targetID
+        let content = ApprovalPromptContent(request: request, credentialName: credentialName,
+            write: write, organization: organization)
+        let details = ApprovalDetailsContent(request: request, credentialName: credentialName, write: write,
+            organization: organization, timedAllowanceEnabled: timedAllowanceEnabled,
+            timedAllowanceMinutes: timedAllowanceMinutes)
+        let buttons = FrozenApprovalActions.buttons(operation: request.operation, timedAllowanceEnabled: timedAllowanceEnabled,
+            minutes: timedAllowanceMinutes, valueOnlyChange: write?.valueOnlyChange ?? false,
+            destructive: write?.isDestructive ?? organization?.isDestructive ?? false)
+        return Presentation(write: write, organization: organization, content: content, details: details, buttons: buttons)
+    }
+
+    var body: some View {
+        let _ = AppLanguage.store.resolved
+        let presentation = presentation
+        let content = presentation.content
+        let expanded = showsDetails ?? detailsExpanded
+        ApprovalCardLayout(maximumHeight: Self.maximumHeight - Theme.Spacing.xl - Theme.Spacing.lg) {
+            appIcon
+            header(content)
+                .layoutValue(key: ApprovalCardFlexibleKey.self, value: 2)
             if cancelledAuthenticationDecision != nil {
-                Text(content.cancelledAuthenticationNote)
+                Text(appLocalized("Authentication cancelled. Nothing was handed over."))
                     .font(Theme.Fonts.secondary)
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -63,13 +75,20 @@ struct FrozenAgentApprovalPrompt: View {
                     .padding(.top, Theme.Spacing.md)
                     .accessibilityIdentifier("approval-authentication-cancelled")
             }
-            actions(primary, consequence: write?.consequence)
+            detailsToggle(expanded: expanded)
+                .padding(.top, Theme.Spacing.md)
+            if expanded {
+                details(presentation.details)
+                    .padding(.top, Theme.Spacing.md)
+                    .layoutValue(key: ApprovalCardFlexibleKey.self, value: 1)
+            }
+            actions(presentation.buttons)
                 .padding(.top, Theme.Spacing.lg)
             footer
                 .padding(.top, Theme.Spacing.md)
         }
         .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.top, topPadding)
+        .padding(.top, Theme.Spacing.xl)
         .padding(.bottom, Theme.Spacing.lg)
         .frame(width: Self.width)
         .fixedSize(horizontal: false, vertical: true)
@@ -77,188 +96,100 @@ struct FrozenAgentApprovalPrompt: View {
         .environment(\.locale, AppLanguage.store.locale)
     }
 
-    /// 64 points on a read card that fits; the layout shrinks it to 40 when
-    /// the card would overflow. Write and organize cards always use 40.
-    private var icon: some View {
+    private var appIcon: some View {
         Image(nsImage: AppIcon.load())
             .resizable()
             .interpolation(.high)
-            .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: compact ? 40 : 64, maxHeight: compact ? 40 : 64)
+            .frame(width: 64, height: 64)
             .accessibilityHidden(true)
     }
 
-    private func title(_ title: String) -> some View {
-        Text(verbatim: title)
-            .font(Theme.Fonts.body.bold())
-            .foregroundStyle(Theme.text)
-            .multilineTextAlignment(.center)
-            .lineLimit(5)
-            .fixedSize(horizontal: false, vertical: true)
-            .help(Text(verbatim: title))
-            .frame(maxWidth: .infinity)
-            .padding(.bottom, Theme.Spacing.md)
-            .accessibilityIdentifier("approval-title")
-    }
-
-    private func cardBody(_ content: ApprovalPromptContent, write: FrozenWriteSummaryContent?,
-                          organization: FrozenOrganizationSummaryContent?) -> some View {
-        ApprovalScrollArea(space: "approval-body", unit: isOrganize ? .steps : .sections,
-                           identifier: isOrganize ? "approval-organization-operations" : "approval-body") { proxy in
-            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                if isRead {
-                    if let command = content.command { commandSection(command) }
-                    if !content.receives.isEmpty {
-                        ApprovalSection(title: content.receivesHeading, name: appLocalized("What the command receives"),
-                                        identifier: "approval-delivers") {
-                            VStack(alignment: .leading, spacing: 2) {
-                                ForEach(Array(content.receives.enumerated()), id: \.offset) { _, line in
-                                    ApprovalLineText(line: line)
-                                }
-                            }
-                        }
-                    }
-                }
-                if let purpose = content.purpose {
-                    ApprovalSection(title: appLocalized("Stated purpose (not verified)"), name: appLocalized("Stated purpose"),
-                                    identifier: "approval-purpose") {
-                        Text(verbatim: purpose).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                if let organization {
-                    FrozenOrganizationApprovalContent(content: organization)
-                } else if !isRead && !isOrganize {
-                    FrozenWriteApprovalContent(operation: request.operation, content: write,
-                        requester: content.requester, revealMaterial: revealMaterial)
-                }
-                details(content.detailRows, proxy: proxy)
-            }
-        }
-    }
-
-    private func commandSection(_ command: String) -> some View {
-        ApprovalSection(title: appLocalized("Command to run"), identifier: "approval-command") {
-            ApprovalScrollArea(space: "approval-command-lines", unit: .lines(height: Self.commandLineHeight),
-                               maxHeight: Self.commandLineHeight * 4 + 1, indicatorOffset: Theme.Spacing.sm - 2) { _ in
-                Text(verbatim: command)
-                    .font(Theme.Fonts.mono)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, Theme.Spacing.sm)
-            .padding(.vertical, Theme.Spacing.xs)
-            .background(Theme.neutralSubtle, in: .rect(cornerRadius: Theme.Radius.control))
-        }
-    }
-
-    private func details(_ rows: [ApprovalPromptContent.Row], proxy: ScrollViewProxy) -> some View {
-        let expanded = showsDetails ?? detailsExpanded
-        return VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            Button {
-                showsDetails = !expanded
-                guard !expanded else { return }
-                DispatchQueue.main.async {
-                    withAnimation { proxy.scrollTo("approval-details-rows", anchor: .bottom) }
-                }
-            } label: {
-                HStack(spacing: Theme.Spacing.xs) {
-                    Text(appLocalized("Details")).font(Theme.Fonts.secondary)
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                        .font(Theme.Fonts.caption.weight(.semibold))
-                        .imageScale(.small)
-                }
-                .foregroundStyle(Theme.accent)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("approval-details")
-            if expanded {
-                Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.md, verticalSpacing: Theme.Spacing.sm) {
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                        GridRow {
-                            Text(row.label)
-                                .foregroundStyle(Theme.textSecondary)
-                                .fixedSize()
-                            Text(verbatim: row.value)
-                                .font(row.monospaced ? Theme.Fonts.mono : Theme.Fonts.secondary)
-                                .foregroundStyle(Theme.text)
-                                .textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                }
-                .font(Theme.Fonts.secondary)
-                .id("approval-details-rows")
-                .accessibilityIdentifier("approval-details-rows")
-            }
-        }
-        .approvalScrollMarker(name: appLocalized("Details"))
-    }
-
-    /// Each approving button states its consequence underneath, including
-    /// the retry after a cancelled authentication.
-    private func actions(_ primary: FrozenApprovalActions.Primary, consequence: String?) -> some View {
-        let unavailable = isOrganize && organizationSummary == nil
-        let timedScope = FrozenApprovalActions.timedScope(minutes: timedAllowanceMinutes)
-        return VStack(spacing: Theme.Spacing.sm) {
-            if let retry = cancelledAuthenticationDecision {
-                let retriesTimed: Bool = { if case .timedAllow = retry { return true } else { return false } }()
-                explained(retriesTimed ? timedScope : consequence) {
-                    ApprovalPromptButton(title: FrozenApprovalActions.retry(retry, primary: primary, minutes: timedAllowanceMinutes),
-                                         role: primary.role) { finish(retry) }
-                        .disabled(unavailable)
-                        .accessibilityIdentifier("approval-retry-authentication")
-                }
-            } else {
-                explained(consequence) {
-                    ApprovalPromptButton(title: primary.title, role: primary.role) { finish(.once) }
-                        .disabled(unavailable)
-                        .accessibilityIdentifier("approval-allow-once")
-                }
-                if isRead, timedAllowanceEnabled {
-                    explained(timedScope) {
-                        ApprovalPromptButton(title: FrozenApprovalActions.timed(minutes: timedAllowanceMinutes),
-                                             role: .secondary) { finish(.timedAllow(duration: nil)) }
-                            .accessibilityIdentifier("approval-allow-timed")
-                    }
-                }
-            }
-            ApprovalPromptButton(title: appLocalized("Deny"), role: .secondary) { finish(.deny) }
-                .accessibilityIdentifier("approval-deny")
-        }
-    }
-
-    private func explained(_ line: String?, @ViewBuilder button: () -> some View) -> some View {
-        VStack(spacing: Theme.Spacing.xs) {
-            button()
-            if let line {
-                Text(verbatim: line)
-                    .font(Theme.Fonts.caption)
-                    .foregroundStyle(Theme.textSecondary)
+    /// Title and subtitle wrap freely; they scroll only when a name is too
+    /// long for the card.
+    private func header(_ content: ApprovalPromptContent) -> some View {
+        ApprovalScrollArea(space: "approval-header", alignment: .center) {
+            VStack(spacing: 0) {
+                Text(verbatim: content.title)
+                    .font(Theme.Fonts.body.bold())
+                    .foregroundStyle(Theme.text)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("approval-consequence")
+                    .padding(.top, Theme.Spacing.md)
+                    .accessibilityIdentifier("approval-title")
+                if let command = content.commandSummary {
+                    (Text(appLocalized("to run")).font(Theme.Fonts.body)
+                        + Text(verbatim: " ")
+                        + Text(verbatim: command).font(Theme.Fonts.mono))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(Text(verbatim: content.fullCommand ?? command))
+                        .padding(.top, Theme.Spacing.sm)
+                        .accessibilityIdentifier("approval-subtitle")
+                } else if let subtitle = content.subtitle {
+                    // A subtitle that names a group never cuts the name.
+                    Text(verbatim: subtitle)
+                        .font(Theme.Fonts.body)
+                        .foregroundStyle(Theme.text)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(request.operation == .create ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .help(Text(verbatim: subtitle))
+                        .padding(.top, Theme.Spacing.sm)
+                        .accessibilityIdentifier("approval-subtitle")
+                }
+            }
+        }
+    }
+
+    private func detailsToggle(expanded: Bool) -> some View {
+        Button {
+            showsDetails = !expanded
+        } label: {
+            HStack(spacing: Theme.Spacing.xs) {
+                Text(appLocalized("Details")).font(Theme.Fonts.body)
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(Theme.Fonts.caption.weight(.semibold))
+                    .imageScale(.small)
+            }
+            .foregroundStyle(Theme.accent)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("approval-details")
+    }
+
+    /// Scrolls inside the card's cap; edges fade while lines are hidden.
+    private func details(_ details: ApprovalDetailsContent) -> some View {
+        ApprovalScrollArea(space: "approval-details",
+                           identifier: isOrganize ? "approval-organization-operations" : "approval-details-rows") {
+            ApprovalDetailsView(content: details, revealMaterial: revealMaterial)
+        }
+    }
+
+    private func actions(_ buttons: [FrozenApprovalActions.Button]) -> some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            ForEach(buttons, id: \.identifier) { button in
+                ApprovalPromptButton(title: button.title, role: button.role) { finish(button.decision) }
+                    .disabled(button.decision == .once && isOrganize && organizationSummary == nil)
+                    .help(button.help ?? "")
+                    .accessibilityIdentifier(button.identifier)
             }
         }
     }
 
     private var footer: some View {
-        Button { finish(nil) } label: {
+        HStack(spacing: Theme.Spacing.xs) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(verbatim: appLocalizedFormat("Expires in %@ and nothing is handed over",
-                    FrozenCountdown.format(deadline: expiresAt, now: context.date))
-                    + " · " + appLocalized("Esc to hide; decide in Pending requests before it expires"))
+                Text(appLocalizedFormat("Expires in %@", FrozenCountdown.format(deadline: expiresAt, now: context.date)))
                     .monospacedDigit()
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
             }
+            Text(verbatim: "·")
+            Button(appLocalized("Esc to decide later")) { finish(nil) }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.cancelAction)
         }
-        .buttonStyle(.plain)
-        .keyboardShortcut(.cancelAction)
         .font(Theme.Fonts.caption)
         .foregroundStyle(Theme.textTertiary)
-        .help(appLocalized("When time runs out, the request is void and nothing is handed over or written; the agent is told it expired. Esc hides this card; the request stays in Pending requests until it expires."))
-        .accessibilityIdentifier("approval-decide-later")
     }
 }

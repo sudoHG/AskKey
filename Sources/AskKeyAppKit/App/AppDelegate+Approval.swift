@@ -142,6 +142,7 @@ extension AppDelegate {
     ) {
         var finished = false
         var privacyTimer: Timer?
+        var resizeObserver: NSObjectProtocol?
         let contentSize = NSSize(width: FrozenAgentApprovalPrompt.width, height: 360)
         let panel = AgentApprovalPanelFactory.make(contentSize: contentSize)
         panel.titleVisibility = .hidden
@@ -156,6 +157,8 @@ extension AppDelegate {
             finished = true
             privacyTimer?.invalidate()
             privacyTimer = nil
+            resizeObserver.map(NotificationCenter.default.removeObserver)
+            resizeObserver = nil
             panel.orderOut(nil)
             panel.contentViewController = nil
             let valid = Self.screenState() == .unlocked && expiresAt.map({ $0 > Date() }) != false
@@ -236,6 +239,14 @@ extension AppDelegate {
         panel.contentViewController = hosting
         panel.setContentSize(hosting.view.fittingSize)
         panel.center()
+        // Expanding Details makes the card taller; keep its buttons on screen.
+        resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: panel, queue: .main
+        ) { [weak panel] _ in
+            MainActor.assumeIsolated {
+                if let panel { Self.keepInsideVisibleFrame(panel) }
+            }
+        }
         // Common modes keep the check running during menus, drags and modal pickers.
         privacyTimer = Timer(timeInterval: 0.25, repeats: true) { _ in
             MainActor.assumeIsolated {
@@ -251,6 +262,15 @@ extension AppDelegate {
         if let privacyTimer { RunLoop.main.add(privacyTimer, forMode: .common) }
         panel.level = .modalPanel
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// Moves the panel just enough to fit the screen's visible frame, keeping
+    /// its top visible when it is taller than the screen.
+    static func keepInsideVisibleFrame(_ panel: NSPanel) {
+        guard let visible = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
+        var origin = panel.frame.origin
+        origin.y = min(max(origin.y, visible.minY), visible.maxY - panel.frame.height)
+        if origin != panel.frame.origin { panel.setFrameOrigin(origin) }
     }
 
     nonisolated private static func screenState() -> AgentApprovalScreenState {

@@ -21,7 +21,7 @@ enum AskKeyAppSource {
         "Sources/AskKeyAppKit/App/FrozenAgentApprovalPrompt.swift",
         "Sources/AskKeyAppKit/App/FrozenApprovalActions.swift",
         "Sources/AskKeyAppKit/App/FrozenApprovalMaterial.swift",
-        "Sources/AskKeyAppKit/App/FrozenWriteApprovalContent.swift",
+        "Sources/AskKeyAppKit/App/ApprovalDetailsView.swift",
         "Sources/AskKeyAppKit/App/FrozenWriteRevealCopy.swift",
         "Sources/AskKeyAppKit/App/HostingWindowSizing.swift",
         "Sources/AskKeyAppKit/App/LockedApprovalReminderDeliveryPolicy.swift",

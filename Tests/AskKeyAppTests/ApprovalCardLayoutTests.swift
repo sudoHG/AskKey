@@ -4,8 +4,9 @@ import XCTest
 import AskKeyBroker
 @testable import AskKeyAppKit
 
-/// Every card keeps its actions on a 768-point screen: the body scrolls, with
-/// a visible scroll bar and an overflow line, instead of pushing them away.
+/// Every card keeps its actions on a 768-point screen: expanded details, and
+/// names too long for the card, scroll inside the 640-point cap instead of
+/// pushing the buttons away.
 @MainActor
 final class ApprovalCardLayoutTests: AskKeyAppTestCase {
     private typealias Fixtures = ApprovalCardFixtures
@@ -16,13 +17,33 @@ final class ApprovalCardLayoutTests: AskKeyAppTestCase {
         return size.height
     }
 
-    func testEveryCardTypeStaysWithinTheCapInBothLanguages() {
-        XCTAssertLessThanOrEqual(FrozenAgentApprovalPrompt.maximumHeight, 680)
+    private func details(_ prompt: FrozenAgentApprovalPrompt, expanded: Bool) -> FrozenAgentApprovalPrompt {
+        var prompt = prompt
+        prompt.detailsExpanded = expanded
+        return prompt
+    }
+
+    func testEveryCardStaysWithinTheCapCollapsedAndExpanded() {
+        XCTAssertEqual(FrozenAgentApprovalPrompt.maximumHeight, 640)
         Fixtures.withLanguages { language in
             for card in Fixtures.Card.allCases {
-                XCTAssertLessThanOrEqual(height(Fixtures.prompt(card)), FrozenAgentApprovalPrompt.maximumHeight,
-                                         "\(language) \(card.rawValue)")
+                let collapsed = height(details(Fixtures.prompt(card), expanded: false))
+                XCTAssertLessThan(collapsed, 400, "\(language) \(card.rawValue): the front is one sentence and one line")
+                XCTAssertLessThanOrEqual(height(details(Fixtures.prompt(card), expanded: true)), FrozenAgentApprovalPrompt.maximumHeight,
+                                         "\(language) \(card.rawValue) with Details")
             }
+        }
+    }
+
+    func testWriteCardsMatchTheReadCardLayout() {
+        Fixtures.withLanguages { language in
+            let read = height(Fixtures.prompt(.readWithoutTimed))
+            for card in [Fixtures.Card.create, .delete, .modifyValue, .modifyMixed, .organize] {
+                let write = height(Fixtures.prompt(card))
+                XCTAssertLessThanOrEqual(abs(write - read), 20,
+                    "\(language) \(card.rawValue): same icon, sentence, line, Details link, two buttons and footer")
+            }
+            XCTAssertLessThan(height(Fixtures.prompt(.createUngrouped)), read, "\(language): no line when ungrouped")
         }
     }
 
@@ -69,62 +90,31 @@ final class ApprovalCardLayoutTests: AskKeyAppTestCase {
         XCTAssertEqual(reveals, 0, "laying out a card never asks to reveal a value")
     }
 
-    func testCommandsOverFourLinesScrollWithAnOverflowLine() {
-        func read(lines: Int) -> FrozenAgentApprovalPrompt {
-            let command = (1...lines).map { "./step-\($0).sh" }.joined(separator: "\n")
-            return .init(request: Fixtures.request(.read, display: Fixtures.display(command: command)),
-                         timedAllowanceEnabled: true, finish: { _ in })
-        }
-        Fixtures.withLanguages { language in
-            let one = height(read(lines: 1))
-            let four = height(read(lines: 4))
-            let five = height(read(lines: 5))
-            let thirty = height(read(lines: 30))
-            XCTAssertEqual(four - one, 3 * FrozenAgentApprovalPrompt.commandLineHeight, accuracy: 3,
-                           "\(language): up to four lines show in full")
-            XCTAssertGreaterThan(five, four, "\(language): the overflow line appears under a capped command")
-            XCTAssertLessThan(five - four, FrozenAgentApprovalPrompt.commandLineHeight + 6,
-                              "\(language): the fifth line scrolls instead of growing the card")
-            XCTAssertEqual(thirty, five, accuracy: 1, "\(language): longer commands keep the same cap")
-        }
-    }
-
-    func testDetailsGrowTheReadCardAndTheCancelledStateDropsTheTimedAction() {
+    func testDetailsExpandInPlaceAndTheCancelledStateAddsOneLine() {
         Fixtures.withLanguages { language in
             let collapsed = height(Fixtures.prompt(.readDefault))
             XCTAssertGreaterThan(height(Fixtures.prompt(.readDetails)), collapsed, "\(language): Details expand in place")
-            let retryOnce = FrozenAgentApprovalPrompt(request: Fixtures.request(.read, display: Fixtures.display()),
-                timedAllowanceEnabled: true, cancelledAuthenticationDecision: .once, finish: { _ in })
-            XCTAssertLessThan(height(retryOnce), collapsed, "\(language): one retry replaces two allow buttons")
-            XCTAssertGreaterThan(height(Fixtures.prompt(.readCancelled)), height(retryOnce),
-                                 "\(language): the timed retry keeps its scope line")
+            let cancelled = height(Fixtures.prompt(.readCancelled)) - collapsed
+            XCTAssertGreaterThan(cancelled, 10, "\(language): the gray line is added")
+            XCTAssertLessThan(cancelled, 2 * 16 + Theme.Spacing.md, "\(language): and no button is added or removed")
             XCTAssertLessThan(height(Fixtures.prompt(.readWithoutTimed)), collapsed)
         }
     }
 
-    func testShortCreateCardsFitWithoutScrolling() {
-        Fixtures.withLanguages { language in
-            for card in [Fixtures.Card.createOneItem, .createTwoItems] {
-                XCTAssertLessThan(height(Fixtures.prompt(card)), FrozenAgentApprovalPrompt.maximumHeight - 1,
-                                  "\(language) \(card.rawValue): one or two items, short instructions and a group fit")
-            }
-        }
-    }
-
-    func testOverflowingCardsShrinkTheIconBeforeScrolling() {
-        func height(_ maximum: CGFloat) -> CGFloat {
+    func testScrollingPartsGiveUpHeightInOrder() {
+        func heights(_ maximum: CGFloat) -> CGFloat {
             NSHostingView(rootView: ApprovalCardLayout(maximumHeight: maximum) {
-                Color.clear.frame(minHeight: 40, idealHeight: 64, maxHeight: 64)
-                    .layoutValue(key: ApprovalCardCompactHeightKey.self, value: 40)
                 Color.clear.frame(height: 100)
+                ScrollView { Color.clear.frame(height: 200) }
+                    .layoutValue(key: ApprovalCardFlexibleKey.self, value: 2)
                 ScrollView { Color.clear.frame(height: 300) }
-                    .layoutValue(key: ApprovalCardFlexibleKey.self, value: true)
+                    .layoutValue(key: ApprovalCardFlexibleKey.self, value: 1)
             }
             .frame(width: FrozenAgentApprovalPrompt.contentWidth)
             .fixedSize(horizontal: false, vertical: true)).fittingSize.height
         }
-        XCTAssertEqual(height(500), 464, accuracy: 1, "a card that fits keeps the large icon")
-        XCTAssertEqual(height(450), 440, accuracy: 1, "a smaller icon can avoid scrolling")
-        XCTAssertEqual(height(300), 300, accuracy: 1, "then the body scrolls inside the cap")
+        XCTAssertEqual(heights(700), 600, accuracy: 1, "a card that fits keeps its natural height")
+        XCTAssertEqual(heights(500), 500, accuracy: 1, "Details scroll first")
+        XCTAssertEqual(heights(300), 300, accuracy: 1, "then the title, once Details are at their minimum")
     }
 }

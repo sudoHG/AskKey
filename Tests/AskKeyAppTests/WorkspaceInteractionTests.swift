@@ -103,16 +103,17 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         AppLanguage.current = "zh-Hans"
         XCTAssertEqual(
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
-            ["允许本次", "30 分钟内都允许", "拒绝"]
+            ["允许本次", "允许 30 分钟", "拒绝"]
         )
         XCTAssertEqual(
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
             ["允许本次", "拒绝"]
         )
         let writeActions: [(BrokerApprovalOperation, String, String)] = [
-            (.create, "新建凭证", "Create Credential"),
-            (.modify, "保存修改", "Save Changes"),
-            (.delete, "移到回收站", "Move to Recycle Bin"),
+            (.create, "新建", "Create"),
+            (.modify, "修改", "Change"),
+            (.delete, "删除", "Delete"),
+            (.organize, "执行", "Apply"),
         ]
         for (operation, chinese, _) in writeActions {
             XCTAssertEqual(FrozenApprovalActions.titles(operation: operation, timedAllowanceEnabled: true),

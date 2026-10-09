@@ -1,48 +1,19 @@
 import Foundation
 import AskKeyBroker
 
-/// Shared wording for approval cards and the pending list. Credential and
-/// group names are quoted the catalog's way and only break inside when one
-/// line cannot hold them.
+/// Shared wording for approval cards and the pending list. Names are quoted
+/// with “ ” in both languages, as on the v0.2 card.
 enum ApprovalCopy {
     static func requester(_ request: BrokerApprovalOperationRequest) -> String {
         request.callerName.flatMap { $0.isEmpty ? nil : $0 } ?? appLocalized("Local Agent")
     }
 
     static func quoted(_ name: String) -> String {
-        quote(unbreakable(name))
-    }
-
-    /// Quotes free text, such as a removed phrase, without keeping it whole.
-    static func quote(_ text: String) -> String {
-        appLocalizedFormat("Quoted name: %@", text)
-    }
-
-    /// "the value of “X”" in the current language, kept on one line together.
-    static func credentialValue(_ name: String) -> String {
-        unbreakable(appLocalizedFormat("Credential value: %@", quote(name)))
-    }
-
-    /// Word joiners and no-break spaces keep a name on one line when it fits;
-    /// a name longer than a line still wraps by character.
-    static func unbreakable(_ name: String) -> String {
-        let joiner: Character = "\u{2060}"
-        var result = String(joiner)
-        for character in name {
-            result.append(character == " " ? "\u{00A0}" : character)
-            result.append(joiner)
-        }
-        return result
+        "“" + name + "”"
     }
 
     static func group(_ name: String?) -> String {
         quoted(name ?? appLocalized("Ungrouped"))
-    }
-
-    static func bytes(_ count: Int) -> String {
-        count == 1
-            ? appLocalized("1 byte")
-            : appLocalizedFormat("%@ bytes", count.formatted(.number.locale(AppLanguage.locale(for: AppLanguage.current))))
     }
 
     /// Rule-5 delivery wording; the variable name is the code argument.
@@ -67,6 +38,24 @@ enum ApprovalCopy {
 
     static func sentences(_ parts: [String]) -> String {
         parts.joined(separator: appLocalized("Sentence separator"))
+    }
+
+    /// "A, B and C" in the current language.
+    static func list(_ items: [String]) -> String {
+        guard let last = items.last else { return "" }
+        guard items.count > 1 else { return last }
+        return appLocalizedFormat("%1$@ and %2$@", items.dropLast().joined(separator: appLocalized("List separator")), last)
+    }
+
+    /// Starts English text with a capital letter; Chinese is unchanged.
+    static func capitalized(_ text: String) -> String {
+        text.prefix(1).uppercased() + text.dropFirst()
+    }
+
+    /// Names that the vault treats as the same item or group.
+    static func matchKey(_ name: String) -> String {
+        name.precomposedStringWithCanonicalMapping
+            .folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
     }
 }
 
@@ -100,16 +89,16 @@ struct ApprovalLine: Equatable {
     }
 }
 
-/// Small status labels on neutral backgrounds. Color carries risk, not novelty.
+/// Status labels in Details, at the text size on a neutral background.
+/// Color carries risk, not novelty.
 enum ApprovalTag: Equatable {
-    case unchanged, changed, new, newGroup, replaced, removed, noChange, merge
+    case unchanged, changed, new, replaced, removed, noChange, merge
 
     var title: String {
         switch self {
         case .unchanged: return appLocalized("Unchanged")
         case .changed: return appLocalized("Changed")
         case .new: return appLocalized("New")
-        case .newGroup: return appLocalized("New group tag")
         case .replaced: return appLocalized("Replaced")
         case .removed: return appLocalized("Removed")
         case .noChange: return appLocalized("No change")

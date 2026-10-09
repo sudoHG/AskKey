@@ -1,55 +1,47 @@
 import AskKeyBroker
 
-/// Button titles that state each decision's consequence.
+/// The card's stacked buttons: the approving action, the read card's timed
+/// allowance, then Deny. A cancelled authentication keeps the same buttons in
+/// the same order, so the default never moves to another decision.
 enum FrozenApprovalActions {
-    struct Primary: Equatable {
+    struct Button: Equatable {
         let title: String
         let role: ApprovalButtonRole
+        let decision: BrokerApprovalDecision
+        let identifier: String
+        var help: String? = nil
     }
 
-    static func primary(operation: BrokerApprovalOperation, valueOnlyChange: Bool = false,
-                        steps: Int? = nil, destructive: Bool = false) -> Primary {
+    /// A destructive approving action is drawn in red and is never the default.
+    static func buttons(operation: BrokerApprovalOperation, timedAllowanceEnabled: Bool, minutes: Int = 30,
+                        valueOnlyChange: Bool = false, destructive: Bool = false) -> [Button] {
+        let title: String
         switch operation {
-        case .read: return Primary(title: appLocalized("Allow Once"), role: .primary)
-        case .create: return Primary(title: appLocalized("Create Credential"), role: .primary)
-        case .modify:
-            return Primary(title: valueOnlyChange ? appLocalized("Replace Value") : appLocalized("Save Changes"),
-                role: .primary)
-        case .delete: return Primary(title: appLocalized("Move to Recycle Bin"), role: .destructive)
-        case .organize:
-            let title: String
-            switch steps {
-            case nil: title = appLocalized("Apply Steps")
-            case 1?: title = appLocalized("Apply 1 Step")
-            case let count?: title = appLocalizedFormat("Apply %lld Steps", count)
-            }
-            return Primary(title: title, role: destructive ? .destructive : .primary)
+        case .read: title = appLocalized("Allow Once")
+        case .create: title = appLocalized("Create credential button")
+        case .modify: title = valueOnlyChange ? appLocalized("Replace") : appLocalized("Change")
+        case .delete: title = appLocalized("Delete")
+        case .organize: title = appLocalized("Apply")
         }
+        var buttons = [Button(title: title, role: destructive ? .destructive : .primary, decision: .once,
+                              identifier: "approval-allow-once")]
+        if operation == .read, timedAllowanceEnabled {
+            buttons.append(Button(title: appLocalizedFormat("Allow for %lld Minutes", minutes), role: .secondary,
+                                  decision: .timedAllow(duration: nil), identifier: "approval-allow-timed",
+                                  help: timedScope(minutes: minutes)))
+        }
+        buttons.append(Button(title: appLocalized("Deny"), role: .secondary, decision: .deny, identifier: "approval-deny"))
+        return buttons
     }
 
-    static func timed(minutes: Int) -> String {
-        appLocalizedFormat("Allow for %lld Minutes", minutes)
-    }
-
-    /// What the timed allowance covers, stated under its button.
+    /// What the timed allowance covers, shown in Details and on hover.
     static func timedScope(minutes: Int) -> String {
         appLocalizedFormat("For %lld minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.", minutes)
     }
 
-    /// Retries the decision the user chose before cancelling authentication.
-    static func retry(_ decision: BrokerApprovalDecision, primary: Primary, minutes: Int) -> String {
-        if case .timedAllow = decision {
-            return appLocalizedFormat("Authenticate and %@", timed(minutes: minutes))
-        }
-        return appLocalizedFormat("Authenticate and %@", primary.title)
-    }
-
     static func titles(operation: BrokerApprovalOperation, timedAllowanceEnabled: Bool, minutes: Int = 30,
-                       valueOnlyChange: Bool = false, steps: Int? = nil) -> [String] {
-        let primary = primary(operation: operation, valueOnlyChange: valueOnlyChange, steps: steps).title
-        if operation == .read, timedAllowanceEnabled {
-            return [primary, timed(minutes: minutes), appLocalized("Deny")]
-        }
-        return [primary, appLocalized("Deny")]
+                       valueOnlyChange: Bool = false) -> [String] {
+        buttons(operation: operation, timedAllowanceEnabled: timedAllowanceEnabled, minutes: minutes,
+                valueOnlyChange: valueOnlyChange).map(\.title)
     }
 }

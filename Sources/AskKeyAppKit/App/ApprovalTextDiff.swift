@@ -14,6 +14,8 @@ struct ApprovalTextDiff: Equatable {
     let before: [Run]
     /// The new text: unchanged and added runs.
     let after: [Run]
+    /// Both texts in one: unchanged, removed and added runs in reading order.
+    let merged: [Run]
     /// Each removed stretch of words without surrounding spaces and
     /// punctuation, for the "Removed:" line.
     let removedPhrases: [String]
@@ -37,8 +39,24 @@ struct ApprovalTextDiff: Equatable {
         let newTail = Array(new[(new.count - suffix)...]).map { ($0, Kind.same) }
         let oldRuns = head + oldMiddle.indices.map { (oldMiddle[$0], oldKept.contains($0) ? Kind.same : .removed) } + oldTail
         let newRuns = head + newMiddle.indices.map { (newMiddle[$0], newKept.contains($0) ? Kind.same : .added) } + newTail
-        self.before = Self.merged(oldRuns)
-        self.after = Self.merged(newRuns)
+        // Kept tokens pair up in order, so walking both middles interleaves
+        // each removal before the addition that replaces it.
+        var middle: [(String, Kind)] = []
+        var i = 0, j = 0
+        while i < oldMiddle.count || j < newMiddle.count {
+            if i < oldMiddle.count, !oldKept.contains(i) {
+                middle.append((oldMiddle[i], .removed)); i += 1
+            } else if j < newMiddle.count, !newKept.contains(j) {
+                middle.append((newMiddle[j], .added)); j += 1
+            } else if i < oldMiddle.count, j < newMiddle.count {
+                middle.append((newMiddle[j], .same)); i += 1; j += 1
+            } else {
+                break
+            }
+        }
+        self.before = Self.runs(oldRuns)
+        self.after = Self.runs(newRuns)
+        merged = Self.runs(head + middle + newTail)
         removedPhrases = self.before.filter { $0.kind == .removed }
             .map { $0.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters)) }
             .filter { phrase in phrase.unicodeScalars.contains { CharacterSet.alphanumerics.contains($0) } }
@@ -109,7 +127,7 @@ struct ApprovalTextDiff: Equatable {
 
     /// Joins neighbouring tokens of one kind; a lone space between two
     /// changed words joins the change so phrases read as one.
-    private static func merged(_ tokens: [(String, Kind)]) -> [Run] {
+    private static func runs(_ tokens: [(String, Kind)]) -> [Run] {
         var marked = tokens
         for index in marked.indices.dropFirst().dropLast()
         where marked[index].1 == .same && marked[index].0.allSatisfy(\.isWhitespace)

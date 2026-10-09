@@ -8,8 +8,9 @@ import AskKeyBroker
 enum ApprovalCardFixtures {
     enum Card: String, CaseIterable {
         case readDefault, readDetails, readFile, readCancelled, readWithoutTimed, readLongCommand, readBundle
-        case create, createOneItem, createTwoItems, modifyMetadata, modifyValue, modifyAdded, delete
-        case organize, organizeExistingAndMerge, organizeTwelveSteps
+        case create, createOneItem, createTwoItems, createUngrouped
+        case modifyMetadata, modifyInstructionsAndGroup, modifyValue, modifySomeValues, modifyAdded, modifyRemoved, modifyMixed
+        case delete, organize, organizeExistingAndMerge, organizeTwelveSteps
     }
 
     static func request(_ operation: BrokerApprovalOperation, name: String? = "Staging API",
@@ -63,6 +64,11 @@ enum ApprovalCardFixtures {
         beforeDigest: nil, afterDigest: "after", beforeUsageInstructions: nil,
         afterUsageInstructions: "Use for SSH to the staging host only.", beforeGroup: nil, afterGroup: "Staging", createsGroup: false)
 
+    static let createUngroupedSummary = BrokerCredentialWriteSummary(credentialName: "Deploy Host", operation: .create,
+        before: [], after: [component("DEPLOY_HOST", bytes: 18, .environmentVariable("DEPLOY_HOST"))],
+        beforeDigest: nil, afterDigest: "after", beforeUsageInstructions: nil, afterUsageInstructions: nil,
+        beforeGroup: nil, afterGroup: nil, createsGroup: false)
+
     static let metadataSummary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
         before: [token, user], after: [token, user], beforeDigest: "same", afterDigest: "same",
         beforeUsageInstructions: "Use for release checks.", afterUsageInstructions: "Use only for the nightly release check.",
@@ -73,6 +79,27 @@ enum ApprovalCardFixtures {
         after: [component("TOKEN", bytes: 52, .environmentVariable("RELEASE_CHECK_TOKEN"), value: "rotated")],
         beforeDigest: "old", afterDigest: "new", beforeUsageInstructions: "Use for release checks.",
         afterUsageInstructions: "Use for release checks.", beforeGroup: "Release Tools", afterGroup: "Release Tools")
+
+    static let someValuesSummary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
+        before: [token, user], after: [component("TOKEN", bytes: 28, .environmentVariable("RELEASE_CHECK_TOKEN"), value: "rotated"), user],
+        beforeDigest: "old", afterDigest: "new", beforeUsageInstructions: "Use for release checks.",
+        afterUsageInstructions: "Use for release checks.", beforeGroup: "Release Tools", afterGroup: "Release Tools")
+
+    static let instructionsAndGroupSummary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
+        before: [token, user], after: [token, user], beforeDigest: "same", afterDigest: "same",
+        beforeUsageInstructions: "Use for release checks.", afterUsageInstructions: "Use for release checks and smoke tests.",
+        beforeGroup: "Release Tools", afterGroup: "Operations")
+
+    static let removedSummary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
+        before: [token, user], after: [token], beforeDigest: "old", afterDigest: "new",
+        beforeUsageInstructions: "Use for release checks.", afterUsageInstructions: "Use for release checks.",
+        beforeGroup: "Release Tools", afterGroup: "Release Tools")
+
+    static let mixedSummary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
+        before: [component("TOKEN", bytes: 40, .environmentVariable("RELEASE_CHECK_TOKEN"))],
+        after: [component("TOKEN", bytes: 52, .environmentVariable("RELEASE_CHECK_TOKEN"), value: "rotated")],
+        beforeDigest: "old", afterDigest: "new", beforeUsageInstructions: "Use for release checks.",
+        afterUsageInstructions: "Use for release checks.", beforeGroup: "Release Tools", afterGroup: "Operations")
 
     static let addedSummary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
         before: [token, user], after: [token, user, certificate], beforeDigest: "old", afterDigest: "new",
@@ -135,12 +162,22 @@ enum ApprovalCardFixtures {
             return write(.create, createOneItemSummary, purpose: "Save the staging deploy host")
         case .createTwoItems:
             return write(.create, createTwoItemsSummary, purpose: "Save the staging SSH login")
+        case .createUngrouped:
+            return write(.create, createUngroupedSummary, purpose: "Save the staging deploy host")
         case .modifyMetadata:
             return write(.modify, metadataSummary)
+        case .modifyInstructionsAndGroup:
+            return write(.modify, instructionsAndGroupSummary)
         case .modifyValue:
             return write(.modify, valueSummary)
+        case .modifySomeValues:
+            return write(.modify, someValuesSummary)
         case .modifyAdded:
             return write(.modify, addedSummary)
+        case .modifyRemoved:
+            return write(.modify, removedSummary)
+        case .modifyMixed:
+            return write(.modify, mixedSummary)
         case .delete:
             return write(.delete, deleteSummary)
         case .organize:
@@ -163,6 +200,14 @@ enum ApprovalCardFixtures {
                          purpose: String? = "Tidy the synthetic credential library") -> FrozenAgentApprovalPrompt {
         .init(request: request(.organize, purpose: purpose), expiresAt: Date().addingTimeInterval(299),
               timedAllowanceEnabled: true, organizationSummary: summary, finish: { _ in })
+    }
+
+    /// The card's title, subtitle and buttons as shown, in the current language.
+    static func copy(_ card: Card) -> (title: String, subtitle: String?, buttons: [String]) {
+        let presentation = prompt(card).presentation
+        let content = presentation.content
+        let subtitle = content.commandSummary.map { appLocalized("to run") + " " + $0 } ?? content.subtitle
+        return (content.title, subtitle, presentation.buttons.map(\.title))
     }
 
     /// Lays the card out and lets its scroll areas publish their geometry.
