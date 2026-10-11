@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     var statusItemMenuMonitor: Any?
     var approvalPresentationObserver: NSObjectProtocol?
     var screenUnlockObserver: NSObjectProtocol?
+    var approvalWakeObserver: NSObjectProtocol?
     var recycleBinCleanupTimer: Timer?
     var lockedApprovalReminderPosted = false
     var lockedApprovalReminderAttempt: UUID?
@@ -30,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     var brokerServer: BrokerSocketServer?
     var fileWriteCoordinator: BrokerFileWriteCoordinator?
     @Published internal(set) var pendingApprovalCount = 0
-    var presentingApproval = false
+    lazy var approvalPresentation = makeApprovalPresentationCoordinator()
     var launchSource = AppLaunchSource.active
     var managementDockPolicy = ManagementDockPolicy()
     var dockPolicyApplicationScheduled = false

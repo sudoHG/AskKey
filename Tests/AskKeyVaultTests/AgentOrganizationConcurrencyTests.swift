@@ -149,7 +149,8 @@ final class AgentOrganizationConcurrencyTests: AgentOrganizationTestSupport {
             XCTAssertThrowsError(try commit(batch, harness: harness, ticket: ticket))
             XCTAssertEqual(try group(a.id, harness: harness), "Old")
             try harness.vault.beginManagementSession(using: .allow)
-            XCTAssertEqual(try harness.vault.listCredentialAccessRecords().filter { $0.operation == .modify && $0.result == .denied }.map(\.credentialID), [a.id])
+            let expectedResult: CredentialAccessEvent.Result = state == .expired ? .expired : .denied
+            XCTAssertEqual(try harness.vault.listCredentialAccessRecords().filter { $0.operation == .modify && $0.result == expectedResult }.map(\.credentialID), [a.id])
         }
     }
 

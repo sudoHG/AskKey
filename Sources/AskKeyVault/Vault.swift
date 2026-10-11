@@ -151,7 +151,7 @@ public final class Vault {
                 if request?.operation == .organize {
                     self.agentOrganizations.remove(operationID: operationID)
                     if let request, state == .denied || state == .cancelled || state == .expired {
-                        self.recordAgentOrganizationAccess(request, result: .denied)
+                        self.recordAgentOrganizationAccess(request, result: state == .expired ? .expired : .denied)
                     }
                     return
                 }
@@ -171,7 +171,7 @@ public final class Vault {
                         timestamp: self.currentDate,
                         credentialID: approvalRequest.credentialID,
                         operation: operation,
-                        result: .denied,
+                        result: state == .expired ? .expired : .denied,
                         callerHint: approvalRequest.callerName,
                         declaredPurpose: approvalRequest.callerPurpose,
                         executableBasename: operation == .runtimeRead

@@ -118,4 +118,18 @@ final class ScreenPresentationTests: WorkspaceVisualContractTestSupport {
             FrozenTimedAllowanceSettingsPresentation.offTag
         ))
     }
+
+    func testExpiredAccessRecordHasItsOwnShortBilingualResult() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let event = CredentialAccessEvent(timestamp: now, credentialID: "synthetic", operation: .create,
+            result: .expired, callerHint: "Synthetic Agent", declaredPurpose: nil)
+        for (language, expected) in [("en", "Expired without decision"), ("zh-Hans", "过期未处理")] { // i18n-literal: Expected Simplified Chinese catalog value.
+            AppLanguage.current = language
+            let row = AccessRecordPresentation(records: [event], credentialName: { _ in "Synthetic" }, now: now).sections[0].rows[0]
+            XCTAssertEqual(row.resultTitle, expected)
+            XCTAssertEqual(row.resultRole, .neutral)
+            XCTAssertEqual(displayedUserMessage("This request is no longer pending.", language: language),
+                language == "en" ? "This request is no longer pending." : "这个请求已结束") // i18n-literal: Expected Simplified Chinese catalog value.
+        }
+    }
 }

@@ -162,6 +162,8 @@ enum AppLanguage {
         "Keep Launch at Login",
         "Ask Key has pending requests",
         "Unlock your Mac to review a pending request.",
+        "This request is no longer pending.",
+        "Expired without decision",
         "Open Ask Key to review pending requests.",
         "Disable system authentication for read approvals",
         "Ask Key could not save an access record. Credential operations continue, and this warning will remain until recording succeeds.",

@@ -4,6 +4,9 @@ enum AskKeyAppSource {
     static let paths = [
         "Sources/AskKeyAppKit/App/AgentApprovalGatedRequest.swift",
         "Sources/AskKeyAppKit/App/AgentApprovalPresentationPlan.swift",
+        "Sources/AskKeyAppKit/App/AgentApprovalPresentationCoordinator.swift",
+        "Sources/AskKeyAppKit/App/AgentApprovalPanelActions.swift",
+        "Sources/AskKeyAppKit/App/AgentApprovalPanelPlacement.swift",
         "Sources/AskKeyAppKit/App/AgentApprovalPrivacyPolicy.swift",
         "Sources/AskKeyAppKit/App/AgentApprovalRequestSelection.swift",
         "Sources/AskKeyAppKit/App/AgentApprovalScreenState.swift",
