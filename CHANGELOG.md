@@ -2,6 +2,14 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
+## [0.3.1] - 2026-10-11
+
+### Fixed
+
+- An open approval prompt is brought forward on the current display after time away; new prompts open on the display under the pointer.
+- Pressing Esc dismisses the current approval prompt and shows the next pending request.
+- Unanswered requests are recorded as expired instead of denied, and expiry is rechecked after wake or unlock.
+
 ## [0.3.0] - 2026-10-09
 
 ### Added
