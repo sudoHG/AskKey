@@ -30,7 +30,7 @@ extension AppDelegate {
             forName: .presentNextAgentApproval, object: nil, queue: .main
         ) { [weak self] note in
             MainActor.assumeIsolated {
-                self?.presentPendingApproval(operationID: note.object as? String)
+                self?.presentPendingApproval(operationID: note.object as? String, userInitiated: true)
             }
         }
         screenUnlockObserver = DistributedNotificationCenter.default.addObserver(
@@ -38,48 +38,55 @@ extension AppDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.resetLockedApprovalReminder()
-                self?.presentPendingApproval()
+                self?.approvalPresentation.refreshAfterResume()
             }
+        }
+        approvalWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.approvalPresentation.refreshAfterResume() }
         }
     }
 
     private func presentPendingApproval(
         operationID: String? = nil,
-        cancelledAuthenticationDecision: BrokerApprovalDecision? = nil
+        cancelledAuthenticationDecision: BrokerApprovalDecision? = nil,
+        userInitiated: Bool = false
     ) {
-        guard !presentingApproval else { return }
-        let pending: BrokerPendingApproval
-        switch AgentApprovalPrivacyPolicy.gatedRequest(
-            screenState: Self.screenState(),
-            load: {
-                AgentApprovalRequestSelection.select(
-                    Vault.shared.approvalRequests.pendingRequests(),
-                    operationID: operationID
-                )
-            }
-        ) {
-        case .lockedReminder(let title, let body):
-            postLockedApprovalReminder(title: title, body: body)
-            return
-        case .detailed(let loaded):
-            guard let loaded else { return }
-            pending = loaded
-            resetLockedApprovalReminder()
-        }
-        presentingApproval = true
+        approvalPresentation.presentPendingApproval(
+            operationID: operationID,
+            cancelledAuthenticationDecision: cancelledAuthenticationDecision,
+            userInitiated: userInitiated
+        )
+    }
 
-        let request = pending.request
-        runFrozenApprovalPanel(
-            request: request,
-            expiresAt: pending.expiresAt,
-            pending: pending,
-            cancelledAuthenticationDecision: cancelledAuthenticationDecision
-        ) { [weak self] decision in
-        guard let self else { return }
-        guard let decision else {
-            self.presentingApproval = false
-            return
-        }
+    func makeApprovalPresentationCoordinator() -> AgentApprovalPresentationCoordinator {
+        AgentApprovalPresentationCoordinator(
+            screenState: { Self.screenState() },
+            loadPending: { Vault.shared.approvalRequests.pendingRequests() },
+            refreshExpiration: { Vault.shared.approvalRequests.refreshExpiration() },
+            lockedReminder: { [weak self] title, body in
+                self?.postLockedApprovalReminder(title: title, body: body)
+            },
+            feedback: { [weak self] message in self?.vault.errorMessage = message },
+            present: { [weak self] pending, cancelledDecision, completion in
+                guard let self else { return AgentApprovalPanelActions(bringForward: {}, dismiss: {}) }
+                self.resetLockedApprovalReminder()
+                return self.runFrozenApprovalPanel(
+                    request: pending.request,
+                    expiresAt: pending.expiresAt,
+                    pending: pending,
+                    cancelledAuthenticationDecision: cancelledDecision,
+                    completion: completion
+                )
+            },
+            applyDecision: { [weak self] pending, decision in
+                self?.applyApprovalDecision(pending: pending, decision: decision)
+            }
+        )
+    }
+
+    private func applyApprovalDecision(pending: BrokerPendingApproval, decision: BrokerApprovalDecision) {
         let fileWrites = self.fileWriteCoordinator
         let applyDecision: @Sendable () -> Void = { [weak self, fileWrites] in
             var didFail = false
@@ -109,7 +116,7 @@ extension AppDelegate {
             let cancelled = authenticationCancelled
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.presentingApproval = false
+                self.approvalPresentation.decisionFinished()
                 if cancelled {
                     self.presentPendingApproval(
                         operationID: pending.request.operationID,
@@ -120,7 +127,7 @@ extension AppDelegate {
                 }
                 // The retried request may have expired meanwhile; never leave
                 // other requests waiting without a prompt.
-                if !self.presentingApproval, !Vault.shared.approvalRequests.pendingRequests().isEmpty {
+                if !self.approvalPresentation.isPresenting, !Vault.shared.approvalRequests.pendingRequests().isEmpty {
                     self.presentPendingApproval()
                 }
             }
@@ -130,7 +137,6 @@ extension AppDelegate {
         } else {
             DispatchQueue.global(qos: .userInitiated).async(execute: applyDecision)
         }
-        }
     }
 
     private func runFrozenApprovalPanel(
@@ -139,7 +145,7 @@ extension AppDelegate {
         pending: BrokerPendingApproval? = nil,
         cancelledAuthenticationDecision: BrokerApprovalDecision? = nil,
         completion: @escaping @MainActor (BrokerApprovalDecision?) -> Void = { _ in }
-    ) {
+    ) -> AgentApprovalPanelActions {
         var finished = false
         var privacyTimer: Timer?
         var resizeObserver: NSObjectProtocol?
@@ -238,7 +244,6 @@ extension AppDelegate {
         hosting.sizingOptions = [.preferredContentSize]
         panel.contentViewController = hosting
         panel.setContentSize(hosting.view.fittingSize)
-        panel.center()
         // Expanding Details makes the card taller; keep its buttons on screen.
         resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResizeNotification, object: panel, queue: .main
@@ -255,13 +260,16 @@ extension AppDelegate {
                 } ?? false
                 if Self.screenState() != .unlocked || expiresAt.map({ $0 <= Date() }) == true || requestEnded {
                     finish(nil)
-                    if Self.screenState() == .unlocked { self.presentPendingApproval() }
                 }
             }
         }
         if let privacyTimer { RunLoop.main.add(privacyTimer, forMode: .common) }
         panel.level = .modalPanel
-        panel.makeKeyAndOrderFront(nil)
+        AgentApprovalPanelPlacement.bringForward(panel)
+        return AgentApprovalPanelActions(
+            bringForward: { AgentApprovalPanelPlacement.bringForward(panel) },
+            dismiss: { finish(nil) }
+        )
     }
 
     /// Moves the panel just enough to fit the screen's visible frame, keeping

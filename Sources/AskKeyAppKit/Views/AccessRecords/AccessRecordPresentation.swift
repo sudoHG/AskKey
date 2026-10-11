@@ -126,6 +126,7 @@ struct AccessRecordPresentation: Equatable {
             let isWrite = [.create, .modify, .delete].contains(event.operation)
             return (isWrite ? appLocalized("Approved") : appLocalized("Allowed"), .accent)
         case .denied: return (appLocalized("Denied"), .warning)
+        case .expired: return (appLocalized("Expired without decision"), .neutral)
         case .failed: return (appLocalized("Failed"), .warning)
         case .hiddenNameRejected: return (appLocalized("Hidden"), .neutral)
         }

@@ -38,8 +38,9 @@ struct VaultPopover: View {
                 systemImage: "tray",
                 count: vault.pendingApprovalCount
             ) {
+                vault.errorMessage = nil
                 NotificationCenter.default.post(name: .presentNextAgentApproval, object: nil)
-                closePopover()
+                if vault.errorMessage == nil { closePopover() }
             }
             Divider().padding(.horizontal, 10)
             menuEntry(

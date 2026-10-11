@@ -21,6 +21,9 @@ extension AppDelegate {
         if let screenUnlockObserver {
             DistributedNotificationCenter.default.removeObserver(screenUnlockObserver)
         }
+        if let approvalWakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(approvalWakeObserver)
+        }
         Vault.shared.cleanupRuntimeFileDeliveries()
     }
 }

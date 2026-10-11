@@ -6429,6 +6429,52 @@
         }
       }
     },
+    "Expired without decision": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expired without decision"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "过期未处理"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Expired without decision!!]"
+          }
+        }
+      }
+    },
+    "This request is no longer pending.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This request is no longer pending."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个请求已结束"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!This request is no longer pending.!!]"
+          }
+        }
+      }
+    },
     "Denied": {
       "extractionState": "extracted_with_value",
       "localizations": {

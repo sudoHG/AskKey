@@ -30,6 +30,12 @@ extension BrokerApprovalStateMachine {
         }
     }
 
+    /// Reconcile wall-clock deadlines after wake or screen unlock without
+    /// exposing pending request details or extending any authorization.
+    public func refreshExpiration() {
+        expireScheduledRequests()
+    }
+
     static func validDuration(_ value: TimeInterval) -> Bool {
         value.isFinite && value > 0
     }
@@ -48,7 +54,7 @@ extension BrokerApprovalStateMachine {
         hasScheduledExpiration = true
         let delay = max(0, nextExpiration.timeIntervalSince(now))
         expirationTimer.schedule(
-            deadline: .now() + delay,
+            wallDeadline: .now() + delay,
             repeating: .never,
             leeway: .milliseconds(10)
         )

@@ -11,7 +11,7 @@ public struct CredentialAccessEvent: Codable, Equatable, Sendable {
     }
 
     public enum Result: String, Codable, Sendable {
-        case allowed, denied, failed, hiddenNameRejected
+        case allowed, denied, expired, failed, hiddenNameRejected
     }
 
     public let timestamp: Date
