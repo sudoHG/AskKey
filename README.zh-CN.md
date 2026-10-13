@@ -19,7 +19,7 @@
 > 请旨目前没有备份和恢复功能，请自行另存一份凭证原件。
 
 <p align="center">
-  <img src="assets/readme/approval-prompt.png" width="300" alt="请旨的批准弹窗：Claude Code 想用 Staging API 运行 ./deploy.sh，下方是“允许本次”“允许 30 分钟”和“拒绝”按钮（截图为英文界面）">
+  <img src="assets/readme/approval-prompt-zh.png" width="300" alt="请旨的批准弹窗：“Claude Code”想使用“Staging API”，用于运行 ./deploy.sh，下方是“允许本次”“允许 30 分钟”和“拒绝”按钮">
 </p>
 
 ## 为什么需要它
@@ -92,7 +92,7 @@ Agent 也能写入：新建、修改或删除凭证，设置使用说明和分�
 
 ## 支持的客户端
 
-![请旨的 Agent 接入页面，列出 Claude Code、Codex、Cursor 和 Grok CLI，每一行都有“接入…”按钮（截图为英文界面）](assets/readme/agent-access.png)
+![请旨的“Agent 接入”页面：列出 Claude Code、Codex、Cursor 和 Grok CLI，每一项旁边都有“接入…”按钮](assets/readme/agent-access-zh.png)
 
 Claude Code、Codex、Cursor 和 Grok CLI。在应用的 **Agent 接入**页面里先检查某个客户端，再确认连接。对每个客户端，接入会：
 
