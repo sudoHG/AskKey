@@ -1,0 +1,17 @@
+{
+  "name": "askkey-how-it-works",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Ask Key \"How it works\" film for the website. Source for site/how/how.js.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild how.src.js --bundle --format=esm --minify --target=es2020,safari15 --legal-comments=none --banner:js=\"/*! Ask Key: How it works. Includes three.js r186, MIT License, Copyright 2010-2026 three.js authors; full text in THREE-LICENSE.txt next to this file. */\" --outfile=../../site/how/how.js && node stamp.mjs",
+    "license": "cp node_modules/three/LICENSE ../../site/how/THREE-LICENSE.txt",
+    "stamp": "node stamp.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "three": "0.186.0"
+  }
+}
