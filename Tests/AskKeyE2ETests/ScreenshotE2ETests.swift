@@ -55,28 +55,20 @@ final class ScreenshotE2ETests: E2EBaseCase {
         _ = try waitForEvidence("approval-pending.json")
         XCTAssertTrue(app.buttons["approval-details"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["approval-allow-once"].waitForExistence(timeout: 8))
-        capture("zh-12-approval-default", approval: true)
+        capture("18-zh-approval-default", approval: true)
         click("approval-deny")
         _ = try waitForEvidence("approval-result.json")
         app.terminate()
 
+        // The approval run left a saved credential, so the welcome page is past
+        // its first step; go straight to Agent access.
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-welcome"
         app.launch()
         moveManagementAboveDock()
-        XCTAssertTrue(app.buttons["welcome-create-credential"].waitForExistence(timeout: 8))
-        click("welcome-create-credential")
-        XCTAssertTrue(app.buttons["credential-template-custom"].waitForExistence(timeout: 8))
-        click("credential-template-custom")
-        replaceText("CI Demo Credential", identifier: "credential-editor-name")
-        replaceText("TOKEN", identifier: "credential-editor-component-name-0")
-        replaceText("synthetic-ci-token", identifier: "credential-editor-component-value-0")
-        click("credential-editor-save")
-        XCTAssertTrue(app.buttons["welcome-later"].waitForExistence(timeout: 8))
-        click("welcome-later")
-        click("unlock-management")
+        if app.buttons["unlock-management"].waitForExistence(timeout: 3) { click("unlock-management") }
         click("sidebar-agent")
         XCTAssertTrue(app.buttons["onboarding-review-codex"].waitForExistence(timeout: 8))
-        capture("zh-07-agent-access")
+        capture("19-zh-agent-access")
     }
 
     func testPendingRequestsAndAccessRecords() throws {

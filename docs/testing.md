@@ -89,9 +89,16 @@ The optional `ScreenshotE2ETests` suite runs separately in CI and does not chang
 12-approval-default.png
 13-approval-details.png
 14-approval-cancelled-authentication.png
+15-approval-credential-metadata.png
+16-approval-organization.png
+17-approval-organization-existing-targets.png
+18-zh-approval-default.png
+19-zh-agent-access.png
 ```
 
-An optional capture failure is diagnostic: inspect the screenshot step, its log and xcresult, and the exported subset. A green required-flow job alone does not prove screenshot completeness; #146 acceptance also requires all 14 PNGs in the artifact. Delete downloaded evidence after review.
+`18` and `19` are the approval prompt and the Agent access page in Simplified Chinese, used in `README.zh-CN.md`.
+
+An optional capture failure is diagnostic: inspect the screenshot step, its log and xcresult, and the exported subset. A green required-flow job alone does not prove screenshot completeness; #146 acceptance also requires every PNG listed above in the artifact. Delete downloaded evidence after review.
 
 Desktop tests exercise shared App/Broker/helper behavior, but system authentication and external client boundaries use isolated fixtures. Passing them does not validate real Touch ID, production keychain access, a real client task, signing/notarization, or a release. Per [ADR 0006](adr/0006-release-process.md), `Local` and `Release` builds run [release-gate.py](../scripts/release-gate.py): the checkout must be clean, `HEAD` must be reachable from `origin/main` after fetching, and the latest push-to-main `CI` run for that exact commit and both required jobs (`build-and-test`, `basic-ui-flows`) must succeed. Jobs are checked for the run's latest attempt. `Release` also requires the tag `v<product version>` to point at `HEAD`; signing identities, notarization, and explicit maintainer publication approval remain required by the release process.
 

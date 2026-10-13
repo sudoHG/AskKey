@@ -17,6 +17,7 @@ SCREENSHOTS = [
     "15-approval-credential-metadata",
     "16-approval-organization",
     "17-approval-organization-existing-targets",
+    "18-zh-approval-default", "19-zh-agent-access",
 ]
 
 
