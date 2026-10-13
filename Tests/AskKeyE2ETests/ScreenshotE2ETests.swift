@@ -47,6 +47,38 @@ final class ScreenshotE2ETests: E2EBaseCase {
         capture("11-locked")
     }
 
+    /// The two README pictures again in Simplified Chinese, for README.zh-CN.md.
+    func testReadmeScreensInChinese() throws {
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "approval-screenshots"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = "zh-Hans"
+        app.launch()
+        _ = try waitForEvidence("approval-pending.json")
+        XCTAssertTrue(app.buttons["approval-details"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["approval-allow-once"].waitForExistence(timeout: 8))
+        capture("zh-12-approval-default", approval: true)
+        click("approval-deny")
+        _ = try waitForEvidence("approval-result.json")
+        app.terminate()
+
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-welcome"
+        app.launch()
+        moveManagementAboveDock()
+        XCTAssertTrue(app.buttons["welcome-create-credential"].waitForExistence(timeout: 8))
+        click("welcome-create-credential")
+        XCTAssertTrue(app.buttons["credential-template-custom"].waitForExistence(timeout: 8))
+        click("credential-template-custom")
+        replaceText("CI Demo Credential", identifier: "credential-editor-name")
+        replaceText("TOKEN", identifier: "credential-editor-component-name-0")
+        replaceText("synthetic-ci-token", identifier: "credential-editor-component-value-0")
+        click("credential-editor-save")
+        XCTAssertTrue(app.buttons["welcome-later"].waitForExistence(timeout: 8))
+        click("welcome-later")
+        click("unlock-management")
+        click("sidebar-agent")
+        XCTAssertTrue(app.buttons["onboarding-review-codex"].waitForExistence(timeout: 8))
+        capture("zh-07-agent-access")
+    }
+
     func testPendingRequestsAndAccessRecords() throws {
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "approval-deny"
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = "en"

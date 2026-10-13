@@ -4,6 +4,8 @@
 
 # Ask Key
 
+<p align="center"><a href="README.zh-CN.md"><img src="https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-b8281e?style=for-the-badge" alt="Read this in Simplified Chinese"></a></p>
+
 [![CI](https://img.shields.io/github/actions/workflow/status/sudoHG/AskKey/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/sudoHG/AskKey/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/sudoHG/AskKey?style=flat-square&label=release)](https://github.com/sudoHG/AskKey/releases/latest) [![Downloads](https://img.shields.io/github/downloads/sudoHG/AskKey/total?style=flat-square&label=downloads)](https://github.com/sudoHG/AskKey/releases) [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?style=flat-square&logo=apple)](#install) [![Stars](https://img.shields.io/github/stars/sudoHG/AskKey?style=flat-square&label=stars)](https://github.com/sudoHG/AskKey/stargazers) [![License](https://img.shields.io/github/license/sudoHG/AskKey?style=flat-square)](LICENSE) [![README views](https://hits.sh/github.com/sudoHG/AskKey.svg?style=flat-square&label=README%20views)](https://hits.sh/github.com/sudoHG/AskKey/)
 
 **The Mac key manager for AI.** Your keys stay encrypted on your Mac, and AI agents use them only through Ask Key:
@@ -12,7 +14,7 @@
 - **Your rules:** everyday keys pass, sensitive ones wait for your approval, and some stay hidden.
 - **Locked down:** a key goes only to the program that needs it; the agent never sees the value.
 
-**[Download for Mac](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)** (free, notarized, Apple silicon, macOS 14 or later) · [Website](https://askkey.sudohg.com/) · [Simplified Chinese](README.zh-CN.md)
+**[Download for Mac](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)** (free, notarized, Apple silicon, macOS 14 or later) · [Website](https://askkey.sudohg.com/)
 
 > Ask Key has no backup or recovery yet, so keep the originals of your credentials somewhere else.
 
