@@ -49,9 +49,10 @@ body {
 }
 
 img, video { display: block; max-width: 100%; height: auto; }
-/* Pictures here are scenery, not content to save: no long-press menu, no
-   force-click preview and no dragging a copy off the page. */
-.hero-image img, .slip .imp, .stone img, .pass img, .hub-core img, .akhw-poster img, .download img {
+/* Pictures on this site are part of the design, not content to save: no
+   long-press menu, no force-click preview and no dragging a copy off the
+   page. Clicks on a picture inside a link still reach the link. */
+img {
   pointer-events: none;
   -webkit-touch-callout: none;
   -webkit-user-drag: none;
