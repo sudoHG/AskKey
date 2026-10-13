@@ -20,6 +20,8 @@ CJK_ALLOWLIST = {
     "Sources/AskKeyAppKit/Resources/Localizable.xcstrings",  # English and Simplified Chinese UI catalog.
     "Sources/AskKeyHelper/Resources/Localizable.xcstrings",  # English and Simplified Chinese helper copy (#83).
     "README.zh-CN.md",  # Simplified Chinese README.
+    "site/index.html",  # Language switcher on the English website (#160).
+    "site/zh/index.html",  # Simplified Chinese website (#160).
     "docs/glossary.md",  # Chinese UI terms alongside English glossary prose (#67).
     "Sources/AskKeyAppKit/Resources/zh-Hans.lproj/InfoPlist.strings",  # Localized product name.
     "Tests/AskKeyAppTests/AgentClientConnectionPolicyTests.swift",  # Chinese client connection errors.

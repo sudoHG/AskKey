@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ask Key — the Mac key manager for AI</title>
+  <meta name="description" content="Ask Key is the Mac key manager for AI. Your AI agents look up the keys they need without you pointing the way; everyday keys pass while sensitive ones wait for your approval; keys go only to the program, never to the AI. Free and open source.">
+  <link rel="canonical" href="https://askkey.sudohg.com/">
+  <link rel="alternate" hreflang="en" href="https://askkey.sudohg.com/">
+  <link rel="alternate" hreflang="zh-Hans" href="https://askkey.sudohg.com/zh/">
+  <meta property="og:title" content="Ask Key — the Mac key manager for AI">
+  <meta property="og:description" content="The Mac key manager for AI. AI agents find keys themselves, sensitive ones wait for your approval, and keys go only to the program, never to the AI.">
+  <meta property="og:url" content="https://askkey.sudohg.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://askkey.sudohg.com/assets/og-en.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Ask Key: No key leaves without your seal. The Mac key manager for AI.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" type="image/png" href="/assets/favicon-64.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/hero-desk.jpg" as="image">
+  <link rel="preload" href="/fonts/HankenGrotesk-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css?v=bf306ca765">
+  <link rel="stylesheet" href="/how/how.css?v=678740993e">
+  <script type="module" src="/how/how.js?v=28dba282cc"></script>
+  <script src="/motion.js?v=09073b35d1" defer></script>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-text">
+      <nav class="nav" aria-label="Sections">
+        <a class="brand" href="/"><img src="/assets/icon-256.png" alt="" width="22" height="22">Ask Key</a>
+        <a class="hide-sm" href="#how">How it works</a>
+        <a class="hide-sm" href="#decide">Permissions</a>
+        <a class="hide-sm" href="#limits">Limits</a>
+        <a href="https://github.com/sudoHG/AskKey">GitHub</a>
+        <a href="/zh/" hreflang="zh-Hans" lang="zh-Hans">中文</a>
+      </nav>
+      <div class="statement fade">
+        <h1>No key leaves<br>without <b>your seal.</b></h1>
+        <p class="sub"><strong>The Mac key manager for AI.</strong></p>
+        <ul class="points">
+          <li><b>Find keys</b><span class="sep">: </span>AI agents look them up, no more pointing the way</li>
+          <li><b>Your rules</b><span class="sep">: </span>everyday keys pass, sensitive ones wait for you</li>
+          <li><b>Locked down</b><span class="sep">: </span>keys go only to the program, never to the AI</li>
+        </ul>
+      </div>
+      <div class="intro fade">
+        <div class="ctas">
+          <a class="cta" href="https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg">Download for Mac</a>
+          <a class="cta-alt" href="https://github.com/sudoHG/AskKey">View on GitHub</a>
+        </div>
+        <p class="meta">Free and open source · Requires Apple silicon and macOS 14 or later</p>
+      </div>
+    </div>
+    <figure class="hero-image">
+      <div class="plate">
+        <img class="photo" src="/assets/hero-desk.jpg" width="1672" height="941" alt="A sheet of handmade paper on a wooden desk, beside an open box of cinnabar ink paste and a stone seal.">
+        <img class="seal" src="/assets/seal-zhun.webp" width="360" height="360" alt="A vermilion seal impression of the character 准, approved.">
+      </div>
+    </figure>
+  </header>
+
+  <main>
+    <section class="akhw" id="how" lang="en" aria-labelledby="akhw-title">
+      <div class="akhw-head">
+        <span class="akhw-num">一<span>How it works</span></span>
+        <h2 id="akhw-title">You say one line and click once. That’s it.</h2>
+        <p class="akhw-lede" data-still="This is how it ends. Use the prompt below to see what Deny does instead.">Watch one request from start to finish. When it needs a key, it stops and waits for you.</p>
+      </div>
+
+      <div class="akhw-frame">
+      <div class="akhw-stage">
+        <canvas class="akhw-canvas" aria-hidden="true"></canvas>
+        <picture class="akhw-poster"><source media="(max-width: 700px), (max-aspect-ratio: 1 / 1)" srcset="/how/img/poster-en-tall.webp" width="780" height="1320"><img src="/how/img/poster-en-wide.webp" width="1600" height="900" alt="Ask Key in the middle, the AI on the left and the program ./deploy.sh on the right. The key goes from Ask Key straight to the program; the AI only gets back one line of output." loading="lazy"></picture>
+        <div class="akhw-tags" aria-hidden="true"></div>
+
+        <div class="akhw-alert" role="alertdialog" aria-modal="false" aria-labelledby="akhw-alert-title" aria-describedby="akhw-alert-run" hidden>
+          <img class="akhw-alert-icon" src="/assets/icon-256.png" width="64" height="64" alt="">
+          <strong id="akhw-alert-title">“Claude Code” wants to use “Website server”</strong>
+          <div class="akhw-alert-run" id="akhw-alert-run">to run <code>./deploy.sh</code></div>
+          <button type="button" class="akhw-alert-details" aria-expanded="false">Details<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <dl class="akhw-alert-rows" hidden>
+            <dt>Delivers</dt><dd><code>DEPLOY_TOKEN</code></dd>
+            <dt>Location</dt><dd>~/my-website</dd>
+            <dt>Requested by</dt><dd>Claude Code (self-declared, unverified)</dd>
+            <dt>Stated purpose</dt><dd>Publish the website (self-declared, unverified)</dd>
+          </dl>
+          <div class="akhw-alert-actions">
+            <button type="button" class="akhw-btn is-primary" data-decide="once">Allow once</button>
+            <button type="button" class="akhw-btn" data-decide="timed">Allow for 30 minutes</button>
+            <button type="button" class="akhw-btn" data-decide="deny">Deny</button>
+          </div>
+          <div class="akhw-alert-foot"><span class="akhw-count" data-format="Expires in {t}">Expires in 4:57</span> · <button type="button" class="akhw-later">Esc to decide later</button></div>
+        </div>
+        <p class="akhw-hint" hidden>It’s a demo. Try any button.</p>
+        <button type="button" class="akhw-pending" hidden>1 request waiting · Open</button>
+
+        <div class="akhw-end" hidden>
+          <button type="button" class="akhw-again">Watch again</button>
+          <button type="button" class="akhw-other" data-allow="Try Allow instead" data-deny="Try Deny this time">Try Deny this time</button>
+        </div>
+        <button type="button" class="akhw-play" hidden>Play</button>
+      </div>
+      <div class="akhw-say" aria-hidden="true"></div>
+      </div>
+
+      <ol class="akhw-steps">
+        <li data-step="0"><button type="button"><b>Ask</b><i></i></button><p>You tell your AI:<br><span>“Publish the website.”</span></p></li>
+        <li data-step="1"><button type="button"><b>Catalog</b><i></i></button><p>It looks through Ask Key’s catalog and finds the key it needs.<br><span>You don’t have to tell it where the key is.</span></p></li>
+        <li data-step="2"><button type="button"><b>Request</b><i></i></button><p>To use it, the AI files a request:<br><span>run ./deploy.sh with “Website server”.</span></p></li>
+        <li data-step="3"><button type="button"><b>Decide</b><i></i></button><p>Ask Key asks you.<br><span>Who wants which key, to run what. It’s all on one prompt.</span></p></li>
+        <li data-step="4"><button type="button"><b>Deliver</b><i></i></button>
+          <p data-when="allow">You allowed it.<br><span>Ask Key hands the key straight to ./deploy.sh, not to the AI.</span></p>
+          <p data-when="timed">You allowed it for 30 minutes.<br><span>The key goes straight to ./deploy.sh. For the next 30 minutes it’s used without asking you again.</span></p>
+          <p data-when="deny">You said no.<br><span>./deploy.sh never runs, and the key stays put.</span></p>
+          <p data-when="expire">Nobody answered.<br><span>The request expired after five minutes.</span></p>
+        </li>
+        <li data-step="5"><button type="button"><b>Result</b><i></i></button>
+          <p data-when="allow">The AI gets back one line: “Deployed”.<br><span>The job is done, and the AI never held the key. Every use is in Access records.</span></p>
+          <p data-when="deny">The AI gets back one line: “Denied”.<br><span>Using a key always goes through you.</span></p>
+          <p data-when="expire">The AI gets back one line: “Expired”.<br><span>Using a key always goes through you.</span></p>
+        </li>
+      </ol>
+
+      <script type="application/json" class="akhw-i18n">{
+  "lang": "en",
+  "term": {
+    "title": "Claude Code — my-website",
+    "ask": "Publish the website",
+    "check": "Checking the Ask Key catalog:",
+    "cat": [
+      [
+        "Website server",
+        "for deploys",
+        "DEPLOY_TOKEN"
+      ],
+      [
+        "OpenAI",
+        "model calls",
+        "OPENAI_API_KEY"
+      ]
+    ],
+    "noValue": "(found the one I need: Website server)",
+    "cant": "Asking Ask Key to",
+    "req": "run ./deploy.sh with “Website server”",
+    "wait": "Waiting for your approval…",
+    "ok": "Approved",
+    "okTimed": "Approved (30 minutes)",
+    "out": "./deploy.sh output: Deployed",
+    "live": "The website is live.",
+    "denied": "Request denied.",
+    "deniedNext": "OK. I won’t run ./deploy.sh.",
+    "expired": "Request expired: no answer in 5 minutes.",
+    "expiredNext": "./deploy.sh did not run."
+  },
+  "card": {
+    "name": "Website server",
+    "note": "for deploys",
+    "env": "DEPLOY_TOKEN",
+    "value": "value: hidden from the AI",
+    "name2": "OpenAI",
+    "note2": "model calls",
+    "env2": "OPENAI_API_KEY"
+  },
+  "slip": {
+    "head": "Request",
+    "line1": "Website server",
+    "line2": "→ ./deploy.sh"
+  },
+  "chip": "Deployed",
+  "site": {
+    "url": "my-website.com",
+    "idle": "Not published yet",
+    "live": "Live",
+    "title": "My Website"
+  },
+  "prog": "./deploy.sh",
+  "tags": {
+    "agent": [
+      "The AI",
+      "Claude Code"
+    ],
+    "vault": [
+      "Ask Key",
+      "Locked on your Mac"
+    ],
+    "prog": [
+      "./deploy.sh",
+      "The program that needs the key"
+    ],
+    "you": [
+      "You",
+      "Your call"
+    ],
+    "noValue": "Found it: Website server",
+    "flying": "Website server → ./deploy.sh",
+    "notAI": "Not through the AI",
+    "agentEnd": "Keys held: 0",
+    "progEnd": "Site is live",
+    "progDeny": "Never ran",
+    "vaultEnd": "Access records +1",
+    "vaultTimed": "Access records +1 · no prompt for 30 min",
+    "vaultDeny": "Key untouched",
+    "pathReq": "request",
+    "pathKey": "key",
+    "pathOut": "result"
+  },
+  "count": "Expires in {t}"
+}
+      </script>
+    </section>
+
+    <section class="decide" id="decide">
+      <div class="wrap decide-grid">
+        <div>
+          <span class="num">二<span>Permissions</span></span>
+          <h2>Every key follows your rule.</h2>
+          <p>Everyday keys pass, important ones ask you every time, and keys your AI should never touch stay hidden.</p>
+          <p>When a key needs asking, Ask Key shows who wants it, which key, and what for. Allow it once, or for 30&nbsp;minutes; for those 30&nbsp;minutes, every AI on the same Mac can use it without asking again.</p>
+        </div>
+        <div class="desk">
+          <div class="slip"><h3>Allow</h3><p>Your AI uses it without asking, and every use is recorded.</p><img class="imp" src="/assets/seal-zhun.webp" width="360" height="360" alt="准, approved"></div>
+          <div class="slip"><h3>Ask every time<small>Default</small></h3><p>Every use waits for your yes.</p><img class="imp" src="/assets/seal-wen.webp" width="360" height="360" alt="问, ask"></div>
+          <div class="slip hidden-slip"><h3>Hidden</h3><p>Your AI can’t see this key, so it never asks for it.</p><img class="imp" src="/assets/seal-yin.webp" width="360" height="360" alt="隐, hidden"></div>
+          <div class="stone" aria-hidden="true"><img src="/assets/seal-stone.webp" width="300" height="648" alt=""></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" id="clients">
+      <div class="wrap">
+        <span class="num">三<span>Clients</span></span>
+        <h2>Works with the AI coding tools you already use.</h2>
+        <p class="lede">Four connect in one click. Any other tool that speaks MCP works with a short config.</p>
+        <div class="hub">
+          <svg class="hub-lines" aria-hidden="true"></svg>
+          <div class="hub-core"><img src="/assets/icon-256.png" width="112" height="112" alt=""><b>Ask Key</b></div>
+          <ul class="hub-names is-auto" aria-label="One click">
+          <li>Claude Code</li>
+          <li>Codex</li>
+          <li>Cursor</li>
+          <li>Grok Build</li>
+          </ul>
+          <ul class="hub-names is-mcp" aria-label="By hand">
+          <li>Claude Desktop</li>
+          <li>VS Code</li>
+          <li>Kiro</li>
+          <li>Trae</li>
+          <li>Windsurf</li>
+          <li>Qwen Code</li>
+          <li>Zed</li>
+          <li>Cline</li>
+          </ul>
+        </div>
+        <ul class="hub-legend">
+          <li><i class="is-auto"></i><b>One click</b>Ask Key writes the settings for you</li>
+          <li><i class="is-mcp"></i><b>By hand</b>Paste a short config into any MCP tool<button type="button" class="hub-copy" data-done="Copied" data-fail="Couldn’t copy. Select the config below" hidden>Copy config</button></li>
+        </ul>
+<pre class="code hub-config">"askkey": {
+  "command": "/Applications/Ask Key.app/Contents/Helpers/askkey",
+  "args": ["mcp"]
+}</pre>
+      </div>
+    </section>
+
+    <section class="limits-band" id="limits">
+      <div class="wrap limits-grid">
+        <div>
+          <span class="num">四<span>Limits</span></span>
+          <h2>What it doesn’t promise.</h2>
+          <p class="limits-lead">Ask Key decides who gets a key, and when. A few things are outside its reach; know them before you rely on it.</p>
+          <a class="link" href="https://github.com/sudoHG/AskKey/blob/main/SECURITY.md">The full security model</a>
+        </div>
+        <ol class="limits">
+          <li><i>01</i><div><b>Programs can pass keys on</b><p>A program you approve can print, copy or forward the key it receives. You are approving that program, not just the AI that asked.</p></div></li>
+          <li><i>02</i><div><b>Names are self-reported</b><p>The requester and purpose in the prompt come from the AI. They help you read the request; they are not a verified identity.</p></div></li>
+          <li><i>03</i><div><b>Other programs in your account</b><p>Once a key reaches a program, other programs in the same Mac account may read it. Hidden doesn’t cover that path.</p></div></li>
+          <li><i>04</i><div><b>Timed allow covers every AI</b><p>“Allow for 30 minutes” applies to every AI on this Mac, not just the one that asked.</p></div></li>
+          <li><i>05</i><div><b>No backup yet</b><p>There is no backup or restore yet. Keep a copy of important keys somewhere else.</p></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="download" id="download">
+      <div class="wrap dl-grid">
+        <div class="pass">
+          <div class="pass-swing">
+            <img class="pass-shadow" src="/assets/pass-shadow.webp" width="881" height="960" alt="" aria-hidden="true">
+            <div class="pass-tilt">
+              <img class="pass-card" src="/assets/pass.webp" width="641" height="720" alt="The Ask Key app icon: an orange access card with a white key">
+              <img class="pass-key" src="/assets/pass-key.webp" width="641" height="720" alt="" aria-hidden="true">
+              <i class="pass-shine" aria-hidden="true"></i>
+            </div>
+            <svg class="pass-cord" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="pass-cord-fade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="11"><stop offset="0" stop-color="#b8281e" stop-opacity="0"/><stop offset="1" stop-color="#b8281e"/></linearGradient></defs><path d="M50,0 L50,13 M50,13 C46.6,16 45.3,21 45.5,26.6 M50,13 C53.4,16 54.5,21 54.3,26.6"/><circle cx="50" cy="13" r="0.9"/></svg>
+          </div>
+        </div>
+        <div class="dl-copy">
+          <h2 class="lock"><b>Ask Key</b></h2>
+          <p class="tagline">The Mac key manager for AI.</p>
+          <a class="cta dl-cta" href="https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg">Download for Mac</a>
+          <p class="req">Free · Requires Apple silicon and macOS 14 or later<br>Drag the app to Applications and keep its name.</p>
+          <ul class="assure">
+            <li><b>Free and open source</b><span>MIT licensed, every line of code on GitHub. If it helps you, <a class="star" href="https://github.com/sudoHG/AskKey">give it a star</a>.</span></li>
+            <li><b>Notarized by Apple</b>The installer passed Apple’s security check.</li>
+            <li><b>Encrypted on your Mac</b>Your keys are encrypted and kept on your own Mac.</li>
+          </ul>
+          <ul class="fine">
+            <li><a href="https://github.com/sudoHG/AskKey/releases">Release notes</a></li>
+            <li><a href="https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg.sha256">Checksum file</a></li>
+            <li><button type="button" class="dl-copycmd" data-copy="shasum -a 256 -c AskKey.dmg.sha256" data-done="Copied" data-fail="Couldn’t copy">Copy checksum command</button></li>
+            <li><a href="https://github.com/sudoHG/AskKey">Source code</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Ask Key · MIT License · This page loads nothing from third parties</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/sudoHG/AskKey">GitHub</a>
+        <a href="https://github.com/sudoHG/AskKey/releases">Releases</a>
+        <a href="https://github.com/sudoHG/AskKey#install">Install guide</a>
+        <a href="https://github.com/sudoHG/AskKey/blob/main/CHANGELOG.md">Changelog</a>
+        <a href="/zh/" hreflang="zh-Hans" lang="zh-Hans">中文</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

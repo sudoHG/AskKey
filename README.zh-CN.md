@@ -4,7 +4,7 @@
 
 一个 macOS 菜单栏应用：凭证加密保存在你的 Mac 上，AI Agent 必须经过你的批准才能使用。
 
-[English](README.md) | 简体中文
+[官网](https://askkey.sudohg.com/zh/) · [English](README.md) | 简体中文
 
 > **[下载最新版本](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)**（经过 Apple 公证的 DMG，需要 macOS 14 或更高版本）。请旨目前没有备份和恢复功能，请自行另存一份凭证原件。
 

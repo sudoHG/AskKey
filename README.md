@@ -4,7 +4,7 @@
 
 A macOS menu bar app that keeps your credentials encrypted on your Mac and lets AI agents use them only after you approve.
 
-English | [Simplified Chinese](README.zh-CN.md)
+[Website](https://askkey.sudohg.com/) · English | [Simplified Chinese](README.zh-CN.md)
 
 > **[Download the latest release](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)** (notarized DMG, macOS 14+). AskKey has no backup or recovery yet, so keep the originals of your credentials somewhere else.
 

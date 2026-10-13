@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>请旨 Ask Key：给 AI 用的 Mac 密钥管家</title>
+  <meta name="description" content="请旨 Ask Key 是给 AI 用的 Mac 密钥管家：密钥在哪，AI 自己就找得到，不用再频繁给它指路；权限你定，普通密钥直接放行，敏感密钥由你审批；密钥只会交给目标程序，AI 看不到明文。免费开源。">
+  <link rel="canonical" href="https://askkey.sudohg.com/zh/">
+  <link rel="alternate" hreflang="en" href="https://askkey.sudohg.com/">
+  <link rel="alternate" hreflang="zh-Hans" href="https://askkey.sudohg.com/zh/">
+  <meta property="og:title" content="请旨 Ask Key：给 AI 用的 Mac 密钥管家">
+  <meta property="og:description" content="给 AI 用的 Mac 密钥管家。AI 自己找得到密钥；普通密钥直接放行，敏感密钥由你审批；密钥只交给目标程序，AI 看不到明文。">
+  <meta property="og:url" content="https://askkey.sudohg.com/zh/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://askkey.sudohg.com/assets/og-zh.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="请旨 Ask Key：取用密钥，先来请旨。给 AI 用的 Mac 密钥管家。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" type="image/png" href="/assets/favicon-64.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/hero-desk.jpg" as="image">
+  <link rel="stylesheet" href="/style.css?v=bf306ca765">
+  <link rel="stylesheet" href="/how/how.css?v=678740993e">
+  <script type="module" src="/how/how.js?v=28dba282cc"></script>
+  <script src="/motion.js?v=09073b35d1" defer></script>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-text">
+      <nav class="nav" aria-label="页面导航">
+        <a class="brand" href="/zh/"><img src="/assets/icon-256.png" alt="" width="22" height="22">请旨<small>Ask Key</small></a>
+        <a class="hide-sm" href="#how">工作方式</a>
+        <a class="hide-sm" href="#decide">权限</a>
+        <a class="hide-sm" href="#limits">边界</a>
+        <a href="https://github.com/sudoHG/AskKey">GitHub</a>
+        <a href="/" hreflang="en" lang="en">English</a>
+      </nav>
+      <div class="statement fade">
+        <h1>取用密钥，<br>先来<b>请旨</b>。</h1>
+        <p class="sub"><strong>给 AI 用的 Mac 密钥管家。</strong></p>
+        <ul class="points">
+          <li><b>密钥在哪</b><span class="sep">，</span>AI 自己就找得到，不用再频繁给它指路</li>
+          <li><b>权限你定</b><span class="sep">，</span>普通密钥直接放行，敏感密钥由你审批</li>
+          <li><b>安全加固</b><span class="sep">，</span>密钥只会交给目标程序，AI 看不到明文</li>
+        </ul>
+      </div>
+      <div class="intro fade">
+        <div class="ctas">
+          <a class="cta" href="https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg">下载 macOS 版</a>
+          <a class="cta-alt" href="https://github.com/sudoHG/AskKey">在 GitHub 上查看</a>
+        </div>
+        <p class="meta">免费开源 · 需 Apple 芯片及 macOS 14 或更高版本</p>
+      </div>
+    </div>
+    <figure class="hero-image">
+      <div class="plate">
+        <img class="photo" src="/assets/hero-desk.jpg" width="1672" height="941" alt="木桌上一张宣纸，旁边是打开的印泥盒和一方寿山石印章。">
+        <img class="seal" src="/assets/seal-zhun.webp" width="360" height="360" alt="纸上盖着朱红的“准”字印">
+      </div>
+    </figure>
+  </header>
+
+  <main>
+    <section class="akhw" id="how" lang="zh-Hans" aria-labelledby="akhw-title">
+      <div class="akhw-head">
+        <span class="akhw-num">一<span>怎么用</span></span>
+        <h2 id="akhw-title">你说一句话，点一次头，活就干完了。</h2>
+        <p class="akhw-lede" data-still="这是最后一幕。可以在下面的弹窗里点“拒绝”，看看会怎样。">下面是 AI 发布一次网站的全过程。轮到用钥匙时，它会先停下来，等你点头。</p>
+      </div>
+
+      <div class="akhw-frame">
+      <div class="akhw-stage">
+        <canvas class="akhw-canvas" aria-hidden="true"></canvas>
+        <picture class="akhw-poster"><source media="(max-width: 700px), (max-aspect-ratio: 1 / 1)" srcset="/how/img/poster-zh-tall.webp" width="780" height="1320"><img src="/how/img/poster-zh-wide.webp" width="1600" height="900" alt="请旨在中间，左边是 AI，右边是要用钥匙的程序 ./deploy.sh。钥匙从请旨直接交给程序，AI 只拿回一句结果。" loading="lazy"></picture>
+        <div class="akhw-tags" aria-hidden="true"></div>
+
+        <div class="akhw-alert" role="alertdialog" aria-modal="false" aria-labelledby="akhw-alert-title" aria-describedby="akhw-alert-run" hidden>
+          <img class="akhw-alert-icon" src="/assets/icon-256.png" width="64" height="64" alt="">
+          <strong id="akhw-alert-title">“Claude Code”想使用“网站服务器”</strong>
+          <div class="akhw-alert-run" id="akhw-alert-run">用于运行 <code>./deploy.sh</code></div>
+          <button type="button" class="akhw-alert-details" aria-expanded="false">详细信息<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <dl class="akhw-alert-rows" hidden>
+            <dt>交付</dt><dd><code>DEPLOY_TOKEN</code></dd>
+            <dt>位置</dt><dd>~/my-website</dd>
+            <dt>请求方</dt><dd>Claude Code（自报，未核实）</dd>
+            <dt>说明</dt><dd>发布网站（自报，未核实）</dd>
+          </dl>
+          <div class="akhw-alert-actions">
+            <button type="button" class="akhw-btn is-primary" data-decide="once">允许本次</button>
+            <button type="button" class="akhw-btn" data-decide="timed">允许 30 分钟</button>
+            <button type="button" class="akhw-btn" data-decide="deny">拒绝</button>
+          </div>
+          <div class="akhw-alert-foot"><span class="akhw-count" data-format="{t} 后失效">4:57 后失效</span> · <button type="button" class="akhw-later">Esc 稍后处理</button></div>
+        </div>
+        <p class="akhw-hint" hidden>这是演示，点哪个都行。</p>
+        <button type="button" class="akhw-pending" hidden>1 个请求等你处理 · 打开</button>
+
+        <div class="akhw-end" hidden>
+          <button type="button" class="akhw-again">再看一遍</button>
+          <button type="button" class="akhw-other" data-allow="改为允许试试" data-deny="这次点“拒绝”试试">这次点“拒绝”试试</button>
+        </div>
+        <button type="button" class="akhw-play" hidden>播放</button>
+      </div>
+      <div class="akhw-say" aria-hidden="true"></div>
+      </div>
+
+      <ol class="akhw-steps">
+        <li data-step="0"><button type="button"><b>交代</b><i></i></button><p>你跟 AI 说：<br><span>“帮我把网站发布上线。”</span></p></li>
+        <li data-step="1"><button type="button"><b>目录</b><i></i></button><p>它自己去请旨里翻，找到要用的那把钥匙。<br><span>不用你再告诉它钥匙放在哪。</span></p></li>
+        <li data-step="2"><button type="button"><b>申请</b><i></i></button><p>它不能直接拿钥匙，得先向你申请：<br><span>用“网站服务器”运行 ./deploy.sh。</span></p></li>
+        <li data-step="3"><button type="button"><b>批准</b><i></i></button><p>请旨弹个窗，问你批不批。<br><span>谁要、要什么、准备做什么，写得清清楚楚。</span></p></li>
+        <li data-step="4"><button type="button"><b>交付</b><i></i></button>
+          <p data-when="allow">你点了允许。<br><span>钥匙由请旨直接交给 ./deploy.sh，AI 碰不到。</span></p>
+          <p data-when="timed">你允许了 30 分钟。<br><span>钥匙直接交给 ./deploy.sh。这 30 分钟里再用这把钥匙，就不再问你了。</span></p>
+          <p data-when="deny">你点了拒绝。<br><span>./deploy.sh 没有运行，钥匙一动没动。</span></p>
+          <p data-when="expire">你一直没理它。<br><span>5 分钟后，这次申请自动作废。</span></p>
+        </li>
+        <li data-step="5"><button type="button"><b>结果</b><i></i></button>
+          <p data-when="allow">AI 只收到一句：“已发布”。<br><span>网站上线了，AI 却从没碰过钥匙。<br>每次使用都记在访问记录里。</span></p>
+          <p data-when="deny">AI 只收到一句：“被拒绝”。<br><span>想用钥匙，得先过你这一关。</span></p>
+          <p data-when="expire">AI 只收到一句：“申请已作废”。<br><span>想用钥匙，得先过你这一关。</span></p>
+        </li>
+      </ol>
+
+      <script type="application/json" class="akhw-i18n">{
+  "lang": "zh",
+  "term": {
+    "title": "Claude Code — 我的网站",
+    "ask": "帮我把网站发布上线",
+    "check": "先在请旨里找找：",
+    "cat": [
+      [
+        "网站服务器",
+        "发布网站用",
+        "DEPLOY_TOKEN"
+      ],
+      [
+        "OpenAI",
+        "调用模型",
+        "OPENAI_API_KEY"
+      ]
+    ],
+    "noValue": "（要用的是：网站服务器）",
+    "cant": "向请旨申请：",
+    "req": "用“网站服务器”运行 ./deploy.sh",
+    "wait": "等待你批准…",
+    "ok": "已获批准",
+    "okTimed": "已获批准（30 分钟）",
+    "out": "./deploy.sh 输出：已发布",
+    "live": "网站已上线。",
+    "denied": "请求被拒绝。",
+    "deniedNext": "好，那我不运行 ./deploy.sh 了。",
+    "expired": "申请已作废：5 分钟没人回应。",
+    "expiredNext": "./deploy.sh 没有运行。"
+  },
+  "card": {
+    "name": "网站服务器",
+    "note": "发布网站用",
+    "env": "DEPLOY_TOKEN",
+    "value": "值：AI 看不到",
+    "name2": "OpenAI",
+    "note2": "调用模型",
+    "env2": "OPENAI_API_KEY"
+  },
+  "slip": {
+    "head": "申请",
+    "line1": "网站服务器",
+    "line2": "→ ./deploy.sh"
+  },
+  "chip": "已发布",
+  "site": {
+    "url": "my-website.com",
+    "idle": "尚未发布",
+    "live": "已上线",
+    "title": "我的网站"
+  },
+  "prog": "./deploy.sh",
+  "tags": {
+    "agent": [
+      "AI 助手",
+      "Claude Code"
+    ],
+    "vault": [
+      "请旨",
+      "锁在你的 Mac 里"
+    ],
+    "prog": [
+      "./deploy.sh",
+      "要用钥匙的程序"
+    ],
+    "you": [
+      "你",
+      "批准与否，由你定"
+    ],
+    "noValue": "找到了：网站服务器",
+    "flying": "网站服务器 → ./deploy.sh",
+    "notAI": "不经过 AI",
+    "agentEnd": "手里的钥匙：0 把",
+    "progEnd": "网站已上线",
+    "progDeny": "没有运行",
+    "vaultEnd": "访问记录 +1",
+    "vaultTimed": "访问记录 +1 · 30 分钟内不再问",
+    "vaultDeny": "钥匙一动没动",
+    "pathReq": "请求",
+    "pathKey": "钥匙",
+    "pathOut": "结果"
+  },
+  "count": "{t} 后失效"
+}
+      </script>
+    </section>
+
+    <section class="decide" id="decide">
+      <div class="wrap decide-grid">
+        <div>
+          <span class="num">二<span>权限</span></span>
+          <h2>每把钥匙，规矩你来定。</h2>
+          <p>常用的钥匙直接放行，要紧的每次先问你，不想让 AI 碰的，干脆藏起来。</p>
+          <p>需要问你时，请旨会弹窗写明谁要、要什么、准备做什么。可以只允许这一次，也可以允许 30 分钟，这段时间里同一台 Mac 上的所有 AI 都不用再问。</p>
+        </div>
+        <div class="desk">
+          <div class="slip"><h3>允许</h3><p>AI 直接用，不用问你，每次使用都有记录。</p><img class="imp" src="/assets/seal-zhun.webp" width="360" height="360" alt="准"></div>
+          <div class="slip"><h3>每次询问<small>默认</small></h3><p>每用一次，都要你点头。</p><img class="imp" src="/assets/seal-wen.webp" width="360" height="360" alt="问"></div>
+          <div class="slip hidden-slip"><h3>隐藏</h3><p>AI 看不到这把钥匙，自然也不会来要。</p><img class="imp" src="/assets/seal-yin.webp" width="360" height="360" alt="隐"></div>
+          <div class="stone" aria-hidden="true"><img src="/assets/seal-stone.webp" width="300" height="648" alt=""></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" id="clients">
+      <div class="wrap">
+        <span class="num">三<span>接入</span></span>
+        <h2>主流 AI 编程工具，都能接上请旨。</h2>
+        <p class="lede">常用的四款一键自动接入；其他支持 MCP 的工具，粘贴一段配置就能用。</p>
+        <div class="hub">
+          <svg class="hub-lines" aria-hidden="true"></svg>
+          <div class="hub-core"><img src="/assets/icon-256.png" width="112" height="112" alt=""><b>请旨</b></div>
+          <ul class="hub-names is-auto" aria-label="一键接入">
+          <li>Claude Code</li>
+          <li>Codex</li>
+          <li>Cursor</li>
+          <li>Grok Build</li>
+          </ul>
+          <ul class="hub-names is-mcp" aria-label="手动接入">
+          <li>Claude Desktop</li>
+          <li>VS Code</li>
+          <li>Kiro</li>
+          <li>Trae</li>
+          <li>Windsurf</li>
+          <li>Qwen Code</li>
+          <li>Zed</li>
+          <li>Cline</li>
+          </ul>
+        </div>
+        <ul class="hub-legend">
+          <li><i class="is-auto"></i><b>一键接入</b>在请旨里点一下，自动写好配置</li>
+          <li><i class="is-mcp"></i><b>手动接入</b>粘贴一段配置即可<button type="button" class="hub-copy" data-done="已复制" data-fail="复制失败，请手动复制下面的配置" hidden>复制配置</button></li>
+        </ul>
+<pre class="code hub-config">"askkey": {
+  "command": "/Applications/Ask Key.app/Contents/Helpers/askkey",
+  "args": ["mcp"]
+}</pre>
+      </div>
+    </section>
+
+    <section class="limits-band" id="limits">
+      <div class="wrap limits-grid">
+        <div>
+          <span class="num">四<span>边界</span></span>
+          <h2>它不承诺的事。</h2>
+          <p class="limits-lead">请旨管的是钥匙交给谁、什么时候交。下面这几件事，它管不到，用之前心里有数。</p>
+          <a class="link" href="https://github.com/sudoHG/AskKey/blob/main/SECURITY.md">完整的安全说明（英文）</a>
+        </div>
+        <ol class="limits">
+          <li><i>01</i><div><b>程序能转发出去</b><p>你批准的程序，可以把收到的钥匙打印、复制或转发出去。你批的是这个程序，不只是开口的 AI。</p></div></li>
+          <li><i>02</i><div><b>名字是自报的</b><p>弹窗里的请求方和用途由 AI 自己填写，帮你看懂请求，但不是验证过的身份。</p></div></li>
+          <li><i>03</i><div><b>同账户的其他程序</b><p>钥匙交给程序后，同一个 Mac 账户里的其他程序也可能读到。“隐藏”管不到这条路。</p></div></li>
+          <li><i>04</i><div><b>限时允许不分 AI</b><p>“允许 30 分钟”对这台 Mac 上的所有 AI 都生效，不区分是哪一个。</p></div></li>
+          <li><i>05</i><div><b>暂时没有备份</b><p>目前没有备份和恢复。重要的钥匙，请在别处另存一份原件。</p></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="download" id="download">
+      <div class="wrap dl-grid">
+        <div class="pass">
+          <div class="pass-swing">
+            <img class="pass-shadow" src="/assets/pass-shadow.webp" width="881" height="960" alt="" aria-hidden="true">
+            <div class="pass-tilt">
+              <img class="pass-card" src="/assets/pass.webp" width="641" height="720" alt="请旨的应用图标：一张橙色门禁卡，上面是一把白色钥匙">
+              <img class="pass-key" src="/assets/pass-key.webp" width="641" height="720" alt="" aria-hidden="true">
+              <i class="pass-shine" aria-hidden="true"></i>
+            </div>
+            <svg class="pass-cord" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="pass-cord-fade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="11"><stop offset="0" stop-color="#b8281e" stop-opacity="0"/><stop offset="1" stop-color="#b8281e"/></linearGradient></defs><path d="M50,0 L50,13 M50,13 C46.6,16 45.3,21 45.5,26.6 M50,13 C53.4,16 54.5,21 54.3,26.6"/><circle cx="50" cy="13" r="0.9"/></svg>
+          </div>
+        </div>
+        <div class="dl-copy">
+          <h2 class="lock"><b>请旨</b><span>Ask Key</span></h2>
+          <p class="tagline">给 AI 用的 Mac 密钥管家。</p>
+          <a class="cta dl-cta" href="https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg">下载 macOS 版</a>
+          <p class="req">免费 · 需 Apple 芯片及 macOS 14 或更高版本<br>下载后把应用拖进“应用程序”，不要改名。</p>
+          <ul class="assure">
+            <li><b>免费开源</b><span>MIT 许可，代码全在 GitHub 上。觉得好用，欢迎<a class="star" href="https://github.com/sudoHG/AskKey">点个 Star</a>。</span></li>
+            <li><b>经过 Apple 公证</b>安装包经过 Apple 的安全检查。</li>
+            <li><b>在本机加密保存</b>密钥加密后存在你自己的 Mac 上。</li>
+          </ul>
+          <ul class="fine">
+            <li><a href="https://github.com/sudoHG/AskKey/releases">更新说明</a></li>
+            <li><a href="https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg.sha256">下载校验文件</a></li>
+            <li><button type="button" class="dl-copycmd" data-copy="shasum -a 256 -c AskKey.dmg.sha256" data-done="已复制" data-fail="复制失败">复制校验命令</button></li>
+            <li><a href="https://github.com/sudoHG/AskKey">查看源码</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>请旨 Ask Key · MIT 许可 · 本页不加载任何第三方资源</span>
+      <nav aria-label="页脚">
+        <a href="https://github.com/sudoHG/AskKey">GitHub</a>
+        <a href="https://github.com/sudoHG/AskKey/releases">版本发布</a>
+        <a href="https://github.com/sudoHG/AskKey/blob/main/README.zh-CN.md#安装">安装说明</a>
+        <a href="https://github.com/sudoHG/AskKey/blob/main/CHANGELOG.md">更新日志</a>
+        <a href="/" hreflang="en" lang="en">English</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
