@@ -89,6 +89,8 @@
   -webkit-user-select: none;
 }
 .akhw-canvas {
+  -webkit-touch-callout: none;
+  user-select: none;
   position: absolute;
   inset: 0;
   width: 100%;
