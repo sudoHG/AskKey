@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const site = new URL("../../site/", import.meta.url);
 const files = ["style.css", "motion.js", "how/how.css", "how/how.js"];
 const hash = Object.fromEntries(files.map((f) => [f, createHash("sha256").update(readFileSync(new URL(f, site))).digest("hex").slice(0, 10)]));
-for (const page of ["index.html", "zh/index.html"]) {
+for (const page of ["index.html", "zh/index.html", "404.html"]) {
   const url = new URL(page, site);
   let html = readFileSync(url, "utf8");
   for (const f of files) {

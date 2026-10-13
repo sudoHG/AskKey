@@ -1,0 +1,25 @@
+# Cloudflare Pages response headers.
+
+# The pages.dev address is a mirror of askkey.sudohg.com; keep it out of
+# search results so the custom domain is the only one indexed.
+https://askkey.pages.dev/*
+  X-Robots-Tag: noindex
+
+# Stylesheets and scripts are linked with a content hash (?v=…), so a
+# changed file always has a new URL and the old one can be kept forever.
+/style.css
+  Cache-Control: public, max-age=31536000, immutable
+/motion.js
+  Cache-Control: public, max-age=31536000, immutable
+/how/how.css
+  Cache-Control: public, max-age=31536000, immutable
+/how/how.js
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Pictures keep their names when they change, so cache them for a week.
+/assets/*
+  Cache-Control: public, max-age=604800
+/how/img/*
+  Cache-Control: public, max-age=604800
