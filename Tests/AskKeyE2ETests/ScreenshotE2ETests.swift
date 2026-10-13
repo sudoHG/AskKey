@@ -61,10 +61,12 @@ final class ScreenshotE2ETests: E2EBaseCase {
         app.terminate()
 
         // The approval run left a saved credential, so the welcome page is past
-        // its first step; go straight to Agent access.
+        // its first step; set it aside and open Agent access.
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-welcome"
         app.launch()
         moveManagementAboveDock()
+        XCTAssertTrue(app.buttons["welcome-later"].waitForExistence(timeout: 8))
+        click("welcome-later")
         if app.buttons["unlock-management"].waitForExistence(timeout: 3) { click("unlock-management") }
         click("sidebar-agent")
         XCTAssertTrue(app.buttons["onboarding-review-codex"].waitForExistence(timeout: 8))
