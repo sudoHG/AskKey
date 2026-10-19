@@ -5,9 +5,8 @@ import Security
 enum KeychainQuery {
     static var systemKeychainAllowed: Bool {
         RuntimeOperationEvents.publish(.keychain)
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["ASKKEY_DEBUG_RUN_DIRECTORY"] != nil { return false }
-        #endif
+        if VaultConfiguration.isDevelopmentBuild,
+           ProcessInfo.processInfo.environment["ASKKEY_DEBUG_RUN_DIRECTORY"] != nil { return false }
         return !(ProcessInfo.processInfo.arguments.first?.contains(".xctest") ?? false)
             && NSClassFromString("XCTestCase") == nil
     }
