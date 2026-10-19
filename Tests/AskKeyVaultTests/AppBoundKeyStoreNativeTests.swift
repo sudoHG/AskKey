@@ -40,7 +40,7 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
         let key = SymmetricKey(data: Data(repeating: 0x51, count: 32))
         let value = try AgentAccessPolicyAuthentication.seal(.defaults, using: key)
         try keys.saveAgentAccessPolicy(value)
-        try fixture.assertOldItemDeleted(old)
+        try fixture.assertOldItemReplaced(old)
         try fixture.assertAppOnlyPolicy()
         XCTAssertEqual(try keys.loadAgentAccessPolicy(), value)
         XCTAssertEqual(try AgentAccessPolicyAuthentication.open(XCTUnwrap(fixture.policyData()), using: key), .defaults)
@@ -48,15 +48,27 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
 
     func testNativeDeleteFailureDoesNotWriteValidValueOrResume() throws {
         let fixture = try KeychainNativeTestSupport(test: self)
-        let old = Data("unauthenticated-delete-denied".utf8)
-        _ = try fixture.addPolicy(old, denyDelete: true)
         let keys = try fixture.makeStore()
-        let key = SymmetricKey(data: Data(repeating: 0x51, count: 32))
-        let valid = try AgentAccessPolicyAuthentication.seal(.defaults, using: key)
-        XCTAssertThrowsError(try keys.saveAgentAccessPolicy(valid)) {
-            XCTAssertEqual($0 as? AppKeyStoreError, .policyPersistenceUnknown)
+        let vault = Vault(paths: .init(directory: fixture.root.appendingPathComponent("library")), keyStore: keys,
+                          fileDeliveryManager: try FileDeliveryManager(rootURL: fixture.root.appendingPathComponent("deliveries")))
+        defer { try? vault.store.close() }
+        try vault.unlock()
+        let old = try keys.loadAgentAccessPolicy()
+        let before = try fixture.pinnedFileBytes()
+        try fixture.makePinnedFileImmutable()
+        XCTAssertEqual(try keys.loadAgentAccessPolicy(), old)
+        XCTAssertThrowsError(try vault.pauseAgentAccess(using: .allow)) {
+            XCTAssertEqual($0 as? AgentAccessPolicyError, .pauseNotSaved)
         }
-        XCTAssertEqual(try fixture.policyData(), old)
+        try fixture.assertNativePolicyDeleteFails()
+        XCTAssertTrue(try vault.agentAccessPolicyState().isPaused)
+        XCTAssertTrue(try vault.agentAccessPolicyState().pauseNotPersisted)
+        try vault.unlock()
+        XCTAssertTrue(try vault.agentAccessPolicyState().isPaused)
+        XCTAssertTrue(try vault.agentAccessPolicyState().pauseNotPersisted)
+        XCTAssertThrowsError(try vault.resumeAgentAccess(using: .allow))
+        XCTAssertTrue(try vault.agentAccessPolicyState().isPaused)
+        XCTAssertEqual(try fixture.pinnedFileBytes(), before)
     }
 
     func testNativeOutsideOnlyPolicyRefusesReadWriteAndDelete() throws {

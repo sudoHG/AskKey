@@ -45,9 +45,9 @@ final class KeychainNativeTestSupport {
                          keychain: try PinnedAppKeychain(temporaryKeychainURL: pinnedURL, additionalSearchURLs: [outsideURL]))
     }
 
-    func addPolicy(_ data: Data, outside: Bool = false, permissive: Bool = false, denyDelete: Bool = false) throws -> NativeItem {
+    func addPolicy(_ data: Data, outside: Bool = false, permissive: Bool = false) throws -> NativeItem {
         try add(data, service: service, account: "agent-access-policy", outside: outside,
-                permissive: permissive, denyDelete: denyDelete)
+                permissive: permissive)
     }
 
     func addVaultKey(_ data: Data, suffix: String = "", outside: Bool = false) throws {
@@ -64,13 +64,27 @@ final class KeychainNativeTestSupport {
         return try XCTUnwrap(result as? Data)
     }
 
-    func assertOldItemDeleted(_ item: NativeItem, file: StaticString = #filePath, line: UInt = #line) throws {
-        let status = SecItemCopyMatching(KeychainQuery.forbidAuthenticationUI([
-            kSecClass as String: kSecClassGenericPassword,
-            kSecMatchSearchList as String: [try XCTUnwrap(pinned)],
-            kSecMatchItemList as String: [item.reference], kSecReturnData as String: true,
-        ]) as CFDictionary, nil)
-        XCTAssertTrue([errSecItemNotFound, errSecInvalidItemRef].contains(status), "Old item must be deleted: \(status)", file: file, line: line)
+    func assertOldItemReplaced(_ item: NativeItem, file: StaticString = #filePath, line: UInt = #line) throws {
+        // File-keychain references may resolve the new item by its primary key.
+        // A new item loses this unrelated attribute; a data/ACL update keeps it.
+        var query = query(service: service, account: "agent-access-policy", outside: false)
+        query[kSecReturnAttributes as String] = true
+        var result: AnyObject?
+        try check(SecItemCopyMatching(query as CFDictionary, &result))
+        let attributes = try XCTUnwrap(result as? [String: Any])
+        XCTAssertNotEqual(attributes[kSecAttrGeneric as String] as? Data, item.marker, file: file, line: line)
+        XCTAssertTrue((attributes[kSecAttrGeneric as String] as? Data ?? Data()).isEmpty, file: file, line: line)
+    }
+
+    func makePinnedFileImmutable() throws {
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: pinnedURL.path)
+    }
+
+    func pinnedFileBytes() throws -> Data { try Data(contentsOf: pinnedURL) }
+
+    func assertNativePolicyDeleteFails() throws {
+        let status = SecItemDelete(query(service: service, account: "agent-access-policy", outside: false) as CFDictionary)
+        XCTAssertNotEqual(status, errSecSuccess, "Fixture must cause a native delete failure")
     }
 
     func assertAppOnlyPolicy(file: StaticString = #filePath, line: UInt = #line) throws {
@@ -98,7 +112,7 @@ final class KeychainNativeTestSupport {
     }
 
     private func add(_ data: Data, service: String, account: String, outside: Bool,
-                     permissive: Bool = false, denyDelete: Bool = false) throws -> NativeItem {
+                     permissive: Bool = false) throws -> NativeItem {
         let access = try AppKeychainAccess.make(application: application)
         if permissive {
             var entries: CFArray?
@@ -110,20 +124,18 @@ final class KeychainNativeTestSupport {
                 }
             }
         }
-        if denyDelete {
-            var acl: SecACL?
-            try check(SecACLCreateWithSimpleContents(access, [] as CFArray, "Synthetic delete denial" as CFString, [], &acl))
-            try check(SecACLUpdateAuthorizations(XCTUnwrap(acl), [kSecACLAuthorizationDelete] as CFArray))
-        }
+        let marker = Data(UUID().uuidString.utf8)
         var query = query(service: service, account: account, outside: outside)
         query.removeValue(forKey: kSecMatchSearchList as String)
         query[kSecUseKeychain as String] = try XCTUnwrap(outside ? self.outside : pinned)
         query[kSecAttrAccess as String] = access
         query[kSecValueData as String] = data
+        query[kSecAttrGeneric as String] = marker
         query[kSecReturnRef as String] = true
         var result: AnyObject?
         try check(SecItemAdd(query as CFDictionary, &result))
-        return NativeItem(reference: unsafeDowncast(try XCTUnwrap(result), to: SecKeychainItem.self))
+        _ = try XCTUnwrap(result)
+        return NativeItem(marker: marker)
     }
 
     private func query(service: String, account: String, outside: Bool) -> [String: Any] {
@@ -146,6 +158,9 @@ final class KeychainNativeTestSupport {
     }
 
     private func cleanup() throws {
+        if FileManager.default.fileExists(atPath: pinnedURL.path) {
+            try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: pinnedURL.path)
+        }
         for keychain in [outside, pinned].compactMap({ $0 }) { try check(SecKeychainDelete(keychain)) }
         outside = nil
         pinned = nil
@@ -157,7 +172,7 @@ final class KeychainNativeTestSupport {
         guard status == errSecSuccess else { throw AppKeyStoreError.securityFailure(status) }
     }
 
-    struct NativeItem { fileprivate let reference: SecKeychainItem }
+    struct NativeItem { fileprivate let marker: Data }
 }
 
 private struct KeychainPreferencesSnapshot: Equatable {
