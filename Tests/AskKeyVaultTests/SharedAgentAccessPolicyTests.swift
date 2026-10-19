@@ -92,6 +92,26 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
         }
     }
 
+    func testSettingsSaveAndResumeQuiesceWhenAdoptingStricterPersistedPolicy() throws {
+        for resume in [false, true] {
+            let library = try makeLibrary()
+            try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+            let second = try makeSecondVault(library)
+            let ticket = try submitRead(second)
+            _ = try decide(second, ticket: ticket)
+            let delivery = try second.fileDeliveryManager.get().materialize(
+                credentialID: "synthetic", bytes: Data("synthetic".utf8)
+            )
+            try library.vault.updateReadApprovalAuthentication(true)
+            if resume { try second.resumeAgentAccess(using: .allow) }
+            else { try second.updateTimedAllowance(enabled: true, minutes: 30) }
+            XCTAssertEqual(try second.approvalRequests.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: delivery.url.path))
+            XCTAssertTrue(try second.agentAccessPolicyState().policy.readApprovalAuthentication)
+            XCTAssertFalse(try second.isAgentAccessPaused())
+        }
+    }
+
     func testRemoteAuthenticationOptInCancelsOldApprovalsAndRequiresAuthentication() throws {
         let library = try makeLibrary()
         try library.vault.updateReadApprovalAuthentication(false, using: .allow)

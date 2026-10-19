@@ -32,12 +32,14 @@ extension Vault {
         return .init(policy: .failClosed, needsRecovery: true)
     }
 
-    /// The caller owns the gate's exclusive change for the whole transition.
+    /// The caller owns the gate's exclusive mutation or authorization condition.
     func applyAgentAccessPolicy(_ policy: AgentAccessPolicy, needsRecovery: Bool,
                                keychainConflict: AppKeychainItemKind? = nil) {
         if needsRecovery { changeAgentAccessPolicyLatches { $0.recovery = true } }
         let latches = agentAccessPolicyLatches()
-        if policy.paused { quiesceAgentAccess() }
+        let previous = try? savedAgentAccessPolicyState().policy
+        let tightened = previous.map { $0.restricted(by: policy) != $0 } ?? false
+        if policy.paused || tightened { quiesceAgentAccess() }
         approvalRequests.configureAgentAccessPolicy(
             readAuthenticationEnabled: policy.readApprovalAuthentication,
             timedAllowanceEnabled: policy.timedAllowanceEnabled,
@@ -206,7 +208,7 @@ extension Vault {
             throw failure
         }
         applyAgentAccessPolicy(policy, needsRecovery: false)
-        paused = policy.paused
+        paused = wasPaused || policy.paused
         changed = true
     }
 

@@ -81,6 +81,16 @@ final class AgentAccessPolicyTransitionTests: XCTestCase {
         XCTAssertFalse(try library.vault.isAgentAccessPaused())
     }
 
+    func testSettingsSaveCannotLiftAnExistingLocalLifecycleGatePause() throws {
+        let library = try makeLibrary()
+        XCTAssertFalse(try library.vault.agentAccessGate.beginExclusiveChange())
+        library.vault.agentAccessGate.endExclusiveChange(paused: true)
+        try library.vault.updateTimedAllowance(enabled: true, minutes: 30)
+        XCTAssertFalse(try library.vault.agentAccessPolicyState().policy.paused)
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+    }
+
     private func makeLibrary() throws -> AgentAccessPolicyLibrary {
         let library = try AgentAccessPolicyLibrary()
         addTeardownBlock { try library.close() }

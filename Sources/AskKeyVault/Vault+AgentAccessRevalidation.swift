@@ -21,7 +21,6 @@ extension Vault {
         let current = try currentAgentAccessPolicy(key: requireKey())
         if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery {
             agentAccessGate.setPausedDuringAuthorization(true)
-            if !current.policy.paused { quiesceAgentAccess() }
             applyAgentAccessPolicy(current.policy, needsRecovery: current.needsRecovery,
                                    keychainConflict: current.keychainConflict)
             agentAccessGate.setPausedDuringAuthorization(current.policy.paused)
@@ -40,7 +39,6 @@ extension Vault {
         let current = try currentAgentAccessPolicy(key: requireKey())
         paused = paused || current.policy.paused
         if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery {
-            if !current.policy.paused { quiesceAgentAccess() }
             applyAgentAccessPolicy(current.policy, needsRecovery: current.needsRecovery,
                                    keychainConflict: current.keychainConflict)
         }
