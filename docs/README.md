@@ -22,6 +22,7 @@ See the [changelog](../CHANGELOG.md) for release changes and known limitations.
 - [ADR 0006](adr/0006-release-process.md): locally signed, notarized DMG releases.
 - [ADR 0007](adr/0007-claude-code-integration.md): Claude Code MCP setup through its CLI and the discovery hook in its settings.
 - [ADR 0008](adr/0008-approval-shows-target.md): approvals show the command, working directory and delivered names.
+- [ADR 0011](adr/0011-windows-edition.md): proposed Windows edition in Rust and Tauri, and where its guarantees differ from macOS.
 
 ## Contributing and project rules
 
