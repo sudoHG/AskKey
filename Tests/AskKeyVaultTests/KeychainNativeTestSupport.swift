@@ -158,14 +158,35 @@ final class KeychainNativeTestSupport {
     }
 
     private func cleanup() throws {
-        if FileManager.default.fileExists(atPath: pinnedURL.path) {
-            try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: pinnedURL.path)
+        defer {
+            do {
+                XCTAssertEqual(try KeychainPreferencesSnapshot(), before,
+                               "Native tests must leave user Keychain preferences and login file unchanged")
+            } catch { XCTFail("Could not verify Keychain preferences after cleanup: \(error)") }
         }
+        try clearTemporaryImmutableFlags()
         for keychain in [outside, pinned].compactMap({ $0 }) { try check(SecKeychainDelete(keychain)) }
         outside = nil
         pinned = nil
+        // Clear only fixture-owned backing or backup files left by the injected
+        // failure, including any files produced during native deletion.
+        try clearTemporaryImmutableFlags()
         try FileManager.default.removeItem(at: root)
-        XCTAssertEqual(try KeychainPreferencesSnapshot(), before, "Native tests must leave user Keychain preferences and login file unchanged")
+    }
+
+    private func clearTemporaryImmutableFlags() throws {
+        guard FileManager.default.fileExists(atPath: root.path) else { return }
+        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: root.path)
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: [.isSymbolicLinkKey], options: []
+        ))
+        for case let url as URL in enumerator {
+            if try url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true {
+                enumerator.skipDescendants()
+                continue
+            }
+            try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: url.path)
+        }
     }
 
     private func check(_ status: OSStatus) throws {
