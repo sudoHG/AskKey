@@ -22,24 +22,12 @@ extension VaultStore {
         }
     }
 
-    func agentAccessPolicyInputs() throws -> (value: String?, hasCredentials: Bool) {
-        try db.read { db in
-            let value = try ConfigRecord.fetchOne(db, key: Vault.agentAccessPolicyConfigKey)?.value
-            // Includes recycled credentials: an empty active list is not a new library.
-            let hasCredentials = try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM credentials)") ?? false
-            return (value, hasCredentials)
-        }
-    }
-
-    func writeAgentAccessPolicy(_ policy: AgentAccessPolicy, using key: SymmetricKey) throws {
-        let value = try AgentAccessPolicyAuthentication.seal(policy, using: key)
+    func removeLegacyAgentAccessConfig() throws {
         try db.write { db in
             try db.execute(
-                sql: "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
-                arguments: [Vault.agentAccessPolicyConfigKey, value]
+                sql: "DELETE FROM config WHERE key IN (?, ?)",
+                arguments: [Vault.legacyAgentAccessPolicyConfigKey, Vault.agentAccessPausedConfigKey]
             )
-            try db.execute(sql: "DELETE FROM config WHERE key = ?",
-                           arguments: [Vault.agentAccessPausedConfigKey])
         }
     }
 

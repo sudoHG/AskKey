@@ -88,7 +88,7 @@ extension BrokerApprovalStateMachine {
             guard activeCount < BrokerLimits.maximumPendingApprovalRequests else {
                 throw BrokerApprovalError.capacityReached
             }
-            let allowanceEnd = request.operation == .read
+            let allowanceEnd = request.operation == .read && timedAllowanceEnabled
                 ? timedAllowances[request.credentialID]
                 : nil
             let state: BrokerRequestState = allowanceEnd != nil ? .approved : .pending

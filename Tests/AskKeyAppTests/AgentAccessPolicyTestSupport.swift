@@ -7,20 +7,21 @@ import AskKeyBroker
 final class AgentAccessPolicyTestLibrary {
     let directory: URL
     let key = SymmetricKey(data: Data(repeating: 0x51, count: 32))
-    var store: VaultStore
-    var vault: Vault
+    let keys = AppPolicyMemoryStore()
+    let vault: Vault
+    var store: VaultStore { get throws { try vault.store } }
 
     init(approvalRequests: BrokerApprovalStateMachine = BrokerApprovalStateMachine()) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyAppPolicy-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        store = try VaultStore(path: directory.appendingPathComponent("vault.db").path)
-        vault = Vault(store: store, key: key, approvalRequests: approvalRequests)
+        keys.pendingKey = VaultCrypto.keyToData(key)
+        vault = Vault(paths: .init(directory: directory.appendingPathComponent("library")), keyStore: keys, approvalRequests: approvalRequests,
+                      fileDeliveryManager: try FileDeliveryManager(rootURL: directory.appendingPathComponent("deliveries")))
+        try vault.unlock()
     }
 
     func reopen() throws {
-        try store.close()
-        store = try VaultStore(path: directory.appendingPathComponent("vault.db").path)
-        vault = Vault(store: store, key: key)
+        try vault.unlock()
     }
 
     var operations: AgentAccessPolicyOperations {
@@ -33,13 +34,57 @@ final class AgentAccessPolicyTestLibrary {
             setTimedAllowance: { enabled, minutes in
                 try self.vault.updateTimedAllowance(enabled: enabled, minutes: minutes)
                 return try self.vault.agentAccessPolicyState()
-            }
+            },
+            isPaused: { try self.vault.isAgentAccessPaused() }
         )
     }
 
     func close() throws {
-        try store.close()
+        vault.cleanupRuntimeFileDeliveries()
+        if let store = try? store { try store.close() }
         try FileManager.default.removeItem(at: directory)
+    }
+}
+
+final class AppPolicyMemoryStore: AppKeyStore {
+    var appKey: Data?
+    var pendingKey: Data?
+    var policy: Data?
+    var saveFailure: Error?
+    func savePendingKey(_ data: Data) throws { pendingKey = data }
+    func loadPendingKey() throws -> Data {
+        guard let pendingKey else { throw AppKeyStoreError.missingPendingKey }
+        return pendingKey
+    }
+    func promotePendingKey() throws { appKey = try loadPendingKey() }
+    func loadAppKey() throws -> Data {
+        guard let appKey else { throw AppKeyStoreError.missingAppKey }
+        return appKey
+    }
+    func deleteLegacyKey() throws { }
+    func deletePendingKey() throws { pendingKey = nil }
+    func deleteAppKey() throws { appKey = nil }
+    func loadAgentAccessPolicy() throws -> Data? { policy }
+    func saveAgentAccessPolicy(_ data: Data) throws {
+        if let saveFailure { throw saveFailure }
+        policy = data
+    }
+    func deleteAgentAccessPolicy() throws { policy = nil }
+}
+
+extension Vault {
+    convenience init(
+        store: VaultStore,
+        key: SymmetricKey? = nil,
+        now: @escaping () -> Date = Date.init,
+        approvalRequests: BrokerApprovalStateMachine = BrokerApprovalStateMachine(),
+        fileDeliveryManager: FileDeliveryManager? = nil
+    ) {
+        let keys = AppPolicyMemoryStore()
+        keys.appKey = key.map(VaultCrypto.keyToData)
+        keys.policy = key.flatMap { try? AgentAccessPolicyAuthentication.seal(.defaults, using: $0) }
+        self.init(store: store, key: key, policyStore: keys, now: now,
+                  approvalRequests: approvalRequests, fileDeliveryManager: fileDeliveryManager)
     }
 }
 

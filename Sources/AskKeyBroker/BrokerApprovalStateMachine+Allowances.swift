@@ -1,6 +1,10 @@
 import Foundation
 
 extension BrokerApprovalStateMachine {
+    public func setTimedAllowanceEnabled(_ enabled: Bool) {
+        mutate { timedAllowanceEnabled = enabled }
+    }
+
     public func updateDefaultTimedAllowance(_ duration: TimeInterval) {
         mutate {
             defaultTimedAllowance = Self.validDuration(duration) ? duration : 30 * 60

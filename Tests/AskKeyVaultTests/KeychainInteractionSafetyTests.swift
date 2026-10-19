@@ -4,6 +4,24 @@ import XCTest
 @testable import AskKeyVault
 
 final class KeychainInteractionSafetyTests: XCTestCase {
+    func testPolicyOperationsRejectSystemKeychainAccessInTests() throws {
+        XCTAssertFalse(KeychainQuery.systemKeychainAllowed)
+        let service = "com.sudohg.askkey.tests.policy.\(UUID().uuidString)"
+        let store = AppBoundKeyStore(
+            legacyService: service + ".legacy", pendingService: service + ".pending",
+            appService: service, trustedApplicationURL: URL(fileURLWithPath: "/usr/bin/true")
+        )
+        for operation: () throws -> Void in [
+            { _ = try store.loadAgentAccessPolicy() },
+            { try store.saveAgentAccessPolicy(Data("synthetic".utf8)) },
+            { try store.deleteAgentAccessPolicy() },
+        ] {
+            XCTAssertThrowsError(try operation()) {
+                XCTAssertEqual($0 as? AppKeyStoreError, .securityFailure(errSecInteractionNotAllowed))
+            }
+        }
+    }
+
     func testUntrustedKeychainQueriesAndProbeForbidAuthenticationUI() throws {
         XCTAssertFalse(KeychainQuery.systemKeychainAllowed)
         let query = KeychainQuery.forbidAuthenticationUI([:])

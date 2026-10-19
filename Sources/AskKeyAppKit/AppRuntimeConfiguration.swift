@@ -32,7 +32,6 @@ extension VaultViewModel {
         languageMode: String,
         appearanceMode: String,
         completedOnboarding: Bool,
-        readApprovalAuthenticationEnabled _: Bool,
         unlockVault: @escaping () throws -> Void,
         authenticateDeviceOwner: @escaping @MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticator?,
         loginItemIsEnabled: @escaping () -> Bool,

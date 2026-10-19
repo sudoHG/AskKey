@@ -25,7 +25,7 @@ extension Vault {
     ) -> LocalVaultEraseCoordinator {
         LocalVaultEraseCoordinator(
             journal: journal ?? FileLocalVaultEraseJournalStore(
-                url: VaultConfiguration.localEraseJournalURL
+                url: localEraseJournalURL
             ),
             actions: .init(
                 quiesceOperations: { [weak self] in
@@ -55,14 +55,13 @@ extension Vault {
 
     private func quiesceForLocalErase() throws {
         _ = try agentAccessGate.beginExclusiveChange()
-        brokerRequests.pauseAndCancelAll()
-        approvalRequests.pauseAndCancelAll()
+        quiesceAgentAccess()
         agentAccessGate.endExclusiveChange(paused: true)
     }
 
     private func deleteEncryptedLocalData() throws {
         try closeStoreForLocalErase()
-        let directory = VaultConfiguration.applicationSupportDirectory
+        let directory = libraryDirectory
         guard FileManager.default.fileExists(atPath: directory.path) else { return }
         try FileManager.default.removeItem(at: directory)
     }

@@ -31,6 +31,7 @@ enum VaultE2EFixture {
             }
 
             let databaseURL = directory.appendingPathComponent("e2e-vault.db")
+            let isFresh = !FileManager.default.fileExists(atPath: databaseURL.path)
             for suffix in ["", "-wal", "-shm", "-journal"] {
                 let path = databaseURL.path + suffix
                 if let attributes = try? FileManager.default.attributesOfItem(atPath: path),
@@ -42,7 +43,12 @@ enum VaultE2EFixture {
             let fileDeliveryManager = try FileDeliveryManager.configured(
                 rootURL: directory.appendingPathComponent("deliveries", isDirectory: true)
             )
-            let vault = Vault(store: store, key: fixedTestKey, fileDeliveryManager: fileDeliveryManager)
+            let policyStore = E2EPolicyStore(directory: directory)
+            if isFresh {
+                try policyStore.saveAgentAccessPolicy(AgentAccessPolicyAuthentication.seal(.defaults, using: fixedTestKey))
+            }
+            let vault = Vault(store: store, key: fixedTestKey, policyStore: policyStore,
+                              fileDeliveryManager: fileDeliveryManager)
             if let scenario = environment["ASKKEY_E2E_SCENARIO"], scenario.hasPrefix("approval") {
                 try vault.beginManagementSession(using: .allow)
                 defer { vault.endManagementSession() }
@@ -60,4 +66,28 @@ enum VaultE2EFixture {
             fatalError("AskKey E2E isolated vault could not be opened: \(error)")
         }
     }
+}
+
+/// Synthetic process-restart storage inside the validated E2E directory only.
+private final class E2EPolicyStore: AppKeyStore {
+    private let url: URL
+    init(directory: URL) { url = directory.appendingPathComponent("agent-access-policy.fixture") }
+    func loadAgentAccessPolicy() throws -> Data? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try Data(contentsOf: url)
+    }
+    func saveAgentAccessPolicy(_ data: Data) throws {
+        try data.write(to: url, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+    func deleteAgentAccessPolicy() throws {
+        if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+    }
+    func savePendingKey(_ data: Data) throws { throw CocoaError(.featureUnsupported) }
+    func loadPendingKey() throws -> Data { throw CocoaError(.featureUnsupported) }
+    func promotePendingKey() throws { throw CocoaError(.featureUnsupported) }
+    func loadAppKey() throws -> Data { throw CocoaError(.featureUnsupported) }
+    func deleteLegacyKey() throws { }
+    func deletePendingKey() throws { }
+    func deleteAppKey() throws { }
 }

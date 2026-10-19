@@ -244,6 +244,7 @@ extension VaultViewModel {
             return true
         } catch {
             presentError(error)
+            refreshAgentAccessPauseState()
             return false
         }
     }

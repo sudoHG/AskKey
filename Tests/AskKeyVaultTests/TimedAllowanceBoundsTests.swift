@@ -14,7 +14,7 @@ final class TimedAllowanceBoundsTests: XCTestCase {
         let vault = try makeVault(approvalRequests: machine)
 
         for minutes in [-1, 0, 1, 45, 121, Int.max] {
-            XCTAssertThrowsError(try vault.updateDefaultTimedAllowanceMinutes(minutes))
+            XCTAssertThrowsError(try vault.updateTimedAllowance(enabled: true, minutes: minutes))
         }
         XCTAssertEqual(try vault.agentAccessPolicyState().policy.timedAllowanceMinutes, 30)
 

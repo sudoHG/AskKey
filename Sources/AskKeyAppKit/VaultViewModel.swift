@@ -328,6 +328,7 @@ package final class VaultViewModel {
             reloadCredentials()
             renewManagementSession()
         } catch {
+            refreshAgentAccessPauseState()
             switch KeychainFailureDisposition.classify(error) {
             case .cancelled:
                 errorMessage = nil
@@ -379,6 +380,7 @@ package final class VaultViewModel {
         endManagementSession()
         isLocked = true
         showsLockedWorkbench = true
+        refreshAgentAccessPauseState()
     }
 
     func endManagementSession() {
@@ -414,6 +416,10 @@ package final class VaultViewModel {
 
     func refreshAgentAccessPauseState() {
         do {
+            // Erase can remove the policy snapshot before its journal clears.
+            if let isPaused = agentAccessPolicyOperations.isPaused {
+                isAgentAccessPaused = try isPaused()
+            }
             applyAgentAccessPolicyState(try agentAccessPolicyOperations.load())
         } catch VaultError.vaultLocked {
             // Startup reports open failures; an early refresh must not present
@@ -426,7 +432,7 @@ package final class VaultViewModel {
     private func applyAgentAccessPolicyState(_ state: AgentAccessPolicyState) {
         agentAccessPolicy = state.policy
         agentAccessPolicyNeedsRecovery = state.needsRecovery
-        isAgentAccessPaused = state.policy.paused
+        isAgentAccessPaused = state.isPaused
         if !state.needsRecovery { preferences.removeLegacyAgentAccessSettings() }
     }
 

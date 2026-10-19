@@ -57,9 +57,12 @@ final class AppPreferences {
     }
 
     func removeLegacyAgentAccessSettings() {
+        let completionKey = "hasRemovedLegacyAgentAccessSettings"
+        guard !defaults.bool(forKey: completionKey) else { return }
         for key in ["readApprovalAuthenticationEnabled", "timedAllowanceEnabled", "defaultTimedAllowanceMinutes"] {
             defaults.removeObject(forKey: key)
         }
+        defaults.set(true, forKey: completionKey)
     }
 
     var hotkeyShortcutID: String {

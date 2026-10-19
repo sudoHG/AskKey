@@ -177,7 +177,6 @@ package enum E2EAppRuntime {
         let model = VaultViewModel.configured(
             languageMode: ProcessInfo.processInfo.environment["ASKKEY_E2E_LANGUAGE"] ?? "zh-Hans",
             appearanceMode: "light", completedOnboarding: selectedScenario != "screenshots-welcome",
-            readApprovalAuthenticationEnabled: true,
             unlockVault: {}, authenticateDeviceOwner: { _ in .allow },
             loginItemIsEnabled: { false }, setLoginItemEnabled: { _ in },
             onboardingOperations: operations

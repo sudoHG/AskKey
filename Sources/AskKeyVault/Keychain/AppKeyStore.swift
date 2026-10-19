@@ -11,6 +11,7 @@ enum AppKeyStoreError: Error, Equatable {
 
 final class AppBoundKeyStore: AppKeyStore {
     private static let account = "vault-key"
+    private static let policyAccount = "agent-access-policy"
 
     private let legacyService: String
     private let pendingService: String
@@ -45,6 +46,41 @@ final class AppBoundKeyStore: AppKeyStore {
         try load(service: appService, missing: .missingAppKey)
     }
 
+    func loadAgentAccessPolicy() throws -> Data? {
+        try read(service: appService, account: Self.policyAccount)
+    }
+
+    func saveAgentAccessPolicy(_ data: Data) throws {
+        guard KeychainQuery.systemKeychainAllowed else {
+            throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
+        }
+        let query = KeychainQuery.forbidAuthenticationUI([
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: appService,
+            kSecAttrAccount as String: Self.policyAccount,
+        ])
+        // Replace the value in place and retain the App-only boundary, including
+        // when a same-named item was created with an unauthenticated value.
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccess as String: try appOnlyAccess(),
+        ]
+        let updated = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if updated == errSecSuccess { return }
+        guard updated == errSecItemNotFound else {
+            throw AppKeyStoreError.securityFailure(updated)
+        }
+        var item = query
+        item.removeValue(forKey: kSecUseAuthenticationUI as String)
+        item.merge(attributes) { _, new in new }
+        let added = SecItemAdd(item as CFDictionary, nil)
+        guard added == errSecSuccess else { throw AppKeyStoreError.securityFailure(added) }
+    }
+
+    func deleteAgentAccessPolicy() throws {
+        try delete(service: appService, account: Self.policyAccount)
+    }
+
     func deleteLegacyKey() throws { try delete(service: legacyService) }
     func deletePendingKey() throws { try delete(service: pendingService) }
     func deleteAppKey() throws { try delete(service: appService) }
@@ -76,6 +112,11 @@ final class AppBoundKeyStore: AppKeyStore {
         service: String,
         missing: AppKeyStoreError
     ) throws -> Data {
+        guard let data = try read(service: service, account: Self.account) else { throw missing }
+        return data
+    }
+
+    private func read(service: String, account: String) throws -> Data? {
         guard KeychainQuery.systemKeychainAllowed else {
             throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
         }
@@ -84,28 +125,28 @@ final class AppBoundKeyStore: AppKeyStore {
         let query = KeychainQuery.forbidAuthenticationUI([
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: Self.account,
+            kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecUseAuthenticationContext as String: authenticationContext,
         ])
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound { throw missing }
+        if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = result as? Data else {
             throw AppKeyStoreError.securityFailure(status)
         }
         return data
     }
 
-    private func delete(service: String) throws {
+    private func delete(service: String, account: String = AppBoundKeyStore.account) throws {
         guard KeychainQuery.systemKeychainAllowed else {
             throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
         }
         let query = KeychainQuery.forbidAuthenticationUI([
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: Self.account,
+            kSecAttrAccount as String: account,
         ])
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
@@ -139,7 +180,7 @@ final class AppBoundKeyStore: AppKeyStore {
 
 }
 
-protocol AppKeyStore: AnyObject {
+package protocol AppKeyStore: AnyObject {
     func savePendingKey(_ data: Data) throws
     func loadPendingKey() throws -> Data
     func promotePendingKey() throws
@@ -147,4 +188,7 @@ protocol AppKeyStore: AnyObject {
     func deleteLegacyKey() throws
     func deletePendingKey() throws
     func deleteAppKey() throws
+    func loadAgentAccessPolicy() throws -> Data?
+    func saveAgentAccessPolicy(_ data: Data) throws
+    func deleteAgentAccessPolicy() throws
 }

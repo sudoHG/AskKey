@@ -2,42 +2,112 @@ import CryptoKit
 import Foundation
 import GRDB
 import XCTest
+import AskKeyBroker
 @testable import AskKeyVault
 
 final class AgentAccessPolicyTests: XCTestCase {
-    func testEmptyLibraryWritesAndAppliesDefaultPolicyAfterKeyPromotion() throws {
+    func testFreshCreationWritesDefaultsOnlyAfterKeyPromotion() throws {
         let library = try makeLibrary()
         XCTAssertNotNil(library.keys.appKey)
         XCTAssertNil(library.keys.pendingKey)
+        XCTAssertEqual(library.keys.policyWrites, 1)
         XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .defaults, needsRecovery: false))
-        let saved = try XCTUnwrap(library.store.configValue(key: Vault.agentAccessPolicyConfigKey))
-        XCTAssertEqual(try AgentAccessPolicyAuthentication.open(saved, using: library.key), .defaults)
+        XCTAssertEqual(try AgentAccessPolicyAuthentication.open(XCTUnwrap(library.keys.policy), using: library.key), .defaults)
+        XCTAssertNil(try library.store.configValue(key: Vault.legacyAgentAccessPolicyConfigKey))
         try library.reopen()
+        XCTAssertEqual(library.keys.policyWrites, 1)
         XCTAssertEqual(try library.vault.agentAccessPolicyState().policy, .defaults)
     }
 
-    func testDeletedPolicyInNonemptyLibraryPausesWithoutWriting() throws {
-        let library = try makeLibrary(withCredential: true)
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: nil)
+    func testExistingEmptyLibraryNeverInitializesMissingPolicy() throws {
+        let library = try makeLibrary()
+        library.keys.policy = nil
         try assertFailClosedAfterReopen(library)
     }
 
-    func testRecycledCredentialsAlsoPreventDefaultInitialization() throws {
+    func testRemovingAllRowsCannotUseReopenAsPolicySigner() throws {
         let library = try makeLibrary(withCredential: true)
-        try library.vault.beginManagementSession(using: .allow)
-        let credential = try XCTUnwrap(library.vault.listTextCredentials().first)
-        try library.vault.deleteTextCredential(id: credential.id, using: .allow)
-        XCTAssertTrue(try library.store.fetchAllCredentials().isEmpty)
-        XCTAssertFalse(try library.store.fetchRecycledCredentials().isEmpty)
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: nil)
+        let records = try library.store.fetchAllCredentials()
+        try library.store.db.write { try $0.execute(sql: "DELETE FROM credentials") }
+        library.keys.policy = nil
+        try assertFailClosedAfterReopen(library)
+        try library.store.db.write { db in
+            for record in records { try record.insert(db) }
+        }
+        try assertFailClosedAfterReopen(library)
+        XCTAssertEqual(try library.store.fetchAllCredentials().map(\.id), records.map(\.id))
+    }
+
+    func testCrashAfterPromotionBeforePolicySaveStaysFailClosed() throws {
+        let library = try makeLibrary(open: false)
+        library.keys.policySaveFailure = SyntheticPolicyFailure()
+        XCTAssertThrowsError(try library.vault.unlock())
+        XCTAssertNotNil(library.keys.appKey)
+        XCTAssertNil(library.keys.pendingKey)
+        XCTAssertNil(library.keys.policy)
+        XCTAssertEqual(library.keys.policyWrites, 0)
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+        library.keys.policySaveFailure = nil
         try assertFailClosedAfterReopen(library)
     }
 
-    func testTamperedTagPausesWithoutWriting() throws {
+    func testBootstrapReportsCreationAndUnfinishedCreationButNotOrdinaryOpen() throws {
+        let library = try makeLibrary(open: false)
+        let created = try VaultBootstrap.openCurrent(paths: library.paths, keyStore: library.keys)
+        XCTAssertTrue(created.created)
+        try created.store.close()
+        let existing = try VaultBootstrap.openCurrent(paths: library.paths, keyStore: library.keys)
+        XCTAssertFalse(existing.created)
+        try existing.store.close()
+        library.keys.pendingKey = library.keys.appKey
+        library.keys.appKey = nil
+        let recovered = try VaultBootstrap.openCurrent(paths: library.paths, keyStore: library.keys)
+        XCTAssertTrue(recovered.created)
+        try recovered.store.close()
+    }
+
+    func testDatabasePolicyReplayAndLegacyPauseCannotChangeKeychainPolicy() throws {
         let library = try makeLibrary(withCredential: true)
-        var envelope = try envelope(library)
-        envelope["authenticationTag"] = Data(repeating: 0, count: 32).base64EncodedString()
-        try setEnvelope(envelope, in: library)
+        try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+        let oldPolicy = try XCTUnwrap(library.keys.policy)
+        try library.vault.updateReadApprovalAuthentication(true)
+        try library.vault.pauseAgentAccess(using: .allow)
+        let currentPolicy = library.keys.policy
+        try library.store.setConfigValue(key: Vault.legacyAgentAccessPolicyConfigKey, value: String(decoding: oldPolicy, as: UTF8.self))
+        try library.store.setConfigValue(key: Vault.agentAccessPausedConfigKey, value: "false")
+        try library.reopen()
+        let state = try library.vault.agentAccessPolicyState()
+        XCTAssertTrue(state.isPaused)
+        XCTAssertTrue(state.policy.readApprovalAuthentication)
+        XCTAssertFalse(state.needsRecovery)
+        XCTAssertEqual(library.keys.policy, currentPolicy)
+    }
+
+    func testDeletedPolicyWithActiveOrRecycledCredentialsPausesWithoutWriting() throws {
+        for recycled in [false, true] {
+            let library = try makeLibrary(withCredential: true)
+            if recycled {
+                try library.vault.beginManagementSession(using: .allow)
+                let credential = try XCTUnwrap(library.vault.listTextCredentials().first)
+                try library.vault.deleteTextCredential(id: credential.id, using: .allow)
+                XCTAssertTrue(try library.store.fetchAllCredentials().isEmpty)
+                XCTAssertFalse(try library.store.fetchRecycledCredentials().isEmpty)
+            }
+            library.keys.policy = nil
+            try assertFailClosedAfterReopen(library)
+        }
+    }
+
+    func testMalformedOrUnauthenticatedReplacementItemPausesWithoutWriting() throws {
+        for value in ["", "not json", "{}", "{\"policy\":null}", "{\"paused\":false}"] {
+            let library = try makeLibrary()
+            library.keys.policy = Data(value.utf8)
+            try assertFailClosedAfterReopen(library)
+        }
+        let library = try makeLibrary(withCredential: true)
+        var value = try envelope(library)
+        value["authenticationTag"] = Data(repeating: 0, count: 32).base64EncodedString()
+        try setEnvelope(value, in: library)
         try assertFailClosedAfterReopen(library)
     }
 
@@ -47,265 +117,273 @@ final class AgentAccessPolicyTests: XCTestCase {
             ("timedAllowanceEnabled", false), ("timedAllowanceMinutes", 120),
         ] {
             let library = try makeLibrary(withCredential: true)
-            var envelope = try envelope(library)
-            var policy = try XCTUnwrap(envelope["policy"] as? [String: Any])
+            var valueEnvelope = try envelope(library)
+            var policy = try XCTUnwrap(valueEnvelope["policy"] as? [String: Any])
             policy[field] = value
-            envelope["policy"] = policy
-            try setEnvelope(envelope, in: library)
+            valueEnvelope["policy"] = policy
+            try setEnvelope(valueEnvelope, in: library)
             try assertFailClosedAfterReopen(library)
         }
     }
 
-    func testUnknownVersionWithValidTagPausesWithoutWriting() throws {
+    func testUnknownVersionAndInvalidMinutesWithValidTagPauseWithoutWriting() throws {
+        for change in [["formatVersion": 2]] + [-1, 0, 1, 45, 121, Int.max].map({ ["timedAllowanceMinutes": $0] }) {
+            let library = try makeLibrary(withCredential: true)
+            try writeSignedPolicy(changing: change, in: library)
+            try assertFailClosedAfterReopen(library)
+        }
+    }
+
+    func testDatabaseDerivationOrDifferentVaultKeyCannotAuthenticatePolicy() throws {
+        for info in ["AskKey credential authentication v1", "AskKey agent access policy authentication v1", keychainInfo] {
+            let library = try makeLibrary(withCredential: true)
+            let key = info == keychainInfo ? SymmetricKey(data: Data(repeating: 0x42, count: 32)) : library.key
+            try writeSignedPolicy(changing: [:], in: library, key: key, info: info)
+            try assertFailClosedAfterReopen(library)
+        }
+    }
+
+    func testPolicyLoadFailurePausesWithoutWriting() throws {
         let library = try makeLibrary(withCredential: true)
-        try writeSignedPolicy(changing: ["formatVersion": 2], in: library)
+        library.keys.policyLoadFailure = SyntheticPolicyFailure()
         try assertFailClosedAfterReopen(library)
     }
 
-    func testOutOfRangeMinutesWithValidTagPauseWithoutWriting() throws {
-        for minutes in [-1, 0, 1, 45, 121, Int.max] {
-            let library = try makeLibrary(withCredential: true)
-            try writeSignedPolicy(changing: ["timedAllowanceMinutes": minutes], in: library)
-            try assertFailClosedAfterReopen(library)
-        }
-    }
-
-    func testMalformedPolicyPausesWithoutWritingEvenInEmptyLibrary() throws {
-        for hasCredential in [false, true] {
-            for value in ["", "not json", "{}", "{\"policy\":null}"] {
-                let library = try makeLibrary(withCredential: hasCredential)
-                try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: value)
-                try assertFailClosedAfterReopen(library)
-            }
-        }
-    }
-
-    func testPolicyCannotUseAnotherKeyOrCredentialRecordDerivation() throws {
-        for info in ["AskKey credential authentication v1", "AskKey agent access policy authentication v1"] {
-            let library = try makeLibrary(withCredential: true)
-            let signingKey = info.contains("credential") ? library.key : SymmetricKey(data: Data(repeating: 0x42, count: 32))
-            try writeSignedPolicy(changing: [:], in: library, key: signingKey, info: info)
-            try assertFailClosedAfterReopen(library)
-        }
-    }
-
-    func testAuthenticatedResumeFromRecoveryWritesDefaultsAndSurvivesReopen() throws {
+    func testAuthenticatedRecoveryResumeWritesDefaultsAndSurvivesReopen() throws {
         let library = try makeLibrary(withCredential: true)
         try library.vault.updateReadApprovalAuthentication(false, using: .allow)
         try library.vault.updateTimedAllowance(enabled: false, minutes: 120)
+        library.keys.policy = nil
         try library.store.setConfigValue(key: Vault.agentAccessPausedConfigKey, value: "false")
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: nil)
         try assertFailClosedAfterReopen(library)
-        let before = try config(library)
+        let writes = library.keys.policyWrites
         XCTAssertThrowsError(try library.vault.resumeAgentAccess(using: .deny))
-        XCTAssertEqual(try config(library), before)
+        XCTAssertEqual(library.keys.policyWrites, writes)
         try library.vault.resumeAgentAccess(using: .allow)
-        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .defaults, needsRecovery: false))
-        XCTAssertNil(try library.store.configValue(key: Vault.agentAccessPausedConfigKey))
         try library.reopen()
         XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .defaults, needsRecovery: false))
         XCTAssertEqual(try library.vault.brokerCredentialCatalog().map(\.name), ["SYNTHETIC"])
     }
 
-    func testReadAuthenticationOptOutRequiresAuthenticationAndPersists() throws {
+    func testOptOutPersistsButDeletedItemRestoresAuthenticationOnSameStateMachine() throws {
         let library = try makeLibrary(withCredential: true)
+        let approvals = library.vault.approvalRequests
+        approvals.configureAuthentication { _ in false }
         XCTAssertThrowsError(try library.vault.updateReadApprovalAuthentication(false))
         XCTAssertThrowsError(try library.vault.updateReadApprovalAuthentication(false, using: .deny))
-        XCTAssertTrue(try library.vault.agentAccessPolicyState().policy.readApprovalAuthentication)
         try library.vault.updateReadApprovalAuthentication(false, using: .allow)
         try library.reopen()
+        XCTAssertTrue(approvals === library.vault.approvalRequests)
         XCTAssertFalse(try library.vault.agentAccessPolicyState().policy.readApprovalAuthentication)
-        library.vault.approvalRequests.configureAuthentication { _ in false }
-        let ticket = try library.vault.approvalRequests.submit(.init(
-            operationID: "read-with-opt-out", credentialID: "synthetic", targetID: "synthetic",
-            operation: .read, payloadDigest: String(repeating: "a", count: 64)
-        ), trustedCredentialDeadline: .none)
-        XCTAssertEqual(try library.vault.approvalRequests.decide(
-            requestID: ticket.requestID, capability: ticket.capability, decision: .once
-        ).state, .approved)
+        XCTAssertEqual(try decideRead(approvals).state, .approved)
+        library.keys.policy = nil
+        try assertFailClosedAfterReopen(library)
+        try library.vault.resumeAgentAccess(using: .allow)
+        XCTAssertThrowsError(try decideRead(approvals)) {
+            XCTAssertEqual($0 as? BrokerApprovalError, .authenticationFailed)
+        }
     }
 
-    func testAllAllowedMinutesAndTimedAllowanceOffPersist() throws {
+    func testTimedAllowanceOffIsEnforcedAfterReopenBySameStateMachine() throws {
+        let library = try makeLibrary()
+        let approvals = library.vault.approvalRequests
+        approvals.configureAuthentication { _ in true }
+        try library.vault.updateTimedAllowance(enabled: false, minutes: 60)
+        try library.reopen()
+        let ticket = try approvals.submit(readRequest(), trustedCredentialDeadline: .none)
+        XCTAssertThrowsError(try approvals.decide(requestID: ticket.requestID, capability: ticket.capability,
+                                                decision: .timedAllow(duration: 60))) {
+            XCTAssertEqual($0 as? BrokerApprovalError, .invalidDecision)
+        }
+        XCTAssertEqual(try approvals.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .once).state, .approved)
+    }
+
+    func testAllowedMinutesPersistAndInvalidMinutesDoNotWrite() throws {
         let library = try makeLibrary()
         for minutes in Vault.allowedTimedAllowanceMinutes {
             try library.vault.updateTimedAllowance(enabled: false, minutes: minutes)
             try library.reopen()
-            let policy = try library.vault.agentAccessPolicyState().policy
-            XCTAssertEqual(policy.timedAllowanceMinutes, minutes)
-            XCTAssertFalse(policy.timedAllowanceEnabled)
+            XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.timedAllowanceMinutes, minutes)
+            XCTAssertFalse(try library.vault.agentAccessPolicyState().policy.timedAllowanceEnabled)
+        }
+        let saved = library.keys.policy
+        for minutes in [-1, 0, 45, Int.max] {
+            XCTAssertThrowsError(try library.vault.updateTimedAllowance(enabled: true, minutes: minutes))
+            XCTAssertEqual(library.keys.policy, saved)
         }
     }
 
-    func testLegacyPauseWithoutPolicyDoesNotResumeAccess() throws {
-        let library = try makeLibrary(withCredential: true)
-        try library.store.setConfigValue(key: Vault.agentAccessPausedConfigKey, value: "true")
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: nil)
-        try assertFailClosedAfterReopen(library)
-    }
-
-    func testDeletingOnlyPolicyAfterPauseKeepsAccessPaused() throws {
+    func testLegacyPauseAndDeletedPolicyAfterPauseStayFailClosed() throws {
         let library = try makeLibrary(withCredential: true)
         try library.vault.pauseAgentAccess(using: .allow)
-        XCTAssertNil(try library.store.configValue(key: Vault.agentAccessPausedConfigKey))
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: nil)
+        library.keys.policy = nil
+        try library.store.setConfigValue(key: Vault.agentAccessPausedConfigKey, value: "true")
         try assertFailClosedAfterReopen(library)
     }
 
-    func testPausePreservesOtherAuthenticatedSettingsAndRemovesLegacyRow() throws {
-        let library = try makeLibrary()
-        try library.vault.updateReadApprovalAuthentication(false, using: .allow)
-        try library.vault.updateTimedAllowance(enabled: false, minutes: 60)
+    func testFirstSuccessfulPolicySaveDeletesIgnoredLegacyRowsOnce() throws {
+        let library = try makeLibrary(open: false)
+        let previous = try VaultBootstrap.openCurrent(paths: library.paths, keyStore: library.keys)
+        try previous.store.setConfigValue(key: Vault.legacyAgentAccessPolicyConfigKey, value: "untrusted")
+        try previous.store.setConfigValue(key: Vault.agentAccessPausedConfigKey, value: "true")
+        try previous.store.close()
+        try library.reopen()
+        XCTAssertTrue(try library.vault.agentAccessPolicyState().needsRecovery)
+        XCTAssertEqual(try library.store.configValue(key: Vault.agentAccessPausedConfigKey), "true")
+        try library.vault.resumeAgentAccess(using: .allow)
+        XCTAssertNil(try library.store.configValue(key: Vault.legacyAgentAccessPolicyConfigKey))
+        XCTAssertNil(try library.store.configValue(key: Vault.agentAccessPausedConfigKey))
         try library.store.setConfigValue(key: Vault.agentAccessPausedConfigKey, value: "false")
         try library.vault.pauseAgentAccess(using: .allow)
-        XCTAssertNil(try library.store.configValue(key: Vault.agentAccessPausedConfigKey))
+        XCTAssertEqual(try library.store.configValue(key: Vault.agentAccessPausedConfigKey), "false")
         try library.reopen()
-        let policy = try library.vault.agentAccessPolicyState().policy
-        XCTAssertTrue(policy.paused)
-        XCTAssertFalse(policy.readApprovalAuthentication)
-        XCTAssertFalse(policy.timedAllowanceEnabled)
-        XCTAssertEqual(policy.timedAllowanceMinutes, 60)
-        try library.vault.resumeAgentAccess(using: .allow)
-        var expected = policy
-        expected.paused = false
-        XCTAssertEqual(try library.vault.agentAccessPolicyState().policy, expected)
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+    }
+
+    func testFailClosedReopenRemovesAllowPathDeliveryWithRetainedLease() throws {
+        let library = try makeLibrary()
+        let (url, lease) = try deliverAllowedFile(library)
+        defer { lease?.finish() }
+        library.keys.policy = nil
+        try assertFailClosedAfterReopen(library)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    }
+
+    func testFailedPauseSaveStaysPausedCancelsRequestsAndCleansFiles() throws {
+        let library = try makeLibrary()
+        let (url, lease) = try deliverAllowedFile(library)
+        defer { lease?.finish() }
+        let ticket = try library.vault.approvalRequests.submit(readRequest(), trustedCredentialDeadline: .none)
+        let saved = library.keys.policy
+        library.keys.policySaveFailure = SyntheticPolicyFailure()
+        XCTAssertThrowsError(try library.vault.pauseAgentAccess(using: .allow)) {
+            XCTAssertEqual($0 as? AgentAccessPolicyError, .pauseNotSaved)
+            XCTAssertTrue($0.localizedDescription.contains("may not survive a restart"))
+        }
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+        XCTAssertTrue(try library.vault.agentAccessPolicyState().policy.paused)
+        XCTAssertEqual(library.keys.policy, saved)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertEqual(try library.vault.approvalRequests.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+    }
+
+    func testFailedSettingsAndResumeSaveKeepPreviousState() throws {
+        let library = try makeLibrary(withCredential: true)
+        let saved = library.keys.policy
+        library.keys.policySaveFailure = SyntheticPolicyFailure()
+        XCTAssertThrowsError(try library.vault.updateReadApprovalAuthentication(false, using: .allow))
+        XCTAssertThrowsError(try library.vault.updateTimedAllowance(enabled: false, minutes: 120))
+        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .defaults, needsRecovery: false))
+        XCTAssertEqual(library.keys.policy, saved)
+        library.keys.policy = nil
+        try assertFailClosedAfterReopen(library)
+        XCTAssertThrowsError(try library.vault.resumeAgentAccess(using: .allow))
+        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .failClosed, needsRecovery: true))
     }
 
     func testRecoveryRejectsSettingsAndPauseWritesNothing() throws {
-        let library = try makeLibrary(withCredential: true)
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: nil)
+        let library = try makeLibrary()
+        library.keys.policy = nil
         try assertFailClosedAfterReopen(library)
-        let before = try config(library)
+        let writes = library.keys.policyWrites
         XCTAssertThrowsError(try library.vault.updateReadApprovalAuthentication(false, using: .allow))
         XCTAssertThrowsError(try library.vault.updateReadApprovalAuthentication(true))
         XCTAssertThrowsError(try library.vault.updateTimedAllowance(enabled: true, minutes: 15))
         try library.vault.pauseAgentAccess(using: .allow)
-        XCTAssertEqual(try config(library), before)
-        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .failClosed, needsRecovery: true))
+        XCTAssertEqual(library.keys.policyWrites, writes)
+        XCTAssertNil(library.keys.policy)
     }
 
-    func testFailedWritesKeepPolicyGateAndLegacyRowUnchanged() throws {
+    func testLocalEraseDeletesPolicyItemAndVaultKey() throws {
         let library = try makeLibrary()
-        try library.store.setConfigValue(key: Vault.agentAccessPausedConfigKey, value: "true")
-        let before = try config(library)
-        try rejectPolicyWrites(library)
-        XCTAssertThrowsError(try library.vault.pauseAgentAccess(using: .allow))
-        XCTAssertThrowsError(try library.vault.updateReadApprovalAuthentication(false, using: .allow))
-        XCTAssertThrowsError(try library.vault.updateTimedAllowance(enabled: false, minutes: 120))
-        XCTAssertEqual(try config(library), before)
-        XCTAssertFalse(try library.vault.isAgentAccessPaused())
-        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .defaults, needsRecovery: false))
-    }
-
-    func testFailedResumeKeepsRecoveryAndDoesNotWrite() throws {
-        let library = try makeLibrary(withCredential: true)
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: nil)
-        try assertFailClosedAfterReopen(library)
-        let before = try config(library)
-        try rejectPolicyWrites(library)
-        XCTAssertThrowsError(try library.vault.resumeAgentAccess(using: .allow))
-        XCTAssertEqual(try config(library), before)
-        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .failClosed, needsRecovery: true))
+        try library.vault.beginManagementSession(using: .allow)
+        try library.vault.eraseLocalLibrary(confirmation: "ERASE", language: .english, using: .allow)
+        XCTAssertNil(library.keys.policy)
+        XCTAssertNil(library.keys.appKey)
+        XCTAssertEqual(library.keys.policyDeletes, 1)
         XCTAssertTrue(try library.vault.isAgentAccessPaused())
     }
 
-    private func makeLibrary(withCredential: Bool = false) throws -> PolicyLibrary {
-        let library = try PolicyLibrary()
+    private let keychainInfo = "AskKey keychain agent access policy authentication v1"
+
+    private func makeLibrary(open: Bool = true, withCredential: Bool = false) throws -> AgentAccessPolicyLibrary {
+        let library = try AgentAccessPolicyLibrary(open: open)
         addTeardownBlock { try library.close() }
         if withCredential {
-            _ = try library.vault.createTextCredential(.init(
-                name: "SYNTHETIC", value: "synthetic-value", permission: .allowed
-            ), using: .allow)
+            _ = try library.vault.createTextCredential(.init(name: "SYNTHETIC", value: "synthetic-value", permission: .allowed), using: .allow)
         }
         return library
     }
 
-    private func assertFailClosedAfterReopen(_ library: PolicyLibrary) throws {
-        let before = try config(library)
+    private func assertFailClosedAfterReopen(_ library: AgentAccessPolicyLibrary) throws {
+        let before = try? config(library)
+        let saved = library.keys.policy
+        let writes = library.keys.policyWrites
         try library.reopen()
         XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .failClosed, needsRecovery: true))
         XCTAssertTrue(try library.vault.isAgentAccessPaused())
-        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog()) { error in
-            guard case VaultError.agentAccessPaused = error else { return XCTFail("Expected pause, got \(error)") }
-        }
-        XCTAssertThrowsError(try library.vault.approvalRequests.submit(.init(
-            operationID: UUID().uuidString, credentialID: "synthetic", targetID: "synthetic",
-            operation: .read, payloadDigest: String(repeating: "a", count: 64)
-        ), trustedCredentialDeadline: .none))
-        XCTAssertEqual(try config(library), before, "Recovery must leave saved config untouched")
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        XCTAssertThrowsError(try library.vault.approvalRequests.submit(readRequest(), trustedCredentialDeadline: .none))
+        XCTAssertEqual(library.keys.policy, saved)
+        XCTAssertEqual(library.keys.policyWrites, writes)
+        if let before { XCTAssertEqual(try config(library), before) }
     }
 
-    private func config(_ library: PolicyLibrary) throws -> [String: String] {
+    private func config(_ library: AgentAccessPolicyLibrary) throws -> [String: String] {
         try library.store.db.read { db in
             Dictionary(uniqueKeysWithValues: try Row.fetchAll(db, sql: "SELECT key, value FROM config")
                 .map { ($0["key"] as String, $0["value"] as String) })
         }
     }
 
-    private func envelope(_ library: PolicyLibrary) throws -> [String: Any] {
-        let saved = try XCTUnwrap(library.store.configValue(key: Vault.agentAccessPolicyConfigKey))
-        return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(saved.utf8)) as? [String: Any])
+    private func envelope(_ library: AgentAccessPolicyLibrary) throws -> [String: Any] {
+        try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(library.keys.policy)) as? [String: Any])
     }
 
-    private func setEnvelope(_ envelope: [String: Any], in library: PolicyLibrary) throws {
-        let data = try JSONSerialization.data(withJSONObject: envelope, options: [.sortedKeys, .withoutEscapingSlashes])
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: String(decoding: data, as: UTF8.self))
+    private func setEnvelope(_ envelope: [String: Any], in library: AgentAccessPolicyLibrary) throws {
+        library.keys.policy = try JSONSerialization.data(withJSONObject: envelope, options: [.sortedKeys, .withoutEscapingSlashes])
     }
 
-    /// Deliberately signs invalid semantic values to exercise validation independently of the MAC.
-    private func writeSignedPolicy(
-        changing changes: [String: Any], in library: PolicyLibrary,
-        key: SymmetricKey? = nil, info: String = "AskKey agent access policy authentication v1"
-    ) throws {
-        var envelope = try envelope(library)
-        var policy = try XCTUnwrap(envelope["policy"] as? [String: Any])
-        policy.merge(changes) { _, new in new }
-        let bytes = Data("AskKey agent access policy v1\0".utf8)
-            + (try JSONSerialization.data(withJSONObject: policy, options: [.sortedKeys, .withoutEscapingSlashes]))
-        let derived = HKDF<SHA256>.deriveKey(
-            inputKeyMaterial: key ?? library.key, salt: Data(), info: Data(info.utf8), outputByteCount: 32
-        )
-        envelope["policy"] = policy
-        envelope["authenticationTag"] = Data(HMAC<SHA256>.authenticationCode(for: bytes, using: derived)).base64EncodedString()
-        try setEnvelope(envelope, in: library)
+    /// Signs invalid semantic values independently of the production encoder.
+    private func writeSignedPolicy(changing changes: [String: Int], in library: AgentAccessPolicyLibrary,
+                                   key: SymmetricKey? = nil, info: String? = nil) throws {
+        var value = try envelope(library)
+        var policy = try XCTUnwrap(value["policy"] as? [String: Any])
+        for (field, change) in changes { policy[field] = change }
+        let bytes = try JSONSerialization.data(withJSONObject: policy, options: [.sortedKeys, .withoutEscapingSlashes])
+        let macKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: key ?? library.key, salt: Data(),
+                                          info: Data((info ?? keychainInfo).utf8), outputByteCount: 32)
+        value["policy"] = policy
+        value["authenticationTag"] = Data(HMAC<SHA256>.authenticationCode(
+            for: Data("AskKey keychain agent access policy v1\0".utf8) + bytes, using: macKey
+        )).base64EncodedString()
+        try setEnvelope(value, in: library)
     }
 
-    private func rejectPolicyWrites(_ library: PolicyLibrary) throws {
-        try library.store.db.write { db in
-            try db.execute(sql: """
-                CREATE TEMP TRIGGER reject_policy_write BEFORE INSERT ON config
-                WHEN NEW.key = 'agent_access_policy'
-                BEGIN SELECT RAISE(ABORT, 'synthetic policy write failure'); END
-                """)
-        }
-    }
-}
-
-private final class PolicyLibrary {
-    let directory: URL
-    let keys = MemoryAppKeyStore()
-    var store: VaultStore
-    var key: SymmetricKey
-    var vault: Vault
-
-    init() throws {
-        directory = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyPolicy-\(UUID().uuidString)")
-        keys.pendingKey = Data(repeating: 0x51, count: 32)
-        let opened = try VaultBootstrap.openCurrent(paths: .init(directory: directory), keyStore: keys)
-        store = opened.store
-        key = opened.key
-        vault = Vault(store: store, key: key)
+    private func readRequest() -> BrokerApprovalOperationRequest {
+        .init(operationID: UUID().uuidString, credentialID: "synthetic", targetID: "synthetic",
+              operation: .read, payloadDigest: String(repeating: "a", count: 64))
     }
 
-    func reopen() throws {
-        try store.close()
-        let opened = try VaultBootstrap.openCurrent(paths: .init(directory: directory), keyStore: keys)
-        store = opened.store
-        key = opened.key
-        vault = Vault(store: store, key: key)
+    private func decideRead(_ approvals: BrokerApprovalStateMachine) throws -> BrokerApprovalTicket {
+        let ticket = try approvals.submit(readRequest(), trustedCredentialDeadline: .none)
+        return try approvals.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .once)
     }
 
-    func close() throws {
-        try store.close()
-        try FileManager.default.removeItem(at: directory)
+    private func deliverAllowedFile(_ library: AgentAccessPolicyLibrary) throws -> (URL, BrokerTextDeliveryLease?) {
+        let bytes = Data("synthetic-file".utf8)
+        _ = try library.vault.createFileCredential(.init(name: "SYNTHETIC_FILE", snapshot: .init(
+            originalFilename: "key.pem", bytes: bytes, byteSize: bytes.count, contentDigest: Data()
+        ), environmentVariable: "KEY_FILE", permission: .allowed), using: .allow)
+        guard case .resolved(let credentials, _, let lease) = try library.vault.brokerTextCredentials(
+            for: .init(command: ["/usr/bin/true"], credentialNames: ["SYNTHETIC_FILE"]), cancellation: .init()
+        ) else { throw SyntheticPolicyFailure() }
+        let url = URL(fileURLWithPath: try XCTUnwrap(credentials.first?.value))
+        // End the spawn exclusion while retaining the lease that owns the file.
+        // Allow deliveries have no approval-runtime authorization to revoke.
+        lease?.finish()
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        return (url, lease)
     }
 }

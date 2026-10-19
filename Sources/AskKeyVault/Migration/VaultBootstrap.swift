@@ -81,7 +81,7 @@ enum VaultBootstrap {
         paths: VaultBootstrapPaths, keyStore: AppKeyStore,
         beforeCreationRename: (URL) throws -> Void = { _ in },
         synchronize: (VaultBootstrapSyncTarget) throws -> Void = VaultBootstrap.synchronize
-    ) throws -> (store: VaultStore, key: SymmetricKey) {
+    ) throws -> (store: VaultStore, key: SymmetricKey, created: Bool) {
         // Reject an invalid boundary before any file or key-store mutation.
         _ = try durableEntryChain(paths: paths)
         let state = try state(paths: paths)
@@ -106,19 +106,21 @@ enum VaultBootstrap {
             }
             // A crash between promotion and deletion leaves this duplicate.
             if deletesPendingKey { try? keyStore.deletePendingKey() }
-            return (store, key)
+            return (store, key, false)
         }
         let pending = try loadKey(keyStore.loadPendingKey, missing: .missingPendingKey)
         switch state {
         case .fresh:
             // A pending key without any current file is an interrupted first
             // creation before the database existed: resume with that key.
-            return try createNewLibrary(paths: paths, keyStore: keyStore, pendingKey: pending.map(validatedKey),
-                                        beforeRename: beforeCreationRename, synchronize: synchronize)
+            let opened = try createNewLibrary(paths: paths, keyStore: keyStore, pendingKey: pending.map(validatedKey),
+                                              beforeRename: beforeCreationRename, synchronize: synchronize)
+            return (opened.store, opened.key, true)
         case .current:
             guard let pending else { throw VaultBootstrapError.missingKey }
-            return try resumeUnfinishedFirstCreation(paths: paths, keyStore: keyStore, key: validatedKey(pending),
-                                                     synchronize: synchronize)
+            let opened = try resumeUnfinishedFirstCreation(paths: paths, keyStore: keyStore, key: validatedKey(pending),
+                                                           synchronize: synchronize)
+            return (opened.store, opened.key, true)
         }
     }
 

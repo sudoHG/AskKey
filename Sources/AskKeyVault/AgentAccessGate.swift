@@ -5,7 +5,7 @@ final class AgentAccessGate: @unchecked Sendable {
     private enum State { case active, paused, invalid }
 
     private let condition = NSCondition()
-    private var state: State = .active
+    private var state: State = .paused
     private var activeOperations = 0
     private var changing = false
 
@@ -76,13 +76,6 @@ final class AgentAccessGate: @unchecked Sendable {
         condition.lock()
         state = paused ? .paused : .active
         changing = false
-        condition.broadcast()
-        condition.unlock()
-    }
-
-    func synchronize(paused: Bool) {
-        condition.lock()
-        state = paused ? .paused : .active
         condition.broadcast()
         condition.unlock()
     }

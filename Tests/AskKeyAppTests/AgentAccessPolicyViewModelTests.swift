@@ -1,5 +1,4 @@
 import Foundation
-import GRDB
 import XCTest
 @testable import AskKeyAppKit
 @testable import AskKeyVault
@@ -105,7 +104,7 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         await model.resumeAgentAccess()
         XCTAssertEqual(model.agentAccessPolicy, .failClosed)
         XCTAssertNotNil(model.agentAccessPolicyNotice)
-        XCTAssertNil(try library.store.configValue(key: Vault.agentAccessPolicyConfigKey))
+        XCTAssertNil(library.keys.policy)
     }
 
     func testRecoveryRejectsSettingsAndKeepsNotice() throws {
@@ -118,7 +117,7 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         XCTAssertEqual(model.agentAccessPolicy, .failClosed)
         XCTAssertNotNil(model.agentAccessPolicyNotice)
         XCTAssertNotNil(model.errorMessage)
-        XCTAssertNil(try library.store.configValue(key: Vault.agentAccessPolicyConfigKey))
+        XCTAssertNil(library.keys.policy)
     }
 
     func testFailedSettingsWriteKeepsPreviousMemoryAndShowsError() throws {
@@ -126,7 +125,7 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         defer { try? library.close() }
         let model = makeModel(library)
         model.refreshAgentAccessPauseState()
-        try rejectWrites(library)
+        library.keys.saveFailure = AppPolicySaveFailure()
 
         XCTAssertFalse(model.setReadApprovalAuthentication(false, using: .allow))
         XCTAssertEqual(model.agentAccessPolicy, .defaults)
@@ -143,11 +142,104 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         defer { try? library.close() }
         let model = makeModel(library)
         model.refreshAgentAccessPauseState()
-        try rejectWrites(library)
+        library.keys.saveFailure = AppPolicySaveFailure()
         await model.resumeAgentAccess()
         XCTAssertEqual(model.agentAccessPolicy, .failClosed)
         XCTAssertNotNil(model.agentAccessPolicyNotice)
         XCTAssertNotNil(model.errorMessage)
+    }
+
+    func testFailedPauseSaveShowsRestartWarningAndKeepsUIReallyPaused() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        defaults.set("en", forKey: "languageMode")
+        let model = makeModel(library)
+        model.refreshAgentAccessPauseState()
+        library.keys.saveFailure = AppPolicySaveFailure()
+        await model.pauseAgentAccess()
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("may not survive a restart"))
+        XCTAssertFalse(model.agentAccessPolicyNeedsRecovery)
+    }
+
+    func testFailedOpenRefreshesPausedGateInUI() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let model = makeModel(library)
+        model.refreshAgentAccessPauseState()
+        XCTAssertFalse(model.isAgentAccessPaused)
+        library.keys.appKey = nil
+        model.isLocked = true
+        await model.unlockForManagement()
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.agentAccessPolicyNeedsRecovery)
+        XCTAssertNotNil(model.errorMessage)
+    }
+
+    func testFailedEraseShowsGatePauseWhenPersistedPolicyIsActive() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let coordinator = library.vault.makeLocalEraseCoordinator(
+            journal: FileLocalVaultEraseJournalStore(url: library.directory.appendingPathComponent("erase.journal")),
+            deleteEncryptedData: { throw AppPolicySaveFailure() },
+            deleteLocalKey: { XCTFail("Keys must survive failed data deletion") }
+        )
+        defaults.set("en", forKey: "languageMode")
+        let model = makeModel(library, erase: { try coordinator.erase(confirmation: $0, language: $1, using: $2) })
+        model.refreshAgentAccessPauseState()
+        model.isLocked = false
+        model.hasManagementSession = true
+        let erased = await model.eraseLocalLibrary(confirmation: "ERASE")
+        XCTAssertFalse(erased)
+        XCTAssertFalse(model.agentAccessPolicy.paused)
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertNotNil(model.errorMessage)
+    }
+
+    func testLockRefreshesActualGateInsteadOfSavedPolicy() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let model = makeModel(library)
+        model.refreshAgentAccessPauseState()
+        library.vault.lock()
+        model.lock()
+        XCTAssertFalse(model.agentAccessPolicy.paused)
+        XCTAssertTrue(model.isAgentAccessPaused)
+    }
+
+    func testEraseJournalFailureStillShowsPausedAfterPolicySnapshotWasRemoved() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let coordinator = library.vault.makeLocalEraseCoordinator(journal: PolicyEraseJournalClearFailure())
+        defaults.set("en", forKey: "languageMode")
+        let model = makeModel(library, erase: { try coordinator.erase(confirmation: $0, language: $1, using: $2) })
+        model.refreshAgentAccessPauseState()
+        model.isLocked = false
+        model.hasManagementSession = true
+        let erased = await model.eraseLocalLibrary(confirmation: "ERASE")
+        XCTAssertFalse(erased)
+        XCTAssertNil(library.keys.appKey)
+        XCTAssertNil(library.keys.policy)
+        XCTAssertThrowsError(try library.vault.agentAccessPolicyState())
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertNotNil(model.errorMessage)
+    }
+
+    func testLegacyDefaultsAreDeletedOnceAndRemainIgnoredAfterReintroduction() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        setLegacyDefaults()
+        let model = makeModel(library)
+        model.refreshAgentAccessPauseState()
+        for key in legacyKeys { XCTAssertNil(defaults.object(forKey: key)) }
+        setLegacyDefaults()
+        model.refreshAgentAccessPauseState()
+        for key in legacyKeys { XCTAssertNotNil(defaults.object(forKey: key)) }
+        XCTAssertEqual(model.agentAccessPolicy, .defaults)
+        let reopenedPreferences = AppPreferences(defaults: defaults)
+        reopenedPreferences.removeLegacyAgentAccessSettings()
+        for key in legacyKeys { XCTAssertNotNil(defaults.object(forKey: key)) }
     }
 
     func testSessionTimeoutLoadsOnlyPositiveValuesAtMostFiveMinutes() {
@@ -199,18 +291,23 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         _ = try library.vault.createTextCredential(.init(
             name: "SYNTHETIC", value: "synthetic-value", permission: .allowed
         ), using: .allow)
-        try library.store.setConfigValue(key: Vault.agentAccessPolicyConfigKey, value: nil)
+        library.keys.policy = nil
         try library.reopen()
         return library
     }
 
     private func makeModel(
         _ library: AgentAccessPolicyTestLibrary,
-        authenticate: @escaping () -> ManagementAuthenticator? = { .allow }
+        authenticate: @escaping () -> ManagementAuthenticator? = { .allow },
+        erase: ((String, LocalVaultEraseLanguage, ManagementAuthenticator) throws -> Void)? = nil
     ) -> VaultViewModel {
         VaultViewModel(
             runtimeFileCleanupFailures: { false },
             accessRecords: .empty,
+            eraseLocalLibrary: erase ?? { try library.vault.eraseLocalLibrary(confirmation: $0, language: $1, using: $2) },
+            authenticateLocalErase: { _ in .allow },
+            unlockVault: { try library.vault.unlock() },
+            beginManagementSession: { try library.vault.beginManagementSession(using: $0) },
             authenticateDeviceOwner: { _ in authenticate() },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
@@ -221,13 +318,13 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         )
     }
 
-    private func rejectWrites(_ library: AgentAccessPolicyTestLibrary) throws {
-        try library.store.db.write { db in
-            try db.execute(sql: """
-                CREATE TEMP TRIGGER reject_app_policy_write BEFORE INSERT ON config
-                WHEN NEW.key = 'agent_access_policy'
-                BEGIN SELECT RAISE(ABORT, 'synthetic policy write failure'); END
-                """)
-        }
-    }
+}
+
+private struct AppPolicySaveFailure: Error {}
+
+private final class PolicyEraseJournalClearFailure: LocalVaultEraseJournalStore {
+    private var state: LocalVaultEraseState?
+    func load() throws -> LocalVaultEraseState? { state }
+    func save(_ state: LocalVaultEraseState) throws { self.state = state }
+    func clear() throws { throw AppPolicySaveFailure() }
 }
