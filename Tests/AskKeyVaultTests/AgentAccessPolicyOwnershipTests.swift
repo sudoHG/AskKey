@@ -219,6 +219,8 @@ final class AgentAccessPolicyOwnershipTests: XCTestCase {
         XCTAssertFalse(try library.vault.isAgentAccessPaused())
         XCTAssertEqual(library.keys.policyWrites, 1)
         XCTAssertNoThrow(try library.vault.beginOnboardingCreation())
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        XCTAssertFalse(try library.vault.isAgentAccessPaused())
         try library.vault.setAgentAccessPolicyOwnership(true)
         XCTAssertNoThrow(try library.vault.brokerCredentialCatalog())
         XCTAssertNoThrow(try library.vault.updateTimedAllowance(enabled: true, minutes: 15))

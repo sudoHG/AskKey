@@ -4,7 +4,7 @@ extension Vault {
     /// Only a bound Broker grants writes; every preflight/write checks its identity again.
     package func setAgentAccessPolicyOwnership(
         _ owned: Bool, validateOwnership: @escaping () -> Bool = { true },
-        onRevocation: @escaping (Error) -> Void = { _ in }
+        onRevocation: @escaping @Sendable (Error) -> Void = { _ in }
     ) throws {
         let paused = try agentAccessGate.beginExclusiveChange()
         defer {
@@ -18,6 +18,9 @@ extension Vault {
     package func validateAgentAccessPolicyOwnership() throws {
         do { try agentAccessPolicyOwnership.require() }
         catch {
+            // A never-owned library may still finish onboarding before its first
+            // bind; refusing a request there must not create a revocation pause.
+            guard case AgentAccessPolicyError.ownershipRevoked = error else { throw error }
             _ = try agentAccessGate.beginExclusiveChange()
             defer { agentAccessGate.endExclusiveChange(paused: true) }
             pauseForLostAgentAccessOwnership()

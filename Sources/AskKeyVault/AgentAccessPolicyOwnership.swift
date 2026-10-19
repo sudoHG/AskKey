@@ -2,7 +2,7 @@ import Foundation
 
 /// The App supplies a socket-identity check; no filesystem IO runs under this lock.
 final class AgentAccessPolicyOwnership {
-    private enum State { case unavailable, owned(() -> Bool, (Error) -> Void), revoked }
+    private enum State { case unavailable, owned(() -> Bool, @Sendable (Error) -> Void), revoked }
     private let lock = NSLock()
     private var state = State.unavailable
     private var generation = 0
@@ -13,7 +13,7 @@ final class AgentAccessPolicyOwnership {
         return false
     }
 
-    func set(_ owned: Bool, validate: @escaping () -> Bool = { true }, onRevocation: @escaping (Error) -> Void = { _ in }) {
+    func set(_ owned: Bool, validate: @escaping () -> Bool = { true }, onRevocation: @escaping @Sendable (Error) -> Void = { _ in }) {
         lock.lock(); defer { lock.unlock() }
         state = owned ? .owned(validate, onRevocation) : .unavailable
         generation += 1

@@ -61,15 +61,20 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         XCTAssertTrue(chinese.contains("Agent "))
     }
 
-    func testOwnershipRevocationKeepsBrokerRetryVisibleAfterTheErrorIsDismissed() throws {
+    func testOwnershipRevocationKeepsBrokerRetryVisibleAfterTheErrorIsDismissed() async throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }
         let model = makeModel(library)
         model.languageMode = "en"
+        let shown = expectation(description: "Revocation reported on the main actor")
         try library.vault.setAgentAccessPolicyOwnership(true, validateOwnership: { false }, onRevocation: {
-            model.presentBrokerOwnershipRevocation($0)
+            error in Task { @MainActor in
+                model.presentBrokerOwnershipRevocation(error)
+                shown.fulfill()
+            }
         })
         XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        await fulfillment(of: [shown], timeout: 2)
         model.refreshAgentAccessPauseState()
         XCTAssertTrue(model.isAgentAccessPaused)
         XCTAssertTrue(model.brokerRecoveryAvailable)
