@@ -17,8 +17,20 @@ extension BrokerApprovalStateMachine {
         decision: BrokerApprovalDecision,
         revalidate: () throws -> Void
     ) throws -> BrokerApprovalTicket {
-        try decide(requestID: requestID, capability: capability, decision: decision,
-                   now: clock(), revalidate: revalidate)
+        if decision == .deny {
+            // Denial grants no authority. A failed refresh may already have
+            // cancelled the request, and must never leave a pending grant.
+            try? revalidate()
+            return try updateEntry(requestID: requestID, capability: capability, now: clock()) { entry in
+                switch entry.state {
+                case .pending: entry.state = .denied
+                case .denied, .cancelled, .expired: break
+                default: throw BrokerApprovalError.invalidDecision
+                }
+            }
+        }
+        return try decide(requestID: requestID, capability: capability, decision: decision,
+                          now: clock(), revalidate: revalidate)
     }
 
     /// Test seam. Production callers cannot supply time.

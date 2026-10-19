@@ -51,6 +51,15 @@ extension Vault {
     package func decideAgentApproval(
         requestID: String, capability: String, decision: BrokerApprovalDecision
     ) throws -> BrokerApprovalTicket {
+        if decision == .deny {
+            return try approvalRequests.decide(
+                requestID: requestID, capability: capability, decision: decision,
+                revalidate: {
+                    try self.agentAccessGate.beginSpawnAuthorization(validating: self.revalidateAgentAccessPolicy)
+                    self.agentAccessGate.endSpawnAuthorization()
+                }
+            )
+        }
         try beginAgentOperation()
         defer { agentAccessGate.endAgentOperation() }
         let policy = try savedAgentAccessPolicyState().policy

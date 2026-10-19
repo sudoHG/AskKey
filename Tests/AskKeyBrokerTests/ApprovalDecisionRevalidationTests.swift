@@ -51,4 +51,20 @@ final class ApprovalDecisionRevalidationTests: ApprovalStateMachineTestCase {
         ))
         XCTAssertEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .expired)
     }
+
+    func testDenySucceedsAfterPolicyFailureWhetherOrNotRevalidationCancelledRequest() throws {
+        for cancel in [false, true] {
+            let machine = configuredMachine(authenticate: { _ in XCTFail("Deny requires no authentication"); return false })
+            let ticket = try machine.submit(request(operationID: "deny-policy-failure"), trustedCredentialDeadline: .none)
+            let denied = try machine.decide(
+                requestID: ticket.requestID, capability: ticket.capability, decision: .deny,
+                revalidate: {
+                    if cancel { machine.pauseAndCancelAll() }
+                    throw BrokerApprovalError.agentAccessPaused
+                }
+            )
+            XCTAssertEqual(denied.state, cancel ? .cancelled : .denied)
+            XCTAssertTrue(machine.pendingRequests().isEmpty)
+        }
+    }
 }

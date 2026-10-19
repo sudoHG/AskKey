@@ -235,6 +235,30 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
         }
     }
 
+    func testDenySucceedsWithStricterMissingOrInvalidPersistedPolicy() throws {
+        for change in ["pause", "read-authentication", "timed-allowance", "missing", "invalid", "unreadable"] {
+            let library = try makeLibrary()
+            try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+            let second = try makeSecondVault(library)
+            second.approvalRequests.configureAuthentication { _ in XCTFail("Deny must not authenticate"); return false }
+            let ticket = try submitRead(second)
+            switch change {
+            case "pause": try library.vault.pauseAgentAccess(using: .allow)
+            case "read-authentication": try library.vault.updateReadApprovalAuthentication(true)
+            case "timed-allowance": try library.vault.updateTimedAllowance(enabled: false, minutes: 30)
+            case "missing": library.keys.policy = nil
+            case "invalid": library.keys.policy = Data("invalid".utf8)
+            default: library.keys.policyLoadFailure = SyntheticPolicyFailure()
+            }
+            XCTAssertEqual(try decide(second, ticket: ticket, decision: .deny).state, .cancelled, change)
+            XCTAssertTrue(second.approvalRequests.pendingRequests().isEmpty)
+            XCTAssertEqual(try decide(second, ticket: ticket, decision: .deny).state, .cancelled)
+            if ["pause", "missing", "invalid", "unreadable"].contains(change) {
+                XCTAssertTrue(try second.agentAccessPolicyState().isPaused)
+            }
+        }
+    }
+
     private func makeLibrary() throws -> AgentAccessPolicyLibrary {
         let library = try AgentAccessPolicyLibrary()
         addTeardownBlock { try library.close() }

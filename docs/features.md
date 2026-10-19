@@ -87,7 +87,7 @@ Development builds use their separate `.dev` services. Erasing an older App-owne
 
 One Ask Key process serves a library, using a lifetime exclusive lock in its data directory before Vault or Broker startup; development and production namespaces remain separate. A second launch activates the existing management window and exits. The Broker refuses to replace a live socket and only unlinks the socket identity it bound.
 
-Agent-access policy changes take effect across processes at the next agent request. Catalog/list requests, approval decisions (including after system authentication), agent commits and the final delivery/spawn boundary verify the persisted Keychain policy and enforce the stricter persisted or in-memory state. Adopting a stricter policy quiesces outstanding requests, approvals and file deliveries. Settings changes, pause and resume re-read persisted policy under the exclusive gate so a stale instance cannot overwrite a newer pause.
+Agent-access policy changes take effect across processes at the next agent request. Catalog/list requests, approval decisions (including after system authentication), agent commits and the final delivery/spawn boundary verify the persisted Keychain policy and enforce the stricter persisted or in-memory state. Adopting a stricter policy quiesces outstanding requests, approvals and file deliveries. Deny remains available when policy verification fails, preserving cancellation when it has already occurred. Settings changes, pause and resume re-read persisted policy under the exclusive gate so a stale instance cannot overwrite a newer pause.
 
 | Feature | One-line description | Decision | Legacy source files | Legacy test files |
 |---|---|---|---|---|
