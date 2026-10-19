@@ -235,6 +235,148 @@ final class VaultBootstrapKeyOriginTests: XCTestCase {
         try opened.store.close()
     }
 
+    func testPendingValueChangedDuringPromotionLeavesNoAppKeyAndRecreatesOnReopen() throws {
+        for afterWrite in [false, true] {
+            let paths = try paths()
+            let keys = MemoryAppKeyStore()
+            var generated: Data?
+            keys.onPendingSave = { generated = $0 }
+            if afterWrite {
+                keys.onPromotion = { keys.pendingKey = self.planted }
+            } else {
+                keys.beforePromotion = { keys.pendingKey = self.planted }
+            }
+            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+                XCTAssertEqual($0 as? AppKeyStoreError, .conflictingKey)
+            }
+            XCTAssertNil(keys.appKey, "a changed marker cannot leave an App key behind")
+            XCTAssertEqual(keys.pendingKey, planted)
+            let discarded = try XCTUnwrap(generated)
+            keys.beforePromotion = nil
+            keys.onPromotion = nil
+            let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+            XCTAssertTrue(reopened.created)
+            XCTAssertNotEqual(VaultCrypto.keyToData(reopened.key), planted)
+            XCTAssertNotEqual(VaultCrypto.keyToData(reopened.key), discarded)
+            XCTAssertEqual(keys.appKey, generated)
+            XCTAssertNil(keys.pendingKey)
+            try reopened.store.close()
+        }
+    }
+
+    func testFailedPostPromotionVerificationDeletesAppKeyBeforeReopen() throws {
+        for unreadable in [false, true] {
+            let paths = try paths()
+            let keys = MemoryAppKeyStore()
+            var generated: Data?
+            keys.onPendingSave = { generated = $0 }
+            keys.onPromotion = {
+                if unreadable {
+                    keys.appLoadFailure = AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
+                } else {
+                    keys.appKey = self.planted
+                }
+            }
+            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+                XCTAssertEqual($0 as? AppKeyStoreError, unreadable ? .securityFailure(errSecInteractionNotAllowed) : .conflictingKey)
+            }
+            XCTAssertNil(keys.appKey)
+            XCTAssertEqual(keys.pendingKey, generated)
+            let discarded = try XCTUnwrap(generated)
+            keys.onPromotion = nil
+            keys.appLoadFailure = nil
+            let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+            XCTAssertTrue(reopened.created)
+            XCTAssertNotEqual(VaultCrypto.keyToData(reopened.key), discarded)
+            XCTAssertNotEqual(VaultCrypto.keyToData(reopened.key), planted)
+            XCTAssertNil(keys.pendingKey)
+            try reopened.store.close()
+        }
+    }
+
+    func testLibraryChangedDuringPendingDeletionIsPreservedBySecondProofCheck() throws {
+        let paths = try paths()
+        let keys = MemoryAppKeyStore()
+        try leaveUnfinished(paths, keys: keys)
+        try Data("SYNTHETIC-leftover".utf8).write(to: paths.creatingDatabase)
+        keys.mutations = 0
+        var changed: [String: Data]?
+        keys.onPendingDelete = {
+            let writer = try DatabaseQueue(path: paths.currentDatabase.path)
+            try writer.write { try $0.execute(sql: "INSERT INTO config VALUES ('SYNTHETIC-user-data', 'preserve')") }
+            try writer.close()
+            changed = try directoryBytes(paths.directory)
+        }
+        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+            XCTAssertEqual($0 as? VaultBootstrapError, .invalidState)
+        }
+        XCTAssertEqual(try directoryBytes(paths.directory), try XCTUnwrap(changed))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: paths.currentDatabase.path))
+        XCTAssertNil(keys.appKey)
+        XCTAssertNil(keys.pendingKey, "only the requested pending deletion completed")
+        XCTAssertEqual(keys.mutations, 1)
+        XCTAssertEqual(keys.policyWrites, 0)
+    }
+
+    func testAppKeyReadErrorsNeverDiscardMatchingLibraryOrPendingItem() throws {
+        for error in [AppKeyStoreError.conflictingItem(.vaultKey), .securityFailure(errSecInteractionNotAllowed)] {
+            let paths = try paths()
+            let keys = MemoryAppKeyStore()
+            try leaveUnfinished(paths, keys: keys)
+            keys.appLoadFailure = error
+            keys.onPendingDelete = { XCTFail("read errors must not reach pending deletion") }
+            keys.mutations = 0
+            let pending = keys.pendingKey
+            let before = try directoryBytes(paths.directory)
+            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+                XCTAssertEqual($0 as? AppKeyStoreError, error)
+            }
+            XCTAssertEqual(try directoryBytes(paths.directory), before)
+            XCTAssertEqual(keys.pendingKey, pending)
+            XCTAssertNil(keys.appKey)
+            XCTAssertEqual(keys.mutations, 0)
+            XCTAssertEqual(keys.policyWrites, 0)
+        }
+    }
+
+    func testProductionReopenWithMissingAppKeyNeverDiscardsItsOpenEmptyLibrary() throws {
+        let paths = try paths()
+        let keys = MemoryAppKeyStore()
+        let manager = try FileDeliveryManager(rootURL: paths.directory.deletingLastPathComponent().appendingPathComponent("deliveries"))
+        let vault = Vault(paths: paths, keyStore: keys, fileDeliveryManager: manager)
+        try vault.unlock()
+        let original = try vault.store
+        defer { try? original.close() }
+        XCTAssertTrue(try original.fetchAllCredentials().isEmpty)
+        let inode = try XCTUnwrap(FileManager.default.attributesOfItem(atPath: paths.currentDatabase.path)[.systemFileNumber] as? NSNumber)
+        let before = try directoryBytes(paths.directory)
+        keys.appKey = nil
+        keys.pendingKey = planted
+        keys.mutations = 0
+        keys.onPendingDelete = { XCTFail("an open library cannot reach discard") }
+        for reopen: () throws -> Void in [
+            { try vault.unlock() },
+            { try vault.prepareAgentRuntime(paths: paths, keyStore: { keys }) },
+        ] {
+            XCTAssertThrowsError(try reopen()) { XCTAssertEqual($0 as? VaultBootstrapError, .missingKey) }
+            XCTAssertTrue(try vault.store === original)
+            XCTAssertTrue(vault.isLocked)
+            XCTAssertTrue(try vault.isAgentAccessPaused())
+            XCTAssertEqual(try directoryBytes(paths.directory), before)
+            XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: paths.currentDatabase.path)[.systemFileNumber] as? NSNumber, inode)
+            XCTAssertEqual(keys.pendingKey, planted)
+            XCTAssertNil(keys.appKey)
+            XCTAssertEqual(keys.mutations, 0)
+            XCTAssertEqual(keys.policyWrites, 1)
+        }
+        // A retained connection can still commit to the original named file.
+        try original.setConfigValue(key: "SYNTHETIC-after-failed-reopen", value: "preserve")
+        try original.close()
+        let reopened = try VaultStore(path: paths.currentDatabase.path)
+        defer { try? reopened.close() }
+        XCTAssertEqual(try reopened.configValue(key: "SYNTHETIC-after-failed-reopen"), "preserve")
+    }
+
     private enum CrashPoint: CaseIterable {
         case pendingDiscarded, beforeRename, creatingSynced, databaseSynced, directorySynced, rootSynced
         case pendingSaved, beforePromotion, promoted, pendingDeleted

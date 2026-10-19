@@ -28,7 +28,18 @@ final class IsolatedAppKeyStore: AppKeyStore {
     func loadPendingKey() throws -> Data { try load(pendingService, missing: .missingPendingKey) }
     func loadAppKey() throws -> Data { try load(appService, missing: .missingAppKey) }
     func savePendingKey(_ data: Data) throws { try save(data, service: pendingService) }
-    func promotePendingKey() throws { try save(loadPendingKey(), service: appService) }
+    func promotePendingKey(expected data: Data) throws {
+        guard try loadPendingKey() == data else { throw AppKeyStoreError.conflictingKey }
+        try save(data, service: appService)
+        do {
+            guard try loadAppKey() == data, try loadPendingKey() == data else {
+                throw AppKeyStoreError.conflictingKey
+            }
+        } catch {
+            try deleteAppKey()
+            throw error
+        }
+    }
     func deleteLegacyKey() throws { try delete(legacyService) }
     func deletePendingKey() throws { try delete(pendingService) }
     func deleteAppKey() throws { try delete(appService) }

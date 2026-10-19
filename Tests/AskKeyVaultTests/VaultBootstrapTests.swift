@@ -422,10 +422,12 @@ final class MemoryAppKeyStore: AppKeyStore {
     var mutations = 0
     /// Simulates an interruption between database creation and promotion.
     var promotionFailure: Error?
+    var appLoadFailure: Error?
     /// Simulates a pending key that exists but cannot be read.
     var pendingLoadFailure: Error?
     var pendingDeleteFailure: Error?
     var onPendingSave: ((Data) throws -> Void)?
+    var beforePromotion: (() throws -> Void)?
     var onPromotion: (() throws -> Void)?
     var onPendingDelete: (() throws -> Void)?
     var policy: Data?
@@ -436,6 +438,7 @@ final class MemoryAppKeyStore: AppKeyStore {
     var policyDeletes = 0
     init(appKey: Data? = nil) { self.appKey = appKey }
     func loadAppKey() throws -> Data {
+        if let appLoadFailure { throw appLoadFailure }
         guard let appKey else { throw AppKeyStoreError.missingAppKey }
         return appKey
     }
@@ -449,10 +452,12 @@ final class MemoryAppKeyStore: AppKeyStore {
         pendingKey = data
         try onPendingSave?(data)
     }
-    func promotePendingKey() throws {
+    func promotePendingKey(expected data: Data) throws {
         if let promotionFailure { throw promotionFailure }
+        try beforePromotion?()
+        guard try loadPendingKey() == data else { throw AppKeyStoreError.conflictingKey }
         mutations += 1
-        appKey = try loadPendingKey()
+        appKey = data
         try onPromotion?()
     }
     func deletePendingKey() throws {

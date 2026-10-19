@@ -6,7 +6,6 @@ import AskKeyBroker
 
 final class AgentAccessPolicyTestLibrary {
     let directory: URL
-    let key = SymmetricKey(data: Data(repeating: 0x51, count: 32))
     let keys = AppPolicyMemoryStore()
     let vault: Vault
     var store: VaultStore { get throws { try vault.store } }
@@ -14,7 +13,6 @@ final class AgentAccessPolicyTestLibrary {
     init(approvalRequests: BrokerApprovalStateMachine = BrokerApprovalStateMachine()) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyAppPolicy-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        keys.pendingKey = VaultCrypto.keyToData(key)
         vault = Vault(paths: .init(directory: directory.appendingPathComponent("library")), keyStore: keys, approvalRequests: approvalRequests,
                       fileDeliveryManager: try FileDeliveryManager(rootURL: directory.appendingPathComponent("deliveries")))
         try vault.unlock()
@@ -57,7 +55,10 @@ final class AppPolicyMemoryStore: AppKeyStore {
         guard let pendingKey else { throw AppKeyStoreError.missingPendingKey }
         return pendingKey
     }
-    func promotePendingKey() throws { appKey = try loadPendingKey() }
+    func promotePendingKey(expected data: Data) throws {
+        guard try loadPendingKey() == data else { throw AppKeyStoreError.conflictingKey }
+        appKey = data
+    }
     func loadAppKey() throws -> Data {
         guard let appKey else { throw AppKeyStoreError.missingAppKey }
         return appKey

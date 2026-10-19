@@ -144,7 +144,7 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
         let bytes = Data(repeating: 0x42, count: 32)
         let keys = try fixture.makeStore()
         try keys.savePendingKey(bytes)
-        try keys.promotePendingKey()
+        try keys.promotePendingKey(expected: bytes)
         XCTAssertEqual(try keys.loadAppKey(), bytes)
         XCTAssertEqual(try keys.loadPendingKey(), bytes)
         try fixture.addVaultKey(bytes, suffix: ".pending", outside: true)
@@ -154,7 +154,7 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
             (.vaultKey, { _ = try keys.loadAppKey() }),
             (.pendingKey, { _ = try keys.loadPendingKey() }),
             (.pendingKey, { try keys.savePendingKey(bytes) }),
-            (.pendingKey, { try keys.promotePendingKey() }),
+            (.pendingKey, { try keys.promotePendingKey(expected: bytes) }),
             (.vaultKey, { try keys.deleteAppKey() }),
             (.pendingKey, { try keys.deletePendingKey() }),
             (.legacyKey, { try keys.deleteLegacyKey() }),
@@ -187,6 +187,23 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
             }
             try opened.store.close()
         }
+    }
+
+    func testNativePromotionRejectsChangedPendingMarkerWithoutWritingAppKey() throws {
+        let fixture = try KeychainNativeTestSupport(test: self)
+        let keys = try fixture.makeStore()
+        let expected = Data(repeating: 0x42, count: 32)
+        let planted = Data(repeating: 0xA7, count: 32)
+        try keys.savePendingKey(expected)
+        try keys.deletePendingKey()
+        try fixture.addVaultKey(planted, suffix: ".pending")
+        XCTAssertThrowsError(try keys.promotePendingKey(expected: expected)) {
+            XCTAssertEqual($0 as? AppKeyStoreError, .conflictingKey)
+        }
+        XCTAssertThrowsError(try keys.loadAppKey()) {
+            XCTAssertEqual($0 as? AppKeyStoreError, .missingAppKey)
+        }
+        XCTAssertEqual(try keys.loadPendingKey(), planted)
     }
 
     func testNativeBootstrapPendingConflictPreservesFreshAndUnfinishedLibraries() throws {
