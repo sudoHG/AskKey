@@ -26,7 +26,7 @@ final class AppPreferences {
     var sessionTimeoutSeconds: Double {
         get {
             let value = defaults.double(forKey: "sessionTimeoutSeconds")
-            return value > 0 ? value : 300
+            return value > 0 && value <= 300 ? value : 300
         }
         set {
             defaults.set(newValue, forKey: "sessionTimeoutSeconds")
@@ -56,24 +56,10 @@ final class AppPreferences {
         set { defaults.set(newValue, forKey: "hasCompletedOnboarding") }
     }
 
-    var defaultTimedAllowanceMinutes: Int {
-        get {
-            let value = defaults.integer(forKey: "defaultTimedAllowanceMinutes")
-            return value > 0 ? value : 30
+    func removeLegacyAgentAccessSettings() {
+        for key in ["readApprovalAuthenticationEnabled", "timedAllowanceEnabled", "defaultTimedAllowanceMinutes"] {
+            defaults.removeObject(forKey: key)
         }
-        set {
-            defaults.set(newValue, forKey: "defaultTimedAllowanceMinutes")
-        }
-    }
-
-    var readApprovalAuthenticationEnabled: Bool {
-        get { defaults.object(forKey: "readApprovalAuthenticationEnabled") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "readApprovalAuthenticationEnabled") }
-    }
-
-    var timedAllowanceEnabled: Bool {
-        get { defaults.object(forKey: "timedAllowanceEnabled") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "timedAllowanceEnabled") }
     }
 
     var hotkeyShortcutID: String {

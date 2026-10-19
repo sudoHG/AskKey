@@ -52,7 +52,7 @@ class AppLanguageExperienceTestSupport: AskKeyAppTestCase {
         beginOnboardingManagementSession: @escaping () throws -> Void = {},
         storedCredentialCount: @escaping () throws -> Int = { 0 },
         authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticator?)? = nil,
-        updateTimedAllowance: @escaping (Int) -> Void = { _ in }
+        agentAccessPolicyOperations: AgentAccessPolicyOperations? = nil
     ) -> VaultViewModel {
         VaultViewModel(
             runtimeFileCleanupFailures: { false },
@@ -64,7 +64,7 @@ class AppLanguageExperienceTestSupport: AskKeyAppTestCase {
             authenticateDeviceOwner: authenticateDeviceOwner,
             preferences: preferences,
             loginItem: login.controller(),
-            updateTimedAllowance: updateTimedAllowance,
+            agentAccessPolicyOperations: agentAccessPolicyOperations ?? AgentAccessPolicyTestState().operations,
             credentialMutations: CredentialWorkspaceMutations.readOnly { ([], [], [], false) }
                 .counting(storedCredentialCount)
         )

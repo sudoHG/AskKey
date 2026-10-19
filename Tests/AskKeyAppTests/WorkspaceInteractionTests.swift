@@ -131,17 +131,22 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
     }
 
     @MainActor
-    func testFrozenSecuritySettingsPersistAcrossRelaunch() {
+    func testFrozenSecuritySettingsPersistInVaultAcrossRelaunch() throws {
         let suite = "WorkspaceSecuritySettings-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite) ?? .standard
-        let first = makePreviewViewModel(defaults: defaults)
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let first = makePreviewViewModel(defaults: defaults, agentAccessPolicyOperations: library.operations)
         XCTAssertTrue(first.readApprovalAuthenticationEnabled)
         XCTAssertTrue(first.timedAllowanceEnabled)
 
-        first.readApprovalAuthenticationEnabled = false
+        XCTAssertTrue(first.setReadApprovalAuthentication(false, using: .allow))
         first.timedAllowanceEnabled = false
 
-        let relaunched = makePreviewViewModel(defaults: defaults)
+        try library.reopen()
+        let relaunched = makePreviewViewModel(defaults: defaults, agentAccessPolicyOperations: library.operations)
+        relaunched.refreshAgentAccessPauseState()
         XCTAssertFalse(relaunched.readApprovalAuthenticationEnabled)
         XCTAssertFalse(relaunched.timedAllowanceEnabled)
     }

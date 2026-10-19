@@ -4,19 +4,16 @@ import AskKeyBroker
 import AskKeyVault
 
 enum FrozenTimedAllowanceSettingsPresentation {
-    static let choices = [15, 30, 60, 120]
+    static var choices: [Int] { Vault.allowedTimedAllowanceMinutes }
     /// The picker tag for turning timed allow off.
     static let offTag = 0
 
     static func sanitized(_ minutes: Int) -> Int {
-        if minutes > 0, minutes <= Int.max / 60 { return minutes }
-        return 30
+        choices.contains(minutes) ? minutes : AgentAccessPolicy.defaults.timedAllowanceMinutes
     }
 
     static func menuChoices(current: Int) -> [Int] {
-        let value = sanitized(current)
-        if choices.contains(value) { return choices }
-        return (choices + [value]).sorted()
+        choices
     }
 
     static func title(_ minutes: Int) -> String {

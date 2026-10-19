@@ -95,14 +95,15 @@ final class OnboardingFlowTests: AppLanguageExperienceTestSupport {
         XCTAssertEqual(viewModel.settingsEntryState, .locked)
     }
 
-    func testDisablingLoginItemAppliesImmediatelyAndNeverTouchesTheRealLoginItemService() {
+    func testDisablingLoginItemAppliesImmediatelyAndNeverTouchesTheRealLoginItemService() throws {
         let login = LoginItemProbe()
         login.enabled = true
-        var appliedAllowance: [Int] = []
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
         let viewModel = makeViewModel(
             preferences: AppPreferences(defaults: defaults),
             login: login,
-            updateTimedAllowance: { appliedAllowance.append($0) }
+            agentAccessPolicyOperations: library.operations
         )
 
         XCTAssertTrue(viewModel.launchAtLogin)
@@ -129,8 +130,9 @@ final class OnboardingFlowTests: AppLanguageExperienceTestSupport {
         XCTAssertTrue(viewModel.hasCompletedOnboarding)
 
         viewModel.defaultTimedAllowanceMinutes = 15
-        XCTAssertEqual(AppPreferences(defaults: defaults).defaultTimedAllowanceMinutes, 15)
-        XCTAssertEqual(appliedAllowance, [15])
+        XCTAssertNil(defaults.object(forKey: "defaultTimedAllowanceMinutes"))
+        try library.reopen()
+        XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.timedAllowanceMinutes, 15)
     }
 
     func testCompletingOnboardingWithLaunchAtLoginOffUnregistersAnExistingLoginItem() {

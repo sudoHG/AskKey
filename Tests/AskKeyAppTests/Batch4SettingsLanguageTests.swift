@@ -46,21 +46,24 @@ final class Batch4SettingsLanguageTests: AskKeyAppTestCase {
             recorder.record($0)
             return true
         })
+        let library = try AgentAccessPolicyTestLibrary(approvalRequests: machine)
+        defer { try? library.close() }
         let model = VaultViewModel(
             runtimeFileCleanupFailures: { false }, accessRecords: .empty,
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
-            updateReadAuthentication: { machine.setReadAuthenticationEnabled($0) },
+            agentAccessPolicyOperations: library.operations,
             credentialMutations: .readOnly { ([], [], [], false) }
         )
-        for enabled in [true, false] {
+        for enabled in [false, true] {
             let observation = ReadPreferenceRecorder()
             withObservationTracking { _ = model.readApprovalAuthenticationEnabled } onChange: {
                 observation.recordChange()
             }
-            model.readApprovalAuthenticationEnabled = enabled
+            XCTAssertTrue(model.setReadApprovalAuthentication(enabled, using: .allow))
             XCTAssertTrue(observation.changed)
-            XCTAssertEqual(AppPreferences(defaults: defaults).readApprovalAuthenticationEnabled, enabled)
+            XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.readApprovalAuthentication, enabled)
+            XCTAssertNil(defaults.object(forKey: "readApprovalAuthenticationEnabled"))
             for operation in [BrokerApprovalOperation.read, .create, .modify] {
                 let before = recorder.purposes
                 let ticket = try machine.submit(.init(
@@ -137,10 +140,11 @@ final class Batch4SettingsLanguageTests: AskKeyAppTestCase {
 
         let viewModel = VaultViewModel(
             preferences: AppPreferences(defaults: defaults),
-            updateTimedAllowance: { _ in }
+            agentAccessPolicyOperations: AgentAccessPolicyTestState().operations
         )
         viewModel.defaultTimedAllowanceMinutes = 120
-        XCTAssertEqual(AppPreferences(defaults: defaults).defaultTimedAllowanceMinutes, 120)
+        XCTAssertEqual(viewModel.defaultTimedAllowanceMinutes, 120)
+        XCTAssertNil(defaults.object(forKey: "defaultTimedAllowanceMinutes"))
         XCTAssertTrue(
             FrozenTimedAllowanceSettingsPresentation.help(minutes: 15).contains("15")
         )

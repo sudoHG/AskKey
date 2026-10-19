@@ -55,6 +55,8 @@ package final class VaultViewModel {
     var credentialAccessRecords: [CredentialAccessEvent] = []
     package var hasManagementSession = false
     var isAgentAccessPaused = false
+    private(set) var agentAccessPolicy = AgentAccessPolicy.defaults
+    private(set) var agentAccessPolicyNeedsRecovery = false
     var revealedCredential: ManagedTextCredential?
     var pendingApprovalCount = 0
     var brokerRecoveryAvailable = false
@@ -122,29 +124,24 @@ package final class VaultViewModel {
     }
 
     var defaultTimedAllowanceMinutes: Int {
-        get { preferences.defaultTimedAllowanceMinutes }
-        set {
-            preferences.defaultTimedAllowanceMinutes = newValue
-            updateTimedAllowance(newValue)
-        }
+        get { agentAccessPolicy.timedAllowanceMinutes }
+        set { setTimedAllowance(enabled: timedAllowanceEnabled, minutes: newValue) }
     }
 
     var readApprovalAuthenticationEnabled: Bool {
-        get {
-            access(keyPath: \.readApprovalAuthenticationEnabled)
-            return preferences.readApprovalAuthenticationEnabled
-        }
-        set {
-            withMutation(keyPath: \.readApprovalAuthenticationEnabled) {
-                preferences.readApprovalAuthenticationEnabled = newValue
-                updateReadAuthentication(newValue)
-            }
-        }
+        get { agentAccessPolicy.readApprovalAuthentication }
+        set { setReadApprovalAuthentication(newValue) }
     }
 
     var timedAllowanceEnabled: Bool {
-        get { preferences.timedAllowanceEnabled }
-        set { preferences.timedAllowanceEnabled = newValue }
+        get { agentAccessPolicy.timedAllowanceEnabled }
+        set { setTimedAllowance(enabled: newValue, minutes: defaultTimedAllowanceMinutes) }
+    }
+
+    var agentAccessPolicyNotice: String? {
+        agentAccessPolicyNeedsRecovery
+            ? appLocalized("Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings.")
+            : nil
     }
 
     var brandName: String {
@@ -181,8 +178,7 @@ package final class VaultViewModel {
     private let preferences: AppPreferences
     @ObservationIgnored private var fileCleanupFailureObservation: FileCleanupFailureObservation?
     private let loginItem: LoginItemController
-    private let updateTimedAllowance: (Int) -> Void
-    private let updateReadAuthentication: (Bool) -> Void
+    private let agentAccessPolicyOperations: AgentAccessPolicyOperations
     private let managementSessionIdleLimit: TimeInterval
     private let sessionPolicy = SessionPolicy()
     private let managementSessionPolicy = SessionPolicy()
@@ -201,7 +197,6 @@ package final class VaultViewModel {
     let credentialMutations: CredentialWorkspaceMutations
     private(set) var managementAuthorizationGeneration: UInt64 = 0
     let authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticator?)?
-    let isAgentAccessPausedImpl: () throws -> Bool
     let pauseAgentAccessImpl: (ManagementAuthenticator) throws -> Void
     let resumeAgentAccessImpl: (ManagementAuthenticator) throws -> Void
 
@@ -226,15 +221,7 @@ package final class VaultViewModel {
         preferences: AppPreferences = AppPreferences(),
         loginItem: LoginItemController = LoginItemController(),
         managementSessionIdleLimit: TimeInterval = Vault.managementSessionIdleLimit,
-        updateTimedAllowance: @escaping (Int) -> Void = { minutes in
-            Vault.shared.updateDefaultTimedAllowanceMinutes(minutes)
-        },
-        updateReadAuthentication: @escaping (Bool) -> Void = { enabled in
-            Vault.shared.approvalRequests.setReadAuthenticationEnabled(enabled)
-        },
-        isAgentAccessPaused: @escaping () throws -> Bool = {
-            try Vault.shared.isAgentAccessPaused()
-        },
+        agentAccessPolicyOperations: AgentAccessPolicyOperations = .live,
         pauseAgentAccess: @escaping (ManagementAuthenticator) throws -> Void = {
             try Vault.shared.pauseAgentAccess(using: $0)
         },
@@ -254,14 +241,12 @@ package final class VaultViewModel {
         loadCredentialWorkspaceImpl = credentialMutations.loadWorkspace
         self.credentialMutations = credentialMutations
         self.authenticateDeviceOwner = authenticateDeviceOwner
-        isAgentAccessPausedImpl = isAgentAccessPaused
         pauseAgentAccessImpl = pauseAgentAccess
         resumeAgentAccessImpl = resumeAgentAccess
         self.preferences = preferences
         self.loginItem = loginItem
         self.managementSessionIdleLimit = managementSessionIdleLimit
-        self.updateTimedAllowance = updateTimedAllowance
-        self.updateReadAuthentication = updateReadAuthentication
+        self.agentAccessPolicyOperations = agentAccessPolicyOperations
         appearanceMode = preferences.appearanceMode
         languageMode = preferences.languageMode
         hasCompletedOnboarding = preferences.hasCompletedOnboarding
@@ -271,7 +256,6 @@ package final class VaultViewModel {
             presentError(error)
         }
         AppLanguage.apply(mode: preferences.languageMode)
-        updateReadAuthentication(preferences.readApprovalAuthenticationEnabled)
         fileCleanupFailureObservation = FileCleanupFailureObservation { [weak self] in
             self?.errorMessage = "Ask Key could not remove a temporary credential file. It will keep retrying."
         }
@@ -430,7 +414,35 @@ package final class VaultViewModel {
 
     func refreshAgentAccessPauseState() {
         do {
-            isAgentAccessPaused = try isAgentAccessPausedImpl()
+            applyAgentAccessPolicyState(try agentAccessPolicyOperations.load())
+        } catch {
+            presentError(error)
+        }
+    }
+
+    private func applyAgentAccessPolicyState(_ state: AgentAccessPolicyState) {
+        agentAccessPolicy = state.policy
+        agentAccessPolicyNeedsRecovery = state.needsRecovery
+        isAgentAccessPaused = state.policy.paused
+        if !state.needsRecovery { preferences.removeLegacyAgentAccessSettings() }
+    }
+
+    @discardableResult
+    func setReadApprovalAuthentication(
+        _ enabled: Bool, using authenticator: ManagementAuthenticator? = nil
+    ) -> Bool {
+        do {
+            applyAgentAccessPolicyState(try agentAccessPolicyOperations.setReadAuthentication(enabled, authenticator))
+            return true
+        } catch {
+            presentError(error)
+            return false
+        }
+    }
+
+    func setTimedAllowance(enabled: Bool, minutes: Int) {
+        do {
+            applyAgentAccessPolicyState(try agentAccessPolicyOperations.setTimedAllowance(enabled, minutes))
         } catch {
             presentError(error)
         }

@@ -81,7 +81,6 @@ extension VaultViewModel {
             recycledCredentials = snapshot.recycled
             onboardingCredentialCount = try storedCredentialCountImpl()
             storedCredentialGroups = snapshot.groups
-            isAgentAccessPaused = try isAgentAccessPausedImpl()
             if snapshot.accessRecordWriteFailure {
                 errorMessage = "Ask Key could not save an access record. Credential operations continue, and this warning will remain until recording succeeds."
             }
@@ -198,7 +197,7 @@ extension VaultViewModel {
         ) else { return }
         do {
             try pauseAgentAccessImpl(authenticator)
-            isAgentAccessPaused = true
+            refreshAgentAccessPauseState()
         } catch {
             presentError(error)
             refreshAgentAccessPauseState()
@@ -211,7 +210,7 @@ extension VaultViewModel {
         ) else { return }
         do {
             try resumeAgentAccessImpl(authenticator)
-            isAgentAccessPaused = false
+            refreshAgentAccessPauseState()
         } catch {
             presentError(error)
             refreshAgentAccessPauseState()

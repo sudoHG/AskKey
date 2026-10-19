@@ -253,7 +253,7 @@ final class CredentialExpiryReminderTests: XCTestCase {
             key: VaultCrypto.generateKey(),
             approvalRequests: machine
         )
-        vault.updateDefaultTimedAllowanceMinutes(30)
+        try vault.updateDefaultTimedAllowanceMinutes(30)
 
         let first = try machine.submit(
             .init(
@@ -275,7 +275,7 @@ final class CredentialExpiryReminderTests: XCTestCase {
             .approved
         )
 
-        vault.updateDefaultTimedAllowanceMinutes(120)
+        try vault.updateDefaultTimedAllowanceMinutes(120)
         XCTAssertEqual(
             try machine.submit(
                 .init(

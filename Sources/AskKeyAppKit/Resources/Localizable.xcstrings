@@ -2703,6 +2703,22 @@
         }
       }
     },
+    "Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问已暂停，因为保存的设置缺失或在请旨之外被更改。恢复 Agent 访问后将还原默认设置。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings.!!]" } }
+      }
+    },
+    "Agent access settings are invalid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agent access settings are invalid." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问设置无效。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access settings are invalid.!!]" } }
+      }
+    },
     "Agent access": {
       "extractionState": "extracted_with_value",
       "localizations": {

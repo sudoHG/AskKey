@@ -45,6 +45,7 @@ public final class Vault {
     private var _store: VaultStore?
     private var _managementSessionExpiresAt: Date?
     private var _accessRecordWriteFailed = false
+    private var _agentAccessPolicyState: AgentAccessPolicyState?
 
     func notifySnapshotRelevantChange() {
         NotificationCenter.default.post(name: .askKeyCredentialSnapshotDidChange, object: nil)
@@ -111,15 +112,17 @@ public final class Vault {
         configureAgentTextWriteCleanup()
     }
 
-    public func updateDefaultTimedAllowanceMinutes(_ minutes: Int) {
-        let seconds: TimeInterval
-        if minutes > 0, minutes <= Int.max / 60 {
-            seconds = TimeInterval(minutes * 60)
-        } else {
-            seconds = 30 * 60
-        }
-        approvalRequests.updateDefaultTimedAllowance(seconds)
-        notifySnapshotRelevantChange()
+    package func agentAccessPolicyState() throws -> AgentAccessPolicyState {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard let state = _agentAccessPolicyState else { throw VaultError.vaultLocked }
+        return state
+    }
+
+    func setAgentAccessPolicyState(_ state: AgentAccessPolicyState) {
+        stateLock.lock()
+        _agentAccessPolicyState = state
+        stateLock.unlock()
     }
 
     public func validateStoreAvailability() throws {
@@ -421,6 +424,7 @@ public final class Vault {
         _store?.bindCredentialAuthenticationKey(nil)
         _store = nil
         _managementSessionExpiresAt = nil
+        _agentAccessPolicyState = nil
         stateLock.unlock()
     }
 }
