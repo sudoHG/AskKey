@@ -178,10 +178,14 @@ final class AgentAccessPolicyTests: XCTestCase {
         XCTAssertEqual(try decideRead(approvals).state, .approved)
         library.keys.policy = nil
         try assertFailClosedAfterReopen(library)
-        try library.vault.resumeAgentAccess(using: .allow)
+        // Exercise the configuration applied by reopen itself: Vault Resume
+        // also resets defaults and would mask a stale state-machine opt-out.
+        approvals.resume()
         XCTAssertThrowsError(try decideRead(approvals)) {
             XCTAssertEqual($0 as? BrokerApprovalError, .authenticationFailed)
         }
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+        XCTAssertTrue(try library.vault.agentAccessPolicyState().needsRecovery)
     }
 
     func testTimedAllowanceOffIsEnforcedAfterReopenBySameStateMachine() throws {
