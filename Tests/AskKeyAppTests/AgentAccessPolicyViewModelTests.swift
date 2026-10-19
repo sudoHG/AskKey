@@ -79,7 +79,7 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         XCTAssertTrue(model.isAgentAccessPaused)
         XCTAssertTrue(model.brokerRecoveryAvailable)
         let failure = try XCTUnwrap(model.brokerFailureMessage)
-        XCTAssertTrue(failure.contains("removed or replaced"))
+        XCTAssertTrue(failure.contains("socket ownership could not be verified"))
         model.errorMessage = nil
         model.refreshAgentAccessPauseState()
         XCTAssertEqual(model.brokerFailureMessage, failure)
