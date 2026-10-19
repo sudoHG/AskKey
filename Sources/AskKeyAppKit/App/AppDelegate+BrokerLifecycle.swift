@@ -250,7 +250,9 @@ extension AppDelegate {
         )
         do {
             try server.start()
-            try Vault.shared.setAgentAccessPolicyOwnership(true)
+            try Vault.shared.setAgentAccessPolicyOwnership(true, validateOwnership: { [weak server] in
+                server?.ownsSocketPath == true
+            })
             do {
                 try Vault.shared.prepareAgentRuntime()
             } catch {

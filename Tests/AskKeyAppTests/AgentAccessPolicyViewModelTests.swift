@@ -23,6 +23,37 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         super.tearDown()
     }
 
+    func testRevokedOwnerPauseAndResumeRefuseBeforeSystemAuthentication() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        var authentications = 0
+        let model = makeModel(library, authenticate: { authentications += 1; return .allow })
+        model.languageMode = "en"
+        try library.vault.setAgentAccessPolicyOwnership(true, validateOwnership: { false })
+        await model.pauseAgentAccess()
+        await model.resumeAgentAccess()
+        XCTAssertEqual(authentications, 0)
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("Another Ask Key instance"))
+    }
+
+    func testUnlockedPolicyAccessRejectionShowsSpecificLocalizedGuidance() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let model = makeModel(library)
+        library.keys.loadFailure = AppKeyStoreError.policyReadAccessDenied
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        model.refreshAgentAccessPauseState()
+        model.languageMode = "en"
+        let english = try XCTUnwrap(model.agentAccessPolicyNotice)
+        XCTAssertTrue(english.contains("keychain is unlocked"))
+        XCTAssertTrue(english.contains("access control in Keychain Access"))
+        XCTAssertFalse(english.contains("Allow Keychain access"))
+        model.languageMode = "zh-Hans"
+        let chinese = try XCTUnwrap(model.agentAccessPolicyNotice)
+        XCTAssertNotEqual(english, chinese)
+        XCTAssertTrue(chinese.contains("Agent "))
+    }
+
     func testLegacyDefaultsCannotOverrideAuthenticatedPolicy() throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }

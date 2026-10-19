@@ -8,21 +8,28 @@ extension Vault {
     func currentAgentAccessPolicy(key: SymmetricKey) throws -> AgentAccessPolicyState {
         let memory = try savedAgentAccessPolicyState()
         let persisted = try loadAgentAccessPolicy(key: key, keyStore: policyKeyStore(), created: false)
-        let recovery = memory.needsRecovery || persisted.needsRecovery || agentAccessPolicyLatches().recovery
-        let policy: AgentAccessPolicy
+        let latches = agentAccessPolicyLatches()
+        let recovery = memory.needsRecovery || persisted.needsRecovery || latches.recovery
+        var policy: AgentAccessPolicy
         if recovery { policy = memory.policy.restricted(by: .failClosed) }
         else if persisted.readUnavailable { policy = memory.policy }
-        else { policy = memory.hasVerifiedPolicy ? memory.policy.restricted(by: persisted.policy) : persisted.policy }
+        else if memory.hasVerifiedPolicy { policy = memory.policy.restricted(by: persisted.policy) }
+        else {
+            policy = persisted.policy
+            policy.paused = persisted.policy.paused || memory.policy.paused || latches.pause
+        }
         return .init(policy: policy, needsRecovery: recovery,
                      keychainConflict: persisted.keychainConflict ?? memory.keychainConflict,
                      readUnavailable: persisted.readUnavailable,
-                     hasVerifiedPolicy: memory.hasVerifiedPolicy || !persisted.readUnavailable)
+                     hasVerifiedPolicy: memory.hasVerifiedPolicy || !persisted.readUnavailable,
+                     readFailure: persisted.readFailure)
     }
 
     func adoptPersistedAgentAccessPolicy(_ state: AgentAccessPolicyState) {
         applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery,
                                keychainConflict: state.keychainConflict, readUnavailable: state.readUnavailable,
                                hasVerifiedPolicy: state.hasVerifiedPolicy,
+                               readFailure: state.readFailure,
                                adoptingPersisted: true)
     }
 
@@ -32,7 +39,7 @@ extension Vault {
         let previous = try savedAgentAccessPolicyState()
         let current = try currentAgentAccessPolicy(key: requireKey())
         if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery
-            || current.readUnavailable != previous.readUnavailable {
+            || current.readFailure != previous.readFailure {
             agentAccessGate.setPausedDuringAuthorization(true)
             adoptPersistedAgentAccessPolicy(current)
             agentAccessGate.setPausedDuringAuthorization(current.isPaused,
@@ -52,7 +59,7 @@ extension Vault {
         let current = try currentAgentAccessPolicy(key: requireKey())
         paused = paused || current.isPaused
         if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery
-            || current.readUnavailable != previous.readUnavailable {
+            || current.readFailure != previous.readFailure {
             adoptPersistedAgentAccessPolicy(current)
         }
         guard !paused else { throw VaultError.agentAccessPaused }
@@ -85,7 +92,8 @@ extension Vault {
         return try approvalRequests.decide(
             requestID: requestID, capability: capability, decision: effectiveDecision,
             revalidate: {
-                try self.agentAccessGate.beginSpawnAuthorization(validating: self.revalidateAgentAccessPolicy)
+                try self.agentAccessGate.beginSpawnAuthorization(validating: self.revalidateAgentAccessPolicy,
+                                                                 waitForExclusiveChange: 2)
                 defer { self.agentAccessGate.endSpawnAuthorization() }
             }
         )

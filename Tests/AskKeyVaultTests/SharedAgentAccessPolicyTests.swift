@@ -285,6 +285,44 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
         XCTAssertEqual(try second.agentAccessPolicyState().policy, saved)
     }
 
+    func testUnsavedPauseAfterAnUnreadableFirstReadSurvivesReopenAtEveryBoundary() throws {
+        let library = try makeLibrary()
+        library.keys.policyLoadFailure = SyntheticPolicyFailure()
+        let second = Vault(paths: library.paths, keyStore: library.keys,
+                           fileDeliveryManager: try FileDeliveryManager(rootURL: library.root.appendingPathComponent("second-deliveries")))
+        defer {
+            second.cleanupRuntimeFileDeliveries()
+            try? second.store.close()
+        }
+        try second.unlock()
+        XCTAssertFalse(try second.agentAccessPolicyState().hasVerifiedPolicy)
+        XCTAssertThrowsError(try second.pauseAgentAccess(using: .allow))
+        try second.unlock()
+        XCTAssertTrue(try second.agentAccessPolicyState().pauseNotPersisted)
+        XCTAssertFalse(try second.agentAccessPolicyState().needsRecovery)
+        library.keys.policyLoadFailure = nil
+        XCTAssertThrowsError(try second.brokerCredentialCatalog()) {
+            guard case VaultError.agentAccessPaused = $0 else { return XCTFail("Unexpected error: \($0)") }
+        }
+        XCTAssertThrowsError(try second.decideAgentApproval(requestID: "paused-request", capability: "synthetic", decision: .once)) {
+            guard case VaultError.agentAccessPaused = $0 else { return XCTFail("Unexpected error: \($0)") }
+        }
+        var spawned = false
+        do {
+            if case let .resolved(_, _, lease) = try second.brokerTextCredentials(
+                for: .init(command: ["/usr/bin/true"], credentialNames: ["FILE"]), cancellation: .init()
+            ) {
+                defer { lease?.finish(); lease?.cleanup() }
+                try lease?.performAuthorizedSpawn(afterAuthorization: {}, spawn: { spawned = true })
+            }
+            XCTFail("The unsaved pause must refuse runtime delivery")
+        } catch {
+            guard case VaultError.agentAccessPaused = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+        XCTAssertFalse(spawned)
+        XCTAssertTrue(try second.agentAccessPolicyState().policy.paused)
+    }
+
     func testSettingsAndResumeRefuseUnreadablePolicyAndRetryWithoutWritingDefaults() throws {
         for resume in [false, true] {
             let library = try makeLibrary()

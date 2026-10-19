@@ -7,6 +7,7 @@ public final class BrokerSocketServer {
     let failedReadBufferCleared: @Sendable (BrokerClearedReadBuffer) -> Void
     private let stateLock = NSLock()
     private var listenFD: Int32 = -1
+    private var boundIdentity: BrokerSocketPathIdentity?
     private var running = false
     private var activeConnections = 0
     private var activeRequests = 0
@@ -46,6 +47,7 @@ public final class BrokerSocketServer {
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw BrokerSocketError.systemError("socket", errno) }
+        let identity: BrokerSocketPathIdentity
         do {
             var address = try makeBrokerAddress(path: socketPath)
             let result = withUnsafePointer(to: &address) {
@@ -54,6 +56,10 @@ public final class BrokerSocketServer {
                 }
             }
             guard result == 0 else { throw BrokerSocketError.systemError("bind", errno) }
+            guard let bound = try BrokerSocketPathIdentity.read(socketPath) else {
+                throw BrokerSocketError.systemError("bound socket missing", ENOENT)
+            }
+            identity = bound
             guard chmod(socketPath, 0o600) == 0 else {
                 throw BrokerSocketError.systemError("chmod", errno)
             }
@@ -66,6 +72,7 @@ public final class BrokerSocketServer {
         }
 
         listenFD = fd
+        boundIdentity = identity
         running = true
         acceptQueue.async { [weak self] in self?.acceptLoop() }
     }
@@ -75,11 +82,18 @@ public final class BrokerSocketServer {
         running = false
         let fd = listenFD
         listenFD = -1
+        boundIdentity = nil
         if fd >= 0 {
             shutdown(fd, SHUT_RDWR)
             close(fd)
         }
         stateLock.unlock()
+    }
+
+    package var ownsSocketPath: Bool {
+        stateLock.lock(); defer { stateLock.unlock() }
+        guard running, listenFD >= 0, let boundIdentity else { return false }
+        return (try? BrokerSocketPathIdentity.read(socketPath)) == boundIdentity
     }
 
     private func acceptLoop() {

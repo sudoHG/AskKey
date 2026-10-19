@@ -57,6 +57,7 @@ package final class VaultViewModel {
     var isAgentAccessPaused = false
     private(set) var agentAccessPolicy = AgentAccessPolicy.defaults
     private(set) var agentAccessPolicyNeedsRecovery = false
+    private(set) var agentAccessPolicyReadFailure: AgentAccessPolicyReadFailure?
     private(set) var agentAccessPauseNotPersisted = false
     private(set) var agentAccessPolicySaveFailure: AgentAccessPolicySaveFailure?
     private(set) var agentAccessKeychainConflict: AppKeychainItemKind?
@@ -143,6 +144,9 @@ package final class VaultViewModel {
 
     var agentAccessPolicyNotice: String? {
         var messages: [String] = []
+        if let failure = agentAccessPolicyReadFailure {
+            messages.append(appLocalized(failure.messageKey))
+        }
         if agentAccessPolicyNeedsRecovery {
             messages.append(appLocalized("Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings."))
         }
@@ -443,6 +447,7 @@ package final class VaultViewModel {
 
     func refreshAgentAccessStateAfterErase() {
         agentAccessPolicyNeedsRecovery = false
+        agentAccessPolicyReadFailure = nil
         agentAccessPauseNotPersisted = false
         agentAccessPolicySaveFailure = nil
         agentAccessKeychainConflict = nil
@@ -452,11 +457,18 @@ package final class VaultViewModel {
     private func applyAgentAccessPolicyState(_ state: AgentAccessPolicyState) {
         agentAccessPolicy = state.policy
         agentAccessPolicyNeedsRecovery = state.needsRecovery
+        agentAccessPolicyReadFailure = state.readFailure
         agentAccessPauseNotPersisted = state.pauseNotPersisted
         agentAccessPolicySaveFailure = state.saveFailure
         agentAccessKeychainConflict = state.keychainConflict
         isAgentAccessPaused = state.isPaused
         if !state.needsRecovery { preferences.removeLegacyAgentAccessSettings() }
+    }
+
+    @discardableResult
+    func preflightAgentAccessPolicyChange() -> Bool {
+        do { try agentAccessPolicyOperations.validateOwnership(); return true }
+        catch { presentError(error); return false }
     }
 
     @discardableResult

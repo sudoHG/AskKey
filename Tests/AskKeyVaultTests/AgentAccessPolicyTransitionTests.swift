@@ -105,6 +105,19 @@ final class AgentAccessPolicyTransitionTests: XCTestCase {
         XCTAssertFalse(try library.vault.isAgentAccessPaused())
     }
 
+    func testOwnershipAndOnboardingChecksPreserveTransientReadRetry() throws {
+        for onboarding in [false, true] {
+            let library = try makeLibrary()
+            library.keys.policyLoadFailure = SyntheticPolicyFailure()
+            XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+            if onboarding { try library.vault.beginOnboardingCreation() }
+            else { try library.vault.setAgentAccessPolicyOwnership(true) }
+            library.keys.policyLoadFailure = nil
+            XCTAssertNoThrow(try library.vault.brokerCredentialCatalog())
+            XCTAssertFalse(try library.vault.isAgentAccessPaused())
+        }
+    }
+
     private func makeLibrary() throws -> AgentAccessPolicyLibrary {
         let library = try AgentAccessPolicyLibrary()
         addTeardownBlock { try library.close() }

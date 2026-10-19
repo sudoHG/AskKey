@@ -6,7 +6,10 @@ final class AgentApprovalPolicyBoundaryTests: XCTestCase {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let app = root.appendingPathComponent("Sources/AskKeyAppKit")
-        let bypass = try NSRegularExpression(pattern: #"(?:approvalRequests|fileWrites)\s*\.\s*decide\s*\("#)
+        let bypass = try NSRegularExpression(pattern: #"(?:approvalRequests|fileWrites)\s*\??\s*\.\s*decide\s*\("#)
+        for source in ["fileWrites?.decide(", "fileWrites . decide (", "approvalRequests?.decide("] {
+            XCTAssertNotNil(bypass.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)))
+        }
         let files = try XCTUnwrap(FileManager.default.enumerator(at: app, includingPropertiesForKeys: nil)?.allObjects as? [URL])
         for file in files where file.pathExtension == "swift" {
             let source = try String(contentsOf: file, encoding: .utf8)

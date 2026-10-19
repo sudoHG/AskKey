@@ -37,6 +37,7 @@ package struct AgentAccessPolicyState: Equatable, Sendable {
     package let policy: AgentAccessPolicy
     package let needsRecovery: Bool
     let readUnavailable: Bool
+    package let readFailure: AgentAccessPolicyReadFailure?
     let hasVerifiedPolicy: Bool
     package let isPaused: Bool
     package let pauseNotPersisted: Bool
@@ -45,16 +46,33 @@ package struct AgentAccessPolicyState: Equatable, Sendable {
 
     package init(policy: AgentAccessPolicy, needsRecovery: Bool, isPaused: Bool? = nil, pauseNotPersisted: Bool = false,
                  saveFailure: AgentAccessPolicySaveFailure? = nil, keychainConflict: AppKeychainItemKind? = nil,
-                 readUnavailable: Bool = false, hasVerifiedPolicy: Bool = true) {
+                 readUnavailable: Bool = false, hasVerifiedPolicy: Bool = true,
+                 readFailure: AgentAccessPolicyReadFailure? = nil) {
         self.policy = policy
         self.needsRecovery = needsRecovery
         self.readUnavailable = readUnavailable
+        self.readFailure = readUnavailable ? (readFailure ?? .unavailable) : nil
         self.hasVerifiedPolicy = hasVerifiedPolicy
         self.isPaused = isPaused ?? (policy.paused || readUnavailable)
         self.pauseNotPersisted = pauseNotPersisted
         self.saveFailure = saveFailure
         self.keychainConflict = keychainConflict
     }
+}
+
+package enum AgentAccessPolicyReadFailure: Error, LocalizedError, Equatable, Sendable {
+    case unavailable, accessDenied
+
+    package var messageKey: String {
+        switch self {
+        case .unavailable:
+            return "Ask Key could not read the saved agent access settings. Allow Keychain access, then try again."
+        case .accessDenied:
+            return "The keychain is unlocked, but this Ask Key build cannot read the saved Agent access policy. Review that item's access control in Keychain Access; do not delete vault keys."
+        }
+    }
+
+    package var errorDescription: String? { messageKey }
 }
 
 struct AgentAccessPolicyLatches {
@@ -69,6 +87,14 @@ enum AgentAccessPolicyError: Error, LocalizedError {
     case recoveryRequired
     case unreadable
     case notOwner
+    case ownershipRevoked
+
+    var isOwnershipFailure: Bool {
+        switch self {
+        case .notOwner, .ownershipRevoked: return true
+        default: return false
+        }
+    }
 
     var errorDescription: String? {
         switch self {
@@ -80,6 +106,8 @@ enum AgentAccessPolicyError: Error, LocalizedError {
             return "Ask Key could not read the saved agent access settings. Allow Keychain access, then try again."
         case .notOwner:
             return "This Ask Key instance does not own Agent access for this library. Change settings in the running instance."
+        case .ownershipRevoked:
+            return "Another Ask Key instance is serving agents for this library. Change Agent access settings in that instance."
         }
     }
 }

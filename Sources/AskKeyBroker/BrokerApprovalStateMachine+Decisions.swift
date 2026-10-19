@@ -80,8 +80,7 @@ extension BrokerApprovalStateMachine {
                 // Settings may have changed while system authentication ran.
                 guard timedAllowanceEnabled else { throw BrokerApprovalError.invalidDecision }
                 guard let timedAllowanceDuration else { throw BrokerApprovalError.invalidDecision }
-                let duration = defaultTimedAllowance < context.3
-                    ? min(timedAllowanceDuration, defaultTimedAllowance) : timedAllowanceDuration
+                let duration = min(timedAllowanceDuration, defaultTimedAllowance)
                 let windowEnd = verifiedAt.addingTimeInterval(duration)
                 let effectiveWindowEnd = entry.credentialExpiresAt.map {
                     min(windowEnd, $0)

@@ -35,9 +35,13 @@ final class AgentAccessGate: @unchecked Sendable {
     /// Keeps the gate condition locked across the final expiry check and spawn.
     /// An exclusive mutation either marks the gate paused first or waits until
     /// the target exists; there is no check-then-spawn gap.
-    func beginSpawnAuthorization(validating policy: () throws -> Void = {}) throws {
+    func beginSpawnAuthorization(validating policy: () throws -> Void = {}, waitForExclusiveChange: TimeInterval = 0) throws {
         condition.lock()
-        guard state == .active else {
+        let deadline = Date().addingTimeInterval(waitForExclusiveChange)
+        while changing, waitForExclusiveChange > 0 {
+            if !condition.wait(until: deadline) { break }
+        }
+        guard !changing, state == .active else {
             condition.unlock()
             throw BrokerProviderError.requestRejected
         }

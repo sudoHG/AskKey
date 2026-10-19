@@ -66,6 +66,20 @@ final class ApprovalDecisionRevalidationTests: ApprovalStateMachineTestCase {
         XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "credential-1"), clock.now.addingTimeInterval(15 * 60))
     }
 
+    func testDefaultShorteningBeforeTheDecisionSnapshotCapsAnAlreadyPrecheckedDuration() throws {
+        let clock = TestClock(Date())
+        let machine = configuredMachine(clock: { clock.now }, authenticate: { _ in true })
+        machine.updateDefaultTimedAllowance(120 * 60)
+        let precheckedDecision = BrokerApprovalDecision.timedAllow(duration: 120 * 60)
+        // Interleave the settings change after the Vault's duration pre-check,
+        // before decide() snapshots the state-machine settings.
+        machine.updateDefaultTimedAllowance(15 * 60)
+        let ticket = try machine.submit(request(operationID: "duration-before-snapshot"), trustedCredentialDeadline: .none)
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability,
+                               decision: precheckedDecision, revalidate: {})
+        XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "credential-1"), clock.now.addingTimeInterval(15 * 60))
+    }
+
     func testDenySkipsPolicyRevalidationAndPreservesExistingCancellation() throws {
         for cancel in [false, true] {
             let machine = configuredMachine(authenticate: { _ in XCTFail("Deny requires no authentication"); return false })

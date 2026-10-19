@@ -22,7 +22,8 @@ extension Vault {
             let previous = try? savedAgentAccessPolicyState()
             return .init(policy: invalid ? .failClosed : (previous?.policy ?? .defaults), needsRecovery: invalid,
                          keychainConflict: conflict, readUnavailable: !invalid,
-                         hasVerifiedPolicy: previous?.hasVerifiedPolicy ?? false)
+                         hasVerifiedPolicy: previous?.hasVerifiedPolicy ?? false,
+                         readFailure: (error as? AppKeyStoreError) == .policyReadAccessDenied ? .accessDenied : .unavailable)
         }
         if let value, let policy = try? AgentAccessPolicyAuthentication.open(value, using: key) {
             return .init(policy: policy, needsRecovery: false)
@@ -30,7 +31,6 @@ extension Vault {
         let latches = agentAccessPolicyLatches()
         if value == nil, created, !latches.pause, !latches.recovery {
             // Only verified first creation may initialize policy, after promotion.
-            try requireAgentAccessPolicyOwnership()
             try keyStore.saveAgentAccessPolicy(AgentAccessPolicyAuthentication.seal(.defaults, using: key))
             return .init(policy: .defaults, needsRecovery: false)
         }
@@ -41,6 +41,7 @@ extension Vault {
     func applyAgentAccessPolicy(_ policy: AgentAccessPolicy, needsRecovery: Bool,
                                keychainConflict: AppKeychainItemKind? = nil,
                                readUnavailable: Bool = false, hasVerifiedPolicy: Bool = true,
+                               readFailure: AgentAccessPolicyReadFailure? = nil,
                                adoptingPersisted: Bool = false) {
         if needsRecovery { changeAgentAccessPolicyLatches { $0.recovery = true } }
         let latches = agentAccessPolicyLatches()
@@ -55,7 +56,8 @@ extension Vault {
         let state = AgentAccessPolicyState(policy: policy, needsRecovery: needsRecovery || latches.recovery,
                                           pauseNotPersisted: latches.pause && !latches.pausePersisted,
                                           saveFailure: latches.saveFailure, keychainConflict: keychainConflict,
-                                          readUnavailable: readUnavailable, hasVerifiedPolicy: hasVerifiedPolicy)
+                                          readUnavailable: readUnavailable, hasVerifiedPolicy: hasVerifiedPolicy,
+                                          readFailure: readFailure)
         setAgentAccessPolicyState(state)
         if !state.isPaused {
             brokerRequests.resume()
@@ -98,7 +100,8 @@ extension Vault {
         return .init(policy: policy, needsRecovery: current.recovery,
                      pauseNotPersisted: current.pause && !current.pausePersisted,
                      saveFailure: current.saveFailure, keychainConflict: loaded.keychainConflict,
-                     readUnavailable: loaded.readUnavailable, hasVerifiedPolicy: loaded.hasVerifiedPolicy)
+                     readUnavailable: loaded.readUnavailable, hasVerifiedPolicy: loaded.hasVerifiedPolicy,
+                     readFailure: loaded.readFailure)
     }
 
     private func latchUnsavedPause(_ failure: AgentAccessPolicySaveFailure) {
@@ -111,7 +114,8 @@ extension Vault {
         applyAgentAccessPolicy(policy, needsRecovery: state?.needsRecovery ?? true,
                                keychainConflict: state?.keychainConflict,
                                readUnavailable: state?.readUnavailable ?? false,
-                               hasVerifiedPolicy: state?.hasVerifiedPolicy ?? false)
+                               hasVerifiedPolicy: state?.hasVerifiedPolicy ?? false,
+                               readFailure: state?.readFailure)
     }
 
     /// Pause the gate before calling: cancellation callbacks and file removal
@@ -150,7 +154,7 @@ extension Vault {
         do {
             state = try currentAgentAccessPolicy(key: key)
             adoptPersistedAgentAccessPolicy(state)
-            guard !state.readUnavailable else { throw AgentAccessPolicyError.unreadable }
+            guard !state.readUnavailable else { throw state.readFailure ?? .unavailable }
         } catch {
             let failure = AgentAccessPolicySaveFailure(.pause, cause: error)
             latchUnsavedPause(failure)
@@ -168,6 +172,7 @@ extension Vault {
         catch {
             let failure = AgentAccessPolicySaveFailure(.pause, cause: error)
             latchUnsavedPause(failure)
+            if let ownership = error as? AgentAccessPolicyError, ownership.isOwnershipFailure { throw ownership }
             throw failure
         }
     }
@@ -186,7 +191,7 @@ extension Vault {
         let state = try currentAgentAccessPolicy(key: key)
         paused = state.isPaused || wasPaused
         adoptPersistedAgentAccessPolicy(state)
-        guard !state.readUnavailable else { throw AgentAccessPolicyError.unreadable }
+        guard !state.readUnavailable else { throw state.readFailure ?? .unavailable }
         var policy = state.needsRecovery ? .defaults : state.policy
         policy.paused = false
         do {
@@ -195,6 +200,7 @@ extension Vault {
             let failure = AgentAccessPolicySaveFailure(.resume, cause: error)
             latchUnsavedPause(failure)
             paused = true
+            if let ownership = error as? AgentAccessPolicyError, ownership.isOwnershipFailure { throw ownership }
             throw failure
         }
         changeAgentAccessPolicyLatches { $0 = .init() }
@@ -231,7 +237,7 @@ extension Vault {
         let state = try currentAgentAccessPolicy(key: key)
         paused = state.isPaused || wasPaused
         adoptPersistedAgentAccessPolicy(state)
-        guard !state.readUnavailable else { throw AgentAccessPolicyError.unreadable }
+        guard !state.readUnavailable else { throw state.readFailure ?? .unavailable }
         guard !state.needsRecovery else { throw AgentAccessPolicyError.recoveryRequired }
         var policy = state.policy
         change(&policy)
@@ -241,6 +247,7 @@ extension Vault {
             let failure = AgentAccessPolicySaveFailure(.settings, cause: error)
             latchUnsavedPause(failure)
             paused = true
+            if let ownership = error as? AgentAccessPolicyError, ownership.isOwnershipFailure { throw ownership }
             throw failure
         }
         applyAgentAccessPolicy(policy, needsRecovery: false)

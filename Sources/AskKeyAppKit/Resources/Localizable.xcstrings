@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Another Ask Key instance is serving agents for this library. Change Agent access settings in that instance.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Another Ask Key instance is serving agents for this library. Change Agent access settings in that instance." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "另一个 Ask Key 实例正在为此资料库提供 Agent 访问服务。请在该实例中更改 Agent 访问设置。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Another Ask Key instance is serving agents for this library. Change Agent access settings in that instance.!!]" } }
+      }
+    },
+    "The keychain is unlocked, but this Ask Key build cannot read the saved Agent access policy. Review that item's access control in Keychain Access; do not delete vault keys.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The keychain is unlocked, but this Ask Key build cannot read the saved Agent access policy. Review that item's access control in Keychain Access; do not delete vault keys." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "钥匙串已解锁，但此 Ask Key 构建无法读取已保存的 Agent 访问策略。请在“钥匙串访问”中检查该项目的访问控制，不要删除资料库密钥。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The keychain is unlocked, but this Ask Key build cannot read the saved Agent access policy. Review that item's access control in Keychain Access; do not delete vault keys.!!]" } }
+      }
+    },
     "Ask Key could not open this library": {
       "extractionState": "manual",
       "localizations": {
@@ -13,7 +29,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Ask Key could not read the saved agent access settings. Allow Keychain access, then try again." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key 无法读取已保存的代理访问设置。请允许钥匙串访问后重试。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key 无法读取已保存的 Agent 访问设置。请允许钥匙串访问后重试。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key could not read the saved agent access settings. Allow Keychain access, then try again.!!]" } }
       }
     },
@@ -37,7 +53,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "This Ask Key instance does not own Agent access for this library. Change settings in the running instance." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此 Ask Key 实例不拥有该资料库的代理访问服务。请在运行中的实例中修改设置。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此 Ask Key 实例不负责该资料库的 Agent 访问服务。请在运行中的实例中修改设置。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Ask Key instance does not own Agent access for this library. Change settings in the running instance.!!]" } }
       }
     },

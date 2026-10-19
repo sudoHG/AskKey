@@ -49,7 +49,7 @@ public final class Vault {
     private var _agentAccessPolicyState: AgentAccessPolicyState?
     private var _policyKeyStore: AppKeyStore?
     private var _agentAccessPolicyLatches = AgentAccessPolicyLatches()
-    private var ownsAgentAccessPolicy = false
+    let agentAccessPolicyOwnership = AgentAccessPolicyOwnership()
     private let pathsOverride: VaultBootstrapPaths?
     private let keyStoreOverride: AppKeyStore?
     var legacyAgentAccessRowsRemoved = false
@@ -103,7 +103,6 @@ public final class Vault {
         fileDeliveryManager: FileDeliveryManager? = nil,
         now: @escaping () -> Date = Date.init
     ) {
-        ownsAgentAccessPolicy = true
         pathsOverride = paths
         keyStoreOverride = keyStore
         self.approvalRequests = approvalRequests
@@ -113,6 +112,7 @@ public final class Vault {
         } else {
             self.fileDeliveryManager = Self.defaultFileDeliveryManager
         }
+        agentAccessPolicyOwnership.set(true)
         configureAgentTextWriteCleanup()
     }
 
@@ -127,7 +127,6 @@ public final class Vault {
         approvalRequests: BrokerApprovalStateMachine = BrokerApprovalStateMachine(),
         fileDeliveryManager: FileDeliveryManager? = nil
     ) {
-        ownsAgentAccessPolicy = true
         self._store = store
         self._policyKeyStore = policyStore
         pathsOverride = nil
@@ -145,6 +144,7 @@ public final class Vault {
                 factory: { try FileDeliveryManager(rootURL: testRoot) }
             )
         }
+        agentAccessPolicyOwnership.set(true)
         self.key = key
         if let key {
             do {
@@ -161,7 +161,8 @@ public final class Vault {
         return .init(policy: state.policy, needsRecovery: state.needsRecovery,
                      isPaused: try agentAccessGate.isPaused(), pauseNotPersisted: state.pauseNotPersisted,
                      saveFailure: state.saveFailure, keychainConflict: state.keychainConflict,
-                     readUnavailable: state.readUnavailable, hasVerifiedPolicy: state.hasVerifiedPolicy)
+                     readUnavailable: state.readUnavailable, hasVerifiedPolicy: state.hasVerifiedPolicy,
+                     readFailure: state.readFailure)
     }
 
     func savedAgentAccessPolicyState() throws -> AgentAccessPolicyState {
@@ -192,20 +193,6 @@ public final class Vault {
         defer { stateLock.unlock() }
         guard let store = _policyKeyStore else { throw VaultError.vaultLocked }
         return store
-    }
-
-    /// App startup grants this only after the Broker has bound its socket.
-    package func setAgentAccessPolicyOwnership(_ owned: Bool) throws {
-        let paused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: paused) }
-        stateLock.lock(); defer { stateLock.unlock() }
-        ownsAgentAccessPolicy = owned
-    }
-
-    /// The caller holds the exclusive gate, including during initial adoption.
-    func requireAgentAccessPolicyOwnership() throws {
-        stateLock.lock(); defer { stateLock.unlock() }
-        guard ownsAgentAccessPolicy else { throw AgentAccessPolicyError.notOwner }
     }
 
     public func validateStoreAvailability() throws {
@@ -337,7 +324,10 @@ public final class Vault {
     public func beginOnboardingCreation() throws {
         _ = try requireKey()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        defer {
+            agentAccessGate.endExclusiveChange(paused: wasPaused,
+                                              retryPolicyRead: (try? savedAgentAccessPolicyState().readUnavailable) == true)
+        }
         guard try store.fetchAllCredentials().isEmpty,
               try store.fetchRecycledCredentials().isEmpty else {
             throw VaultError.managementAuthenticationRequired
@@ -459,7 +449,7 @@ public final class Vault {
             opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, allowsCreation: !hasOpenLibrary)
         } catch {
             _ = try agentAccessGate.beginExclusiveChange()
-            applyAgentAccessPolicy(.failClosed, needsRecovery: true,
+            applyAgentAccessPolicy(.failClosed, needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
                                    keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
             endManagementSession()
@@ -478,8 +468,9 @@ public final class Vault {
         _ = try agentAccessGate.beginExclusiveChange(reopening: true)
         var paused = true
         defer {
+            let state = try? savedAgentAccessPolicyState()
             agentAccessGate.endExclusiveChange(paused: paused,
-                                              retryPolicyRead: (try? savedAgentAccessPolicyState().readUnavailable) == true)
+                                              retryPolicyRead: state?.readUnavailable == true && state?.policy.paused == false)
         }
         do {
             let loaded = try loadAgentAccessPolicy(key: opened.key, keyStore: keyStore, created: opened.created)
@@ -487,6 +478,7 @@ public final class Vault {
             applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery,
                                    keychainConflict: state.keychainConflict, readUnavailable: state.readUnavailable,
                                    hasVerifiedPolicy: state.hasVerifiedPolicy,
+                                   readFailure: state.readFailure,
                                    adoptingPersisted: true)
             stateLock.lock()
             let oldStore = _store
@@ -500,7 +492,7 @@ public final class Vault {
             if !state.needsRecovery { removeLegacyAgentAccessRows(from: opened.store) }
             paused = state.isPaused
         } catch {
-            applyAgentAccessPolicy(.failClosed, needsRecovery: true,
+            applyAgentAccessPolicy(.failClosed, needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
                                    keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
             endManagementSession()

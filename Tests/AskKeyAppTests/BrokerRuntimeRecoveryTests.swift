@@ -163,7 +163,7 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
         let coordinator = try XCTUnwrap(launch.range(of: "fileWrites = try BrokerFileWriteCoordinator("))
         let listen = try XCTUnwrap(launch.range(of: "try server.start()"))
         XCTAssertLessThan(coordinator.lowerBound, listen.lowerBound)
-        let ownership = try XCTUnwrap(launch.range(of: "try Vault.shared.setAgentAccessPolicyOwnership(true)"))
+        let ownership = try XCTUnwrap(launch.range(of: "try Vault.shared.setAgentAccessPolicyOwnership(true, validateOwnership:"))
         XCTAssertLessThan(listen.lowerBound, ownership.lowerBound)
         XCTAssertLessThan(ownership.lowerBound, prepare.lowerBound)
         let failure = String(launch[prepare.upperBound...])

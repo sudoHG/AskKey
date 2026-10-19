@@ -30,10 +30,11 @@ extension BrokerApprovalStateMachine {
         let cleanups = mutate { runtimeAuthorizations.removeValue(forKey: id)?.cleanups ?? [] }
         cleanups.forEach { $0() }
     }
-    func invalidateRuntimeAuthorizationsLocked(credentialID: String? = nil) {
+    func invalidateRuntimeAuthorizationsLocked(credentialID: String? = nil, timedOnly: Bool = false) {
         for id in runtimeAuthorizations.keys {
-            guard var authorization = runtimeAuthorizations[id],
-                  credentialID == nil || authorization.credentialIDs.contains(credentialID!) else { continue }
+            guard var authorization = runtimeAuthorizations[id] else { continue }
+            let sources = timedOnly ? authorization.timedCredentialIDs : authorization.credentialIDs
+            guard !sources.isEmpty, credentialID == nil || sources.contains(credentialID!) else { continue }
             authorization.valid = false
             runtimeAuthorizations[id] = authorization
         }

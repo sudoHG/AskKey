@@ -4,6 +4,46 @@ import XCTest
 @testable import AskKeyAppKit
 
 final class LibraryInstanceLockTests: XCTestCase {
+    func testActivationReplyRequiresMatchingBundleAndResolvedExecutableAndAnotherPID() throws {
+        let directory = try makeDirectory()
+        let executable = directory.appendingPathComponent("AskKey")
+        try Data("synthetic executable".utf8).write(to: executable)
+        let alias = directory.appendingPathComponent("alias")
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: executable)
+        let expected = LibraryInstanceApplicationIdentity(bundleIdentifier: "example.AskKey", executableURL: executable)
+        XCTAssertTrue(expected.matches(bundleIdentifier: "example.AskKey", executableURL: alias, pid: 123, ownPID: 456))
+        XCTAssertFalse(expected.matches(bundleIdentifier: "example.Other", executableURL: executable, pid: 123, ownPID: 456))
+        XCTAssertFalse(expected.matches(bundleIdentifier: "example.AskKey", executableURL: directory.appendingPathComponent("other"), pid: 123, ownPID: 456))
+        XCTAssertFalse(expected.matches(bundleIdentifier: "example.AskKey", executableURL: executable, pid: 456, ownPID: 456))
+        XCTAssertFalse(expected.matches(bundleIdentifier: "example.AskKey", executableURL: nil, pid: 123, ownPID: 456))
+    }
+
+    @MainActor
+    func testActivationAcknowledgementDoesNotWaitForTheMainActor() throws {
+        let directory = try makeDirectory()
+        let responder = LibraryInstanceActivationResponder()
+        let owner = try XCTUnwrap(responder.acquire(in: directory))
+        let acknowledged = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            responder.acknowledge(UUID().uuidString, reply: { acknowledged.signal() })
+        }
+        XCTAssertEqual(acknowledged.wait(timeout: .now() + 1), .success)
+        withExtendedLifetime(owner) {}
+    }
+
+    func testActivationResponderOnlyAcknowledgesValidRequestsAfterAcquiringTheLock() throws {
+        let directory = try makeDirectory()
+        let responder = LibraryInstanceActivationResponder()
+        XCTAssertFalse(responder.acknowledge(UUID().uuidString, reply: { XCTFail("No owner yet") }))
+        let owner = try XCTUnwrap(responder.acquire(in: directory))
+        try withExtendedLifetime(owner) {
+            XCTAssertFalse(responder.acknowledge("invalid", reply: { XCTFail("Invalid request") }))
+            let duplicate = LibraryInstanceActivationResponder()
+            XCTAssertNil(try duplicate.acquire(in: directory))
+            XCTAssertFalse(duplicate.acknowledge(UUID().uuidString, reply: { XCTFail("Duplicate must not answer") }))
+        }
+    }
+
     @MainActor
     func testActivationRequestedDuringLaunchWaitsForWindowHandler() {
         let activation = LibraryInstanceActivation()

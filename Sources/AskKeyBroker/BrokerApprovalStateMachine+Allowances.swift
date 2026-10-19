@@ -23,7 +23,7 @@ extension BrokerApprovalStateMachine {
     public func revokeTimedAllowance(credentialID: String) -> Bool {
         let handler: (@Sendable (String) -> Void)? = mutate {
             guard timedAllowances.removeValue(forKey: credentialID) != nil else { return nil }
-            invalidateRuntimeAuthorizationsLocked(credentialID: credentialID)
+            invalidateRuntimeAuthorizationsLocked(credentialID: credentialID, timedOnly: true)
             for operationID in entriesByOperationID.keys {
                 guard var entry = entriesByOperationID[operationID],
                       entry.request.credentialID == credentialID,
@@ -47,7 +47,7 @@ extension BrokerApprovalStateMachine {
     func revokeAllTimedAllowancesLocked() -> ([String], @Sendable (String) -> Void) {
         let credentialIDs = Array(timedAllowances.keys)
         timedAllowances.removeAll()
-        invalidateRuntimeAuthorizationsLocked()
+        invalidateRuntimeAuthorizationsLocked(timedOnly: true)
         for operationID in entriesByOperationID.keys {
             guard var entry = entriesByOperationID[operationID],
                   entry.state == .approved,

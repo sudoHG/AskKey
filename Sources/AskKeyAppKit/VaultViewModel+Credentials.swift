@@ -192,6 +192,7 @@ extension VaultViewModel {
     }
 
     func pauseAgentAccess() async {
+        guard preflightAgentAccessPolicyChange() else { return }
         guard let authenticator = await confirmDeviceOwner(
             reason: CredentialManagementCopy.pauseReason
         ) else { return }
@@ -205,6 +206,7 @@ extension VaultViewModel {
     }
 
     func resumeAgentAccess() async {
+        guard preflightAgentAccessPolicyChange() else { return }
         guard let authenticator = await confirmDeviceOwner(
             reason: CredentialManagementCopy.resumeReason
         ) else { return }

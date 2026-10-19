@@ -11,22 +11,22 @@ extension AppRuntimeState {
             let namespace = directory.resolvingSymlinksInPath().standardizedFileURL.path
             let center = DistributedNotificationCenter.default()
             let name = Notification.Name("com.sudohg.askkey.activate-library")
+            let replyName = activationReplyName
+            let responder = LibraryInstanceActivationResponder()
             // Register before publishing the lock, including during early launch.
             libraryActivationObserver = center.addObserver(
-                forName: name, object: namespace, queue: .main
+                forName: name, object: namespace, queue: nil
             ) { notification in
-                guard let request = notification.userInfo?["request"] as? String,
-                      UUID(uuidString: request) != nil else { return }
-                Task { @MainActor in
-                    guard libraryInstanceLock != nil else { return }
+                guard let request = notification.userInfo?["request"] as? String else { return }
+                guard responder.acknowledge(request, reply: {
                     center.postNotificationName(
-                        activationReplyName, object: request,
+                        replyName, object: request,
                         userInfo: ["pid": ProcessInfo.processInfo.processIdentifier], deliverImmediately: true
                     )
-                    libraryActivation.request()
-                }
+                }) else { return }
+                Task { @MainActor in libraryActivation.request() }
             }
-            guard let lock = try LibraryInstanceLock.acquire(in: directory) else {
+            guard let lock = try responder.acquire(in: directory) else {
                 if !activateRunningLibrary(center: center, name: name, namespace: namespace) {
                     showLibraryInstanceFailure(
                         "Ask Key is already using this library, but the running instance did not respond. Try opening it again."
@@ -48,6 +48,9 @@ extension AppRuntimeState {
     private static func activateRunningLibrary(
         center: DistributedNotificationCenter, name: Notification.Name, namespace: String
     ) -> Bool {
+        guard let executable = Bundle.main.executableURL else { return false }
+        let identity = LibraryInstanceApplicationIdentity(bundleIdentifier: Bundle.main.bundleIdentifier,
+                                                         executableURL: executable)
         let request = UUID().uuidString
         let reply = LibraryInstanceActivationReply()
         let observer = center.addObserver(forName: activationReplyName, object: request, queue: nil) { note in
@@ -58,7 +61,9 @@ extension AppRuntimeState {
         repeat {
             center.postNotificationName(name, object: namespace, userInfo: ["request": request], deliverImmediately: true)
             RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.2)))
-            if let pid = reply.processIdentifier, let running = NSRunningApplication(processIdentifier: pid) {
+            if let pid = reply.processIdentifier, let running = NSRunningApplication(processIdentifier: pid),
+               identity.matches(bundleIdentifier: running.bundleIdentifier, executableURL: running.executableURL,
+                                pid: pid, ownPID: ProcessInfo.processInfo.processIdentifier) {
                 NSApplication.shared.yieldActivation(to: running)
                 running.activate(options: [.activateAllWindows])
                 return true

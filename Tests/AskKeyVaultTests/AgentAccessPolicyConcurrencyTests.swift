@@ -57,6 +57,74 @@ final class AgentAccessPolicyConcurrencyTests: XCTestCase {
         }
     }
 
+    func testAuthenticatedDecisionWaitsForAnExclusiveChangeAlreadyInProgress() throws {
+        let library = try makeLibrary()
+        let ticket = try submitRead(library.vault)
+        let entered = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        library.vault.approvalRequests.configureAuthentication { _ in
+            entered.signal()
+            return release.wait(timeout: .now() + 5) == .success
+        }
+        let decision = PolicyConcurrentOperation {
+            _ = try library.vault.decideAgentApproval(requestID: ticket.requestID, capability: ticket.capability, decision: .once)
+        }
+        decision.start()
+        defer { release.signal() }
+        XCTAssertEqual(entered.wait(timeout: .now() + 2), .success)
+        let paused = try library.vault.agentAccessGate.beginExclusiveChange()
+        release.signal()
+        XCTAssertEqual(decision.completion.wait(timeout: .now() + 0.1), .timedOut)
+        library.vault.agentAccessGate.endExclusiveChange(paused: paused)
+        try decision.finish()
+        XCTAssertEqual(try library.vault.approvalRequests.status(requestID: ticket.requestID, capability: ticket.capability), .approved)
+    }
+
+    func testPostAuthenticationWaitIsBoundedWhenExclusiveChangeDoesNotFinish() throws {
+        let library = try makeLibrary()
+        let paused = try library.vault.agentAccessGate.beginExclusiveChange()
+        defer { library.vault.agentAccessGate.endExclusiveChange(paused: paused) }
+        let check = PolicyConcurrentOperation {
+            try library.vault.agentAccessGate.beginSpawnAuthorization(waitForExclusiveChange: 0.05)
+            library.vault.agentAccessGate.endSpawnAuthorization()
+        }
+        check.start()
+        XCTAssertEqual(check.completion.wait(timeout: .now() + 1), .success)
+        XCTAssertThrowsError(try check.finish()) {
+            XCTAssertEqual($0 as? BrokerProviderError, .requestRejected)
+        }
+    }
+
+    func testDisablingTimedAllowancePreservesRealOnceDeliveryButRevokesTimedDelivery() throws {
+        for timed in [false, true] {
+            let library = try makeLibrary()
+            _ = try library.vault.createFileCredential(.init(name: "FILE",
+                snapshot: .init(originalFilename: "synthetic.txt", bytes: Data("synthetic".utf8)),
+                environmentVariable: "FILE_PATH", permission: .ask), using: .allow)
+            library.vault.approvalRequests.configureAuthentication { _ in true }
+            let request = BrokerTextRunRequest(command: ["/usr/bin/true"], credentialNames: ["FILE"])
+            guard case let .approvalRequired(tickets) = try library.vault.brokerTextCredentials(for: request, cancellation: .init()) else {
+                return XCTFail("Expected an Ask approval")
+            }
+            let ticket = try XCTUnwrap(tickets.first)
+            _ = try library.vault.decideAgentApproval(requestID: ticket.requestID, capability: ticket.capability,
+                                                      decision: timed ? .timedAllow(duration: 60) : .once)
+            guard case let .resolved(credentials, _, optionalLease) = try library.vault.brokerTextCredentials(for: request, cancellation: .init()) else {
+                return XCTFail("Expected a real file delivery")
+            }
+            let lease = try XCTUnwrap(optionalLease)
+            defer { lease.finish(); lease.cleanup() }
+            let path = try XCTUnwrap(credentials.first).value
+            try lease.performAuthorizedSpawn(afterAuthorization: {}, spawn: {})
+            lease.finish() // The target has crossed spawn; keep its files and runtime authorization alive.
+            XCTAssertTrue(FileManager.default.fileExists(atPath: path))
+            try library.vault.updateTimedAllowance(enabled: false, minutes: 30)
+            XCTAssertEqual(FileManager.default.fileExists(atPath: path), !timed)
+            lease.cleanup()
+            XCTAssertFalse(FileManager.default.fileExists(atPath: path))
+        }
+    }
+
     func testRuntimeTighteningAndRecoveryPublishPolicyNotifications() throws {
         for recovery in [false, true] {
             let library = try makeLibrary()

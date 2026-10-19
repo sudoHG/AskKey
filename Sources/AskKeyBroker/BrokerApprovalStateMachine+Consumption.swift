@@ -103,6 +103,7 @@ extension BrokerApprovalStateMachine {
             let id = UUID()
             runtimeAuthorizations[id] = RuntimeAuthorization(
                 credentialIDs: Set(entries.map { $0.request.credentialID }),
+                timedCredentialIDs: Set(entries.filter(\.approvedByTimedAllowance).map { $0.request.credentialID }),
                 expiresAt: expiresAt
             )
             return (id, expiresAt)
