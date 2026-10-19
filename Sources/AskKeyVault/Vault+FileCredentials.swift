@@ -153,7 +153,8 @@ extension Vault {
         }
         let deliveryManager = try fileDeliveryManager.get()
         let wasPaused = try agentAccessGate.beginExclusiveAgentChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         let digest = frozen.approvalPayloadDigest
         let capabilityDigest = fileWriteCapabilityDigest(capability)
         if let receipt = try store.fetchAgentWriteOperation(operationID: frozen.operationID) {
@@ -210,7 +211,7 @@ extension Vault {
         approvalRequests.cancelPending(credentialID: frozen.credentialID)
         deliveryManager.revoke(credentialID: frozen.credentialID)
         succeeded = true
-        notifySnapshotRelevantChange()
+        changed = true
     }
 
     private func fileWriteCapabilityDigest(_ capability: String) -> String {

@@ -57,6 +57,7 @@ package final class VaultViewModel {
     var isAgentAccessPaused = false
     private(set) var agentAccessPolicy = AgentAccessPolicy.defaults
     private(set) var agentAccessPolicyNeedsRecovery = false
+    private(set) var agentAccessPauseNotPersisted = false
     var revealedCredential: ManagedTextCredential?
     var pendingApprovalCount = 0
     var brokerRecoveryAvailable = false
@@ -139,9 +140,14 @@ package final class VaultViewModel {
     }
 
     var agentAccessPolicyNotice: String? {
-        agentAccessPolicyNeedsRecovery
-            ? appLocalized("Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings.")
-            : nil
+        var messages: [String] = []
+        if agentAccessPolicyNeedsRecovery {
+            messages.append(appLocalized("Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings."))
+        }
+        if agentAccessPauseNotPersisted {
+            messages.append(appLocalized("Agent access is paused in this run of Ask Key. The pause is not saved and may be lost when Ask Key restarts."))
+        }
+        return messages.isEmpty ? nil : messages.joined(separator: "\n")
     }
 
     var brandName: String {
@@ -429,9 +435,16 @@ package final class VaultViewModel {
         }
     }
 
+    func refreshAgentAccessStateAfterErase() {
+        agentAccessPolicyNeedsRecovery = false
+        agentAccessPauseNotPersisted = false
+        refreshAgentAccessPauseState()
+    }
+
     private func applyAgentAccessPolicyState(_ state: AgentAccessPolicyState) {
         agentAccessPolicy = state.policy
         agentAccessPolicyNeedsRecovery = state.needsRecovery
+        agentAccessPauseNotPersisted = state.pauseNotPersisted
         isAgentAccessPaused = state.isPaused
         if !state.needsRecovery { preferences.removeLegacyAgentAccessSettings() }
     }
@@ -444,6 +457,7 @@ package final class VaultViewModel {
             applyAgentAccessPolicyState(try agentAccessPolicyOperations.setReadAuthentication(enabled, authenticator))
             return true
         } catch {
+            refreshAgentAccessPauseState()
             presentError(error)
             return false
         }
@@ -453,6 +467,7 @@ package final class VaultViewModel {
         do {
             applyAgentAccessPolicyState(try agentAccessPolicyOperations.setTimedAllowance(enabled, minutes))
         } catch {
+            refreshAgentAccessPauseState()
             presentError(error)
         }
     }

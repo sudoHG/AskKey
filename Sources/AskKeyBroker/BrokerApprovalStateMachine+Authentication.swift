@@ -6,14 +6,18 @@ extension BrokerApprovalStateMachine {
         timedAllowanceEnabled: Bool,
         timedAllowanceDuration: TimeInterval
     ) {
-        mutate {
+        let revoked: ([String], @Sendable (String) -> Void)? = mutate {
             self.readAuthenticationEnabled = readAuthenticationEnabled
             self.timedAllowanceEnabled = timedAllowanceEnabled
             defaultTimedAllowance = Self.validDuration(timedAllowanceDuration) ? timedAllowanceDuration : 30 * 60
+            return timedAllowanceEnabled ? nil : revokeAllTimedAllowancesLocked()
+        }
+        if let revoked {
+            revoked.0.forEach(revoked.1)
         }
     }
 
-    public func setReadAuthenticationEnabled(_ enabled: Bool) {
+    func setReadAuthenticationEnabled(_ enabled: Bool) {
         mutate { readAuthenticationEnabled = enabled }
     }
 

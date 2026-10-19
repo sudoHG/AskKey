@@ -15,11 +15,23 @@ final class KeychainInteractionSafetyTests: XCTestCase {
             { _ = try store.loadAgentAccessPolicy() },
             { try store.saveAgentAccessPolicy(Data("synthetic".utf8)) },
             { try store.deleteAgentAccessPolicy() },
+            { _ = try store.loadAppKey() },
+            { _ = try store.loadPendingKey() },
+            { try store.savePendingKey(Data(repeating: 0x42, count: 32)) },
+            { try store.promotePendingKey() },
+            { try store.deleteAppKey() },
+            { try store.deletePendingKey() },
+            { try store.deleteLegacyKey() },
         ] {
             XCTAssertThrowsError(try operation()) {
                 XCTAssertEqual($0 as? AppKeyStoreError, .securityFailure(errSecInteractionNotAllowed))
             }
         }
+    }
+
+    func testInjectedPinCannotSelectTheRealLoginKeychain() {
+        let login = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Keychains/login.keychain-db")
+        XCTAssertThrowsError(try PinnedAppKeychain(temporaryKeychainURL: login))
     }
 
     func testUntrustedKeychainQueriesAndProbeForbidAuthenticationUI() throws {
@@ -41,6 +53,11 @@ final class KeychainInteractionSafetyTests: XCTestCase {
         guard source.contains("kSecUseAuthenticationUI"),
               source.contains("kSecUseAuthenticationUIFail") else {
             return XCTFail("probe query must fail before Security can show authentication UI")
+        }
+
+        guard ProcessInfo.processInfo.environment["CI"] == "true",
+              ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true" else {
+            throw XCTSkip("The native read-only probe runs only in CI.")
         }
 
         let directory = FileManager.default.temporaryDirectory
@@ -105,6 +122,15 @@ final class KeychainInteractionSafetyTests: XCTestCase {
         let copyMatching = ["SecItem", "CopyMatching"].joined()
         for case let url as URL in enumerator where sourceExtensions.contains(url.pathExtension) {
             let source = try String(contentsOf: url, encoding: .utf8)
+            if url == testsRoot.appendingPathComponent("AskKeyVaultTests/KeychainNativeTestSupport.swift") {
+                XCTAssertTrue(source.contains("environment[\"CI\"] == \"true\""))
+                XCTAssertTrue(source.contains("environment[\"GITHUB_ACTIONS\"] == \"true\""))
+                XCTAssertTrue(source.contains("throw XCTSkip"))
+                XCTAssertTrue(source.contains("FileManager.default.temporaryDirectory"))
+                XCTAssertFalse(source.contains("SecKeychainSetDefault"))
+                XCTAssertFalse(source.contains("SecKeychainSetSearchList"))
+                continue
+            }
             for call in forbiddenCalls {
                 XCTAssertFalse(hasCall(call, in: source), "\(url.lastPathComponent) must not call \(call)")
             }

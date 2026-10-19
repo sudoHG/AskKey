@@ -39,7 +39,7 @@ final class VaultBootstrapTests: XCTestCase {
         XCTAssertFalse(vault.hasActiveManagementSession)
         XCTAssertThrowsError(try vault.listTextCredentials())
         XCTAssertEqual(try vault.brokerCredentialCatalog(cancellation: .init()).count, 1)
-        vault.approvalRequests.setReadAuthenticationEnabled(false)
+        try vault.updateReadApprovalAuthentication(false, using: .allow)
         vault.approvalRequests.configureAuthentication { _ in false }
         try vault.prepareAgentRuntime(paths: paths, keyStore: {
             XCTFail("Already loaded runtime must not read keys again")

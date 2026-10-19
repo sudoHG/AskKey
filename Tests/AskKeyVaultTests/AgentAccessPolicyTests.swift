@@ -262,7 +262,7 @@ final class AgentAccessPolicyTests: XCTestCase {
         library.keys.policySaveFailure = SyntheticPolicyFailure()
         XCTAssertThrowsError(try library.vault.pauseAgentAccess(using: .allow)) {
             XCTAssertEqual($0 as? AgentAccessPolicyError, .pauseNotSaved)
-            XCTAssertTrue($0.localizedDescription.contains("may not survive a restart"))
+            XCTAssertTrue($0.localizedDescription.contains("may be lost when Ask Key restarts"))
         }
         XCTAssertTrue(try library.vault.isAgentAccessPaused())
         XCTAssertTrue(try library.vault.agentAccessPolicyState().policy.paused)

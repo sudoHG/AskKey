@@ -56,7 +56,6 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
         requestTTL: TimeInterval = 5 * 60,
         defaultTimedAllowance: TimeInterval = 30 * 60,
         readAuthenticationEnabled: Bool = true,
-        timedAllowanceEnabled: Bool = true,
         clock: @escaping @Sendable () -> Date = { Date() },
         authenticate: @escaping @Sendable (BrokerAuthenticationPurpose) -> Bool = { _ in false },
         notify: @escaping @Sendable (BrokerPrivacyNotification) -> Void = { _ in },
@@ -68,7 +67,7 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
             ? defaultTimedAllowance
             : 30 * 60
         self.readAuthenticationEnabled = readAuthenticationEnabled
-        self.timedAllowanceEnabled = timedAllowanceEnabled
+        self.timedAllowanceEnabled = false
         self.clock = clock
         self.authenticate = authenticate
         self.notify = notify

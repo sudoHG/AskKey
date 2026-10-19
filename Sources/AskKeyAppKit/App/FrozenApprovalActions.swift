@@ -1,3 +1,4 @@
+import Foundation
 import AskKeyBroker
 
 /// The card's stacked buttons: the approving action, the read card's timed
@@ -27,7 +28,7 @@ enum FrozenApprovalActions {
                               identifier: "approval-allow-once")]
         if operation == .read, timedAllowanceEnabled {
             buttons.append(Button(title: appLocalizedFormat("Allow for %lld Minutes", minutes), role: .secondary,
-                                  decision: .timedAllow(duration: nil), identifier: "approval-allow-timed",
+                                  decision: .timedAllow(duration: TimeInterval(minutes * 60)), identifier: "approval-allow-timed",
                                   help: timedScope(minutes: minutes)))
         }
         buttons.append(Button(title: appLocalized("Deny"), role: .secondary, decision: .deny, identifier: "approval-deny"))

@@ -1,11 +1,11 @@
 import Foundation
 
 extension BrokerApprovalStateMachine {
-    public func setTimedAllowanceEnabled(_ enabled: Bool) {
+    func setTimedAllowanceEnabled(_ enabled: Bool) {
         mutate { timedAllowanceEnabled = enabled }
     }
 
-    public func updateDefaultTimedAllowance(_ duration: TimeInterval) {
+    func updateDefaultTimedAllowance(_ duration: TimeInterval) {
         mutate {
             defaultTimedAllowance = Self.validDuration(duration) ? duration : 30 * 60
         }
@@ -40,21 +40,23 @@ extension BrokerApprovalStateMachine {
     }
 
     public func revokeAllTimedAllowances() {
-        let result: ([String], @Sendable (String) -> Void) = mutate {
-            let credentialIDs = Array(timedAllowances.keys)
-            timedAllowances.removeAll()
-            invalidateRuntimeAuthorizationsLocked()
-            for operationID in entriesByOperationID.keys {
-                guard var entry = entriesByOperationID[operationID],
-                      entry.state == .approved,
-                      !entry.committing,
-                      entry.approvedByTimedAllowance else { continue }
-                entry.state = .cancelled
-                entriesByOperationID[operationID] = entry
-            }
-            return (credentialIDs, timedAllowanceRevoked)
-        }
+        let result = mutate { revokeAllTimedAllowancesLocked() }
         result.0.forEach(result.1)
+    }
+
+    func revokeAllTimedAllowancesLocked() -> ([String], @Sendable (String) -> Void) {
+        let credentialIDs = Array(timedAllowances.keys)
+        timedAllowances.removeAll()
+        invalidateRuntimeAuthorizationsLocked()
+        for operationID in entriesByOperationID.keys {
+            guard var entry = entriesByOperationID[operationID],
+                  entry.state == .approved,
+                  !entry.committing,
+                  entry.approvedByTimedAllowance else { continue }
+            entry.state = .cancelled
+            entriesByOperationID[operationID] = entry
+        }
+        return (credentialIDs, timedAllowanceRevoked)
     }
 
     public func setTimedAllowanceRevokedHandler(

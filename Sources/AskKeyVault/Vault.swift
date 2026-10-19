@@ -47,12 +47,18 @@ public final class Vault {
     private var _accessRecordWriteFailed = false
     private var _agentAccessPolicyState: AgentAccessPolicyState?
     private var _policyKeyStore: AppKeyStore?
+    private var _agentAccessPolicyLatches = AgentAccessPolicyLatches()
     private let pathsOverride: VaultBootstrapPaths?
     private let keyStoreOverride: AppKeyStore?
     var legacyAgentAccessRowsRemoved = false
 
     func notifySnapshotRelevantChange() {
         NotificationCenter.default.post(name: .askKeyCredentialSnapshotDidChange, object: nil)
+    }
+
+    func finishCredentialChange(wasPaused: Bool, snapshotChanged: Bool) {
+        agentAccessGate.endExclusiveChange(paused: wasPaused)
+        if snapshotChanged { notifySnapshotRelevantChange() }
     }
 
     private var key: SymmetricKey? {
@@ -148,7 +154,7 @@ public final class Vault {
     package func agentAccessPolicyState() throws -> AgentAccessPolicyState {
         let state = try savedAgentAccessPolicyState()
         return .init(policy: state.policy, needsRecovery: state.needsRecovery,
-                     isPaused: try agentAccessGate.isPaused())
+                     isPaused: try agentAccessGate.isPaused(), pauseNotPersisted: state.pauseNotPersisted)
     }
 
     func savedAgentAccessPolicyState() throws -> AgentAccessPolicyState {
@@ -162,6 +168,16 @@ public final class Vault {
         stateLock.lock()
         _agentAccessPolicyState = state
         stateLock.unlock()
+    }
+
+    func agentAccessPolicyLatches() -> AgentAccessPolicyLatches {
+        stateLock.lock(); defer { stateLock.unlock() }
+        return _agentAccessPolicyLatches
+    }
+
+    func changeAgentAccessPolicyLatches(_ change: (inout AgentAccessPolicyLatches) -> Void) {
+        stateLock.lock(); defer { stateLock.unlock() }
+        change(&_agentAccessPolicyLatches)
     }
 
     func policyKeyStore() throws -> AppKeyStore {
@@ -313,14 +329,15 @@ public final class Vault {
     ) throws -> T {
         _ = try requireKey()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         let isFirst = try store.fetchAllCredentials().isEmpty && store.fetchRecycledCredentials().isEmpty
         if !isFirst {
             try requireManagementSession()
             try authorizeManagement(authenticator, reason: CredentialManagementCopy.manageReason)
         }
         let created = try create()
-        notifySnapshotRelevantChange()
+        changed = true
         return created
     }
 
@@ -417,8 +434,7 @@ public final class Vault {
             opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         } catch {
             _ = try agentAccessGate.beginExclusiveChange()
-            quiesceAgentAccess()
-            setAgentAccessPolicyState(.init(policy: .failClosed, needsRecovery: true))
+            applyAgentAccessPolicy(.failClosed, needsRecovery: true)
             key = nil
             endManagementSession()
             agentAccessGate.endExclusiveChange(paused: true)
@@ -434,7 +450,8 @@ public final class Vault {
         var paused = true
         defer { agentAccessGate.endExclusiveChange(paused: paused) }
         do {
-            let state = try loadAgentAccessPolicy(key: opened.key, keyStore: keyStore, created: opened.created)
+            let loaded = try loadAgentAccessPolicy(key: opened.key, keyStore: keyStore, created: opened.created)
+            let state = resolveAgentAccessPolicyLatches(loaded, key: opened.key, keyStore: keyStore)
             applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery)
             stateLock.lock()
             let oldStore = _store
@@ -448,8 +465,7 @@ public final class Vault {
             if !state.needsRecovery { removeLegacyAgentAccessRows(from: opened.store) }
             paused = state.policy.paused
         } catch {
-            quiesceAgentAccess()
-            setAgentAccessPolicyState(.init(policy: .failClosed, needsRecovery: true))
+            applyAgentAccessPolicy(.failClosed, needsRecovery: true)
             key = nil
             endManagementSession()
             try? opened.store.close()
@@ -526,6 +542,7 @@ public final class Vault {
         _managementSessionExpiresAt = nil
         _agentAccessPolicyState = nil
         _policyKeyStore = nil
+        _agentAccessPolicyLatches = .init()
         stateLock.unlock()
     }
 }

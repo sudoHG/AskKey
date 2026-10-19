@@ -106,6 +106,11 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
             ["允许本次", "允许 30 分钟", "拒绝"]
         )
         XCTAssertEqual(
+            FrozenApprovalActions.buttons(operation: .read, timedAllowanceEnabled: true, minutes: 15)
+                .first(where: { $0.identifier == "approval-allow-timed" })?.decision,
+            .timedAllow(duration: 15 * 60)
+        )
+        XCTAssertEqual(
             FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
             ["允许本次", "拒绝"]
         )
@@ -122,6 +127,11 @@ final class WorkspaceInteractionTests: WorkspaceVisualContractTestSupport {
         AppLanguage.current = "en"
         XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: true),
                        ["Allow Once", "Allow for 30 Minutes", "Deny"])
+        XCTAssertEqual(
+            FrozenApprovalActions.buttons(operation: .read, timedAllowanceEnabled: true, minutes: 15)
+                .first(where: { $0.identifier == "approval-allow-timed" })?.decision,
+            .timedAllow(duration: 15 * 60)
+        )
         XCTAssertEqual(FrozenApprovalActions.titles(operation: .read, timedAllowanceEnabled: false),
                        ["Allow Once", "Deny"])
         for (operation, _, english) in writeActions {

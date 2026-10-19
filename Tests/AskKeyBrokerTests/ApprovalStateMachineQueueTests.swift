@@ -103,7 +103,7 @@ final class ApprovalStateMachineQueueTests: ApprovalStateMachineTestCase {
     }
     func testPauseAndCredentialRevocationCancelRequestsAndTimedAllowances() throws {
         let now = Date(timeIntervalSince1970: 20_000)
-        let machine = BrokerApprovalStateMachine(clock: { now }, authenticate: { _ in true })
+        let machine = configuredMachine(clock: { now }, authenticate: { _ in true })
         let allowed = try machine.submit(request(operationID: "allow"), now: now)
         _ = try machine.decide(
             requestID: allowed.requestID,

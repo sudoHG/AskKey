@@ -139,12 +139,13 @@ extension Vault {
     func performCredentialMutation<T>(id: String, _ mutation: () throws -> T) throws -> T {
         let deliveryManager = try fileDeliveryManager.get()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         let result = try mutation()
         brokerRequests.cancelPending(credentialID: id)
         approvalRequests.cancelPending(credentialID: id)
         deliveryManager.revoke(credentialID: id)
-        notifySnapshotRelevantChange()
+        changed = true
         return result
     }
 }

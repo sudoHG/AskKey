@@ -1,5 +1,4 @@
 import Foundation
-import LocalAuthentication
 import Security
 
 enum AppKeyStoreError: Error, Equatable {
@@ -7,177 +6,113 @@ enum AppKeyStoreError: Error, Equatable {
     case missingAppKey
     case securityFailure(OSStatus)
     case conflictingKey
+    case policyPersistenceUnknown
 }
 
 final class AppBoundKeyStore: AppKeyStore {
     private static let account = "vault-key"
     private static let policyAccount = "agent-access-policy"
+    private static let operationLock = NSRecursiveLock()
 
     private let legacyService: String
     private let pendingService: String
     private let appService: String
     private let trustedApplicationURL: URL
+    private let keychain: PinnedAppKeychain
 
-    init(
-        legacyService: String,
-        pendingService: String,
-        appService: String,
-        trustedApplicationURL: URL
-    ) {
+    init(legacyService: String, pendingService: String, appService: String,
+         trustedApplicationURL: URL, keychain: PinnedAppKeychain = .login) {
         self.legacyService = legacyService
         self.pendingService = pendingService
         self.appService = appService
         self.trustedApplicationURL = trustedApplicationURL
+        self.keychain = keychain
     }
 
-    func savePendingKey(_ data: Data) throws {
-        try saveAppBound(data, service: pendingService)
-    }
-
-    func loadPendingKey() throws -> Data {
-        try load(service: pendingService, missing: .missingPendingKey)
-    }
-
-    func promotePendingKey() throws {
-        try saveAppBound(try loadPendingKey(), service: appService)
-    }
-
-    func loadAppKey() throws -> Data {
-        try load(service: appService, missing: .missingAppKey)
-    }
-
-    func loadAgentAccessPolicy() throws -> Data? {
-        try read(service: appService, account: Self.policyAccount)
-    }
-
-    func saveAgentAccessPolicy(_ data: Data) throws {
-        guard KeychainQuery.systemKeychainAllowed else {
-            throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
-        }
-        let query = KeychainQuery.forbidAuthenticationUI([
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: appService,
-            kSecAttrAccount as String: Self.policyAccount,
-        ])
-        // Replace the value in place and retain the App-only boundary, including
-        // when a same-named item was created with an unauthenticated value.
-        let attributes: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccess as String: try appOnlyAccess(),
-        ]
-        let updated = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        if updated == errSecSuccess { return }
-        guard updated == errSecItemNotFound else {
-            throw AppKeyStoreError.securityFailure(updated)
-        }
-        var item = query
-        item.removeValue(forKey: kSecUseAuthenticationUI as String)
-        item.merge(attributes) { _, new in new }
-        let added = SecItemAdd(item as CFDictionary, nil)
-        guard added == errSecSuccess else { throw AppKeyStoreError.securityFailure(added) }
-    }
-
-    func deleteAgentAccessPolicy() throws {
-        try delete(service: appService, account: Self.policyAccount)
-    }
-
+    func savePendingKey(_ data: Data) throws { try saveAppBound(data, service: pendingService) }
+    func loadPendingKey() throws -> Data { try load(service: pendingService, missing: .missingPendingKey) }
+    func promotePendingKey() throws { try saveAppBound(loadPendingKey(), service: appService) }
+    func loadAppKey() throws -> Data { try load(service: appService, missing: .missingAppKey) }
     func deleteLegacyKey() throws { try delete(service: legacyService) }
     func deletePendingKey() throws { try delete(service: pendingService) }
     func deleteAppKey() throws { try delete(service: appService) }
 
-    private func saveAppBound(_ data: Data, service: String) throws {
-        guard KeychainQuery.systemKeychainAllowed else {
-            throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
+    func loadAgentAccessPolicy() throws -> Data? {
+        try withKeychain { context in
+            guard let item = try context.uniqueItem(service: appService, account: Self.policyAccount) else { return nil }
+            return try context.read(item)
         }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: Self.account,
-            kSecValueData as String: data,
-            kSecAttrAccess as String: try appOnlyAccess(),
-        ]
-        let status = SecItemAdd(query as CFDictionary, nil)
-        if status == errSecDuplicateItem {
-            guard try load(service: service, missing: .conflictingKey) == data else {
-                throw AppKeyStoreError.conflictingKey
+    }
+
+    func saveAgentAccessPolicy(_ data: Data) throws {
+        // The ordinary test guard still fails before any native Keychain call.
+        try keychain.validateAccessAllowed()
+        do {
+            try withKeychain { context in
+                if let item = try context.uniqueItem(service: appService, account: Self.policyAccount) {
+                    // Never update an existing item's value or access. Only an
+                    // item this save just created receives a valid policy.
+                    try context.delete(item)
+                }
+                try add(data, service: appService, account: Self.policyAccount, context: context)
+                try verify(data, service: appService, account: Self.policyAccount, context: context)
             }
-            return
-        }
-        guard status == errSecSuccess else {
-            throw AppKeyStoreError.securityFailure(status)
+        } catch {
+            // A native failure can follow a successful write, or reveal a shadow
+            // item. The caller must latch a pause until authenticated recovery.
+            throw AppKeyStoreError.policyPersistenceUnknown
         }
     }
 
-    private func load(
-        service: String,
-        missing: AppKeyStoreError
-    ) throws -> Data {
-        guard let data = try read(service: service, account: Self.account) else { throw missing }
-        return data
+    func deleteAgentAccessPolicy() throws { try delete(service: appService, account: Self.policyAccount) }
+
+    private func saveAppBound(_ data: Data, service: String) throws {
+        try withKeychain { context in
+            if try context.uniqueItem(service: service, account: Self.account) != nil {
+                // Vault keys are never replaced, even when an existing item has
+                // a permissive ACL or its value cannot be read without UI.
+                try verify(data, service: service, account: Self.account, context: context)
+                return
+            }
+            try add(data, service: service, account: Self.account, context: context)
+            try verify(data, service: service, account: Self.account, context: context)
+        }
     }
 
-    private func read(service: String, account: String) throws -> Data? {
-        guard KeychainQuery.systemKeychainAllowed else {
-            throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
+    private func add(_ data: Data, service: String, account: String, context: PinnedAppKeychain.Context) throws {
+        var query = context.query(service: service, account: account)
+        query.removeValue(forKey: kSecMatchSearchList as String)
+        query[kSecUseKeychain as String] = context.pinned
+        query[kSecValueData as String] = data
+        query[kSecAttrAccess as String] = try AppKeychainAccess.make(application: trustedApplicationURL)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else { throw AppKeyStoreError.securityFailure(status) }
+    }
+
+    private func verify(_ data: Data, service: String, account: String, context: PinnedAppKeychain.Context) throws {
+        guard let item = try context.uniqueItem(service: service, account: account),
+              try context.read(item) == data else { throw AppKeyStoreError.conflictingKey }
+    }
+
+    private func load(service: String, missing: AppKeyStoreError) throws -> Data {
+        try withKeychain { context in
+            guard let item = try context.uniqueItem(service: service, account: Self.account) else { throw missing }
+            return try context.read(item)
         }
-        let authenticationContext = LAContext()
-        authenticationContext.interactionNotAllowed = true
-        let query = KeychainQuery.forbidAuthenticationUI([
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseAuthenticationContext as String: authenticationContext,
-        ])
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess, let data = result as? Data else {
-            throw AppKeyStoreError.securityFailure(status)
-        }
-        return data
     }
 
     private func delete(service: String, account: String = AppBoundKeyStore.account) throws {
-        guard KeychainQuery.systemKeychainAllowed else {
-            throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
-        }
-        let query = KeychainQuery.forbidAuthenticationUI([
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ])
-        let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw AppKeyStoreError.securityFailure(status)
+        try withKeychain { context in
+            if let item = try context.uniqueItem(service: service, account: account) { try context.delete(item) }
         }
     }
 
-    private func appOnlyAccess() throws -> SecAccess {
-        // SecTrustedApplicationCreateFromPath / SecAccessCreate are deprecated,
-        // but they remain the file-based login keychain boundary that binds the
-        // App-owned vault key to this app. Removing them would weaken key isolation.
-        // Revisit when Apple ships a replacement that works for file keychains.
-        var trustedApplication: SecTrustedApplication?
-        let trustedStatus = trustedApplicationURL.path.withCString { path in
-            SecTrustedApplicationCreateFromPath(path, &trustedApplication)
-        }
-        guard trustedStatus == errSecSuccess, let trustedApplication else {
-            throw AppKeyStoreError.securityFailure(trustedStatus)
-        }
-        var access: SecAccess?
-        let accessStatus = SecAccessCreate(
-            "Ask Key App-only vault key" as CFString,
-            [trustedApplication] as CFArray,
-            &access
-        )
-        guard accessStatus == errSecSuccess, let access else {
-            throw AppKeyStoreError.securityFailure(accessStatus)
-        }
-        return access
+    private func withKeychain<T>(_ operation: (PinnedAppKeychain.Context) throws -> T) throws -> T {
+        try keychain.validateAccessAllowed()
+        Self.operationLock.lock()
+        defer { Self.operationLock.unlock() }
+        return try operation(keychain.open())
     }
-
 }
 
 package protocol AppKeyStore: AnyObject {

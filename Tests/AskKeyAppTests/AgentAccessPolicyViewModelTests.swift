@@ -159,8 +159,69 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         await model.pauseAgentAccess()
         XCTAssertTrue(model.isAgentAccessPaused)
         XCTAssertTrue(try library.vault.isAgentAccessPaused())
-        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("may not survive a restart"))
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("may be lost when Ask Key restarts"))
         XCTAssertFalse(model.agentAccessPolicyNeedsRecovery)
+        XCTAssertTrue(model.agentAccessPauseNotPersisted)
+        model.errorMessage = nil
+        XCTAssertTrue(try XCTUnwrap(model.agentAccessPolicyNotice).contains("may be lost when Ask Key restarts"))
+        try library.reopen()
+        model.refreshAgentAccessPauseState()
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertNotNil(model.agentAccessPolicyNotice)
+        library.keys.saveFailure = nil
+        try library.reopen()
+        model.refreshAgentAccessPauseState()
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertFalse(model.agentAccessPauseNotPersisted)
+        XCTAssertNil(model.agentAccessPolicyNotice)
+    }
+
+    func testUnknownSettingsPersistenceShowsPersistentUnsavedPause() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        defaults.set("en", forKey: "languageMode")
+        let model = makeModel(library)
+        model.refreshAgentAccessPauseState()
+        library.keys.saveFailure = AppKeyStoreError.policyPersistenceUnknown
+        XCTAssertFalse(model.setReadApprovalAuthentication(false, using: .allow))
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.agentAccessPauseNotPersisted)
+        model.errorMessage = nil
+        XCTAssertNotNil(model.agentAccessPolicyNotice)
+    }
+
+    func testRestoredValidPolicyDoesNotClearRecoveryNotice() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let saved = library.keys.policy
+        library.keys.policy = nil
+        try library.reopen()
+        library.keys.policy = saved
+        try library.reopen()
+        let model = makeModel(library)
+        model.refreshAgentAccessPauseState()
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.agentAccessPolicyNeedsRecovery)
+        XCTAssertNotNil(model.agentAccessPolicyNotice)
+    }
+
+    func testSuccessfulEraseRefreshesActualGateAndClearsPendingNotice() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        defaults.set("en", forKey: "languageMode")
+        let model = makeModel(library)
+        library.keys.saveFailure = AppPolicySaveFailure()
+        await model.pauseAgentAccess()
+        XCTAssertTrue(model.agentAccessPauseNotPersisted)
+        model.isLocked = false
+        model.hasManagementSession = true
+        try library.vault.beginManagementSession(using: .allow)
+        let erased = await model.eraseLocalLibrary(confirmation: "ERASE")
+        XCTAssertTrue(erased)
+        XCTAssertEqual(model.isAgentAccessPaused, try library.vault.isAgentAccessPaused())
+        XCTAssertFalse(model.agentAccessPauseNotPersisted)
+        XCTAssertFalse(model.agentAccessPolicyNeedsRecovery)
+        XCTAssertNil(model.agentAccessPolicyNotice)
     }
 
     func testFailedOpenRefreshesPausedGateInUI() async throws {

@@ -31,7 +31,7 @@ final class ApprovalStateMachineRuntimeTests: ApprovalStateMachineTestCase {
     }
     func testRuntimeAuthorizationSurvivesTicketEvictionButNeverRevocationOrRenewal() throws {
         let clock = TestClock(Date(timeIntervalSince1970: 10_000))
-        let machine = BrokerApprovalStateMachine(clock: { clock.now }, authenticate: { _ in true })
+        let machine = configuredMachine(clock: { clock.now }, authenticate: { _ in true })
         let original = request(operationID: "runtime-original")
         let ticket = try machine.submit(original)
         _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability,
@@ -65,7 +65,8 @@ final class ApprovalStateMachineRuntimeTests: ApprovalStateMachineTestCase {
         for decision in [BrokerApprovalDecision.once, .timedAllow(duration: 30)] {
             let start = Date(timeIntervalSince1970: 10_000)
             let clock = TestClock(start)
-            let machine = BrokerApprovalStateMachine(requestTTL: 120, clock: { clock.now }, authenticate: { _ in true })
+            let machine = configuredMachine(requestTTL: 120, defaultTimedAllowance: 30,
+                                            clock: { clock.now }, authenticate: { _ in true })
             let original = request(operationID: "original-deadline")
             let ticket = try machine.submit(original)
             _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: decision)

@@ -240,7 +240,7 @@ extension VaultViewModel {
                 == "zh-Hans" ? .simplifiedChinese : .english
             try eraseLocalLibraryImpl(confirmation, language, authenticator)
             lock()
-            isAgentAccessPaused = true
+            refreshAgentAccessStateAfterErase()
             return true
         } catch {
             presentError(error)

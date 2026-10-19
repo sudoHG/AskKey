@@ -76,9 +76,9 @@ final class CredentialExpiryReminderController {
             snapshotObserver = NotificationCenter.default.addObserver(
                 forName: .askKeyCredentialSnapshotDidChange,
                 object: nil,
-                queue: .main
+                queue: nil
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.reconcile() }
+                Task { @MainActor [weak self] in self?.reconcile() }
             }
         }
         reconcile()
