@@ -92,7 +92,7 @@ extension AppDelegate {
             var didFail = false
             var authenticationCancelled = false
             do {
-                _ = try Vault.shared.approvalRequests.decide(
+                _ = try Vault.shared.decideAgentApproval(
                     requestID: pending.requestID,
                     capability: pending.capability,
                     decision: decision

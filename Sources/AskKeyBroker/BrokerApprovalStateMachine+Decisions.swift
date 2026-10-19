@@ -9,12 +9,25 @@ extension BrokerApprovalStateMachine {
         try decide(requestID: requestID, capability: capability, decision: decision, now: clock())
     }
 
+    /// App-only persisted-policy check. It may quiesce the state machine, so it
+    /// must run outside its lock, including after a blocking authentication.
+    package func decide(
+        requestID: String,
+        capability: String,
+        decision: BrokerApprovalDecision,
+        revalidate: () throws -> Void
+    ) throws -> BrokerApprovalTicket {
+        try decide(requestID: requestID, capability: capability, decision: decision,
+                   now: clock(), revalidate: revalidate)
+    }
+
     /// Test seam. Production callers cannot supply time.
     func decide(
         requestID: String,
         capability: String,
         decision: BrokerApprovalDecision,
-        now: Date
+        now: Date,
+        revalidate: () throws -> Void = {}
     ) throws -> BrokerApprovalTicket {
         let context = try withEntry(requestID: requestID, capability: capability, now: now) {
             ($0, readAuthenticationEnabled, timedAllowanceEnabled, defaultTimedAllowance)
@@ -39,8 +52,8 @@ extension BrokerApprovalStateMachine {
             observerLock.unlock()
             guard authenticate(purpose) else { throw BrokerApprovalError.authenticationFailed }
         }
+        try revalidate()
         let verifiedAt = decision == .deny ? now : max(now, clock())
-
         return try updateEntry(requestID: requestID, capability: capability, now: verifiedAt) { entry in
             guard entry.state == .pending else { throw BrokerApprovalError.invalidDecision }
             guard decision == .deny || entry.request.operation != .read

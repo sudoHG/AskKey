@@ -9,7 +9,7 @@ extension Vault {
         credentialID: String,
         now: Date = Date()
     ) throws -> String {
-        try agentAccessGate.beginAgentOperation()
+        try beginAgentOperation()
         defer { agentAccessGate.endAgentOperation() }
         return try currentFileContentDigest(credentialID: credentialID, now: now)
     }
@@ -41,7 +41,7 @@ extension Vault {
         request: BrokerApprovalOperationRequest,
         beforeSubmit: () throws -> Void
     ) throws -> BrokerApprovalTicket {
-        try agentAccessGate.beginAgentOperation()
+        try beginAgentOperation()
         defer { agentAccessGate.endAgentOperation() }
         guard request.credentialID == credentialID else {
             throw BrokerApprovalError.invalidRequest
@@ -152,9 +152,10 @@ extension Vault {
             throw VaultError.invalidFileCredential(.digestMismatch)
         }
         let deliveryManager = try fileDeliveryManager.get()
-        let wasPaused = try agentAccessGate.beginExclusiveAgentChange()
+        var wasPaused = try agentAccessGate.beginExclusiveAgentChange()
         var changed = false
         defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
+        try revalidateExclusiveAgentAccess(paused: &wasPaused)
         let digest = frozen.approvalPayloadDigest
         let capabilityDigest = fileWriteCapabilityDigest(capability)
         if let receipt = try store.fetchAgentWriteOperation(operationID: frozen.operationID) {

@@ -9,6 +9,7 @@ package struct AskKeyApp: App {
     @MainActor package static func run(configuration: AppRuntimeConfiguration? = nil) {
         precondition(!AppRuntimeState.normalRuntimeInitialized)
         AppRuntimeState.configuration = configuration ?? .production
+        guard AppRuntimeState.acquireLibraryInstance() else { return }
         Self.main()
     }
 

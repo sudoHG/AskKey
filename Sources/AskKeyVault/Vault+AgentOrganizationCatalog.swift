@@ -5,7 +5,7 @@ import AskKeyBroker
 extension Vault {
     /// Empty groups and groups with any active visible member; no member counts.
     public func brokerCredentialGroups(cancellation: BrokerCancellation? = nil) throws -> [String] {
-        try agentAccessGate.beginAgentOperation()
+        try beginAgentOperation()
         defer { agentAccessGate.endAgentOperation() }
         try cancellation?.check()
         let key = try requireKey()

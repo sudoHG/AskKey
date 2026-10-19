@@ -5,6 +5,9 @@ import AskKeyVault
 extension AppDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         if ManagementAuthenticationSubprocess.startIfRequested() { return }
+        defer {
+            AppRuntimeState.libraryActivation.install { [weak self] in self?.openManagementWindow() }
+        }
         launchSource = AppLaunchSource(event: NSAppleEventManager.shared().currentAppleEvent)
         ensureManagementWindow()
         _ = managementDockPolicy.handle(

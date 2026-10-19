@@ -31,7 +31,7 @@ extension Vault {
                 files[reference] = file
             }
         }
-        try agentAccessGate.beginAgentOperation()
+        try beginAgentOperation()
         defer { agentAccessGate.endAgentOperation() }
         return try agentTextWrites.synchronized {
             try requestAgentTextWriteSynchronized(request, files: files)

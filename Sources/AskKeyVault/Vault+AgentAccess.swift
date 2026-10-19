@@ -122,7 +122,7 @@ extension Vault {
         defer { agentAccessGate.endExclusiveChange(paused: true) }
         let state: AgentAccessPolicyState
         do {
-            state = try savedAgentAccessPolicyState()
+            state = try currentAgentAccessPolicy(key: key)
         } catch {
             let failure = AgentAccessPolicySaveFailure(.pause, cause: error)
             latchUnsavedPause(failure)
@@ -150,7 +150,9 @@ extension Vault {
         let wasPaused = try agentAccessGate.beginExclusiveChange()
         var paused = wasPaused
         defer { agentAccessGate.endExclusiveChange(paused: paused) }
-        let state = try savedAgentAccessPolicyState()
+        let state = try currentAgentAccessPolicy(key: key)
+        paused = state.policy.paused || wasPaused
+        applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery, keychainConflict: state.keychainConflict)
         var policy = state.needsRecovery ? .defaults : state.policy
         policy.paused = false
         do {
@@ -189,7 +191,9 @@ extension Vault {
         var paused = wasPaused
         var changed = false
         defer { finishCredentialChange(wasPaused: paused, snapshotChanged: changed) }
-        let state = try savedAgentAccessPolicyState()
+        let state = try currentAgentAccessPolicy(key: key)
+        paused = state.policy.paused || wasPaused
+        applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery, keychainConflict: state.keychainConflict)
         guard !state.needsRecovery else { throw AgentAccessPolicyError.recoveryRequired }
         var policy = state.policy
         change(&policy)
@@ -202,6 +206,7 @@ extension Vault {
             throw failure
         }
         applyAgentAccessPolicy(policy, needsRecovery: false)
+        paused = policy.paused
         changed = true
     }
 
@@ -221,7 +226,7 @@ extension Vault {
         caller: BrokerCallerClaim,
         now: Date = Date()
     ) throws -> AgentCredentialAuthorization {
-        try agentAccessGate.beginAgentOperation()
+        try beginAgentOperation()
         defer { agentAccessGate.endAgentOperation() }
         _ = caller
         let key = try requireKey()

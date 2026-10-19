@@ -85,6 +85,10 @@ Development builds use their separate `.dev` services. Erasing an older App-owne
 
 ## Runtime delivery and helper commands
 
+One Ask Key process serves a library, using a lifetime exclusive lock in its data directory before Vault or Broker startup; development and production namespaces remain separate. A second launch activates the existing management window and exits. The Broker refuses to replace a live socket and only unlinks the socket identity it bound.
+
+Agent-access policy changes take effect across processes at the next agent request. Catalog/list requests, approval decisions (including after system authentication), agent commits and the final delivery/spawn boundary verify the persisted Keychain policy and enforce the stricter persisted or in-memory state. Adopting a stricter policy quiesces outstanding requests, approvals and file deliveries. Settings changes, pause and resume re-read persisted policy under the exclusive gate so a stale instance cannot overwrite a newer pause.
+
 | Feature | One-line description | Decision | Legacy source files | Legacy test files |
 |---|---|---|---|---|
 | Explicit text environment delivery | Launch a non-PTY target only with the selected smallest credential set and mappings, applying an inherited-environment whitelist and validating the whole set. | **Keep** | `Sources/AskKeyBroker/TextRuntime.swift`<br>`Sources/AskKeyBroker/CredentialComponents.swift`<br>`Sources/AskKeyCore/Vault+TextCredentials.swift` | `Tests/AskKeyBrokerTests/TextRuntimeTests.swift`<br>`Tests/AskKeyCoreTests/HumanTextCredentialTests.swift`<br>`Tests/AskKeyCoreTests/RuntimeApprovalBoundaryTests.swift` |

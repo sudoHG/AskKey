@@ -9,10 +9,12 @@ final class AgentAccessGate: @unchecked Sendable {
     private var activeOperations = 0
     private var changing = false
 
-    func beginAgentOperation() throws {
+    func beginAgentOperation(validating policy: () throws -> Void = {}) throws {
         condition.lock(); defer { condition.unlock() }
         switch state {
-        case .active: activeOperations += 1
+        case .active:
+            try policy()
+            activeOperations += 1
         case .paused: throw VaultError.agentAccessPaused
         case .invalid: throw invalidStateError
         }
@@ -28,12 +30,20 @@ final class AgentAccessGate: @unchecked Sendable {
     /// Keeps the gate condition locked across the final expiry check and spawn.
     /// An exclusive mutation either marks the gate paused first or waits until
     /// the target exists; there is no check-then-spawn gap.
-    func beginSpawnAuthorization() throws {
+    func beginSpawnAuthorization(validating policy: () throws -> Void = {}) throws {
         condition.lock()
         guard state == .active else {
             condition.unlock()
             throw BrokerProviderError.requestRejected
         }
+        do { try policy() }
+        catch { condition.unlock(); throw error }
+    }
+
+    /// Only while the authorization caller holds the condition. This transition
+    /// must not wait for active leases, including the lease doing this check.
+    func setPausedDuringAuthorization(_ paused: Bool) {
+        state = paused ? .paused : .active
     }
 
     func endSpawnAuthorization() {

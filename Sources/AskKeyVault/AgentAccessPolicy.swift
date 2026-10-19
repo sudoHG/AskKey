@@ -24,6 +24,13 @@ package struct AgentAccessPolicy: Codable, Equatable, Sendable {
             throw AgentAccessPolicyError.invalidPolicy
         }
     }
+
+    func restricted(by other: Self) -> Self {
+        Self(paused: paused || other.paused,
+             readApprovalAuthentication: readApprovalAuthentication || other.readApprovalAuthentication,
+             timedAllowanceEnabled: timedAllowanceEnabled && other.timedAllowanceEnabled,
+             timedAllowanceMinutes: min(timedAllowanceMinutes, other.timedAllowanceMinutes))
+    }
 }
 
 package struct AgentAccessPolicyState: Equatable, Sendable {
