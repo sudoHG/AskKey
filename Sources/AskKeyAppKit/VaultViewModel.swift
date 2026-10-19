@@ -415,6 +415,9 @@ package final class VaultViewModel {
     func refreshAgentAccessPauseState() {
         do {
             applyAgentAccessPolicyState(try agentAccessPolicyOperations.load())
+        } catch VaultError.vaultLocked {
+            // Startup reports open failures; an early refresh must not present
+            // an error before the runtime has opened its library.
         } catch {
             presentError(error)
         }

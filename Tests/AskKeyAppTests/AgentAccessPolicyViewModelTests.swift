@@ -52,6 +52,30 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         for key in legacyKeys { XCTAssertNil(defaults.object(forKey: key)) }
     }
 
+    func testRefreshBeforeRuntimeOpenDoesNotPresentAnErrorOrRemoveLegacySettings() {
+        setLegacyDefaults()
+        let model = VaultViewModel(
+            runtimeFileCleanupFailures: { false }, accessRecords: .empty,
+            preferences: AppPreferences(defaults: defaults),
+            loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
+            agentAccessPolicyOperations: .init(
+                load: { throw VaultError.vaultLocked },
+                setReadAuthentication: { _, _ in throw VaultError.vaultLocked },
+                setTimedAllowance: { _, _ in throw VaultError.vaultLocked }
+            ),
+            credentialMutations: .readOnly { ([], [], [], false) }
+        )
+        model.refreshAgentAccessPauseState()
+        XCTAssertNil(model.errorMessage)
+        XCTAssertTrue(model.readApprovalAuthenticationEnabled)
+        XCTAssertNil(model.agentAccessPolicyNotice)
+        for key in legacyKeys { XCTAssertNotNil(defaults.object(forKey: key)) }
+        // Writes still surface the locked-vault error and retain memory.
+        XCTAssertFalse(model.setReadApprovalAuthentication(false, using: .allow))
+        XCTAssertNotNil(model.errorMessage)
+        XCTAssertTrue(model.readApprovalAuthenticationEnabled)
+    }
+
     func testFailClosedOpenExposesNoticeAndKeepsLegacyDefaultsUntilResume() async throws {
         let library = try recoveringLibrary()
         defer { try? library.close() }
