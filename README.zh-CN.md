@@ -16,6 +16,8 @@
 
 **[下载 macOS 版](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)**（免费、经过 Apple 公证，需 Apple 芯片及 macOS 14 或更高版本）· [官网](https://askkey.sudohg.com/zh/) · [English](README.md)
 
+> **Windows 版：** 独立的 Windows 实现维护在 [A1mAssist/AskKey](https://github.com/A1mAssist/AskKey)。
+
 > 请旨目前没有备份和恢复功能，请自行另存一份凭证原件。
 
 <p align="center">

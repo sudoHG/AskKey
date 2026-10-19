@@ -16,6 +16,8 @@
 
 **[Download for Mac](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)** (free, notarized, Apple silicon, macOS 14 or later) · [Website](https://askkey.sudohg.com/)
 
+> **Windows port:** The separate Windows implementation lives at [A1mAssist/AskKey](https://github.com/A1mAssist/AskKey).
+
 > Ask Key has no backup or recovery yet, so keep the originals of your credentials somewhere else.
 
 <p align="center">
