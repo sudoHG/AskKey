@@ -49,12 +49,13 @@ extension Vault {
     @discardableResult
     public func purgeExpiredRecycledCredentials() throws -> Int {
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         let cutoff = currentDate.addingTimeInterval(-30 * 24 * 60 * 60)
         let removed = try store.purgeRecycledCredentials(
             deletedOnOrBefore: sharedDateFormatter.string(from: cutoff)
         )
-        if removed > 0 { notifySnapshotRelevantChange() }
+        changed = removed > 0
         return removed
     }
 
@@ -63,10 +64,11 @@ extension Vault {
         _ mutation: () throws -> Void
     ) throws {
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         try mutation()
         brokerRequests.cancelPending(credentialID: id)
         approvalRequests.cancelPending(credentialID: id)
-        notifySnapshotRelevantChange()
+        changed = true
     }
 }

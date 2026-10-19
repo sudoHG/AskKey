@@ -2703,6 +2703,102 @@
         }
       }
     },
+    "Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问已暂停，因为保存的设置缺失或在请旨之外被更改。恢复 Agent 访问后将还原默认设置。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings.!!]" } }
+      }
+    },
+    "Agent access is paused in this run of Ask Key. No policy change was written. The pause may be lost when Ask Key restarts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agent access is paused in this run of Ask Key. No policy change was written. The pause may be lost when Ask Key restarts." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问已在本次请旨运行中暂停。未写入任何策略更改，重启请旨后暂停状态可能丢失。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access is paused in this run of Ask Key. No policy change was written. The pause may be lost when Ask Key restarts.!!]" } }
+      }
+    },
+    "Agent access is paused in this run of Ask Key, but Ask Key could not verify the saved policy. The pause may be lost when Ask Key restarts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agent access is paused in this run of Ask Key, but Ask Key could not verify the saved policy. The pause may be lost when Ask Key restarts." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问已在本次请旨运行中暂停，但请旨无法确认保存的策略。重启请旨后暂停状态可能丢失。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access is paused in this run of Ask Key, but Ask Key could not verify the saved policy. The pause may be lost when Ask Key restarts.!!]" } }
+      }
+    },
+    "Ask Key could not save the agent access settings. No policy change was written. Agent access stays paused in this run; the pause may be lost when Ask Key restarts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key could not save the agent access settings. No policy change was written. Agent access stays paused in this run; the pause may be lost when Ask Key restarts." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨无法保存 Agent 访问设置。未写入任何策略更改，Agent 访问将在本次运行中保持暂停；重启请旨后暂停状态可能丢失。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key could not save the agent access settings. No policy change was written. Agent access stays paused in this run; the pause may be lost when Ask Key restarts.!!]" } }
+      }
+    },
+    "Ask Key could not verify whether the agent access settings were saved. Agent access stays paused in this run because the saved policy is unknown; the pause may be lost when Ask Key restarts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key could not verify whether the agent access settings were saved. Agent access stays paused in this run because the saved policy is unknown; the pause may be lost when Ask Key restarts." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨无法确认 Agent 访问设置是否已保存。由于保存的策略状态未知，Agent 访问将在本次运行中保持暂停；重启请旨后暂停状态可能丢失。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key could not verify whether the agent access settings were saved. Agent access stays paused in this run because the saved policy is unknown; the pause may be lost when Ask Key restarts.!!]" } }
+      }
+    },
+    "Ask Key could not save the Resume Agent Access change. No policy change was written. Agent access stays paused in this run; the pause may be lost when Ask Key restarts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key could not save the Resume Agent Access change. No policy change was written. Agent access stays paused in this run; the pause may be lost when Ask Key restarts." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨无法保存“恢复 Agent 访问”的更改。未写入任何策略更改，Agent 访问将在本次运行中保持暂停；重启请旨后暂停状态可能丢失。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key could not save the Resume Agent Access change. No policy change was written. Agent access stays paused in this run; the pause may be lost when Ask Key restarts.!!]" } }
+      }
+    },
+    "Ask Key could not verify whether the Resume Agent Access change was saved. Agent access stays paused in this run because the saved policy is unknown; the pause may be lost when Ask Key restarts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key could not verify whether the Resume Agent Access change was saved. Agent access stays paused in this run because the saved policy is unknown; the pause may be lost when Ask Key restarts." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨无法确认“恢复 Agent 访问”的更改是否已保存。由于保存的策略状态未知，Agent 访问将在本次运行中保持暂停；重启请旨后暂停状态可能丢失。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key could not verify whether the Resume Agent Access change was saved. Agent access stays paused in this run because the saved policy is unknown; the pause may be lost when Ask Key restarts.!!]" } }
+      }
+    },
+    "Ask Key found a vault-key item outside login.keychain-db or duplicate vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key vault key to the login keychain and remove only verified duplicates, then reopen Ask Key. Do not delete your only vault key.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key found a vault-key item outside login.keychain-db or duplicate vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key vault key to the login keychain and remove only verified duplicates, then reopen Ask Key. Do not delete your only vault key." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨发现 login.keychain-db 之外的凭证库密钥（vault-key）或重复项目。请退出请旨，在“钥匙串访问”中将请旨的原始凭证库密钥移到登录钥匙串，仅移除已核实的重复项，然后重新打开请旨。切勿删除唯一的凭证库密钥。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key found a vault-key item outside login.keychain-db or duplicate vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key vault key to the login keychain and remove only verified duplicates, then reopen Ask Key. Do not delete your only vault key.!!]" } }
+      }
+    },
+    "Ask Key found a pending vault-key item outside login.keychain-db or duplicate pending vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key pending key to the login keychain and remove only verified duplicates, then reopen Ask Key. Keep the original key.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key found a pending vault-key item outside login.keychain-db or duplicate pending vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key pending key to the login keychain and remove only verified duplicates, then reopen Ask Key. Keep the original key." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨发现 login.keychain-db 之外的待处理凭证库密钥（vault-key）或重复项目。请退出请旨，在“钥匙串访问”中将请旨的原始待处理密钥移到登录钥匙串，仅移除已核实的重复项，然后重新打开请旨。请保留原始密钥。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key found a pending vault-key item outside login.keychain-db or duplicate pending vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key pending key to the login keychain and remove only verified duplicates, then reopen Ask Key. Keep the original key.!!]" } }
+      }
+    },
+    "Ask Key found a legacy vault-key item outside login.keychain-db or duplicate legacy vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key legacy key to the login keychain and remove only verified duplicates, then reopen Ask Key. Keep the original key.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key found a legacy vault-key item outside login.keychain-db or duplicate legacy vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key legacy key to the login keychain and remove only verified duplicates, then reopen Ask Key. Keep the original key." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨发现 login.keychain-db 之外的旧版凭证库密钥（vault-key）或重复项目。请退出请旨，在“钥匙串访问”中将请旨的原始旧版密钥移到登录钥匙串，仅移除已核实的重复项，然后重新打开请旨。请保留原始密钥。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key found a legacy vault-key item outside login.keychain-db or duplicate legacy vault-key items. Quit Ask Key. In Keychain Access, move the original Ask Key legacy key to the login keychain and remove only verified duplicates, then reopen Ask Key. Keep the original key.!!]" } }
+      }
+    },
+    "Ask Key found an agent-access-policy item outside login.keychain-db or duplicate policy items. Quit Ask Key. In Keychain Access, remove the conflicting Ask Key agent-access-policy items, then reopen Ask Key and use Resume Agent Access. Do not remove vault-key items.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key found an agent-access-policy item outside login.keychain-db or duplicate policy items. Quit Ask Key. In Keychain Access, remove the conflicting Ask Key agent-access-policy items, then reopen Ask Key and use Resume Agent Access. Do not remove vault-key items." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨发现 login.keychain-db 之外的 agent-access-policy 项目或重复策略项目。请退出请旨，在“钥匙串访问”中移除请旨的冲突 agent-access-policy 项目，然后重新打开请旨并选择“恢复 Agent 访问”。请勿移除 vault-key 项目。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key found an agent-access-policy item outside login.keychain-db or duplicate policy items. Quit Ask Key. In Keychain Access, remove the conflicting Ask Key agent-access-policy items, then reopen Ask Key and use Resume Agent Access. Do not remove vault-key items.!!]" } }
+      }
+    },
+    "Agent access settings are invalid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agent access settings are invalid." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问设置无效。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access settings are invalid.!!]" } }
+      }
+    },
     "Agent access": {
       "extractionState": "extracted_with_value",
       "localizations": {

@@ -3,7 +3,7 @@ import XCTest
 
 final class ApprovalStateMachineAllowanceTests: ApprovalStateMachineTestCase {
     func testVaultLockRevokesEveryTimedAllowance() throws {
-        let machine = BrokerApprovalStateMachine(authenticate: { _ in true })
+        let machine = configuredMachine(authenticate: { _ in true })
         let first = try machine.submit(request(operationID: "first"))
         _ = try machine.decide(
             requestID: first.requestID,
@@ -18,7 +18,7 @@ final class ApprovalStateMachineAllowanceTests: ApprovalStateMachineTestCase {
     func testTimedAllowanceIsGlobalForOneCredentialReadAndNeverCoversWrites() throws {
         let authentications = AuthenticationRecorder()
         let start = Date(timeIntervalSince1970: 10_000)
-        let machine = BrokerApprovalStateMachine(clock: { start }, authenticate: {
+        let machine = configuredMachine(clock: { start }, authenticate: {
             authentications.record($0)
             return true
         })
@@ -97,7 +97,7 @@ final class ApprovalStateMachineAllowanceTests: ApprovalStateMachineTestCase {
             ).state,
             .pending
         )
-        let expiryMachine = BrokerApprovalStateMachine(clock: { start }, authenticate: { _ in true })
+        let expiryMachine = configuredMachine(clock: { start }, authenticate: { _ in true })
         let expiryFirst = try expiryMachine.submit(request(operationID: "expiry-first"), now: start)
         _ = try expiryMachine.decide(
             requestID: expiryFirst.requestID,
@@ -114,7 +114,7 @@ final class ApprovalStateMachineAllowanceTests: ApprovalStateMachineTestCase {
         )
 
         let allowanceClock = TestClock(start)
-        let allowanceMachine = BrokerApprovalStateMachine(
+        let allowanceMachine = configuredMachine(
             clock: { allowanceClock.now },
             authenticate: { _ in true }
         )
@@ -139,7 +139,7 @@ final class ApprovalStateMachineAllowanceTests: ApprovalStateMachineTestCase {
     func testExplicitTimedAllowanceShortensTheCurrentRequestDeadline() throws {
         let start = Date(timeIntervalSince1970: 50_000)
         let clock = TestClock(start)
-        let machine = BrokerApprovalStateMachine(
+        let machine = configuredMachine(
             clock: { clock.now },
             authenticate: { _ in true }
         )

@@ -11,6 +11,26 @@ private struct SyntheticNotificationAddFailure: Error {}
 final class ExpiryReminderAsyncBoundaryTests: AskKeyAppTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
+    func testBackgroundSnapshotPostNeverWaitsForMainQueueObserver() async throws {
+        let fixture = try makeVault()
+        _ = try insertSoonExpiringCredential(in: fixture.vault, name: "Async Observer")
+        let port = DeferredExpiryReminderNotificationPort()
+        let controller = makeController(vault: fixture.vault, defaults: makeDefaults(), port: port)
+        controller.start()
+        let before = port.statusCompletions.count
+        let returned = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            NotificationCenter.default.post(name: .askKeyCredentialSnapshotDidChange, object: nil)
+            returned.signal()
+        }
+        // Keep the main queue occupied: a queue:.main observer would block the
+        // background post until this wait timed out, reproducing the lock cycle.
+        XCTAssertEqual(returned.wait(timeout: .now() + 1), .success)
+        await yieldMain()
+        XCTAssertGreaterThan(port.statusCompletions.count, before)
+        withExtendedLifetime(controller) { }
+    }
+
     func testOutOfOrderPermissionCompletionDoesNotDeliverDeletedCredential() async throws {
         let fixture = try makeVault()
         let created = try insertSoonExpiringCredential(in: fixture.vault, name: "Stale Callback")

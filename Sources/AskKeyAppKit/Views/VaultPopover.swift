@@ -8,6 +8,7 @@ struct VaultPopover: View {
     var body: some View {
         let _ = AppLanguage.store.resolved
         VStack(spacing: 0) {
+            AgentAccessPolicyNotice(showsResumeAction: false)
             if let message = vault.errorMessage {
                 HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")

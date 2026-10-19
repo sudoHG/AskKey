@@ -10,6 +10,7 @@ struct SettingsView: View {
     var body: some View {
         let _ = AppLanguage.store.resolved
         VStack(spacing: 0) {
+            AgentAccessPolicyNotice()
             if vault.brokerRecoveryAvailable {
                 brokerRecoveryStrip
             }

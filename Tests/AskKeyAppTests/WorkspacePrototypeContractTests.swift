@@ -190,7 +190,11 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
             authenticateDeviceOwner: { _ in .allow },
             preferences: AppPreferences(defaults: pausedDefaults),
             loginItem: LoginItemController(isEnabled: { true }, setEnabled: { _ in }),
-            isAgentAccessPaused: { true },
+            agentAccessPolicyOperations: .init(
+                load: { .init(policy: .failClosed, needsRecovery: false) },
+                setReadAuthentication: { _, _ in throw VaultError.managementAuthenticationRequired },
+                setTimedAllowance: { _, _ in throw VaultError.managementAuthenticationRequired }
+            ),
             credentialMutations: .readOnly { ([], [], [], false) }
         )
         menuPaused.hasManagementSession = false

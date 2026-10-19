@@ -89,6 +89,7 @@ struct FrozenSettingsPage: View {
                 .toggleStyle(.switch)
                 .tint(Theme.accent)
                 .accessibilityIdentifier("settings-read-auth-action")
+                .disabled(vault.agentAccessPolicyNeedsRecovery)
             }
             if let warning = readAuthentication.warning,
                let confirmationTitle = readAuthentication.confirmationTitle {
@@ -98,11 +99,12 @@ struct FrozenSettingsPage: View {
                         .buttonStyle(.secondaryAction)
                     Button(confirmationTitle, role: .destructive) {
                         Task {
-                            guard await vault.confirmDeviceOwner(
+                            guard let authenticator = await vault.confirmDeviceOwner(
                                 reason: ManagementAuthenticationAction.disableReadAuthentication.reasonKey
-                            ) != nil else { return }
-                            vault.readApprovalAuthenticationEnabled = false
-                            confirmingReadAuthenticationDisable = false
+                            ) else { return }
+                            if vault.setReadApprovalAuthentication(false, using: authenticator) {
+                                confirmingReadAuthenticationDisable = false
+                            }
                         }
                     }
                     .buttonStyle(FrozenDangerButtonStyle())
@@ -123,10 +125,9 @@ struct FrozenSettingsPage: View {
                     },
                     set: { minutes in
                         if minutes == FrozenTimedAllowanceSettingsPresentation.offTag {
-                            vault.timedAllowanceEnabled = false
+                            vault.setTimedAllowance(enabled: false, minutes: vault.defaultTimedAllowanceMinutes)
                         } else {
-                            vault.defaultTimedAllowanceMinutes = minutes
-                            vault.timedAllowanceEnabled = true
+                            vault.setTimedAllowance(enabled: true, minutes: minutes)
                         }
                     }
                 )) {
@@ -146,6 +147,7 @@ struct FrozenSettingsPage: View {
                 .labelsHidden()
                 .fixedSize()
                 .accessibilityIdentifier("settings-timed-allow-minutes")
+                .disabled(vault.agentAccessPolicyNeedsRecovery)
             }
         }
     }

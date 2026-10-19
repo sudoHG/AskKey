@@ -42,7 +42,6 @@ extension AppDelegate {
             }
         }
         setupApprovalQueue()
-        Vault.shared.updateDefaultTimedAllowanceMinutes(vault.defaultTimedAllowanceMinutes)
         vault.retryBrokerStart = { [weak self] in self?.retryBrokerStart() }
         startBroker()
         if brokerServer != nil {

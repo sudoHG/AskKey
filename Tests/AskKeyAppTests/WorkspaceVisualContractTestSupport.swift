@@ -80,7 +80,10 @@ class WorkspaceVisualContractTestSupport: AskKeyAppTestCase {
     }
 
     @MainActor
-    func makePreviewViewModel(defaults: UserDefaults? = nil) -> VaultViewModel {
+    func makePreviewViewModel(
+        defaults: UserDefaults? = nil,
+        agentAccessPolicyOperations: AgentAccessPolicyOperations? = nil
+    ) -> VaultViewModel {
         let suite = "WorkspaceVisualContractTests-\(UUID().uuidString)"
         let defaults = defaults ?? UserDefaults(suiteName: suite) ?? .standard
         defaults.set("zh-Hans", forKey: "languageMode")
@@ -92,6 +95,7 @@ class WorkspaceVisualContractTestSupport: AskKeyAppTestCase {
             authenticateDeviceOwner: { _ in .allow },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { true }, setEnabled: { _ in }),
+            agentAccessPolicyOperations: agentAccessPolicyOperations ?? AgentAccessPolicyTestState().operations,
             credentialMutations: .readOnly { ([], [], [], false) }
         )
     }

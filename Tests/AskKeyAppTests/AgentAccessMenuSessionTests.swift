@@ -172,7 +172,15 @@ final class AgentAccessMenuSessionTests: AskKeyAppTestCase {
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             managementSessionIdleLimit: managementSessionIdleLimit,
-            isAgentAccessPaused: isAgentAccessPaused,
+            agentAccessPolicyOperations: .init(
+                load: {
+                    var policy = AgentAccessPolicy.defaults
+                    policy.paused = try isAgentAccessPaused()
+                    return .init(policy: policy, needsRecovery: false)
+                },
+                setReadAuthentication: { _, _ in throw VaultError.managementAuthenticationRequired },
+                setTimedAllowance: { _, _ in throw VaultError.managementAuthenticationRequired }
+            ),
             pauseAgentAccess: pauseAgentAccess,
             resumeAgentAccess: resumeAgentAccess,
             credentialMutations: CredentialWorkspaceMutations.readOnly { ([], [], [], false) }

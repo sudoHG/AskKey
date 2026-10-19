@@ -22,6 +22,15 @@ extension VaultStore {
         }
     }
 
+    func removeLegacyAgentAccessConfig() throws {
+        try db.write { db in
+            try db.execute(
+                sql: "DELETE FROM config WHERE key IN (?, ?)",
+                arguments: [Vault.legacyAgentAccessPolicyConfigKey, Vault.agentAccessPausedConfigKey]
+            )
+        }
+    }
+
     func editCredentialGroup(
         _ name: String,
         key: SymmetricKey,

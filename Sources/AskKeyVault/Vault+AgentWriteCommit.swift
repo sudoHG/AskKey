@@ -32,12 +32,14 @@ extension Vault {
             ))
         }
         let wasPaused = try agentAccessGate.beginExclusiveAgentChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         let result = try agentTextWrites.synchronized {
             try commitAgentTextWriteSynchronized(
                 request,
                 requestID: requestID,
-                capability: capability
+                capability: capability,
+                snapshotChanged: &changed
             )
         }
         credentialID = result.credentialID
@@ -49,7 +51,8 @@ extension Vault {
     private func commitAgentTextWriteSynchronized(
         _ request: AgentTextWriteRequest,
         requestID: String,
-        capability: String
+        capability: String,
+        snapshotChanged: inout Bool
     ) throws -> AgentTextWriteResult {
         let digest = try agentTextWriteDigest(request)
         if let committed = try completedAgentTextWrite(
@@ -87,7 +90,7 @@ extension Vault {
             agentTextWrites.remove(operationID: request.operationID)
             brokerRequests.cancelPending(credentialID: result.credentialID)
             approvalRequests.cancelPending(credentialID: result.credentialID)
-            notifySnapshotRelevantChange()
+            snapshotChanged = true
             return result
         } catch VaultError.credentialUnavailable {
             cancelAgentWritesForExpiry(credentialID: frozen.approvalRequest.credentialID)

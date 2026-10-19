@@ -29,8 +29,8 @@ final class VaultBootstrapTests: XCTestCase {
     func testAgentStartupLoadsCurrentLibraryWithoutManagementSessionAndIsIdempotent() throws {
         let paths = VaultBootstrapPaths(directory: try temporaryDirectory())
         let keys = MemoryAppKeyStore()
-        let initial = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
-        let vault = Vault(store: initial.store, key: initial.key)
+        let vault = Vault(paths: paths, keyStore: keys)
+        try vault.unlock()
         _ = try vault.createTextCredential(.init(name: "TOKEN", value: "synthetic", environmentVariable: "TOKEN", permission: .allowed), using: .deny)
         vault.lock()
         XCTAssertTrue(vault.isLocked)
@@ -39,7 +39,7 @@ final class VaultBootstrapTests: XCTestCase {
         XCTAssertFalse(vault.hasActiveManagementSession)
         XCTAssertThrowsError(try vault.listTextCredentials())
         XCTAssertEqual(try vault.brokerCredentialCatalog(cancellation: .init()).count, 1)
-        vault.approvalRequests.setReadAuthenticationEnabled(false)
+        try vault.updateReadApprovalAuthentication(false, using: .allow)
         vault.approvalRequests.configureAuthentication { _ in false }
         try vault.prepareAgentRuntime(paths: paths, keyStore: {
             XCTFail("Already loaded runtime must not read keys again")
@@ -419,6 +419,12 @@ final class MemoryAppKeyStore: AppKeyStore {
     var promotionFailure: Error?
     /// Simulates a pending key that exists but cannot be read.
     var pendingLoadFailure: Error?
+    var policy: Data?
+    var policySaveFailure: Error?
+    var policyLoadFailure: Error?
+    var onPolicyLoad: (() -> Void)?
+    var policyWrites = 0
+    var policyDeletes = 0
     init(appKey: Data? = nil) { self.appKey = appKey }
     func loadAppKey() throws -> Data {
         guard let appKey else { throw AppKeyStoreError.missingAppKey }
@@ -438,6 +444,17 @@ final class MemoryAppKeyStore: AppKeyStore {
     func deletePendingKey() throws { mutations += 1; pendingKey = nil }
     func deleteAppKey() throws { mutations += 1; appKey = nil }
     func deleteLegacyKey() throws { mutations += 1 }
+    func loadAgentAccessPolicy() throws -> Data? {
+        onPolicyLoad?()
+        if let policyLoadFailure { throw policyLoadFailure }
+        return policy
+    }
+    func saveAgentAccessPolicy(_ data: Data) throws {
+        if let policySaveFailure { throw policySaveFailure }
+        policyWrites += 1
+        policy = data
+    }
+    func deleteAgentAccessPolicy() throws { policyDeletes += 1; policy = nil }
 }
 
 func directoryBytes(_ directory: URL) throws -> [String: Data] {

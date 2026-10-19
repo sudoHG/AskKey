@@ -3,6 +3,9 @@ import AskKeyVault
 
 enum UserFacingCopy {
     static func message(for error: Error) -> String {
+        if let failure = error as? AgentAccessPolicySaveFailure {
+            return failure.messageKeys.map(localized).joined(separator: "\n")
+        }
         if KeychainFailureDisposition.classify(error) == .failed {
             return localized("Ask Key could not access the vault. Allow Keychain access, then try again.")
         }

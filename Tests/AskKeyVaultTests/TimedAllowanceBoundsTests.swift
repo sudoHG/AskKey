@@ -5,7 +5,7 @@ import XCTest
 @testable import AskKeyVault
 
 final class TimedAllowanceBoundsTests: XCTestCase {
-    func testOversizedTimedAllowanceMinutesDoNotCrashAndFallBackToThirtyMinutes() throws {
+    func testUnsupportedTimedAllowanceMinutesAreRejectedAndKeepThirtyMinuteDefault() throws {
         let start = Date(timeIntervalSince1970: 10_000)
         let machine = BrokerApprovalStateMachine(
             clock: { start },
@@ -13,7 +13,10 @@ final class TimedAllowanceBoundsTests: XCTestCase {
         )
         let vault = try makeVault(approvalRequests: machine)
 
-        vault.updateDefaultTimedAllowanceMinutes(.max)
+        for minutes in [-1, 0, 1, 45, 121, Int.max] {
+            XCTAssertThrowsError(try vault.updateTimedAllowance(enabled: true, minutes: minutes))
+        }
+        XCTAssertEqual(try vault.agentAccessPolicyState().policy.timedAllowanceMinutes, 30)
 
         let first = try machine.submit(request(operationID: "first"), now: start)
         XCTAssertEqual(

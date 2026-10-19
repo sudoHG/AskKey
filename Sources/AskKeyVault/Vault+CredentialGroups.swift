@@ -48,10 +48,11 @@ extension Vault {
         let key = try requireKey()
         let name = try CredentialName.displayName(from: rawName)
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         _ = try store.editCredentialGroup(name, key: key, deleting: false,
             updatedAt: sharedDateFormatter.string(from: currentDate))
-        notifySnapshotRelevantChange()
+        changed = true
     }
 
     public func deleteCredentialGroup(
@@ -64,7 +65,8 @@ extension Vault {
         let name = try CredentialName.displayName(from: rawName)
         let deliveryManager = try fileDeliveryManager.get()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         let matchingIDs = try store.editCredentialGroup(name, key: key, deleting: true,
             updatedAt: sharedDateFormatter.string(from: currentDate))
         for id in matchingIDs {
@@ -72,7 +74,7 @@ extension Vault {
             approvalRequests.cancelPending(credentialID: id)
             deliveryManager.revoke(credentialID: id)
         }
-        notifySnapshotRelevantChange()
+        changed = true
     }
 
     func storedCredentialGroups(key: SymmetricKey) throws -> [String] {

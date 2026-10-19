@@ -49,7 +49,8 @@ extension Vault {
     func commitAgentOrganization(_ request: AgentTextWriteRequest, requestID: String,
                                  capability: String) throws -> AgentTextWriteResult {
         let wasPaused = try agentAccessGate.beginExclusiveAgentChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         return try agentOrganizations.synchronized {
             let digest = try agentTextWriteDigest(request)
             let capabilityDigest = Self.componentDigest(Data(capability.utf8))
@@ -77,7 +78,7 @@ extension Vault {
                 approvalRequests.cancelPending(credentialID: id)
                 fileDeliveryManager.revoke(credentialID: id)
             }
-            notifySnapshotRelevantChange()
+            changed = true
             return result
         }
     }

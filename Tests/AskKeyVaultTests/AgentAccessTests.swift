@@ -311,14 +311,16 @@ final class AgentAccessTests: XCTestCase {
         let databasePath = directory.appendingPathComponent("vault.db").path
         let key = VaultCrypto.generateKey()
         let firstStore = try VaultStore(path: databasePath)
-        let firstVault = Vault(store: firstStore, key: key)
+        let keys = MemoryAppKeyStore(appKey: VaultCrypto.keyToData(key))
+        keys.policy = try AgentAccessPolicyAuthentication.seal(.defaults, using: key)
+        let firstVault = Vault(store: firstStore, key: key, policyStore: keys)
         try firstVault.beginManagementSession(using: .allow)
 
         try firstVault.pauseAgentAccess(using: .allow)
         XCTAssertTrue(try firstVault.isAgentAccessPaused())
         try firstStore.close()
 
-        let restartedVault = Vault(store: try VaultStore(path: databasePath), key: key)
+        let restartedVault = Vault(store: try VaultStore(path: databasePath), key: key, policyStore: keys)
         XCTAssertTrue(try restartedVault.isAgentAccessPaused())
         try restartedVault.beginManagementSession(using: .allow)
         XCTAssertThrowsError(try restartedVault.resumeAgentAccess(using: .deny)) { error in

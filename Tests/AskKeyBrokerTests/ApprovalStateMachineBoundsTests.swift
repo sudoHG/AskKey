@@ -64,7 +64,7 @@ final class ApprovalStateMachineBoundsTests: ApprovalStateMachineTestCase {
         )
         XCTAssertNoThrow(try machine.submit(request(operationID: "replacement")))
 
-        let allowedMachine = BrokerApprovalStateMachine(authenticate: { _ in true })
+        let allowedMachine = configuredMachine(authenticate: { _ in true })
         let allowance = try allowedMachine.submit(request(operationID: "allowance"))
         _ = try allowedMachine.decide(
             requestID: allowance.requestID,

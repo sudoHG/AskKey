@@ -45,9 +45,20 @@ public final class Vault {
     private var _store: VaultStore?
     private var _managementSessionExpiresAt: Date?
     private var _accessRecordWriteFailed = false
+    private var _agentAccessPolicyState: AgentAccessPolicyState?
+    private var _policyKeyStore: AppKeyStore?
+    private var _agentAccessPolicyLatches = AgentAccessPolicyLatches()
+    private let pathsOverride: VaultBootstrapPaths?
+    private let keyStoreOverride: AppKeyStore?
+    var legacyAgentAccessRowsRemoved = false
 
     func notifySnapshotRelevantChange() {
         NotificationCenter.default.post(name: .askKeyCredentialSnapshotDidChange, object: nil)
+    }
+
+    func finishCredentialChange(wasPaused: Bool, snapshotChanged: Bool) {
+        agentAccessGate.endExclusiveChange(paused: wasPaused)
+        if snapshotChanged { notifySnapshotRelevantChange() }
     }
 
     private var key: SymmetricKey? {
@@ -75,6 +86,29 @@ public final class Vault {
         approvalRequests = BrokerApprovalStateMachine()
         fileDeliveryManager = Self.defaultFileDeliveryManager
         clock = Date.init
+        pathsOverride = nil
+        keyStoreOverride = nil
+        configureAgentTextWriteCleanup()
+    }
+
+    /// Dependency injection for an explicitly owned library and key store.
+    /// Opening still uses the production bootstrap and adoption path.
+    init(
+        paths: VaultBootstrapPaths,
+        keyStore: AppKeyStore,
+        approvalRequests: BrokerApprovalStateMachine = BrokerApprovalStateMachine(),
+        fileDeliveryManager: FileDeliveryManager? = nil,
+        now: @escaping () -> Date = Date.init
+    ) {
+        pathsOverride = paths
+        keyStoreOverride = keyStore
+        self.approvalRequests = approvalRequests
+        clock = now
+        if let fileDeliveryManager {
+            self.fileDeliveryManager = FileDeliveryManagerRegistry(manager: fileDeliveryManager)
+        } else {
+            self.fileDeliveryManager = Self.defaultFileDeliveryManager
+        }
         configureAgentTextWriteCleanup()
     }
 
@@ -84,11 +118,15 @@ public final class Vault {
     package init(
         store: VaultStore,
         key: SymmetricKey? = nil,
+        policyStore: AppKeyStore,
         now: @escaping () -> Date = Date.init,
         approvalRequests: BrokerApprovalStateMachine = BrokerApprovalStateMachine(),
         fileDeliveryManager: FileDeliveryManager? = nil
     ) {
         self._store = store
+        self._policyKeyStore = policyStore
+        pathsOverride = nil
+        keyStoreOverride = policyStore
         self.clock = now
         self.approvalRequests = approvalRequests
         if let fileDeliveryManager {
@@ -103,23 +141,51 @@ public final class Vault {
             )
         }
         self.key = key
-        do {
-            try synchronizeAgentAccessState()
-        } catch {
-            agentAccessGate.invalidate()
+        if let key {
+            do {
+                try adoptBootstrappedLibrary((store, key, false), keyStore: policyStore)
+            } catch {
+                // Adoption already quiesced the gate and deliveries.
+            }
         }
         configureAgentTextWriteCleanup()
     }
 
-    public func updateDefaultTimedAllowanceMinutes(_ minutes: Int) {
-        let seconds: TimeInterval
-        if minutes > 0, minutes <= Int.max / 60 {
-            seconds = TimeInterval(minutes * 60)
-        } else {
-            seconds = 30 * 60
-        }
-        approvalRequests.updateDefaultTimedAllowance(seconds)
-        notifySnapshotRelevantChange()
+    package func agentAccessPolicyState() throws -> AgentAccessPolicyState {
+        let state = try savedAgentAccessPolicyState()
+        return .init(policy: state.policy, needsRecovery: state.needsRecovery,
+                     isPaused: try agentAccessGate.isPaused(), pauseNotPersisted: state.pauseNotPersisted,
+                     saveFailure: state.saveFailure, keychainConflict: state.keychainConflict)
+    }
+
+    func savedAgentAccessPolicyState() throws -> AgentAccessPolicyState {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard let state = _agentAccessPolicyState else { throw VaultError.vaultLocked }
+        return state
+    }
+
+    func setAgentAccessPolicyState(_ state: AgentAccessPolicyState) {
+        stateLock.lock()
+        _agentAccessPolicyState = state
+        stateLock.unlock()
+    }
+
+    func agentAccessPolicyLatches() -> AgentAccessPolicyLatches {
+        stateLock.lock(); defer { stateLock.unlock() }
+        return _agentAccessPolicyLatches
+    }
+
+    func changeAgentAccessPolicyLatches(_ change: (inout AgentAccessPolicyLatches) -> Void) {
+        stateLock.lock(); defer { stateLock.unlock() }
+        change(&_agentAccessPolicyLatches)
+    }
+
+    func policyKeyStore() throws -> AppKeyStore {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard let store = _policyKeyStore else { throw VaultError.vaultLocked }
+        return store
     }
 
     public func validateStoreAvailability() throws {
@@ -202,8 +268,7 @@ public final class Vault {
         stateLock.unlock()
         if alreadyLoaded { return }
 
-        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: try keyStore())
-        try adoptBootstrappedLibrary(opened)
+        try openBootstrappedLibrary(paths: paths, keyStore: keyStore)
     }
 
     public func unlock() throws {
@@ -215,9 +280,16 @@ public final class Vault {
     }
 
     public func lock() {
-        approvalRequests.revokeAllTimedAllowances()
-        key = nil
-        endManagementSession()
+        do {
+            _ = try agentAccessGate.beginExclusiveChange()
+            quiesceAgentAccess()
+            key = nil
+            endManagementSession()
+            agentAccessGate.endExclusiveChange(paused: true)
+        } catch {
+            key = nil
+            endManagementSession()
+        }
     }
 
     public var isLocked: Bool { key == nil }
@@ -258,14 +330,15 @@ public final class Vault {
     ) throws -> T {
         _ = try requireKey()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        var changed = false
+        defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
         let isFirst = try store.fetchAllCredentials().isEmpty && store.fetchRecycledCredentials().isEmpty
         if !isFirst {
             try requireManagementSession()
             try authorizeManagement(authenticator, reason: CredentialManagementCopy.manageReason)
         }
         let created = try create()
-        notifySnapshotRelevantChange()
+        changed = true
         return created
     }
 
@@ -338,32 +411,75 @@ public final class Vault {
     }
 
     private var bootstrapPaths: VaultBootstrapPaths {
-        .init(directory: VaultConfiguration.applicationSupportDirectory,
+        pathsOverride ?? .init(directory: VaultConfiguration.applicationSupportDirectory,
               durabilityRoot: VaultConfiguration.bootstrapDurabilityRoot)
     }
 
-    private func openBootstrappedLibrary() throws {
-        let opened = try VaultBootstrap.openCurrent(paths: bootstrapPaths, keyStore: appKeyStore())
-        try adoptBootstrappedLibrary(opened)
+    var libraryDirectory: URL { bootstrapPaths.directory }
+
+    var localEraseJournalURL: URL {
+        guard let pathsOverride else { return VaultConfiguration.localEraseJournalURL }
+        return pathsOverride.directory.deletingLastPathComponent()
+            .appendingPathComponent("\(pathsOverride.directory.lastPathComponent)-erase.journal")
     }
 
-    private func adoptBootstrappedLibrary(_ opened: (store: VaultStore, key: SymmetricKey)) throws {
-        stateLock.lock()
-        let oldStore = _store
-        _key = opened.key
-        _store = opened.store
-        stateLock.unlock()
-        if let oldStore, oldStore !== opened.store { try oldStore.close() }
+    private func openBootstrappedLibrary() throws {
+        try openBootstrappedLibrary(paths: bootstrapPaths, keyStore: appKeyStore)
+    }
+
+    private func openBootstrappedLibrary(paths: VaultBootstrapPaths, keyStore: () throws -> AppKeyStore) throws {
+        let keys: AppKeyStore
+        let opened: (store: VaultStore, key: SymmetricKey, created: Bool)
         do {
-            try synchronizeAgentAccessState()
+            keys = try keyStore()
+            opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         } catch {
-            lock()
+            _ = try agentAccessGate.beginExclusiveChange()
+            applyAgentAccessPolicy(.failClosed, needsRecovery: true,
+                                   keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
+            key = nil
+            endManagementSession()
+            agentAccessGate.endExclusiveChange(paused: true)
+            throw error
+        }
+        try adoptBootstrappedLibrary(opened, keyStore: keys)
+    }
+
+    private func adoptBootstrappedLibrary(
+        _ opened: (store: VaultStore, key: SymmetricKey, created: Bool), keyStore: AppKeyStore
+    ) throws {
+        _ = try agentAccessGate.beginExclusiveChange()
+        var paused = true
+        defer { agentAccessGate.endExclusiveChange(paused: paused) }
+        do {
+            let loaded = try loadAgentAccessPolicy(key: opened.key, keyStore: keyStore, created: opened.created)
+            let state = resolveAgentAccessPolicyLatches(loaded, key: opened.key, keyStore: keyStore)
+            applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery,
+                                   keychainConflict: state.keychainConflict)
+            stateLock.lock()
+            let oldStore = _store
+            stateLock.unlock()
+            if let oldStore, oldStore !== opened.store { try oldStore.close() }
+            stateLock.lock()
+            _key = opened.key
+            _store = opened.store
+            _policyKeyStore = keyStore
+            stateLock.unlock()
+            if !state.needsRecovery { removeLegacyAgentAccessRows(from: opened.store) }
+            paused = state.policy.paused
+        } catch {
+            applyAgentAccessPolicy(.failClosed, needsRecovery: true,
+                                   keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
+            key = nil
+            endManagementSession()
+            try? opened.store.close()
             throw error
         }
     }
 
     func appKeyStore() throws -> AppKeyStore {
-        try makeAppKeyStore(
+        if let keyStoreOverride { return keyStoreOverride }
+        return try makeAppKeyStore(
             legacyService: VaultConfiguration.keychainService,
             pendingService: VaultConfiguration.pendingAppKeychainService,
             appService: VaultConfiguration.appKeychainService
@@ -371,11 +487,18 @@ public final class Vault {
     }
 
     func deleteAllLocalVaultKeys() throws {
-        for store in [try appKeyStore(), try makeAppKeyStore(
-            legacyService: VaultConfiguration.keychainService,
-            pendingService: VaultConfiguration.previousAppKeychainService + ".migration",
-            appService: VaultConfiguration.previousAppKeychainService
-        )] {
+        let stores: [AppKeyStore]
+        if let keyStoreOverride {
+            stores = [keyStoreOverride]
+        } else {
+            stores = [try appKeyStore(), try makeAppKeyStore(
+                legacyService: VaultConfiguration.keychainService,
+                pendingService: VaultConfiguration.previousAppKeychainService + ".migration",
+                appService: VaultConfiguration.previousAppKeychainService
+            )]
+        }
+        for store in stores {
+            try store.deleteAgentAccessPolicy()
             try store.deleteLegacyKey()
             try store.deletePendingKey()
             try store.deleteAppKey()
@@ -421,6 +544,9 @@ public final class Vault {
         _store?.bindCredentialAuthenticationKey(nil)
         _store = nil
         _managementSessionExpiresAt = nil
+        _agentAccessPolicyState = nil
+        _policyKeyStore = nil
+        _agentAccessPolicyLatches = .init()
         stateLock.unlock()
     }
 }

@@ -32,7 +32,6 @@ extension VaultViewModel {
         languageMode: String,
         appearanceMode: String,
         completedOnboarding: Bool,
-        readApprovalAuthenticationEnabled: Bool,
         unlockVault: @escaping () throws -> Void,
         authenticateDeviceOwner: @escaping @MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticator?,
         loginItemIsEnabled: @escaping () -> Bool,
@@ -43,7 +42,6 @@ extension VaultViewModel {
         preferences.languageMode = languageMode
         preferences.appearanceMode = appearanceMode
         preferences.hasCompletedOnboarding = completedOnboarding
-        preferences.readApprovalAuthenticationEnabled = readApprovalAuthenticationEnabled
         let model = VaultViewModel(
             unlockVault: unlockVault,
             authenticateDeviceOwner: authenticateDeviceOwner,
