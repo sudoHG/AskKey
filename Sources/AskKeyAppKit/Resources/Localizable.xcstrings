@@ -1,6 +1,46 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Ask Key could not open this library": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key could not open this library" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key 无法打开此资料库" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key could not open this library!!]" } }
+      }
+    },
+    "Ask Key could not read the saved agent access settings. Allow Keychain access, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key could not read the saved agent access settings. Allow Keychain access, then try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key 无法读取已保存的代理访问设置。请允许钥匙串访问后重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key could not read the saved agent access settings. Allow Keychain access, then try again.!!]" } }
+      }
+    },
+    "Ask Key is already using this library, but the running instance did not respond. Try opening it again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key is already using this library, but the running instance did not respond. Try opening it again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Ask Key 已在使用此资料库，但运行中的实例未响应。请尝试重新打开。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key is already using this library, but the running instance did not respond. Try opening it again.!!]" } }
+      }
+    },
+    "The library instance lock could not be acquired: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The library instance lock could not be acquired: %@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法获取资料库实例锁：%@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The library instance lock could not be acquired: %@!!]" } }
+      }
+    },
+    "This Ask Key instance does not own Agent access for this library. Change settings in the running instance.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This Ask Key instance does not own Agent access for this library. Change settings in the running instance." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此 Ask Key 实例不拥有该资料库的代理访问服务。请在运行中的实例中修改设置。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Ask Key instance does not own Agent access for this library. Change settings in the running instance.!!]" } }
+      }
+    },
     "%1$@ and %2$@": {
       "extractionState": "manual",
       "localizations": {

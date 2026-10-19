@@ -7,7 +7,6 @@ public final class BrokerSocketServer {
     let failedReadBufferCleared: @Sendable (BrokerClearedReadBuffer) -> Void
     private let stateLock = NSLock()
     private var listenFD: Int32 = -1
-    private var boundIdentity: BrokerSocketPathIdentity?
     private var running = false
     private var activeConnections = 0
     private var activeRequests = 0
@@ -41,11 +40,12 @@ public final class BrokerSocketServer {
             withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700]
         )
+        let startupLock = try BrokerSocketStartupLock.acquire(for: socketPath)
+        defer { withExtendedLifetime(startupLock) {} }
         try BrokerSocketPathIdentity.removeStaleSocket(at: socketPath)
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw BrokerSocketError.systemError("socket", errno) }
-        var identity: BrokerSocketPathIdentity?
         do {
             var address = try makeBrokerAddress(path: socketPath)
             let result = withUnsafePointer(to: &address) {
@@ -54,8 +54,6 @@ public final class BrokerSocketServer {
                 }
             }
             guard result == 0 else { throw BrokerSocketError.systemError("bind", errno) }
-            identity = try BrokerSocketPathIdentity.read(socketPath)
-            guard identity != nil else { throw BrokerSocketError.systemError("bound socket missing", ENOENT) }
             guard chmod(socketPath, 0o600) == 0 else {
                 throw BrokerSocketError.systemError("chmod", errno)
             }
@@ -64,12 +62,10 @@ public final class BrokerSocketServer {
             }
         } catch {
             close(fd)
-            identity?.unlinkIfCurrent(socketPath)
             throw error
         }
 
         listenFD = fd
-        boundIdentity = identity
         running = true
         acceptQueue.async { [weak self] in self?.acceptLoop() }
     }
@@ -79,13 +75,10 @@ public final class BrokerSocketServer {
         running = false
         let fd = listenFD
         listenFD = -1
-        let identity = boundIdentity
-        boundIdentity = nil
         if fd >= 0 {
             shutdown(fd, SHUT_RDWR)
             close(fd)
         }
-        identity?.unlinkIfCurrent(socketPath)
         stateLock.unlock()
     }
 

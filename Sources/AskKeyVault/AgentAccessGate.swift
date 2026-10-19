@@ -8,12 +8,17 @@ final class AgentAccessGate: @unchecked Sendable {
     private var state: State = .paused
     private var activeOperations = 0
     private var changing = false
+    private var policyReadPaused = false
+    private var mayRetryPolicyReadAfterChange = false
 
     func beginAgentOperation(validating policy: () throws -> Void = {}) throws {
         condition.lock(); defer { condition.unlock() }
+        guard state != .invalid else { throw invalidStateError }
+        // A transient policy-read pause may recover on the next request. An
+        // exclusive mutation still owns its pause until endExclusiveChange.
+        if !changing && (state == .active || policyReadPaused) { try policy() }
         switch state {
         case .active:
-            try policy()
             activeOperations += 1
         case .paused: throw VaultError.agentAccessPaused
         case .invalid: throw invalidStateError
@@ -42,8 +47,9 @@ final class AgentAccessGate: @unchecked Sendable {
 
     /// Only while the authorization caller holds the condition. This transition
     /// must not wait for active leases, including the lease doing this check.
-    func setPausedDuringAuthorization(_ paused: Bool) {
+    func setPausedDuringAuthorization(_ paused: Bool, retryPolicyRead: Bool = false) {
         state = paused ? .paused : .active
+        policyReadPaused = paused && retryPolicyRead
     }
 
     func endSpawnAuthorization() {
@@ -61,13 +67,14 @@ final class AgentAccessGate: @unchecked Sendable {
             throw error
         }
         changing = true
+        mayRetryPolicyReadAfterChange = true
         state = .paused
         while activeOperations > 0 { condition.wait() }
         condition.unlock()
         return false
     }
 
-    func beginExclusiveChange() throws -> Bool {
+    func beginExclusiveChange(reopening: Bool = false) throws -> Bool {
         condition.lock()
         while changing { condition.wait() }
         guard state != .invalid else {
@@ -75,6 +82,7 @@ final class AgentAccessGate: @unchecked Sendable {
             throw invalidStateError
         }
         changing = true
+        mayRetryPolicyReadAfterChange = reopening || state == .active || policyReadPaused
         let wasPaused = state == .paused
         state = .paused
         while activeOperations > 0 { condition.wait() }
@@ -82,9 +90,10 @@ final class AgentAccessGate: @unchecked Sendable {
         return wasPaused
     }
 
-    func endExclusiveChange(paused: Bool) {
+    func endExclusiveChange(paused: Bool, retryPolicyRead: Bool = false) {
         condition.lock()
         state = paused ? .paused : .active
+        policyReadPaused = paused && retryPolicyRead && mayRetryPolicyReadAfterChange
         changing = false
         condition.broadcast()
         condition.unlock()

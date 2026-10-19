@@ -9,9 +9,21 @@ extension Vault {
         let memory = try savedAgentAccessPolicyState()
         let persisted = try loadAgentAccessPolicy(key: key, keyStore: policyKeyStore(), created: false)
         let recovery = memory.needsRecovery || persisted.needsRecovery || agentAccessPolicyLatches().recovery
-        let policy = memory.policy.restricted(by: recovery ? .failClosed : persisted.policy)
+        let policy: AgentAccessPolicy
+        if recovery { policy = memory.policy.restricted(by: .failClosed) }
+        else if persisted.readUnavailable { policy = memory.policy }
+        else { policy = memory.hasVerifiedPolicy ? memory.policy.restricted(by: persisted.policy) : persisted.policy }
         return .init(policy: policy, needsRecovery: recovery,
-                     keychainConflict: persisted.keychainConflict ?? memory.keychainConflict)
+                     keychainConflict: persisted.keychainConflict ?? memory.keychainConflict,
+                     readUnavailable: persisted.readUnavailable,
+                     hasVerifiedPolicy: memory.hasVerifiedPolicy || !persisted.readUnavailable)
+    }
+
+    func adoptPersistedAgentAccessPolicy(_ state: AgentAccessPolicyState) {
+        applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery,
+                               keychainConflict: state.keychainConflict, readUnavailable: state.readUnavailable,
+                               hasVerifiedPolicy: state.hasVerifiedPolicy,
+                               adoptingPersisted: true)
     }
 
     /// Runs under the gate's condition, before an operation or the actual spawn.
@@ -19,13 +31,14 @@ extension Vault {
     func revalidateAgentAccessPolicy() throws {
         let previous = try savedAgentAccessPolicyState()
         let current = try currentAgentAccessPolicy(key: requireKey())
-        if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery {
+        if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery
+            || current.readUnavailable != previous.readUnavailable {
             agentAccessGate.setPausedDuringAuthorization(true)
-            applyAgentAccessPolicy(current.policy, needsRecovery: current.needsRecovery,
-                                   keychainConflict: current.keychainConflict)
-            agentAccessGate.setPausedDuringAuthorization(current.policy.paused)
+            adoptPersistedAgentAccessPolicy(current)
+            agentAccessGate.setPausedDuringAuthorization(current.isPaused,
+                                                         retryPolicyRead: current.readUnavailable && !current.policy.paused)
         }
-        guard !current.policy.paused else { throw VaultError.agentAccessPaused }
+        guard !current.isPaused else { throw VaultError.agentAccessPaused }
     }
 
     func beginAgentOperation() throws {
@@ -37,10 +50,10 @@ extension Vault {
     func revalidateExclusiveAgentAccess(paused: inout Bool) throws {
         let previous = try savedAgentAccessPolicyState()
         let current = try currentAgentAccessPolicy(key: requireKey())
-        paused = paused || current.policy.paused
-        if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery {
-            applyAgentAccessPolicy(current.policy, needsRecovery: current.needsRecovery,
-                                   keychainConflict: current.keychainConflict)
+        paused = paused || current.isPaused
+        if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery
+            || current.readUnavailable != previous.readUnavailable {
+            adoptPersistedAgentAccessPolicy(current)
         }
         guard !paused else { throw VaultError.agentAccessPaused }
     }
@@ -50,17 +63,14 @@ extension Vault {
         requestID: String, capability: String, decision: BrokerApprovalDecision
     ) throws -> BrokerApprovalTicket {
         if decision == .deny {
-            return try approvalRequests.decide(
-                requestID: requestID, capability: capability, decision: decision,
-                revalidate: {
-                    try self.agentAccessGate.beginSpawnAuthorization(validating: self.revalidateAgentAccessPolicy)
-                    self.agentAccessGate.endSpawnAuthorization()
-                }
-            )
+            return try approvalRequests.decide(requestID: requestID, capability: capability, decision: .deny)
         }
-        try beginAgentOperation()
-        defer { agentAccessGate.endAgentOperation() }
-        let policy = try savedAgentAccessPolicyState().policy
+        let policy: AgentAccessPolicy
+        do {
+            try beginAgentOperation()
+            defer { agentAccessGate.endAgentOperation() }
+            policy = try savedAgentAccessPolicyState().policy
+        }
         let effectiveDecision: BrokerApprovalDecision
         if case let .timedAllow(duration) = decision {
             guard policy.timedAllowanceEnabled else { throw BrokerApprovalError.invalidDecision }
@@ -77,9 +87,6 @@ extension Vault {
             revalidate: {
                 try self.agentAccessGate.beginSpawnAuthorization(validating: self.revalidateAgentAccessPolicy)
                 defer { self.agentAccessGate.endSpawnAuthorization() }
-                guard try self.savedAgentAccessPolicyState().policy == policy else {
-                    throw BrokerApprovalError.invalidDecision
-                }
             }
         )
     }

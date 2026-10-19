@@ -1,12 +1,12 @@
 import Foundation
 
 extension BrokerApprovalStateMachine {
-    public func decide(
+    package func decide(
         requestID: String,
         capability: String,
         decision: BrokerApprovalDecision
     ) throws -> BrokerApprovalTicket {
-        try decide(requestID: requestID, capability: capability, decision: decision, now: clock())
+        try decide(requestID: requestID, capability: capability, decision: decision, revalidate: {})
     }
 
     /// App-only persisted-policy check. It may quiesce the state machine, so it
@@ -18,9 +18,7 @@ extension BrokerApprovalStateMachine {
         revalidate: () throws -> Void
     ) throws -> BrokerApprovalTicket {
         if decision == .deny {
-            // Denial grants no authority. A failed refresh may already have
-            // cancelled the request, and must never leave a pending grant.
-            try? revalidate()
+            // Denial grants no authority and must never wait for policy I/O.
             return try updateEntry(requestID: requestID, capability: capability, now: clock()) { entry in
                 switch entry.state {
                 case .pending: entry.state = .denied
@@ -82,7 +80,9 @@ extension BrokerApprovalStateMachine {
                 // Settings may have changed while system authentication ran.
                 guard timedAllowanceEnabled else { throw BrokerApprovalError.invalidDecision }
                 guard let timedAllowanceDuration else { throw BrokerApprovalError.invalidDecision }
-                let windowEnd = verifiedAt.addingTimeInterval(timedAllowanceDuration)
+                let duration = defaultTimedAllowance < context.3
+                    ? min(timedAllowanceDuration, defaultTimedAllowance) : timedAllowanceDuration
+                let windowEnd = verifiedAt.addingTimeInterval(duration)
                 let effectiveWindowEnd = entry.credentialExpiresAt.map {
                     min(windowEnd, $0)
                 } ?? windowEnd

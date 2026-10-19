@@ -91,6 +91,20 @@ final class AgentAccessPolicyTransitionTests: XCTestCase {
         XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
     }
 
+    func testTransientReadRecoveryCannotLiftAnExplicitLifecyclePause() throws {
+        let library = try makeLibrary()
+        library.keys.policyLoadFailure = SyntheticPolicyFailure()
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        XCTAssertFalse(try library.vault.agentAccessPolicyState().needsRecovery)
+        _ = try library.vault.agentAccessGate.beginExclusiveChange()
+        library.vault.agentAccessGate.endExclusiveChange(paused: true)
+        library.keys.policyLoadFailure = nil
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+        try library.reopen()
+        XCTAssertFalse(try library.vault.isAgentAccessPaused())
+    }
+
     private func makeLibrary() throws -> AgentAccessPolicyLibrary {
         let library = try AgentAccessPolicyLibrary()
         addTeardownBlock { try library.close() }

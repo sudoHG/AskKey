@@ -17,10 +17,6 @@ struct BrokerSocketPathIdentity: Equatable {
         return Self(device: info.st_dev, inode: info.st_ino)
     }
 
-    func unlinkIfCurrent(_ path: String) {
-        if (try? Self.read(path)) == self { unlink(path) }
-    }
-
     static func removeStaleSocket(at path: String) throws {
         guard let identity = try read(path) else { return }
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)

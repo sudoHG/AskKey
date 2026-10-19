@@ -180,8 +180,8 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
         XCTAssertEqual(try library.store.fetchAllCredentials().count, 2)
     }
 
-    func testMissingInvalidAndUnreadablePersistedPolicyFailClosedAtEveryBoundary() throws {
-        for corruption in ["missing", "invalid", "unreadable", "wrong-key"] {
+    func testConfirmedMissingInvalidAndConflictingPolicyRequireRecoveryAtEveryBoundary() throws {
+        for corruption in ["missing", "invalid", "conflict", "wrong-key"] {
             for boundary in ["spawn", "catalog", "groups", "decision"] {
                 let library = try makeLibrary()
                 let second = try makeSecondVault(library)
@@ -191,7 +191,7 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
                 switch corruption {
                 case "missing": library.keys.policy = nil
                 case "invalid": library.keys.policy = Data("invalid".utf8)
-                case "unreadable": library.keys.policyLoadFailure = SyntheticPolicyFailure()
+                case "conflict": library.keys.policyLoadFailure = AppKeyStoreError.conflictingItem(.agentAccessPolicy)
                 default:
                     library.keys.policy = try AgentAccessPolicyAuthentication.seal(
                         .defaults, using: SymmetricKey(data: Data(repeating: 0x23, count: 32))
@@ -213,6 +213,125 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
                 XCTAssertEqual(library.keys.policyWrites, writes)
             }
         }
+    }
+
+    func testUnreadablePolicyRefusesEveryBoundaryAndRecoversWithoutResettingSettings() throws {
+        for boundary in ["spawn", "catalog", "groups", "decision"] {
+            let library = try makeLibrary()
+            try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+            try library.vault.updateTimedAllowance(enabled: true, minutes: 120)
+            let second = try makeSecondVault(library)
+            let ticket = try submitRead(second)
+            let lease = boundary == "spawn" ? try resolvedLease(second) : nil
+            defer { lease?.finish(); lease?.cleanup() }
+            let saved = try persistedPolicy(library)
+            let writes = library.keys.policyWrites
+            library.keys.policyLoadFailure = SyntheticPolicyFailure()
+            switch boundary {
+            case "spawn":
+                XCTAssertThrowsError(try lease?.performAuthorizedSpawn(afterAuthorization: {}, spawn: { XCTFail("Must not spawn") }))
+            case "catalog": XCTAssertThrowsError(try second.brokerCredentialCatalog())
+            case "groups": XCTAssertThrowsError(try second.brokerCredentialGroups())
+            default: XCTAssertThrowsError(try decide(second, ticket: ticket))
+            }
+            XCTAssertTrue(try second.agentAccessPolicyState().isPaused)
+            XCTAssertFalse(try second.agentAccessPolicyState().needsRecovery)
+            XCTAssertEqual(try second.agentAccessPolicyState().policy, saved)
+            XCTAssertEqual(library.keys.policyWrites, writes)
+            // Drop any delivery lease before taking the exclusive Resume gate.
+            lease?.finish()
+            library.keys.policyLoadFailure = nil
+            if boundary == "decision" { try second.resumeAgentAccess(using: .allow) }
+            else { _ = try second.brokerCredentialCatalog() }
+            XCTAssertFalse(try second.agentAccessPolicyState().isPaused)
+            XCTAssertFalse(try second.agentAccessPolicyState().needsRecovery)
+            XCTAssertEqual(try second.agentAccessPolicyState().policy, saved)
+            XCTAssertEqual(try persistedPolicy(library), saved)
+        }
+    }
+
+    func testPauseDuringUnreadablePolicyLatchesUnsavedPauseWithoutRecovery() throws {
+        let library = try makeLibrary()
+        let second = try makeSecondVault(library)
+        let saved = library.keys.policy
+        library.keys.policyLoadFailure = SyntheticPolicyFailure()
+        XCTAssertThrowsError(try second.pauseAgentAccess(using: .allow)) {
+            XCTAssertEqual(($0 as? AgentAccessPolicySaveFailure)?.operation, .pause)
+        }
+        let state = try second.agentAccessPolicyState()
+        XCTAssertTrue(state.isPaused)
+        XCTAssertTrue(state.pauseNotPersisted)
+        XCTAssertFalse(state.needsRecovery)
+        XCTAssertEqual(state.saveFailure?.operation, .pause)
+        XCTAssertEqual(library.keys.policy, saved)
+        library.keys.policyLoadFailure = nil
+        XCTAssertThrowsError(try second.brokerCredentialCatalog())
+        try second.resumeAgentAccess(using: .allow)
+        XCTAssertFalse(try second.agentAccessPolicyState().isPaused)
+    }
+
+    func testInitialUnreadablePolicyRecoversTheVerifiedSettingsWithoutUsingDefaults() throws {
+        let library = try makeLibrary()
+        try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+        try library.vault.updateTimedAllowance(enabled: true, minutes: 120)
+        let saved = try persistedPolicy(library)
+        library.keys.policyLoadFailure = SyntheticPolicyFailure()
+        let second = try makeSecondVault(library)
+        XCTAssertTrue(try second.agentAccessPolicyState().isPaused)
+        XCTAssertFalse(try second.agentAccessPolicyState().needsRecovery)
+        library.keys.policyLoadFailure = nil
+        _ = try second.brokerCredentialCatalog()
+        XCTAssertFalse(try second.agentAccessPolicyState().isPaused)
+        XCTAssertEqual(try second.agentAccessPolicyState().policy, saved)
+    }
+
+    func testSettingsAndResumeRefuseUnreadablePolicyAndRetryWithoutWritingDefaults() throws {
+        for resume in [false, true] {
+            let library = try makeLibrary()
+            try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+            try library.vault.updateTimedAllowance(enabled: true, minutes: 120)
+            let saved = try persistedPolicy(library)
+            let writes = library.keys.policyWrites
+            library.keys.policyLoadFailure = SyntheticPolicyFailure()
+            XCTAssertThrowsError(try {
+                if resume { try library.vault.resumeAgentAccess(using: .allow) }
+                else { try library.vault.updateTimedAllowance(enabled: false, minutes: 15) }
+            }())
+            XCTAssertTrue(try library.vault.agentAccessPolicyState().isPaused)
+            XCTAssertFalse(try library.vault.agentAccessPolicyState().needsRecovery)
+            XCTAssertEqual(library.keys.policyWrites, writes)
+            library.keys.policyLoadFailure = nil
+            _ = try library.vault.brokerCredentialCatalog()
+            XCTAssertFalse(try library.vault.agentAccessPolicyState().isPaused)
+            XCTAssertEqual(try library.vault.agentAccessPolicyState().policy, saved)
+            XCTAssertEqual(try persistedPolicy(library), saved)
+        }
+    }
+
+    func testNonOwnerCannotSaveSettingsPauseOrResumeOverOwnersPolicy() throws {
+        let library = try makeLibrary()
+        let second = try makeSecondVault(library)
+        try second.setAgentAccessPolicyOwnership(false)
+        try library.vault.pauseAgentAccess(using: .allow)
+        let saved = library.keys.policy
+        let writes = library.keys.policyWrites
+        library.keys.onPolicyLoad = { XCTFail("A non-owner must refuse before reading for a write") }
+        for operation in [
+            { try second.updateTimedAllowance(enabled: false, minutes: 15) },
+            { try second.updateReadApprovalAuthentication(false, using: .allow) },
+            { try second.pauseAgentAccess(using: .allow) },
+            { try second.resumeAgentAccess(using: .allow) }
+        ] {
+            XCTAssertThrowsError(try operation()) {
+                XCTAssertEqual(($0 as? AgentAccessPolicyError)?.errorDescription,
+                               AgentAccessPolicyError.notOwner.errorDescription)
+            }
+        }
+        library.keys.onPolicyLoad = nil
+        XCTAssertEqual(library.keys.policyWrites, writes)
+        XCTAssertEqual(library.keys.policy, saved)
+        XCTAssertThrowsError(try second.brokerCredentialCatalog())
+        XCTAssertTrue(try second.agentAccessPolicyState().isPaused)
     }
 
     func testWeakerPersistedPolicyCannotRelaxMemoryOrRecoveryLatch() throws {
@@ -270,12 +389,13 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
             case "invalid": library.keys.policy = Data("invalid".utf8)
             default: library.keys.policyLoadFailure = SyntheticPolicyFailure()
             }
-            XCTAssertEqual(try decide(second, ticket: ticket, decision: .deny).state, .cancelled, change)
+            library.keys.onPolicyLoad = { XCTFail("Deny must not read Keychain policy") }
+            XCTAssertFalse(try second.agentAccessGate.beginExclusiveChange())
+            defer { second.agentAccessGate.endExclusiveChange(paused: false) }
+            XCTAssertEqual(try decide(second, ticket: ticket, decision: .deny).state, .denied, change)
             XCTAssertTrue(second.approvalRequests.pendingRequests().isEmpty)
-            XCTAssertEqual(try decide(second, ticket: ticket, decision: .deny).state, .cancelled)
-            if ["pause", "missing", "invalid", "unreadable"].contains(change) {
-                XCTAssertTrue(try second.agentAccessPolicyState().isPaused)
-            }
+            XCTAssertEqual(try decide(second, ticket: ticket, decision: .deny).state, .denied)
+            library.keys.onPolicyLoad = nil
         }
     }
 

@@ -36,6 +36,41 @@ final class BrokerSocketOwnershipTests: BrokerProtocolTestCase {
         close(connection)
     }
 
+    func testStopLeavesOwnSocketForTheNextStartupToRecover() throws {
+        let path = try makeSocketPath()
+        let server = makeServer(path)
+        try server.start()
+        let identity = try XCTUnwrap(BrokerSocketPathIdentity.read(path))
+        server.stop()
+        XCTAssertEqual(try BrokerSocketPathIdentity.read(path), identity)
+        let successor = makeServer(path)
+        try successor.start()
+        defer { successor.stop() }
+        let connection = try connectRaw(to: path)
+        close(connection)
+    }
+
+    func testStartupLockProtectsSocketBeforeItBeginsListening() throws {
+        let path = try makeSocketPath()
+        let startup = try BrokerSocketStartupLock.acquire(for: path)
+        let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+        var address = try makeBrokerAddress(path: path)
+        XCTAssertEqual(withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }, 0)
+        let identity = try XCTUnwrap(BrokerSocketPathIdentity.read(path))
+        try withExtendedLifetime(startup) {
+            let second = makeServer(path)
+            XCTAssertThrowsError(try second.start())
+            second.stop()
+            XCTAssertEqual(try BrokerSocketPathIdentity.read(path), identity)
+        }
+    }
+
     func testStopPreservesReplacementSocketAndIsIdempotent() throws {
         let path = try makeSocketPath()
         let first = makeServer(path)

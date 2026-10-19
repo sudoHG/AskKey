@@ -52,15 +52,29 @@ final class ApprovalDecisionRevalidationTests: ApprovalStateMachineTestCase {
         XCTAssertEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .expired)
     }
 
-    func testDenySucceedsAfterPolicyFailureWhetherOrNotRevalidationCancelledRequest() throws {
+    func testTimedDurationDecreaseDuringAuthenticationCapsCurrentDecision() throws {
+        let clock = TestClock(Date())
+        let machine = configuredMachine(clock: { clock.now }, authenticate: { _ in true })
+        machine.configureAuthentication { _ in
+            machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+                                               timedAllowanceDuration: 15 * 60)
+            return true
+        }
+        let ticket = try machine.submit(request(operationID: "duration-during-auth"), trustedCredentialDeadline: .none)
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability,
+                               decision: .timedAllow(duration: 120 * 60), revalidate: {})
+        XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "credential-1"), clock.now.addingTimeInterval(15 * 60))
+    }
+
+    func testDenySkipsPolicyRevalidationAndPreservesExistingCancellation() throws {
         for cancel in [false, true] {
             let machine = configuredMachine(authenticate: { _ in XCTFail("Deny requires no authentication"); return false })
             let ticket = try machine.submit(request(operationID: "deny-policy-failure"), trustedCredentialDeadline: .none)
+            if cancel { machine.pauseAndCancelAll() }
             let denied = try machine.decide(
                 requestID: ticket.requestID, capability: ticket.capability, decision: .deny,
                 revalidate: {
-                    if cancel { machine.pauseAndCancelAll() }
-                    throw BrokerApprovalError.agentAccessPaused
+                    XCTFail("Deny must not revalidate")
                 }
             )
             XCTAssertEqual(denied.state, cancel ? .cancelled : .denied)

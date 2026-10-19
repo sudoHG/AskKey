@@ -58,7 +58,7 @@ extension BrokerFileWriteCoordinator {
     }
 
     @discardableResult
-    public func decide(
+    package func decide(
         requestID: String,
         capability: String,
         decision: BrokerApprovalDecision
