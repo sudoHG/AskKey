@@ -251,7 +251,19 @@ extension AppDelegate {
         do {
             try server.start()
             try Vault.shared.setAgentAccessPolicyOwnership(true)
-            try Vault.shared.prepareAgentRuntime()
+            do {
+                try Vault.shared.prepareAgentRuntime()
+            } catch {
+                server.stop()
+                try? Vault.shared.setAgentAccessPolicyOwnership(false)
+                if error is VaultBootstrapError {
+                    vault.errorMessage = UserFacingCopy.message(for: error)
+                } else {
+                    vault.errorMessage = "Ask Key could not prepare Agent access. Open the app to review the vault state."
+                }
+                NSLog("AskKey: broker disabled because the vault store is unavailable: \(error.localizedDescription)")
+                return
+            }
             brokerServer = server
             vault.clearBrokerRuntimeFailure()
             vault.refreshAgentAccessPauseState()
