@@ -107,7 +107,7 @@ enum AgentAccessPolicyError: Error, LocalizedError {
         case .notOwner:
             return "This Ask Key instance does not own Agent access for this library. Change settings in the running instance."
         case .ownershipRevoked:
-            return "Another Ask Key instance is serving agents for this library. Change Agent access settings in that instance."
+            return "This Ask Key instance has stopped serving this library because its socket path was removed or replaced. Agent access is paused here. Check the local Ask Key folder, then retry."
         }
     }
 }

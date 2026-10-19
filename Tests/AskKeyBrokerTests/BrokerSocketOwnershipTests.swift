@@ -3,6 +3,44 @@ import XCTest
 @testable import AskKeyBroker
 
 final class BrokerSocketOwnershipTests: BrokerProtocolTestCase {
+    func testConnectionThroughLinkToRenamedSocketIsRefusedAndListenerStops() throws {
+        let path = try makeSocketPath()
+        let server = makeServer(path)
+        try server.start()
+        defer { server.stop() }
+        let lost = expectation(description: "Socket ownership lost")
+        server.setOwnershipLossHandler { lost.fulfill() }
+        let original = path + ".original"
+        try FileManager.default.moveItem(atPath: path, toPath: original)
+        try FileManager.default.createSymbolicLink(atPath: path, withDestinationPath: original)
+        do {
+            XCTAssertEqual(try BrokerSocketClient(socketPath: path).send(.init(version: 1, method: "health")),
+                           .failure(.agentAccessPaused))
+        } catch { /* The socket can close before the client finishes sending its frame. */ }
+        wait(for: [lost], timeout: 2)
+        XCTAssertFalse(server.isRunning)
+        XCTAssertThrowsError(try connectRaw(to: original))
+    }
+
+    func testExistingConnectionCannotServeAnotherRequestAfterSocketPathReplacement() throws {
+        let path = try makeSocketPath()
+        let server = makeServer(path)
+        try server.start()
+        defer { server.stop() }
+        let descriptor = try connectRaw(to: path)
+        defer { close(descriptor) }
+        let request = try JSONEncoder().encode(BrokerRequest(version: 1, method: "health"))
+        XCTAssertTrue(BrokerSocketIO.writeFrame(fd: descriptor, data: request))
+        XCTAssertEqual(try readResponse(from: descriptor), .success(.health(.init(version: BrokerProtocolVersion.current, status: "ok"))))
+        let original = path + ".original"
+        try FileManager.default.moveItem(atPath: path, toPath: original)
+        try FileManager.default.createSymbolicLink(atPath: path, withDestinationPath: original)
+        XCTAssertTrue(BrokerSocketIO.writeFrame(fd: descriptor, data: request))
+        XCTAssertEqual(try readResponse(from: descriptor), .failure(.agentAccessPaused))
+        XCTAssertFalse(server.isRunning)
+        XCTAssertThrowsError(try connectRaw(to: original))
+    }
+
     func testStartRefusesLiveListenerAndFailedInstanceCannotUnlinkIt() throws {
         let path = try makeSocketPath()
         let first = makeServer(path)

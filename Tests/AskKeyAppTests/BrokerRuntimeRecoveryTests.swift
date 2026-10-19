@@ -169,6 +169,16 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
         let failure = String(launch[prepare.upperBound...])
         XCTAssertTrue(failure.contains("server.stop()"))
         XCTAssertTrue(failure.contains("try? Vault.shared.setAgentAccessPolicyOwnership(false)"))
+        XCTAssertTrue(launch.contains("server.setOwnershipLossHandler"))
+        XCTAssertTrue(launch.contains("self.brokerServer = nil"))
+        XCTAssertTrue(launch.contains("self.vault.presentBrokerOwnershipRevocation(error)"))
+        let retry = try XCTUnwrap(launch.range(of: "private func retryBrokerStart()"))
+        let recovery = String(launch[retry.upperBound...])
+        let stopped = try XCTUnwrap(recovery.range(of: "server.stop()"))
+        let cleared = try XCTUnwrap(recovery.range(of: "brokerServer = nil"))
+        let gate = try XCTUnwrap(recovery.range(of: "var recovery = BrokerRuntimeRecovery("))
+        XCTAssertLessThan(stopped.lowerBound, cleared.lowerBound)
+        XCTAssertLessThan(cleared.lowerBound, gate.lowerBound)
 
         let popover = try String(
             contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/VaultPopover.swift"),

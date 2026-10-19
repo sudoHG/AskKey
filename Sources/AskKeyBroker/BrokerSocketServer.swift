@@ -11,6 +11,7 @@ public final class BrokerSocketServer {
     private var running = false
     private var activeConnections = 0
     private var activeRequests = 0
+    private var ownershipLossHandler: @Sendable () -> Void = {}
     private let acceptQueue = DispatchQueue(label: "com.sudohg.askkey.broker.accept")
     private let connectionQueue = DispatchQueue(label: "com.sudohg.askkey.broker.connection", attributes: .concurrent)
     let requestQueue = DispatchQueue(label: "com.sudohg.askkey.broker.request", attributes: .concurrent)
@@ -79,6 +80,11 @@ public final class BrokerSocketServer {
 
     public func stop() {
         stateLock.lock()
+        stopLocked()
+        stateLock.unlock()
+    }
+
+    private func stopLocked() {
         running = false
         let fd = listenFD
         listenFD = -1
@@ -87,13 +93,32 @@ public final class BrokerSocketServer {
             shutdown(fd, SHUT_RDWR)
             close(fd)
         }
-        stateLock.unlock()
+    }
+
+    package func setOwnershipLossHandler(_ handler: @escaping @Sendable () -> Void) {
+        stateLock.lock(); defer { stateLock.unlock() }
+        ownershipLossHandler = handler
     }
 
     package var ownsSocketPath: Bool {
         stateLock.lock(); defer { stateLock.unlock() }
         guard running, listenFD >= 0, let boundIdentity else { return false }
         return (try? BrokerSocketPathIdentity.read(socketPath)) == boundIdentity
+    }
+
+    /// No callback runs under the socket lock: the Vault may quiesce providers.
+    func requireSocketOwnership() -> Bool {
+        stateLock.lock()
+        guard running, listenFD >= 0, let boundIdentity else { stateLock.unlock(); return false }
+        guard (try? BrokerSocketPathIdentity.read(socketPath)) == boundIdentity else {
+            let handler = ownershipLossHandler
+            stopLocked()
+            stateLock.unlock()
+            handler()
+            return false
+        }
+        stateLock.unlock()
+        return true
     }
 
     private func acceptLoop() {
@@ -110,6 +135,11 @@ public final class BrokerSocketServer {
                 close(fd)
                 continue
             }
+            guard requireSocketOwnership() else {
+                _ = write(.failure(.agentAccessPaused), to: fd)
+                close(fd)
+                return
+            }
             guard reserveConnection() else {
                 _ = write(.failure(.resourceExhausted), to: fd)
                 close(fd)
@@ -123,7 +153,7 @@ public final class BrokerSocketServer {
         }
     }
 
-    private var isRunning: Bool {
+    package var isRunning: Bool {
         stateLock.lock(); defer { stateLock.unlock() }
         return running
     }

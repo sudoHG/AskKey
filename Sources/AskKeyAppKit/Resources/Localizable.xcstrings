@@ -1,12 +1,12 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "Another Ask Key instance is serving agents for this library. Change Agent access settings in that instance.": {
+    "This Ask Key instance has stopped serving this library because its socket path was removed or replaced. Agent access is paused here. Check the local Ask Key folder, then retry.": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Another Ask Key instance is serving agents for this library. Change Agent access settings in that instance." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "另一个 Ask Key 实例正在为此资料库提供 Agent 访问服务。请在该实例中更改 Agent 访问设置。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Another Ask Key instance is serving agents for this library. Change Agent access settings in that instance.!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "This Ask Key instance has stopped serving this library because its socket path was removed or replaced. Agent access is paused here. Check the local Ask Key folder, then retry." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此 Ask Key 实例的套接字路径已被移除或替换，因此已停止为此资料库提供服务，并暂停此处的 Agent 访问。请检查本地 Ask Key 文件夹后重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Ask Key instance has stopped serving this library because its socket path was removed or replaced. Agent access is paused here. Check the local Ask Key folder, then retry.!!]" } }
       }
     },
     "The keychain is unlocked, but this Ask Key build cannot read the saved Agent access policy. Review that item's access control in Keychain Access; do not delete vault keys.": {

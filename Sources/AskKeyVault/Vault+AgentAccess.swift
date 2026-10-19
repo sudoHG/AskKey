@@ -38,11 +38,13 @@ extension Vault {
     }
 
     /// The caller owns the gate's exclusive mutation or authorization condition.
-    func applyAgentAccessPolicy(_ policy: AgentAccessPolicy, needsRecovery: Bool,
+    func applyAgentAccessPolicy(_ proposedPolicy: AgentAccessPolicy, needsRecovery: Bool,
                                keychainConflict: AppKeychainItemKind? = nil,
                                readUnavailable: Bool = false, hasVerifiedPolicy: Bool = true,
                                readFailure: AgentAccessPolicyReadFailure? = nil,
                                adoptingPersisted: Bool = false) {
+        var policy = proposedPolicy
+        if agentAccessPolicyOwnership.isRevoked { policy.paused = true }
         if needsRecovery { changeAgentAccessPolicyLatches { $0.recovery = true } }
         let latches = agentAccessPolicyLatches()
         let previous = try? savedAgentAccessPolicyState()
@@ -79,6 +81,9 @@ extension Vault {
         if loaded.needsRecovery { changeAgentAccessPolicyLatches { $0.recovery = true } }
         let latches = agentAccessPolicyLatches()
         var policy = latches.recovery ? .failClosed : loaded.policy
+        if latches.saveFailure?.operation == .settings, let memory = try? savedAgentAccessPolicyState() {
+            policy = policy.restricted(by: memory.policy)
+        }
         if latches.pause {
             policy.paused = true
             if !latches.recovery && !loaded.needsRecovery && !loaded.readUnavailable {
@@ -142,14 +147,24 @@ extension Vault {
     }
 
     public func pauseAgentAccess(using authenticator: ManagementAuthenticator) throws {
-        try requireAgentAccessPolicyOwnership()
         try authorizeManagement(authenticator, reason: CredentialManagementCopy.pauseReason)
+        _ = try agentAccessGate.beginExclusiveChange()
+        defer { agentAccessGate.endExclusiveChange(paused: true) }
+        // Local revocation never depends on a policy read or writing authority.
+        quiesceAgentAccess()
+        if let state = try? savedAgentAccessPolicyState() {
+            var policy = state.policy
+            policy.paused = true
+            applyAgentAccessPolicy(policy, needsRecovery: state.needsRecovery, keychainConflict: state.keychainConflict,
+                                   readUnavailable: state.readUnavailable, hasVerifiedPolicy: state.hasVerifiedPolicy,
+                                   readFailure: state.readFailure)
+        }
+        do { try requireAgentAccessPolicyOwnership() }
+        catch {
+            latchUnsavedPause(.init(.pause, cause: error))
+            return
+        }
         let key = try requireKey()
-        let wasPaused = try agentAccessGate.beginExclusiveChange()
-        var paused = wasPaused
-        defer { agentAccessGate.endExclusiveChange(paused: paused) }
-        try requireAgentAccessPolicyOwnership()
-        paused = true
         let state: AgentAccessPolicyState
         do {
             state = try currentAgentAccessPolicy(key: key)
@@ -172,13 +187,13 @@ extension Vault {
         catch {
             let failure = AgentAccessPolicySaveFailure(.pause, cause: error)
             latchUnsavedPause(failure)
-            if let ownership = error as? AgentAccessPolicyError, ownership.isOwnershipFailure { throw ownership }
+            if let ownership = error as? AgentAccessPolicyError, ownership.isOwnershipFailure { return }
             throw failure
         }
     }
 
     public func resumeAgentAccess(using authenticator: ManagementAuthenticator) throws {
-        try requireAgentAccessPolicyOwnership()
+        try validateAgentAccessPolicyOwnership()
         try authorizeManagement(authenticator, reason: CredentialManagementCopy.resumeReason)
         let key = try requireKey()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
@@ -211,8 +226,8 @@ extension Vault {
     package func updateReadApprovalAuthentication(
         _ enabled: Bool, using authenticator: ManagementAuthenticator? = nil
     ) throws {
-        try requireAgentAccessPolicyOwnership()
         if !enabled {
+            try validateAgentAccessPolicyOwnership()
             guard let authenticator else { throw VaultError.managementAuthenticationRequired }
             try authorizeManagement(authenticator, reason: "Disable system authentication for read approvals")
         }
@@ -227,13 +242,15 @@ extension Vault {
     }
 
     private func changeAgentAccessPolicy(_ change: (inout AgentAccessPolicy) -> Void) throws {
-        try requireAgentAccessPolicyOwnership()
+        let memory = try savedAgentAccessPolicyState().policy
+        var proposed = memory
+        change(&proposed)
+        if proposed.restricted(by: memory) != proposed { try validateAgentAccessPolicyOwnership() }
         let key = try requireKey()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
         var paused = wasPaused
         var changed = false
         defer { finishCredentialChange(wasPaused: paused, snapshotChanged: changed) }
-        try requireAgentAccessPolicyOwnership()
         let state = try currentAgentAccessPolicy(key: key)
         paused = state.isPaused || wasPaused
         adoptPersistedAgentAccessPolicy(state)
@@ -242,12 +259,18 @@ extension Vault {
         var policy = state.policy
         change(&policy)
         try policy.validate()
+        let tightening = policy.restricted(by: state.policy) == policy
         do { try saveAgentAccessPolicy(policy, key: key) }
         catch {
             let failure = AgentAccessPolicySaveFailure(.settings, cause: error)
+            let ownership = error as? AgentAccessPolicyError
+            if ownership?.isOwnershipFailure == true, tightening {
+                policy.paused = true
+                applyAgentAccessPolicy(policy, needsRecovery: state.needsRecovery)
+            }
             latchUnsavedPause(failure)
             paused = true
-            if let ownership = error as? AgentAccessPolicyError, ownership.isOwnershipFailure { throw ownership }
+            if let ownership, ownership.isOwnershipFailure, !tightening { throw ownership }
             throw failure
         }
         applyAgentAccessPolicy(policy, needsRecovery: false)

@@ -346,7 +346,7 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
         }
     }
 
-    func testNonOwnerCannotSaveSettingsPauseOrResumeOverOwnersPolicy() throws {
+    func testNonOwnerCanPauseLocallyButCannotSaveOrResumeOverOwnersPolicy() throws {
         let library = try makeLibrary()
         let second = try makeSecondVault(library)
         try second.setAgentAccessPolicyOwnership(false)
@@ -355,9 +355,8 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
         let writes = library.keys.policyWrites
         library.keys.onPolicyLoad = { XCTFail("A non-owner must refuse before reading for a write") }
         for operation in [
-            { try second.updateTimedAllowance(enabled: false, minutes: 15) },
+            { try second.updateTimedAllowance(enabled: true, minutes: 120) },
             { try second.updateReadApprovalAuthentication(false, using: .allow) },
-            { try second.pauseAgentAccess(using: .allow) },
             { try second.resumeAgentAccess(using: .allow) }
         ] {
             XCTAssertThrowsError(try operation()) {
@@ -365,6 +364,8 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
                                AgentAccessPolicyError.notOwner.errorDescription)
             }
         }
+        XCTAssertNoThrow(try second.pauseAgentAccess(using: .allow))
+        XCTAssertTrue(try second.agentAccessPolicyState().pauseNotPersisted)
         library.keys.onPolicyLoad = nil
         XCTAssertEqual(library.keys.policyWrites, writes)
         XCTAssertEqual(library.keys.policy, saved)

@@ -501,6 +501,13 @@ package final class VaultViewModel {
         errorMessage = failure.message
     }
 
+    func presentBrokerOwnershipRevocation(_ error: Error) {
+        let message = UserFacingCopy.message(for: error)
+        brokerFailureMessage = message
+        brokerRecoveryAvailable = true
+        errorMessage = message
+    }
+
     func clearBrokerRuntimeFailure() {
         if errorMessage == brokerFailureMessage {
             errorMessage = nil

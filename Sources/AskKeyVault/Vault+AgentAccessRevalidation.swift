@@ -36,6 +36,8 @@ extension Vault {
     /// Runs under the gate's condition, before an operation or the actual spawn.
     /// Quiescing here cannot wait for active operations: this may be one of them.
     func revalidateAgentAccessPolicy() throws {
+        do { try agentAccessPolicyOwnership.require() }
+        catch { pauseForLostAgentAccessOwnership(duringAuthorization: true); throw error }
         let previous = try savedAgentAccessPolicyState()
         let current = try currentAgentAccessPolicy(key: requireKey())
         if current.policy != previous.policy || current.needsRecovery != previous.needsRecovery
@@ -49,12 +51,15 @@ extension Vault {
     }
 
     func beginAgentOperation() throws {
+        try validateAgentAccessPolicyOwnership()
         try agentAccessGate.beginAgentOperation(validating: revalidateAgentAccessPolicy)
     }
 
     /// Agent commits already own the exclusive gate, so retain any newly
     /// discovered pause when the caller's defer releases that gate.
     func revalidateExclusiveAgentAccess(paused: inout Bool) throws {
+        do { try requireAgentAccessPolicyOwnership() }
+        catch { paused = true; throw error }
         let previous = try savedAgentAccessPolicyState()
         let current = try currentAgentAccessPolicy(key: requireKey())
         paused = paused || current.isPaused

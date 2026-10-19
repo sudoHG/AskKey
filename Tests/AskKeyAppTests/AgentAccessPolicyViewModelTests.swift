@@ -23,17 +23,24 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         super.tearDown()
     }
 
-    func testRevokedOwnerPauseAndResumeRefuseBeforeSystemAuthentication() async throws {
+    func testRevokedOwnerPauseShowsUnsavedStateAndResumeRefusesBeforeFurtherAuthentication() async throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }
         var authentications = 0
         let model = makeModel(library, authenticate: { authentications += 1; return .allow })
         model.languageMode = "en"
         try library.vault.setAgentAccessPolicyOwnership(true, validateOwnership: { false })
+        let delivery = try library.vault.fileDeliveryManager.get().materialize(credentialID: "synthetic", bytes: Data("synthetic".utf8))
         await model.pauseAgentAccess()
+        XCTAssertEqual(authentications, 1)
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.agentAccessPauseNotPersisted)
+        XCTAssertTrue(try XCTUnwrap(model.agentAccessPolicyNotice).contains("No policy change was written"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: delivery.url.path))
         await model.resumeAgentAccess()
-        XCTAssertEqual(authentications, 0)
-        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("Another Ask Key instance"))
+        XCTAssertEqual(authentications, 1)
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("has stopped serving"))
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("paused here"))
     }
 
     func testUnlockedPolicyAccessRejectionShowsSpecificLocalizedGuidance() throws {
@@ -52,6 +59,48 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         let chinese = try XCTUnwrap(model.agentAccessPolicyNotice)
         XCTAssertNotEqual(english, chinese)
         XCTAssertTrue(chinese.contains("Agent "))
+    }
+
+    func testOwnershipRevocationKeepsBrokerRetryVisibleAfterTheErrorIsDismissed() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let model = makeModel(library)
+        model.languageMode = "en"
+        try library.vault.setAgentAccessPolicyOwnership(true, validateOwnership: { false }, onRevocation: {
+            model.presentBrokerOwnershipRevocation($0)
+        })
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        model.refreshAgentAccessPauseState()
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.brokerRecoveryAvailable)
+        let failure = try XCTUnwrap(model.brokerFailureMessage)
+        XCTAssertTrue(failure.contains("removed or replaced"))
+        model.errorMessage = nil
+        model.refreshAgentAccessPauseState()
+        XCTAssertEqual(model.brokerFailureMessage, failure)
+        XCTAssertTrue(model.brokerRecoveryAvailable)
+        var retries = 0
+        model.retryBrokerStart = { retries += 1 }
+        model.retryBrokerRecovery()
+        XCTAssertEqual(retries, 1)
+    }
+
+    func testNonOwnerTighteningRefreshesLocalSettingsAndTheUnsavedNotice() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+        let saved = library.keys.policy
+        let model = makeModel(library)
+        model.languageMode = "en"
+        try library.vault.setAgentAccessPolicyOwnership(false)
+        XCTAssertFalse(model.setReadApprovalAuthentication(true))
+        model.setTimedAllowance(enabled: false, minutes: 15)
+        XCTAssertTrue(model.readApprovalAuthenticationEnabled)
+        XCTAssertFalse(model.timedAllowanceEnabled)
+        XCTAssertEqual(model.defaultTimedAllowanceMinutes, 15)
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(try XCTUnwrap(model.agentAccessPolicyNotice).contains("could not save"))
+        XCTAssertEqual(library.keys.policy, saved)
     }
 
     func testLegacyDefaultsCannotOverrideAuthenticatedPolicy() throws {

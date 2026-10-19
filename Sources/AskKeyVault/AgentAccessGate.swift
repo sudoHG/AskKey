@@ -10,6 +10,7 @@ final class AgentAccessGate: @unchecked Sendable {
     private var changing = false
     private var policyReadPaused = false
     private var mayRetryPolicyReadAfterChange = false
+    private var ownershipRevoked = false
 
     func beginAgentOperation(validating policy: () throws -> Void = {}) throws {
         condition.lock(); defer { condition.unlock() }
@@ -52,8 +53,19 @@ final class AgentAccessGate: @unchecked Sendable {
     /// Only while the authorization caller holds the condition. This transition
     /// must not wait for active leases, including the lease doing this check.
     func setPausedDuringAuthorization(_ paused: Bool, retryPolicyRead: Bool = false) {
-        state = paused ? .paused : .active
-        policyReadPaused = paused && retryPolicyRead
+        state = paused || ownershipRevoked ? .paused : .active
+        policyReadPaused = paused && retryPolicyRead && !ownershipRevoked
+    }
+
+    func setOwnershipRevoked(_ revoked: Bool) {
+        condition.lock(); defer { condition.unlock() }
+        setOwnershipRevokedDuringAuthorization(revoked)
+    }
+
+    /// Used only while the caller already owns the authorization condition.
+    func setOwnershipRevokedDuringAuthorization(_ revoked: Bool) {
+        ownershipRevoked = revoked
+        if revoked { state = .paused; policyReadPaused = false }
     }
 
     func endSpawnAuthorization() {
@@ -96,8 +108,8 @@ final class AgentAccessGate: @unchecked Sendable {
 
     func endExclusiveChange(paused: Bool, retryPolicyRead: Bool = false) {
         condition.lock()
-        state = paused ? .paused : .active
-        policyReadPaused = paused && retryPolicyRead && mayRetryPolicyReadAfterChange
+        state = paused || ownershipRevoked ? .paused : .active
+        policyReadPaused = paused && retryPolicyRead && mayRetryPolicyReadAfterChange && !ownershipRevoked
         changing = false
         condition.broadcast()
         condition.unlock()

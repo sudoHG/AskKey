@@ -248,10 +248,22 @@ extension AppDelegate {
             socketPath: BrokerConfiguration.socketURL.path,
             handler: handler
         )
+        server.setOwnershipLossHandler {
+            try? Vault.shared.validateAgentAccessPolicyOwnership()
+        }
         do {
             try server.start()
             try Vault.shared.setAgentAccessPolicyOwnership(true, validateOwnership: { [weak server] in
                 server?.ownsSocketPath == true
+            }, onRevocation: { [weak self, weak server] error in
+                server?.stop()
+                Task { @MainActor [weak self, weak server] in
+                    guard let self, let server, self.brokerServer === server else { return }
+                    self.brokerServer = nil
+                    self.fileWriteCoordinator = nil
+                    self.vault.presentBrokerOwnershipRevocation(error)
+                    self.vault.refreshAgentAccessPauseState()
+                }
             })
             do {
                 try Vault.shared.prepareAgentRuntime()
@@ -285,6 +297,12 @@ extension AppDelegate {
     }
 
     private func retryBrokerStart() {
+        if let server = brokerServer, !server.ownsSocketPath {
+            try? Vault.shared.validateAgentAccessPolicyOwnership()
+            server.stop()
+            brokerServer = nil
+            fileWriteCoordinator = nil
+        }
         var recovery = BrokerRuntimeRecovery(
             isRunning: { [weak self] in self?.brokerServer != nil },
             start: { [weak self] in
