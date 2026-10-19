@@ -74,7 +74,10 @@ final class AgentAccessPolicyLatchTests: XCTestCase {
                 } else {
                     try library.vault.resumeAgentAccess(using: .allow)
                 }
-            }()) { XCTAssertEqual($0 as? AgentAccessPolicyError, .pauseNotSaved) }
+            }()) {
+                XCTAssertEqual(($0 as? AgentAccessPolicySaveFailure)?.operation, operation == "settings" ? .settings : .resume)
+                XCTAssertEqual(($0 as? AgentAccessPolicySaveFailure)?.persistedStateIsUnknown, true)
+            }
             try assertPaused(library, pending: true)
             try library.reopen()
             try assertPaused(library, pending: true)
@@ -82,6 +85,64 @@ final class AgentAccessPolicyLatchTests: XCTestCase {
             try library.reopen()
             try assertPaused(library, pending: false)
         }
+    }
+
+    func testFailedPauseThenFailedReadNeverWritesAfterReadRecovers() throws {
+        let library = try makeLibrary()
+        let savedPolicy = library.keys.policy
+        library.keys.policySaveFailure = SyntheticPolicyFailure()
+        XCTAssertThrowsError(try library.vault.pauseAgentAccess(using: .allow))
+        library.keys.policySaveFailure = nil
+        library.keys.policyLoadFailure = SyntheticPolicyFailure()
+        let writes = library.keys.policyWrites
+
+        try library.reopen()
+        try assertPaused(library, pending: true, recovery: true)
+        library.keys.policyLoadFailure = nil
+        try library.reopen()
+
+        try assertPaused(library, pending: true, recovery: true)
+        XCTAssertEqual(library.keys.policyWrites, writes)
+        XCTAssertEqual(library.keys.policy, savedPolicy)
+        try library.vault.resumeAgentAccess(using: .allow)
+        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .defaults, needsRecovery: false))
+    }
+
+    func testPreflightConflictKeepsSettingsAndResumePausedWithoutClaimingAWrite() throws {
+        for operation in ["settings", "resume"] {
+            let library = try makeLibrary()
+            let saved = library.keys.policy
+            let writes = library.keys.policyWrites
+            library.keys.policySaveFailure = AppKeyStoreError.conflictingItem(.agentAccessPolicy)
+            XCTAssertThrowsError(try {
+                if operation == "settings" {
+                    try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+                } else {
+                    try library.vault.resumeAgentAccess(using: .allow)
+                }
+            }()) {
+                let failure = $0 as? AgentAccessPolicySaveFailure
+                XCTAssertEqual(failure?.operation, operation == "settings" ? .settings : .resume)
+                XCTAssertEqual(failure?.persistedStateIsUnknown, false)
+                XCTAssertEqual(failure?.keychainConflict, .agentAccessPolicy)
+            }
+            try assertPaused(library, pending: true)
+            XCTAssertEqual(library.keys.policy, saved)
+            XCTAssertEqual(library.keys.policyWrites, writes)
+            XCTAssertNotNil(try library.vault.agentAccessPolicyState().saveFailure)
+        }
+    }
+
+    func testPolicyReadConflictIsExposedWithFailClosedStateAndNoWrites() throws {
+        let library = try makeLibrary()
+        let writes = library.keys.policyWrites
+        library.keys.policyLoadFailure = AppKeyStoreError.conflictingItem(.agentAccessPolicy)
+        try library.reopen()
+        let state = try library.vault.agentAccessPolicyState()
+        XCTAssertEqual(state.policy, .failClosed)
+        XCTAssertTrue(state.needsRecovery)
+        XCTAssertEqual(state.keychainConflict, .agentAccessPolicy)
+        XCTAssertEqual(library.keys.policyWrites, writes)
     }
 
     func testExplicitPauseRetryAlsoMarksPersistenceWithoutClearingIntent() throws {

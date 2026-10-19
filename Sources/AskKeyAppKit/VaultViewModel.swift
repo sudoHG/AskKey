@@ -58,6 +58,8 @@ package final class VaultViewModel {
     private(set) var agentAccessPolicy = AgentAccessPolicy.defaults
     private(set) var agentAccessPolicyNeedsRecovery = false
     private(set) var agentAccessPauseNotPersisted = false
+    private(set) var agentAccessPolicySaveFailure: AgentAccessPolicySaveFailure?
+    private(set) var agentAccessKeychainConflict: AppKeychainItemKind?
     var revealedCredential: ManagedTextCredential?
     var pendingApprovalCount = 0
     var brokerRecoveryAvailable = false
@@ -144,8 +146,12 @@ package final class VaultViewModel {
         if agentAccessPolicyNeedsRecovery {
             messages.append(appLocalized("Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings."))
         }
-        if agentAccessPauseNotPersisted {
-            messages.append(appLocalized("Agent access is paused in this run of Ask Key. The pause is not saved and may be lost when Ask Key restarts."))
+        if let failure = agentAccessPolicySaveFailure {
+            messages += failure.messageKeys.map { appLocalized($0) }
+        }
+        if let conflict = agentAccessKeychainConflict,
+           conflict != agentAccessPolicySaveFailure?.keychainConflict {
+            messages.append(appLocalized(conflict.conflictMessage))
         }
         return messages.isEmpty ? nil : messages.joined(separator: "\n")
     }
@@ -438,6 +444,8 @@ package final class VaultViewModel {
     func refreshAgentAccessStateAfterErase() {
         agentAccessPolicyNeedsRecovery = false
         agentAccessPauseNotPersisted = false
+        agentAccessPolicySaveFailure = nil
+        agentAccessKeychainConflict = nil
         refreshAgentAccessPauseState()
     }
 
@@ -445,6 +453,8 @@ package final class VaultViewModel {
         agentAccessPolicy = state.policy
         agentAccessPolicyNeedsRecovery = state.needsRecovery
         agentAccessPauseNotPersisted = state.pauseNotPersisted
+        agentAccessPolicySaveFailure = state.saveFailure
+        agentAccessKeychainConflict = state.keychainConflict
         isAgentAccessPaused = state.isPaused
         if !state.needsRecovery { preferences.removeLegacyAgentAccessSettings() }
     }

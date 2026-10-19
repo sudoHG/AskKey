@@ -4,6 +4,43 @@ import XCTest
 @testable import AskKeyVault
 
 final class AppBoundKeyStoreNativeTests: XCTestCase {
+    func testInitFailureAfterFirstKeychainCreationStillRunsRegisteredCleanup() throws {
+        try requireNativeCI()
+        let original = try KeychainPreferencesSnapshot()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AskKeyNativeInitFailure-\(UUID().uuidString)")
+        addTeardownBlock {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.path),
+                           "Fixture cleanup must run before the pre-registered assertion")
+            XCTAssertEqual(try KeychainPreferencesSnapshot(), original,
+                           "Failed fixture initialization must restore user Keychain preferences and login contents")
+        }
+
+        XCTAssertThrowsError(try KeychainNativeTestSupport(
+            test: self,
+            temporaryRoot: root,
+            afterFirstKeychainCreated: {
+                throw NSError(domain: "NativeFixtureInitTest", code: 1)
+            }
+        )) {
+            XCTAssertEqual(($0 as NSError).domain, "NativeFixtureInitTest")
+            XCTAssertEqual(($0 as NSError).code, 1)
+        }
+    }
+
+    func testFixtureCleanupIsIdempotentWithAutomaticTeardown() throws {
+        try requireNativeCI()
+        let original = try KeychainPreferencesSnapshot()
+        let fixture = try KeychainNativeTestSupport(test: self)
+
+        try fixture.cleanup()
+        try fixture.cleanup()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.root.path))
+        XCTAssertEqual(try KeychainPreferencesSnapshot(), original)
+        // The fixture's automatically registered teardown invokes cleanup a third time.
+    }
+
     func testNativeFirstAndRepeatedPolicySavesReopenWithoutAuthenticationUI() throws {
         let fixture = try KeychainNativeTestSupport(test: self)
         let keys = try fixture.makeStore()
@@ -58,7 +95,8 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
         try fixture.makePinnedFileImmutable()
         XCTAssertEqual(try keys.loadAgentAccessPolicy(), old)
         XCTAssertThrowsError(try vault.pauseAgentAccess(using: .allow)) {
-            XCTAssertEqual($0 as? AgentAccessPolicyError, .pauseNotSaved)
+            XCTAssertEqual(($0 as? AgentAccessPolicySaveFailure)?.operation, .pause)
+            XCTAssertEqual(($0 as? AgentAccessPolicySaveFailure)?.persistedStateIsUnknown, true)
         }
         try fixture.assertNativePolicyDeleteFails()
         XCTAssertTrue(try vault.agentAccessPolicyState().isPaused)
@@ -76,9 +114,15 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
         let old = Data("synthetic-outside".utf8)
         _ = try fixture.addPolicy(old, outside: true, permissive: true)
         let keys = try fixture.makeStore()
-        XCTAssertThrowsError(try keys.loadAgentAccessPolicy())
-        XCTAssertThrowsError(try keys.saveAgentAccessPolicy(Data("synthetic-new".utf8)))
-        XCTAssertThrowsError(try keys.deleteAgentAccessPolicy())
+        for operation: () throws -> Void in [
+            { _ = try keys.loadAgentAccessPolicy() },
+            { try keys.saveAgentAccessPolicy(Data("synthetic-new".utf8)) },
+            { try keys.deleteAgentAccessPolicy() },
+        ] {
+            XCTAssertThrowsError(try operation()) {
+                XCTAssertEqual($0 as? AppKeyStoreError, .conflictingItem(.agentAccessPolicy))
+            }
+        }
         XCTAssertNil(try fixture.policyData())
         XCTAssertEqual(try fixture.policyData(outside: true), old)
     }
@@ -106,12 +150,26 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
         try fixture.addVaultKey(bytes, suffix: ".pending", outside: true)
         try fixture.addVaultKey(bytes, outside: true)
         try fixture.addVaultKey(bytes, suffix: ".legacy", outside: true)
-        XCTAssertThrowsError(try keys.loadAppKey())
-        XCTAssertThrowsError(try keys.loadPendingKey())
-        XCTAssertThrowsError(try keys.savePendingKey(bytes))
-        XCTAssertThrowsError(try keys.promotePendingKey())
-        XCTAssertThrowsError(try keys.deleteAppKey())
-        XCTAssertThrowsError(try keys.deletePendingKey())
-        XCTAssertThrowsError(try keys.deleteLegacyKey())
+        let operations: [(AppKeychainItemKind, () throws -> Void)] = [
+            (.vaultKey, { _ = try keys.loadAppKey() }),
+            (.pendingKey, { _ = try keys.loadPendingKey() }),
+            (.pendingKey, { try keys.savePendingKey(bytes) }),
+            (.pendingKey, { try keys.promotePendingKey() }),
+            (.vaultKey, { try keys.deleteAppKey() }),
+            (.pendingKey, { try keys.deletePendingKey() }),
+            (.legacyKey, { try keys.deleteLegacyKey() }),
+        ]
+        for (kind, operation) in operations {
+            XCTAssertThrowsError(try operation()) {
+                XCTAssertEqual($0 as? AppKeyStoreError, .conflictingItem(kind))
+            }
+        }
+    }
+
+    private func requireNativeCI() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["CI"] == "true", environment["GITHUB_ACTIONS"] == "true" else {
+            throw XCTSkip("Native Keychain integration runs only in CI.")
+        }
     }
 }

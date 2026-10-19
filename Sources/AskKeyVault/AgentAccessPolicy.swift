@@ -31,12 +31,17 @@ package struct AgentAccessPolicyState: Equatable, Sendable {
     package let needsRecovery: Bool
     package let isPaused: Bool
     package let pauseNotPersisted: Bool
+    package let saveFailure: AgentAccessPolicySaveFailure?
+    package let keychainConflict: AppKeychainItemKind?
 
-    package init(policy: AgentAccessPolicy, needsRecovery: Bool, isPaused: Bool? = nil, pauseNotPersisted: Bool = false) {
+    package init(policy: AgentAccessPolicy, needsRecovery: Bool, isPaused: Bool? = nil, pauseNotPersisted: Bool = false,
+                 saveFailure: AgentAccessPolicySaveFailure? = nil, keychainConflict: AppKeychainItemKind? = nil) {
         self.policy = policy
         self.needsRecovery = needsRecovery
         self.isPaused = isPaused ?? policy.paused
         self.pauseNotPersisted = pauseNotPersisted
+        self.saveFailure = saveFailure
+        self.keychainConflict = keychainConflict
     }
 }
 
@@ -44,12 +49,12 @@ struct AgentAccessPolicyLatches {
     var pause = false
     var pausePersisted = false
     var recovery = false
+    var saveFailure: AgentAccessPolicySaveFailure?
 }
 
 enum AgentAccessPolicyError: Error, LocalizedError {
     case invalidPolicy
     case recoveryRequired
-    case pauseNotSaved
 
     var errorDescription: String? {
         switch self {
@@ -57,8 +62,6 @@ enum AgentAccessPolicyError: Error, LocalizedError {
             return "Agent access settings are invalid."
         case .recoveryRequired:
             return "Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings."
-        case .pauseNotSaved:
-            return "Agent access is paused in this run of Ask Key. The pause is not saved and may be lost when Ask Key restarts."
         }
     }
 }

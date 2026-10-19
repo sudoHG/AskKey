@@ -120,21 +120,25 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         XCTAssertNil(library.keys.policy)
     }
 
-    func testFailedSettingsWriteKeepsPreviousMemoryAndShowsError() throws {
+    func testFailedSettingsWriteKeepsSettingsButPausesAndShowsError() throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }
         let model = makeModel(library)
         model.refreshAgentAccessPauseState()
         library.keys.saveFailure = AppPolicySaveFailure()
+        var pausedDefaults = AgentAccessPolicy.defaults
+        pausedDefaults.paused = true
 
         XCTAssertFalse(model.setReadApprovalAuthentication(false, using: .allow))
-        XCTAssertEqual(model.agentAccessPolicy, .defaults)
+        XCTAssertEqual(model.agentAccessPolicy, pausedDefaults)
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.agentAccessPauseNotPersisted)
         XCTAssertNotNil(model.errorMessage)
         model.errorMessage = nil
         model.setTimedAllowance(enabled: false, minutes: 120)
-        XCTAssertEqual(model.agentAccessPolicy, .defaults)
+        XCTAssertEqual(model.agentAccessPolicy, pausedDefaults)
         XCTAssertNotNil(model.errorMessage)
-        XCTAssertEqual(try library.vault.agentAccessPolicyState().policy, .defaults)
+        XCTAssertEqual(try library.vault.agentAccessPolicyState().policy, pausedDefaults)
     }
 
     func testFailedResumeWriteKeepsNoticeAndShowsError() async throws {
@@ -186,8 +190,32 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         XCTAssertFalse(model.setReadApprovalAuthentication(false, using: .allow))
         XCTAssertTrue(model.isAgentAccessPaused)
         XCTAssertTrue(model.agentAccessPauseNotPersisted)
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("saved policy is unknown"))
         model.errorMessage = nil
-        XCTAssertNotNil(model.agentAccessPolicyNotice)
+        XCTAssertTrue(try XCTUnwrap(model.agentAccessPolicyNotice).contains("agent access settings"))
+        XCTAssertTrue(try XCTUnwrap(model.agentAccessPolicyNotice).contains("saved policy is unknown"))
+    }
+
+    func testPolicyConflictNoticeNamesItemAndGivesRecoveryStepsInBothLanguages() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        library.keys.loadFailure = AppKeyStoreError.conflictingItem(.agentAccessPolicy)
+        try library.reopen()
+        let model = makeModel(library)
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        model.languageMode = "en"
+        model.refreshAgentAccessPauseState()
+        let english = try XCTUnwrap(model.agentAccessPolicyNotice)
+        XCTAssertTrue(english.contains("agent-access-policy"))
+        XCTAssertTrue(english.contains("Keychain Access"))
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.agentAccessPolicyNeedsRecovery)
+        model.languageMode = "zh-Hans"
+        let chinese = try XCTUnwrap(model.agentAccessPolicyNotice)
+        XCTAssertTrue(chinese.contains("\u{94a5}\u{5319}\u{4e32}\u{8bbf}\u{95ee}"))
+        XCTAssertTrue(chinese.contains("agent-access-policy"))
+        XCTAssertNotEqual(chinese, english)
     }
 
     func testRestoredValidPolicyDoesNotClearRecoveryNotice() throws {

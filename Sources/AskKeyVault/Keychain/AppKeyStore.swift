@@ -1,12 +1,32 @@
 import Foundation
 import Security
 
-enum AppKeyStoreError: Error, Equatable {
+enum AppKeyStoreError: Error, Equatable, LocalizedError {
     case missingPendingKey
     case missingAppKey
     case securityFailure(OSStatus)
     case conflictingKey
+    case conflictingItem(AppKeychainItemKind)
     case policyPersistenceUnknown
+    case policyPersistenceUnknownWithConflict(AppKeychainItemKind)
+
+    var errorDescription: String? {
+        conflictingItemKind?.conflictMessage
+    }
+
+    var conflictingItemKind: AppKeychainItemKind? {
+        switch self {
+        case .conflictingItem(let kind), .policyPersistenceUnknownWithConflict(let kind): return kind
+        default: return nil
+        }
+    }
+
+    var policyMayHaveChanged: Bool {
+        switch self {
+        case .policyPersistenceUnknown, .policyPersistenceUnknownWithConflict: return true
+        default: return false
+        }
+    }
 }
 
 final class AppBoundKeyStore: AppKeyStore {
@@ -39,28 +59,31 @@ final class AppBoundKeyStore: AppKeyStore {
 
     func loadAgentAccessPolicy() throws -> Data? {
         try withKeychain { context in
-            guard let item = try context.uniqueItem(service: appService, account: Self.policyAccount) else { return nil }
+            guard let item = try findItem(service: appService, account: Self.policyAccount, context: context) else { return nil }
             return try context.read(item)
         }
     }
 
     func saveAgentAccessPolicy(_ data: Data) throws {
-        // The ordinary test guard still fails before any native Keychain call.
-        try keychain.validateAccessAllowed()
-        do {
-            try withKeychain { context in
-                if let item = try context.uniqueItem(service: appService, account: Self.policyAccount) {
+        try withKeychain { context in
+            // A preflight conflict cannot have changed the persisted value.
+            let existing = try findItem(service: appService, account: Self.policyAccount, context: context)
+            do {
+                if let item = existing {
                     // Never update an existing item's value or access. Only an
                     // item this save just created receives a valid policy.
                     try context.delete(item)
                 }
                 try add(data, service: appService, account: Self.policyAccount, context: context)
                 try verify(data, service: appService, account: Self.policyAccount, context: context)
+            } catch {
+                // Once replacement starts, an error does not prove which value
+                // remains. The caller must keep the in-process pause latched.
+                if let kind = (error as? AppKeyStoreError)?.conflictingItemKind {
+                    throw AppKeyStoreError.policyPersistenceUnknownWithConflict(kind)
+                }
+                throw AppKeyStoreError.policyPersistenceUnknown
             }
-        } catch {
-            // A native failure can follow a successful write, or reveal a shadow
-            // item. The caller must latch a pause until authenticated recovery.
-            throw AppKeyStoreError.policyPersistenceUnknown
         }
     }
 
@@ -68,7 +91,7 @@ final class AppBoundKeyStore: AppKeyStore {
 
     private func saveAppBound(_ data: Data, service: String) throws {
         try withKeychain { context in
-            if try context.uniqueItem(service: service, account: Self.account) != nil {
+            if try findItem(service: service, account: Self.account, context: context) != nil {
                 // Vault keys are never replaced, even when an existing item has
                 // a permissive ACL or its value cannot be read without UI.
                 try verify(data, service: service, account: Self.account, context: context)
@@ -90,21 +113,33 @@ final class AppBoundKeyStore: AppKeyStore {
     }
 
     private func verify(_ data: Data, service: String, account: String, context: PinnedAppKeychain.Context) throws {
-        guard let item = try context.uniqueItem(service: service, account: account),
+        guard let item = try findItem(service: service, account: account, context: context),
               try context.read(item) == data else { throw AppKeyStoreError.conflictingKey }
     }
 
     private func load(service: String, missing: AppKeyStoreError) throws -> Data {
         try withKeychain { context in
-            guard let item = try context.uniqueItem(service: service, account: Self.account) else { throw missing }
+            guard let item = try findItem(service: service, account: Self.account, context: context) else { throw missing }
             return try context.read(item)
         }
     }
 
     private func delete(service: String, account: String = AppBoundKeyStore.account) throws {
         try withKeychain { context in
-            if let item = try context.uniqueItem(service: service, account: account) { try context.delete(item) }
+            if let item = try findItem(service: service, account: account, context: context) { try context.delete(item) }
         }
+    }
+
+    private func findItem(service: String, account: String, context: PinnedAppKeychain.Context) throws -> SecKeychainItem? {
+        do { return try context.uniqueItem(service: service, account: account) }
+        catch AppKeyStoreError.conflictingKey { throw AppKeyStoreError.conflictingItem(kind(service: service, account: account)) }
+    }
+
+    private func kind(service: String, account: String) -> AppKeychainItemKind {
+        if account == Self.policyAccount { return .agentAccessPolicy }
+        if service == pendingService { return .pendingKey }
+        if service == legacyService { return .legacyKey }
+        return .vaultKey
     }
 
     private func withKeychain<T>(_ operation: (PinnedAppKeychain.Context) throws -> T) throws -> T {

@@ -154,7 +154,8 @@ public final class Vault {
     package func agentAccessPolicyState() throws -> AgentAccessPolicyState {
         let state = try savedAgentAccessPolicyState()
         return .init(policy: state.policy, needsRecovery: state.needsRecovery,
-                     isPaused: try agentAccessGate.isPaused(), pauseNotPersisted: state.pauseNotPersisted)
+                     isPaused: try agentAccessGate.isPaused(), pauseNotPersisted: state.pauseNotPersisted,
+                     saveFailure: state.saveFailure, keychainConflict: state.keychainConflict)
     }
 
     func savedAgentAccessPolicyState() throws -> AgentAccessPolicyState {
@@ -434,7 +435,8 @@ public final class Vault {
             opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         } catch {
             _ = try agentAccessGate.beginExclusiveChange()
-            applyAgentAccessPolicy(.failClosed, needsRecovery: true)
+            applyAgentAccessPolicy(.failClosed, needsRecovery: true,
+                                   keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
             endManagementSession()
             agentAccessGate.endExclusiveChange(paused: true)
@@ -452,7 +454,8 @@ public final class Vault {
         do {
             let loaded = try loadAgentAccessPolicy(key: opened.key, keyStore: keyStore, created: opened.created)
             let state = resolveAgentAccessPolicyLatches(loaded, key: opened.key, keyStore: keyStore)
-            applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery)
+            applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery,
+                                   keychainConflict: state.keychainConflict)
             stateLock.lock()
             let oldStore = _store
             stateLock.unlock()
@@ -465,7 +468,8 @@ public final class Vault {
             if !state.needsRecovery { removeLegacyAgentAccessRows(from: opened.store) }
             paused = state.policy.paused
         } catch {
-            applyAgentAccessPolicy(.failClosed, needsRecovery: true)
+            applyAgentAccessPolicy(.failClosed, needsRecovery: true,
+                                   keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
             endManagementSession()
             try? opened.store.close()

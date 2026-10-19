@@ -3,6 +3,8 @@ import Foundation
 /// Owns operation idempotency and approval state for the App's single Broker.
 /// Mutable state is protected by `lock`; callers never receive credential data.
 public final class BrokerApprovalStateMachine: @unchecked Sendable {
+    static let maximumTimedAllowanceDuration: TimeInterval = 120 * 60
+
     struct RuntimeAuthorization {
         let credentialIDs: Set<String>
         let expiresAt: Date

@@ -261,7 +261,8 @@ final class AgentAccessPolicyTests: XCTestCase {
         let saved = library.keys.policy
         library.keys.policySaveFailure = SyntheticPolicyFailure()
         XCTAssertThrowsError(try library.vault.pauseAgentAccess(using: .allow)) {
-            XCTAssertEqual($0 as? AgentAccessPolicyError, .pauseNotSaved)
+            XCTAssertEqual(($0 as? AgentAccessPolicySaveFailure)?.operation, .pause)
+            XCTAssertEqual(($0 as? AgentAccessPolicySaveFailure)?.persistedStateIsUnknown, false)
             XCTAssertTrue($0.localizedDescription.contains("may be lost when Ask Key restarts"))
         }
         XCTAssertTrue(try library.vault.isAgentAccessPaused())
@@ -272,18 +273,23 @@ final class AgentAccessPolicyTests: XCTestCase {
         XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
     }
 
-    func testFailedSettingsAndResumeSaveKeepPreviousState() throws {
+    func testFailedSettingsAndResumeSaveKeepSettingsButPauseAccess() throws {
         let library = try makeLibrary(withCredential: true)
         let saved = library.keys.policy
         library.keys.policySaveFailure = SyntheticPolicyFailure()
         XCTAssertThrowsError(try library.vault.updateReadApprovalAuthentication(false, using: .allow))
         XCTAssertThrowsError(try library.vault.updateTimedAllowance(enabled: false, minutes: 120))
-        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .defaults, needsRecovery: false))
+        var pausedDefaults = AgentAccessPolicy.defaults
+        pausedDefaults.paused = true
+        XCTAssertEqual(try library.vault.agentAccessPolicyState().policy, pausedDefaults)
+        XCTAssertTrue(try library.vault.agentAccessPolicyState().pauseNotPersisted)
         XCTAssertEqual(library.keys.policy, saved)
         library.keys.policy = nil
-        try assertFailClosedAfterReopen(library)
+        try library.reopen()
+        XCTAssertTrue(try library.vault.agentAccessPolicyState().needsRecovery)
         XCTAssertThrowsError(try library.vault.resumeAgentAccess(using: .allow))
-        XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .failClosed, needsRecovery: true))
+        XCTAssertEqual(try library.vault.agentAccessPolicyState().policy, .failClosed)
+        XCTAssertTrue(try library.vault.agentAccessPolicyState().needsRecovery)
     }
 
     func testRecoveryRejectsSettingsAndPauseWritesNothing() throws {

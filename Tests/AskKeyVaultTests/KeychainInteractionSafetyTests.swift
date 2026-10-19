@@ -29,9 +29,38 @@ final class KeychainInteractionSafetyTests: XCTestCase {
         }
     }
 
-    func testInjectedPinCannotSelectTheRealLoginKeychain() {
+    func testLoginPinIsRejectedBeforeNativeKeychainAccess() {
         let login = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Keychains/login.keychain-db")
-        XCTAssertThrowsError(try PinnedAppKeychain(temporaryKeychainURL: login))
+        let equivalentLogin = login.deletingLastPathComponent()
+            .appendingPathComponent("temporary/../login.keychain-db")
+        for candidate in [login, equivalentLogin] {
+            XCTAssertThrowsError(try PinnedAppKeychain(fileURL: candidate).validateAccessAllowed()) {
+                XCTAssertEqual($0 as? AppKeyStoreError, .securityFailure(errSecInteractionNotAllowed))
+            }
+        }
+    }
+
+    func testCleanupFailureCollectorRunsAndReportsEveryAction() throws {
+        let collector = CleanupFailureCollector()
+        var attempted: [String] = []
+        collector.run("first") {
+            attempted.append("first")
+            throw NSError(domain: "CleanupTest", code: 1)
+        }
+        collector.run("second") { attempted.append("second") }
+        collector.run("third") {
+            attempted.append("third")
+            throw NSError(domain: "CleanupTest", code: 3)
+        }
+
+        XCTAssertEqual(attempted, ["first", "second", "third"])
+        XCTAssertEqual(collector.failures.count, 2)
+        XCTAssertTrue(collector.failures[0].contains("first"))
+        XCTAssertTrue(collector.failures[1].contains("third"))
+        XCTAssertThrowsError(try collector.throwIfNeeded()) {
+            XCTAssertTrue(String(describing: $0).contains("first"))
+            XCTAssertTrue(String(describing: $0).contains("third"))
+        }
     }
 
     func testUntrustedKeychainQueriesAndProbeForbidAuthenticationUI() throws {
@@ -128,7 +157,17 @@ final class KeychainInteractionSafetyTests: XCTestCase {
                 XCTAssertTrue(source.contains("throw XCTSkip"))
                 XCTAssertTrue(source.contains("FileManager.default.temporaryDirectory"))
                 XCTAssertFalse(source.contains("SecKeychainSetDefault"))
-                XCTAssertFalse(source.contains("SecKeychainSetSearchList"))
+                let guardPosition = try XCTUnwrap(source.range(of: "guard environment[\"CI\"] == \"true\""))
+                let preferenceReadPosition = try XCTUnwrap(source.range(of: "before = try KeychainPreferencesSnapshot()"))
+                XCTAssertLessThan(guardPosition.lowerBound, preferenceReadPosition.lowerBound,
+                                  "CI guard must precede preference reads")
+                let createCall = ["SecKeychain", "Create("].joined()
+                let nativeCallPosition = try XCTUnwrap(source.range(of: createCall))
+                XCTAssertLessThan(guardPosition.lowerBound, nativeCallPosition.lowerBound,
+                                  "CI guard must precede native Keychain calls")
+                XCTAssertEqual(callCount("SecKeychainSetSearchList", in: source), 2,
+                               "Only temporary-list installation and original-list restoration are allowed")
+                XCTAssertTrue(source.contains("SecKeychainSetSearchList(originalSearchList as CFArray)"))
                 continue
             }
             for call in forbiddenCalls {

@@ -16,7 +16,10 @@ extension Vault {
     ) throws -> AgentAccessPolicyState {
         let value: Data?
         do { value = try keyStore.loadAgentAccessPolicy() }
-        catch { return .init(policy: .failClosed, needsRecovery: true) }
+        catch {
+            return .init(policy: .failClosed, needsRecovery: true,
+                         keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
+        }
         if let value, let policy = try? AgentAccessPolicyAuthentication.open(value, using: key) {
             return .init(policy: policy, needsRecovery: false)
         }
@@ -30,7 +33,8 @@ extension Vault {
     }
 
     /// The caller owns the gate's exclusive change for the whole transition.
-    func applyAgentAccessPolicy(_ policy: AgentAccessPolicy, needsRecovery: Bool) {
+    func applyAgentAccessPolicy(_ policy: AgentAccessPolicy, needsRecovery: Bool,
+                               keychainConflict: AppKeychainItemKind? = nil) {
         if needsRecovery { changeAgentAccessPolicyLatches { $0.recovery = true } }
         let latches = agentAccessPolicyLatches()
         if policy.paused { quiesceAgentAccess() }
@@ -40,7 +44,8 @@ extension Vault {
             timedAllowanceDuration: TimeInterval(policy.timedAllowanceMinutes * 60)
         )
         setAgentAccessPolicyState(.init(policy: policy, needsRecovery: needsRecovery || latches.recovery,
-                                       pauseNotPersisted: latches.pause && !latches.pausePersisted))
+                                       pauseNotPersisted: latches.pause && !latches.pausePersisted,
+                                       saveFailure: latches.saveFailure, keychainConflict: keychainConflict))
         if !policy.paused {
             brokerRequests.resume()
             approvalRequests.resume()
@@ -57,26 +62,35 @@ extension Vault {
         var policy = latches.recovery ? .failClosed : loaded.policy
         if latches.pause {
             policy.paused = true
-            if !loaded.needsRecovery {
+            if !latches.recovery && !loaded.needsRecovery {
                 do {
                     try keyStore.saveAgentAccessPolicy(AgentAccessPolicyAuthentication.seal(policy, using: key))
-                    changeAgentAccessPolicyLatches { $0.pausePersisted = true }
-                } catch { changeAgentAccessPolicyLatches { $0.pausePersisted = false } }
+                    changeAgentAccessPolicyLatches { $0.pausePersisted = true; $0.saveFailure = nil }
+                } catch {
+                    changeAgentAccessPolicyLatches {
+                        $0.pausePersisted = false
+                        $0.saveFailure = .init(latches.saveFailure?.operation ?? .pause, cause: error)
+                    }
+                }
             } else {
                 changeAgentAccessPolicyLatches { $0.pausePersisted = false }
             }
         }
         let current = agentAccessPolicyLatches()
         return .init(policy: policy, needsRecovery: current.recovery,
-                     pauseNotPersisted: current.pause && !current.pausePersisted)
+                     pauseNotPersisted: current.pause && !current.pausePersisted,
+                     saveFailure: current.saveFailure, keychainConflict: loaded.keychainConflict)
     }
 
-    private func latchUnsavedPause() {
-        changeAgentAccessPolicyLatches { $0.pause = true; $0.pausePersisted = false }
+    private func latchUnsavedPause(_ failure: AgentAccessPolicySaveFailure) {
+        changeAgentAccessPolicyLatches {
+            $0.pause = true; $0.pausePersisted = false; $0.saveFailure = failure
+        }
         let state = try? savedAgentAccessPolicyState()
         var policy = state?.policy ?? .failClosed
         policy.paused = true
-        applyAgentAccessPolicy(policy, needsRecovery: state?.needsRecovery ?? true)
+        applyAgentAccessPolicy(policy, needsRecovery: state?.needsRecovery ?? true,
+                               keychainConflict: state?.keychainConflict)
     }
 
     /// Pause the gate before calling: cancellation callbacks and file removal
@@ -110,42 +124,46 @@ extension Vault {
         do {
             state = try savedAgentAccessPolicyState()
         } catch {
-            latchUnsavedPause()
-            throw AgentAccessPolicyError.pauseNotSaved
+            let failure = AgentAccessPolicySaveFailure(.pause, cause: error)
+            latchUnsavedPause(failure)
+            throw failure
         }
         var policy = state.policy
         policy.paused = true
-        applyAgentAccessPolicy(policy, needsRecovery: state.needsRecovery)
+        applyAgentAccessPolicy(policy, needsRecovery: state.needsRecovery, keychainConflict: state.keychainConflict)
         if state.needsRecovery { return }
         do {
             try saveAgentAccessPolicy(policy, key: key)
-            changeAgentAccessPolicyLatches { if $0.pause { $0.pausePersisted = true } }
+            changeAgentAccessPolicyLatches { if $0.pause { $0.pausePersisted = true; $0.saveFailure = nil } }
             applyAgentAccessPolicy(policy, needsRecovery: false)
         }
-        catch { latchUnsavedPause(); throw AgentAccessPolicyError.pauseNotSaved }
+        catch {
+            let failure = AgentAccessPolicySaveFailure(.pause, cause: error)
+            latchUnsavedPause(failure)
+            throw failure
+        }
     }
 
     public func resumeAgentAccess(using authenticator: ManagementAuthenticator) throws {
         try authorizeManagement(authenticator, reason: CredentialManagementCopy.resumeReason)
         let key = try requireKey()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
+        var paused = wasPaused
+        defer { agentAccessGate.endExclusiveChange(paused: paused) }
+        let state = try savedAgentAccessPolicyState()
+        var policy = state.needsRecovery ? .defaults : state.policy
+        policy.paused = false
         do {
-            let state = try savedAgentAccessPolicyState()
-            var policy = state.needsRecovery ? .defaults : state.policy
-            policy.paused = false
             try saveAgentAccessPolicy(policy, key: key)
-            changeAgentAccessPolicyLatches { $0 = .init() }
-            applyAgentAccessPolicy(policy, needsRecovery: false)
-            agentAccessGate.endExclusiveChange(paused: false)
         } catch {
-            if error as? AppKeyStoreError == .policyPersistenceUnknown {
-                latchUnsavedPause()
-                agentAccessGate.endExclusiveChange(paused: true)
-                throw AgentAccessPolicyError.pauseNotSaved
-            }
-            agentAccessGate.endExclusiveChange(paused: wasPaused)
-            throw error
+            let failure = AgentAccessPolicySaveFailure(.resume, cause: error)
+            latchUnsavedPause(failure)
+            paused = true
+            throw failure
         }
+        changeAgentAccessPolicyLatches { $0 = .init() }
+        applyAgentAccessPolicy(policy, needsRecovery: false)
+        paused = false
     }
 
     package func updateReadApprovalAuthentication(
@@ -175,14 +193,13 @@ extension Vault {
         guard !state.needsRecovery else { throw AgentAccessPolicyError.recoveryRequired }
         var policy = state.policy
         change(&policy)
+        try policy.validate()
         do { try saveAgentAccessPolicy(policy, key: key) }
         catch {
-            if error as? AppKeyStoreError == .policyPersistenceUnknown {
-                latchUnsavedPause()
-                paused = true
-                throw AgentAccessPolicyError.pauseNotSaved
-            }
-            throw error
+            let failure = AgentAccessPolicySaveFailure(.settings, cause: error)
+            latchUnsavedPause(failure)
+            paused = true
+            throw failure
         }
         applyAgentAccessPolicy(policy, needsRecovery: false)
         changed = true

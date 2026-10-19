@@ -51,6 +51,54 @@ final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
         XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "credential-1"), start.addingTimeInterval(15 * 60))
     }
 
+    func testExplicitTimedAllowanceCapsAtTwoHoursAndAcceptsTheBoundary() throws {
+        let start = Date(timeIntervalSince1970: 75_000)
+        let machine = configuredMachine(clock: { start }, authenticate: { _ in true })
+
+        let atMaximum = try machine.submit(request(operationID: "at-two-hours"), now: start)
+        _ = try machine.decide(
+            requestID: atMaximum.requestID,
+            capability: atMaximum.capability,
+            decision: .timedAllow(duration: 7_200),
+            now: start
+        )
+        XCTAssertEqual(
+            machine.timedAllowanceDeadline(credentialID: "credential-1"),
+            start.addingTimeInterval(7_200)
+        )
+
+        let aboveMaximum = try machine.submit(
+            request(operationID: "above-two-hours", credentialID: "credential-2"),
+            now: start
+        )
+        _ = try machine.decide(
+            requestID: aboveMaximum.requestID,
+            capability: aboveMaximum.capability,
+            decision: .timedAllow(duration: 7_201),
+            now: start
+        )
+        XCTAssertEqual(
+            machine.timedAllowanceDeadline(credentialID: "credential-2"),
+            start.addingTimeInterval(7_200)
+        )
+
+        for (index, invalidDuration) in [0, -1, .infinity, .nan].enumerated() {
+            let credentialID = "invalid-\(index)"
+            let invalid = try machine.submit(
+                request(operationID: "invalid-duration-\(index)", credentialID: credentialID),
+                now: start
+            )
+            XCTAssertThrowsError(try machine.decide(
+                requestID: invalid.requestID,
+                capability: invalid.capability,
+                decision: .timedAllow(duration: invalidDuration),
+                now: start
+            )) {
+                XCTAssertEqual($0 as? BrokerApprovalError, .invalidDecision)
+            }
+        }
+    }
+
     func testNilDurationUsesPolicyDurationCapturedBeforeAuthentication() throws {
         let start = Date(timeIntervalSince1970: 80_000)
         let machine = configuredMachine(defaultTimedAllowance: 900, clock: { start }, authenticate: { _ in true })

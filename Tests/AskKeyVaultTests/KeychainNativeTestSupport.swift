@@ -4,45 +4,52 @@ import Security
 import XCTest
 @testable import AskKeyVault
 
-/// The only native, mutating Keychain fixture. The guard precedes even preference
-/// reads; local tests cannot open login, the default keychain, or the search list.
+/// The only native, mutating Keychain fixture. The CI guard precedes preference
+/// reads; only CI temporarily appends its own keychains to the user's search list.
 final class KeychainNativeTestSupport {
     let root: URL
     let pinnedURL: URL
     let outsideURL: URL
     let service = "com.sudohg.askkey.tests.native.\(UUID().uuidString)"
     let application: URL
-    private let before: KeychainPreferencesSnapshot
-    private var pinned: SecKeychain?
-    private var outside: SecKeychain?
+    private let cleanupState: NativeKeychainCleanupState
     private let password = "synthetic-\(UUID().uuidString)"
 
-    init(test: XCTestCase) throws {
+    init(
+        test: XCTestCase,
+        temporaryRoot: URL? = nil,
+        afterFirstKeychainCreated: (() throws -> Void)? = nil
+    ) throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["CI"] == "true", environment["GITHUB_ACTIONS"] == "true" else {
             throw XCTSkip("Native Keychain integration runs only in CI.")
         }
-        before = try KeychainPreferencesSnapshot()
-        root = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyNative-\(UUID().uuidString)")
+        root = temporaryRoot ?? FileManager.default.temporaryDirectory
+            .appendingPathComponent("AskKeyNative-\(UUID().uuidString)")
         pinnedURL = root.appendingPathComponent("pinned.keychain-db")
         outsideURL = root.appendingPathComponent("outside.keychain-db")
+        let state = NativeKeychainCleanupState(root: root)
+        cleanupState = state
+        test.addTeardownBlock { try state.cleanup() }
         application = try XCTUnwrap(Bundle.main.executableURL)
+
+        try cleanupState.captureOriginalPreferences()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
                                                attributes: [.posixPermissions: 0o700])
-        do {
-            pinned = try create(pinnedURL)
-            outside = try create(outsideURL)
-        } catch {
-            try? cleanup()
-            throw error
-        }
-        test.addTeardownBlock { try self.cleanup() }
+        cleanupState.pinned = try create(pinnedURL)
+        try afterFirstKeychainCreated?()
+        cleanupState.outside = try create(outsideURL)
+        try cleanupState.addTemporaryKeychainsToSearchList()
+    }
+
+    func cleanup() throws {
+        try cleanupState.cleanup()
     }
 
     func makeStore() throws -> AppBoundKeyStore {
         AppBoundKeyStore(legacyService: service + ".legacy", pendingService: service + ".pending",
                          appService: service, trustedApplicationURL: application,
-                         keychain: try PinnedAppKeychain(temporaryKeychainURL: pinnedURL, additionalSearchURLs: [outsideURL]))
+                         keychain: PinnedAppKeychain(fileURL: pinnedURL))
     }
 
     func addPolicy(_ data: Data, outside: Bool = false, permissive: Bool = false) throws -> NativeItem {
@@ -127,7 +134,7 @@ final class KeychainNativeTestSupport {
         let marker = Data(UUID().uuidString.utf8)
         var query = query(service: service, account: account, outside: outside)
         query.removeValue(forKey: kSecMatchSearchList as String)
-        query[kSecUseKeychain as String] = try XCTUnwrap(outside ? self.outside : pinned)
+        query[kSecUseKeychain as String] = try XCTUnwrap(outside ? cleanupState.outside : cleanupState.pinned)
         query[kSecAttrAccess as String] = access
         query[kSecValueData as String] = data
         query[kSecAttrGeneric as String] = marker
@@ -142,7 +149,7 @@ final class KeychainNativeTestSupport {
         KeychainQuery.forbidAuthenticationUI([
             kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecMatchSearchList as String: [outside ? self.outside! : pinned!],
+            kSecMatchSearchList as String: [outside ? cleanupState.outside! : cleanupState.pinned!],
         ])
     }
 
@@ -157,38 +164,6 @@ final class KeychainNativeTestSupport {
         return try XCTUnwrap(result)
     }
 
-    private func cleanup() throws {
-        defer {
-            do {
-                XCTAssertEqual(try KeychainPreferencesSnapshot(), before,
-                               "Native tests must leave user Keychain preferences and login file unchanged")
-            } catch { XCTFail("Could not verify Keychain preferences after cleanup: \(error)") }
-        }
-        try clearTemporaryImmutableFlags()
-        for keychain in [outside, pinned].compactMap({ $0 }) { try check(SecKeychainDelete(keychain)) }
-        outside = nil
-        pinned = nil
-        // Clear only fixture-owned backing or backup files left by the injected
-        // failure, including any files produced during native deletion.
-        try clearTemporaryImmutableFlags()
-        try FileManager.default.removeItem(at: root)
-    }
-
-    private func clearTemporaryImmutableFlags() throws {
-        guard FileManager.default.fileExists(atPath: root.path) else { return }
-        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: root.path)
-        let enumerator = try XCTUnwrap(FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: [.isSymbolicLinkKey], options: []
-        ))
-        for case let url as URL in enumerator {
-            if try url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true {
-                enumerator.skipDescendants()
-                continue
-            }
-            try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: url.path)
-        }
-    }
-
     private func check(_ status: OSStatus) throws {
         guard status == errSecSuccess else { throw AppKeyStoreError.securityFailure(status) }
     }
@@ -196,7 +171,135 @@ final class KeychainNativeTestSupport {
     struct NativeItem { fileprivate let marker: Data }
 }
 
-private struct KeychainPreferencesSnapshot: Equatable {
+/// Runs every cleanup action and keeps all failures for the teardown report.
+final class CleanupFailureCollector {
+    private(set) var failures: [String] = []
+
+    func run(_ name: String, _ action: () throws -> Void) {
+        do {
+            try action()
+        } catch {
+            failures.append("\(name): \(error)")
+        }
+    }
+
+    func record(_ name: String, error: Error) {
+        failures.append("\(name): \(error)")
+    }
+
+    func throwIfNeeded() throws {
+        guard !failures.isEmpty else { return }
+        throw CleanupFailureSummary(failures: failures)
+    }
+}
+
+private struct CleanupFailureSummary: Error, CustomStringConvertible {
+    let failures: [String]
+    var description: String { failures.joined(separator: "\n") }
+}
+
+private final class NativeKeychainCleanupState {
+    let root: URL
+    var pinned: SecKeychain?
+    var outside: SecKeychain?
+    private var before: KeychainPreferencesSnapshot?
+    private var originalSearchList: [SecKeychain]?
+
+    init(root: URL) { self.root = root }
+
+    func captureOriginalPreferences() throws {
+        before = try KeychainPreferencesSnapshot()
+        var list: CFArray?
+        let status = SecKeychainCopySearchList(&list)
+        guard status == errSecSuccess else { throw AppKeyStoreError.securityFailure(status) }
+        originalSearchList = try XCTUnwrap(list as? [SecKeychain])
+    }
+
+    func addTemporaryKeychainsToSearchList() throws {
+        guard let originalSearchList, let pinned, let outside else {
+            throw NSError(domain: "KeychainNativeTestSupport", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Original search list and both fixture keychains are required"])
+        }
+        let status = SecKeychainSetSearchList((originalSearchList + [pinned, outside]) as CFArray)
+        guard status == errSecSuccess else { throw AppKeyStoreError.securityFailure(status) }
+    }
+
+    func cleanup() throws {
+        let collector = CleanupFailureCollector()
+
+        clearTemporaryImmutableFlags(into: collector)
+        if let originalSearchList {
+            collector.run("restore original user keychain search list") {
+                let status = SecKeychainSetSearchList(originalSearchList as CFArray)
+                guard status == errSecSuccess else { throw AppKeyStoreError.securityFailure(status) }
+            }
+        }
+        if let outside {
+            collector.run("delete outside temporary keychain") {
+                let status = SecKeychainDelete(outside)
+                guard status == errSecSuccess else { throw AppKeyStoreError.securityFailure(status) }
+                self.outside = nil
+            }
+        }
+        if let pinned {
+            collector.run("delete pinned temporary keychain") {
+                let status = SecKeychainDelete(pinned)
+                guard status == errSecSuccess else { throw AppKeyStoreError.securityFailure(status) }
+                self.pinned = nil
+            }
+        }
+        // Native deletion can leave immutable files behind; clear them again
+        // before removing only this fixture's temporary root.
+        clearTemporaryImmutableFlags(into: collector)
+        collector.run("remove temporary keychain root") {
+            if FileManager.default.fileExists(atPath: root.path) {
+                try FileManager.default.removeItem(at: root)
+            }
+        }
+        if let before {
+            collector.run("compare keychain preferences and login SHA256 snapshot") {
+                let after = try KeychainPreferencesSnapshot()
+                guard after == before else {
+                    throw NSError(domain: "KeychainNativeTestSupport", code: 2,
+                                  userInfo: [NSLocalizedDescriptionKey: "Native tests changed keychain preferences or login file contents"])
+                }
+            }
+        }
+        try collector.throwIfNeeded()
+    }
+
+    private func clearTemporaryImmutableFlags(into collector: CleanupFailureCollector) {
+        guard FileManager.default.fileExists(atPath: root.path) else { return }
+        collector.run("clear immutable flag on temporary keychain root") {
+            try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: root.path)
+        }
+        do {
+            guard let enumerator = FileManager.default.enumerator(
+                at: root, includingPropertiesForKeys: [.isSymbolicLinkKey], options: []
+            ) else {
+                throw NSError(domain: "KeychainNativeTestSupport", code: 3,
+                              userInfo: [NSLocalizedDescriptionKey: "Could not enumerate temporary keychain root"])
+            }
+            for case let url as URL in enumerator {
+                do {
+                    if try url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true {
+                        enumerator.skipDescendants()
+                        continue
+                    }
+                    collector.run("clear immutable flag on \(url.lastPathComponent)") {
+                        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: url.path)
+                    }
+                } catch {
+                    collector.record("inspect temporary path \(url.lastPathComponent)", error: error)
+                }
+            }
+        } catch {
+            collector.record("enumerate temporary keychain root", error: error)
+        }
+    }
+}
+
+struct KeychainPreferencesSnapshot: Equatable {
     let defaultPath: String?
     let userDefaultPath: String?
     let searchPaths: [String]

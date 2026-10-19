@@ -2,42 +2,21 @@ import Foundation
 import LocalAuthentication
 import Security
 
-/// Production operations always open this file, independently of user Keychain
-/// preferences. Native CI validation may inject temporary files, never login.
+/// Opens a specific file independently of user Keychain preferences.
 struct PinnedAppKeychain {
     private let url: URL
-    private let additionalSearchURLs: [URL]
-    private let isolated: Bool
 
-    static var login: Self { .init(url: loginURL, additionalSearchURLs: [], isolated: false) }
-    private static var loginURL: URL {
+    static var login: Self { .init() }
+    static var loginURL: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Keychains/login.keychain-db")
     }
 
-    init(temporaryKeychainURL: URL, additionalSearchURLs: [URL] = []) throws {
-        url = temporaryKeychainURL
-        self.additionalSearchURLs = additionalSearchURLs
-        isolated = true
-        try validateAccessAllowed()
-    }
-
-    private init(url: URL, additionalSearchURLs: [URL], isolated: Bool) {
-        self.url = url
-        self.additionalSearchURLs = additionalSearchURLs
-        self.isolated = isolated
+    init(fileURL: URL = Self.loginURL) {
+        url = fileURL
     }
 
     func validateAccessAllowed() throws {
-        if isolated {
-            let environment = ProcessInfo.processInfo.environment
-            let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().path + "/"
-            guard environment["CI"] == "true", environment["GITHUB_ACTIONS"] == "true",
-                  NSClassFromString("XCTestCase") != nil,
-                  ([url] + additionalSearchURLs).allSatisfy({
-                      $0.isFileURL && $0.resolvingSymlinksInPath().path.hasPrefix(root)
-                          && $0.lastPathComponent.hasSuffix(".keychain-db")
-                  }) else { throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed) }
-        } else {
+        if url.standardizedFileURL.resolvingSymlinksInPath() == Self.loginURL.standardizedFileURL.resolvingSymlinksInPath() {
             guard KeychainQuery.systemKeychainAllowed else {
                 throw AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
             }
@@ -53,10 +32,8 @@ struct PinnedAppKeychain {
             throw AppKeyStoreError.securityFailure(status)
         }
         var searched = userList
-        for candidate in [pinned] + (try additionalSearchURLs.map(Self.open)) {
-            let path = try Self.path(candidate)
-            if try !searched.contains(where: { try Self.path($0) == path }) { searched.append(candidate) }
-        }
+        let path = try Self.path(pinned)
+        if try !searched.contains(where: { try Self.path($0) == path }) { searched.append(pinned) }
         return Context(pinned: pinned, searchList: searched)
     }
 
