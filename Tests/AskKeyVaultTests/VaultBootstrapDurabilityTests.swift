@@ -27,7 +27,7 @@ final class VaultBootstrapDurabilityTests: XCTestCase {
                 synchronized.append($0.url.path)
             })
             try opened.store.close()
-            XCTAssertEqual(synchronized, (recovering ? [] : [paths.creatingDatabase.path]) + [
+            XCTAssertEqual(synchronized, [paths.creatingDatabase.path] + [
                 paths.currentDatabase.path, paths.directory.path, root.path,
             ])
             let appKey = try XCTUnwrap(keys.appKey)
@@ -63,12 +63,12 @@ final class VaultBootstrapDurabilityTests: XCTestCase {
                 synchronized.append($0.url)
             })
             try opened.store.close()
-            let expected = (recovering ? [] : [paths.creatingDatabase]) + [
+            let expected = [paths.creatingDatabase] + [
                 paths.currentDatabase, paths.directory, support.appendingPathComponent("AskKey"), support,
             ]
             XCTAssertEqual(synchronized.map(\.standardizedFileURL.path), expected.map(\.standardizedFileURL.path))
             XCTAssertNotNil(keys.appKey)
-            if let pending { XCTAssertEqual(keys.appKey, pending) }
+            if let pending { XCTAssertNotEqual(keys.appKey, pending) }
             XCTAssertNil(keys.pendingKey)
         }
     }
@@ -84,7 +84,8 @@ final class VaultBootstrapDurabilityTests: XCTestCase {
                 if beforeRename { throw SyncInterruption() }
             })) { XCTAssertTrue($0 is SyncInterruption) }
             keys.promotionFailure = nil
-            let pending = try XCTUnwrap(keys.pendingKey)
+            let pending = keys.pendingKey
+            if beforeRename { XCTAssertNil(pending) } else { XCTAssertNotNil(pending) }
             XCTAssertTrue(FileManager.default.fileExists(atPath: paths.directory.path))
             XCTAssertEqual(try VaultBootstrap.state(paths: paths), beforeRename ? .fresh : .current)
             var synchronized: [URL] = []
@@ -94,12 +95,13 @@ final class VaultBootstrapDurabilityTests: XCTestCase {
                 synchronized.append($0.url)
             })
             try opened.store.close()
-            let expected = (beforeRename ? [paths.creatingDatabase] : []) + [
+            let expected = [paths.creatingDatabase] + [
                 paths.currentDatabase, paths.directory, root.appendingPathComponent("SYNTHETIC-run/nested"),
                 root.appendingPathComponent("SYNTHETIC-run"), root,
             ]
             XCTAssertEqual(synchronized.map(\.standardizedFileURL.path), expected.map(\.standardizedFileURL.path))
-            XCTAssertEqual(keys.appKey, pending)
+            XCTAssertNotNil(keys.appKey)
+            if let pending { XCTAssertNotEqual(keys.appKey, pending) }
             XCTAssertNil(keys.pendingKey)
         }
     }
@@ -125,18 +127,17 @@ final class VaultBootstrapDurabilityTests: XCTestCase {
                 })) { XCTAssertTrue($0 is SyncInterruption) }
                 XCTAssertEqual(attempted.last, target.standardizedFileURL.path)
                 XCTAssertNil(keys.appKey)
-                XCTAssertNotNil(keys.pendingKey)
+                XCTAssertNil(keys.pendingKey)
                 XCTAssertEqual(try VaultBootstrap.state(paths: paths), .current)
-                let pending = keys.pendingKey
                 let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
                 try opened.store.close()
-                XCTAssertEqual(keys.appKey, pending)
+                XCTAssertNotNil(keys.appKey)
                 XCTAssertNil(keys.pendingKey)
             }
         }
     }
 
-    func testRealSyncFailurePropagatesAndLeavesPendingKeyForRecovery() throws {
+    func testRealSyncFailurePropagatesAndLeavesUnfinishedLibraryForRecreation() throws {
         let root = try temporaryDirectory()
         let paths = VaultBootstrapPaths(directory: root.appendingPathComponent("SYNTHETIC-data"), durabilityRoot: root)
         let keys = MemoryAppKeyStore()
@@ -152,7 +153,7 @@ final class VaultBootstrapDurabilityTests: XCTestCase {
             })) { XCTAssertEqual($0 as? VaultBootstrapError, .invalidState) }
             XCTAssertTrue(failedAtRoot)
             XCTAssertNil(keys.appKey)
-            XCTAssertNotNil(keys.pendingKey)
+            XCTAssertNil(keys.pendingKey)
             XCTAssertEqual(try VaultBootstrap.state(paths: paths), .current)
         }
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)

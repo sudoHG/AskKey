@@ -10,6 +10,8 @@ The explicitly listed `LocalVaultLifecycle.swift` removal currently overlaps the
 
 Saved plaintext never belongs in Agent responses. A target that has received an approved value can output or copy it; the guarantee covers AskKey's own responses, errors and logs. Discovery hooks are reminders, not authorization. File listings and tests show implementation coverage, not completed production release or real-credential acceptance.
 
+Without an App key, bootstrap discards any existing pending key and generates a new key; an exactly matching unfinished first creation is discarded and recreated. Before the first credential exists, a same-user process that plants both an App key and a matching empty library can still choose the key.
+
 ## Credentials and the management workspace
 
 | Feature | One-line description | Decision | Legacy source files | Legacy test files |

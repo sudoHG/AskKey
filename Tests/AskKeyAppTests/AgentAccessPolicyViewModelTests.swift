@@ -255,6 +255,8 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
     func testFailedOpenRefreshesPausedGateInUI() async throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }
+        _ = try library.vault.createTextCredential(.init(name: "SYNTHETIC-TOKEN", value: "synthetic", permission: .allowed),
+                                                  using: .deny)
         let model = makeModel(library)
         model.refreshAgentAccessPauseState()
         XCTAssertFalse(model.isAgentAccessPaused)

@@ -166,6 +166,57 @@ final class AppBoundKeyStoreNativeTests: XCTestCase {
         }
     }
 
+    func testNativeBootstrapDiscardsPlantedPendingKeyForFreshAndUnfinishedLibraries() throws {
+        for current in [false, true] {
+            let fixture = try KeychainNativeTestSupport(test: self)
+            let keys = try fixture.makeStore()
+            let paths = VaultBootstrapPaths(directory: fixture.root.appendingPathComponent("library"))
+            if current {
+                try FileManager.default.createDirectory(at: paths.directory, withIntermediateDirectories: false)
+                let store = try VaultStore(path: paths.currentDatabase.path)
+                try store.close()
+            }
+            let planted = Data(repeating: 0xA7, count: 32)
+            try fixture.addVaultKey(planted, suffix: ".pending")
+            let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+            XCTAssertTrue(opened.created)
+            XCTAssertNotEqual(VaultCrypto.keyToData(opened.key), planted)
+            XCTAssertEqual(try keys.loadAppKey(), VaultCrypto.keyToData(opened.key))
+            XCTAssertThrowsError(try keys.loadPendingKey()) {
+                XCTAssertEqual($0 as? AppKeyStoreError, .missingPendingKey)
+            }
+            try opened.store.close()
+        }
+    }
+
+    func testNativeBootstrapPendingConflictPreservesFreshAndUnfinishedLibraries() throws {
+        for current in [false, true] {
+            for duplicate in [false, true] {
+                let fixture = try KeychainNativeTestSupport(test: self)
+                let keys = try fixture.makeStore()
+                let paths = VaultBootstrapPaths(directory: fixture.root.appendingPathComponent("library"))
+                try FileManager.default.createDirectory(at: paths.directory, withIntermediateDirectories: false)
+                if current {
+                    let store = try VaultStore(path: paths.currentDatabase.path)
+                    try store.close()
+                }
+                let planted = Data(repeating: 0xA7, count: 32)
+                if duplicate { try fixture.addVaultKey(planted, suffix: ".pending") }
+                try fixture.addVaultKey(planted, suffix: ".pending", outside: true)
+                let before = try directoryBytes(paths.directory)
+                let keychainBefore = try fixture.pinnedFileBytes()
+                XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
+                    XCTAssertEqual($0 as? AppKeyStoreError, .conflictingItem(.pendingKey))
+                }
+                XCTAssertEqual(try directoryBytes(paths.directory), before)
+                XCTAssertEqual(try fixture.pinnedFileBytes(), keychainBefore)
+                XCTAssertThrowsError(try keys.loadAppKey()) {
+                    XCTAssertEqual($0 as? AppKeyStoreError, .missingAppKey)
+                }
+            }
+        }
+    }
+
     private func requireNativeCI() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["CI"] == "true", environment["GITHUB_ACTIONS"] == "true" else {

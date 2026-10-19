@@ -24,7 +24,7 @@ final class AgentAccessPolicyLibrary {
     let root: URL
     let paths: VaultBootstrapPaths
     let keys = MemoryAppKeyStore()
-    let key = SymmetricKey(data: Data(repeating: 0x51, count: 32))
+    var key: SymmetricKey { get throws { VaultCrypto.keyFromData(try keys.loadAppKey()) } }
     let vault: Vault
     let manager: FileDeliveryManager
     var store: VaultStore { get throws { try vault.store } }
@@ -34,7 +34,6 @@ final class AgentAccessPolicyLibrary {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         paths = .init(directory: root.appendingPathComponent("library"))
         manager = try FileDeliveryManager(rootURL: root.appendingPathComponent("deliveries"))
-        keys.pendingKey = VaultCrypto.keyToData(key)
         vault = Vault(paths: paths, keyStore: keys, approvalRequests: approvals, fileDeliveryManager: manager)
         if open { try vault.unlock() }
     }

@@ -137,7 +137,7 @@ final class AgentAccessPolicyTests: XCTestCase {
     func testDatabaseDerivationOrDifferentVaultKeyCannotAuthenticatePolicy() throws {
         for info in ["AskKey credential authentication v1", "AskKey agent access policy authentication v1", keychainInfo] {
             let library = try makeLibrary(withCredential: true)
-            let key = info == keychainInfo ? SymmetricKey(data: Data(repeating: 0x42, count: 32)) : library.key
+            let key = try info == keychainInfo ? SymmetricKey(data: Data(repeating: 0x42, count: 32)) : library.key
             try writeSignedPolicy(changing: [:], in: library, key: key, info: info)
             try assertFailClosedAfterReopen(library)
         }
@@ -362,7 +362,7 @@ final class AgentAccessPolicyTests: XCTestCase {
         var policy = try XCTUnwrap(value["policy"] as? [String: Any])
         for (field, change) in changes { policy[field] = change }
         let bytes = try JSONSerialization.data(withJSONObject: policy, options: [.sortedKeys, .withoutEscapingSlashes])
-        let macKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: key ?? library.key, salt: Data(),
+        let macKey = try HKDF<SHA256>.deriveKey(inputKeyMaterial: key ?? library.key, salt: Data(),
                                           info: Data((info ?? keychainInfo).utf8), outputByteCount: 32)
         value["policy"] = policy
         value["authenticationTag"] = Data(HMAC<SHA256>.authenticationCode(

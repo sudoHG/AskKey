@@ -119,30 +119,33 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         XCTAssertNil(keys.appKey)
     }
 
-    func testPendingKeyIsPromotedForUnfinishedFirstCreation() throws {
+    func testPendingKeyIsDiscardedAndUnfinishedFirstCreationIsRecreated() throws {
         let (paths, keys) = try unfinishedFirstCreation()
         let pending = try XCTUnwrap(keys.pendingKey)
         try addHistoricalSiblings(paths)
         let before = try directoryBytes(paths.directory)
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
-        XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
+        let generated = VaultCrypto.keyToData(opened.key)
+        XCTAssertNotEqual(generated, pending)
         XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
         XCTAssertEqual(try existingLegacyTables(opened.store), [])
         try opened.store.close()
-        XCTAssertEqual(try directoryBytes(paths.directory), before)
-        XCTAssertEqual(keys.appKey, pending)
+        let after = try directoryBytes(paths.directory)
+        XCTAssertNotEqual(after["credentials-v2.db"], before["credentials-v2.db"])
+        for (name, bytes) in before where name != "credentials-v2.db" { XCTAssertEqual(after[name], bytes, name) }
+        XCTAssertEqual(keys.appKey, generated)
         XCTAssertNil(keys.pendingKey)
-        XCTAssertEqual(keys.mutations, 2)
+        XCTAssertEqual(keys.mutations, 4)
 
         let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         defer { try? reopened.store.close() }
-        XCTAssertEqual(VaultCrypto.keyToData(reopened.key), pending)
+        XCTAssertEqual(VaultCrypto.keyToData(reopened.key), generated)
         let vault = Vault(store: reopened.store, key: reopened.key)
         _ = try vault.createTextCredential(.init(name: "SYNTHETIC-TOKEN", value: "synthetic",
                                                  environmentVariable: "SYNTHETIC_TOKEN", permission: .allowed),
                                            using: .deny)
         XCTAssertEqual(try vault.brokerCredentialCatalog(cancellation: .init()).count, 1)
-        XCTAssertEqual(keys.mutations, 3, "the App-key reopen only calls deletePendingKey")
+        XCTAssertEqual(keys.mutations, 5, "the App-key reopen only calls deletePendingKey")
     }
 
     func testMalformedAppKeyWithPendingKeyAndUnfinishedDatabaseFailsClosed() throws {
@@ -286,22 +289,20 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         try assertPendingRejected(sql: "ALTER TABLE config ADD COLUMN unknown TEXT", error: .schemaMismatch)
     }
 
-    func testMalformedPendingKeyWithUnfinishedDatabaseFailsWithoutChangingAnyFileOrKey() throws {
-        try assertPendingRejected(pendingKey: Data(repeating: 7, count: 33), error: .invalidKey) { _, _ in }
-    }
-
-    func testUnfinishedDatabaseWithoutAnyKeyFailsWithoutChangingAnyFile() throws {
+    func testUnfinishedDatabaseWithoutAnyKeyIsRecreated() throws {
         let (paths, keys) = try unfinishedFirstCreation()
         keys.pendingKey = nil
         try addHistoricalSiblings(paths)
         let before = try directoryBytes(paths.directory)
-        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
-            XCTAssertEqual($0 as? VaultBootstrapError, .missingKey)
-        }
-        XCTAssertEqual(try directoryBytes(paths.directory), before)
-        XCTAssertNil(keys.appKey)
+        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        XCTAssertTrue(opened.created)
+        try opened.store.close()
+        let after = try directoryBytes(paths.directory)
+        XCTAssertNotEqual(after["credentials-v2.db"], before["credentials-v2.db"])
+        for (name, bytes) in before where name != "credentials-v2.db" { XCTAssertEqual(after[name], bytes, name) }
+        XCTAssertNotNil(keys.appKey)
         XCTAssertNil(keys.pendingKey)
-        XCTAssertEqual(keys.mutations, 0)
+        XCTAssertEqual(keys.mutations, 4)
     }
 
     func testDatabaseWithoutAnyKeyFailsWithoutChangingAnyFile() throws {

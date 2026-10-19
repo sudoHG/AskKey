@@ -45,6 +45,8 @@ final class AgentAccessPolicyTransitionTests: XCTestCase {
 
     func testFailedBootstrapQuiescesExistingRuntimeAndCleansDeliveries() throws {
         let library = try makeLibrary()
+        _ = try library.vault.createTextCredential(.init(name: "SYNTHETIC-TOKEN", value: "synthetic", permission: .allowed),
+                                                  using: .deny)
         let delivery = try library.manager.materialize(credentialID: "synthetic", bytes: Data("synthetic".utf8))
         library.keys.appKey = nil
         XCTAssertThrowsError(try library.vault.unlock())
