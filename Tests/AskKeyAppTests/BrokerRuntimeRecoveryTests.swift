@@ -37,6 +37,23 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
         XCTAssertNotEqual(typeFailure.message, permissionFailure.message)
     }
 
+    func testSocketInUseExplainsHowToCloseTheOtherCopyInBothLanguages() {
+        let failure = BrokerRuntimeFailure.userFacing(
+            for: BrokerSocketError.systemError("socket already in use", EADDRINUSE)
+        )
+        XCTAssertTrue(failure.canRetry)
+        XCTAssertTrue(failure.message.contains("Quit any other running copy"))
+        XCTAssertTrue(failure.message.contains("reopen Ask Key from Applications"))
+        let chinese = AppLanguage.localized(failure.message, language: "zh-Hans")
+        XCTAssertTrue(chinese.contains("\u{9000}\u{51fa}\u{5176}\u{4ed6}\u{6b63}\u{5728}\u{8fd0}\u{884c}\u{7684}\u{8bf7}\u{65e8}"))
+        XCTAssertTrue(chinese.contains("\u{5e94}\u{7528}\u{7a0b}\u{5e8f}"))
+        XCTAssertFalse(chinese.contains("\u{5957}\u{63a5}\u{5b57}"))
+        let unrelated = BrokerRuntimeFailure.userFacing(
+            for: BrokerSocketError.systemError("bind", EACCES)
+        )
+        XCTAssertNotEqual(unrelated.message, failure.message)
+    }
+
     func testRecoveryDoesNotStartASecondBroker() {
         var starts = 0
         var running = false

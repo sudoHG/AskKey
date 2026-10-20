@@ -135,7 +135,11 @@ Claude Code、Codex、Cursor 和 Grok CLI。在应用的 **Agent 接入**页面�
 
 ## 升级
 
-退出请旨，按[安装](#安装)中的步骤下载并校验新版 DMG，用其中的应用替换 `/Applications/Ask Key.app`，然后重新启动。凭证库和设置会保留。请关注 [GitHub Releases](https://github.com/sudoHG/AskKey/releases) 获取新版本；应用没有自动更新功能。
+替换应用前，先退出正在运行的请旨。按[安装](#安装)中的步骤下载并校验新版 DMG，用其中的应用替换 `/Applications/Ask Key.app`，然后从“应用程序”打开请旨。凭证及其权限会保留。
+
+从 0.3.1 升级到 0.3.2 后，Agent 访问会暂停一次，需要选择**恢复 Agent 访问**并完成系统认证。此前的 Agent 访问偏好会恢复为默认值：批准读取需要系统认证，限时允许已开启，时长为 30 分钟。之后可在**设置**中重新调整。
+
+请关注 [GitHub Releases](https://github.com/sudoHG/AskKey/releases) 获取新版本；应用没有自动更新功能。
 
 ## 卸载
 

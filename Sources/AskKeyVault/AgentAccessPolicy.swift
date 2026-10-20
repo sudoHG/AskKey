@@ -101,7 +101,7 @@ enum AgentAccessPolicyError: Error, LocalizedError {
         case .invalidPolicy:
             return "Agent access settings are invalid."
         case .recoveryRequired:
-            return "Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings."
+            return "Agent access is paused until its settings are confirmed. This is needed once after updating to 0.3.2, or when saved settings cannot be verified. Choose Resume Agent Access and complete system authentication to restore the defaults: authentication for read approvals and 30-minute timed allowances. You can change these in Settings afterwards."
         case .unreadable:
             return "Ask Key could not read the saved agent access settings. Allow Keychain access, then try again."
         case .notOwner:

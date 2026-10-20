@@ -148,7 +148,7 @@ package final class VaultViewModel {
             messages.append(appLocalized(failure.messageKey))
         }
         if agentAccessPolicyNeedsRecovery {
-            messages.append(appLocalized("Agent access was paused because its saved settings were missing or changed outside Ask Key. Resume Agent Access to restore the default settings."))
+            messages.append(appLocalized("Agent access is paused until its settings are confirmed. This is needed once after updating to 0.3.2, or when saved settings cannot be verified. Choose Resume Agent Access and complete system authentication to restore the defaults: authentication for read approvals and 30-minute timed allowances. You can change these in Settings afterwards."))
         }
         if let failure = agentAccessPolicySaveFailure {
             messages += failure.messageKeys.map { appLocalized($0) }

@@ -113,6 +113,9 @@ func mcpStatusError(
     if brokerCode == BrokerErrorCode.requestRejected.rawValue {
         payload["next_step"] = AgentUsageGuide.rejected
     }
+    if brokerCode == BrokerErrorCode.agentAccessPaused.rawValue {
+        payload["next_step"] = "Ask the user to choose Resume Agent Access in Ask Key."
+    }
     let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
     return mcpToolError(id: id, message: String(decoding: data, as: UTF8.self))
 }
