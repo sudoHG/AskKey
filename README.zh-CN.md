@@ -51,6 +51,13 @@
 2. **接入你的 Agent。** 打开 **Agent 接入**页面，在 Claude Code、Codex、Cursor 或 Grok CLI 旁边选择“接入…”。详见[支持的客户端](#支持的客户端)。
 3. **试一次。** 把 **Agent 接入**页面上的示范提示词发给 Agent，例如“用请旨里的 Staging API 跑一条命令，确认变量都已拿到，不要显示值”。请旨会弹出批准窗口，选择“允许本次”。Agent 只看到命令的输出，这次使用会出现在**访问记录**里。在自己的项目里，用同样的说法让它运行真正的命令，比如 `./deploy.sh`。
 
+## Windows
+
+请旨本身是 macOS 应用。以下是社区贡献者在各自仓库中维护的第三方 Windows 移植：
+
+- [A1mAssist/AskKey](https://github.com/A1mAssist/AskKey)：C# 与 WinUI
+- [WENGENG-boop/AskKey-Windows](https://github.com/WENGENG-boop/AskKey-Windows)：Rust 与 Tauri
+
 ## 工作方式
 
 请旨可以保存文本凭证（API key、token、密码）和文件（SSH 私钥、`.p8`、PEM、服务账号 JSON）。一份凭证可以包含多项内容，每一项映射到一个环境变量名。你可以在应用里手动添加，也可以导入 `.env` 文件。

@@ -51,6 +51,13 @@ The welcome page walks you through the same steps.
 2. **Connect your Agent.** Open the **Agent access** page and choose **Connect…** next to Claude Code, Codex, Cursor or Grok CLI. See [Supported clients](#supported-clients).
 3. **Try it once.** Send your Agent the sample prompt from **Agent access**, for example "Use Staging API from Ask Key to run a command that checks its variables are set, without printing their values". Ask Key shows an approval prompt; choose **Allow once**. The Agent sees only the command's output, and the use appears in **Access records**. In your projects, ask for real commands such as `./deploy.sh` the same way.
 
+## Windows
+
+Ask Key itself is a macOS app. Community contributors maintain third-party Windows ports in their own repositories:
+
+- [A1mAssist/AskKey](https://github.com/A1mAssist/AskKey): C# and WinUI
+- [WENGENG-boop/AskKey-Windows](https://github.com/WENGENG-boop/AskKey-Windows): Rust and Tauri
+
 ## How it works
 
 Ask Key stores text credentials (API keys, tokens, passwords) and files (SSH keys, `.p8`, PEM, service-account JSON). One credential can have several parts, each mapped to an environment variable name. You add credentials by hand or import a `.env` file in the app.
