@@ -451,7 +451,7 @@ final class SharedAgentAccessPolicyTests: XCTestCase {
 
     private func makeSecondVault(_ library: AgentAccessPolicyLibrary) throws -> Vault {
         let manager = try FileDeliveryManager(rootURL: library.root.appendingPathComponent("second-deliveries"))
-        let vault = Vault(store: try library.store, key: library.key, policyStore: library.keys, fileDeliveryManager: manager)
+        let vault = Vault(store: try library.store, key: try library.key, policyStore: library.keys, fileDeliveryManager: manager)
         vault.approvalRequests.configureAuthentication { _ in true }
         return vault
     }
