@@ -43,6 +43,7 @@ public final class Vault {
     private let clock: () -> Date
     private var _key: SymmetricKey?
     private var _store: VaultStore?
+    private var _openedLibraryURL: URL?
     private var _managementSessionExpiresAt: Date?
     private var _accessRecordWriteFailed = false
     private var _agentAccessPolicyState: AgentAccessPolicyState?
@@ -432,7 +433,11 @@ public final class Vault {
         let opened: (store: VaultStore, key: SymmetricKey, created: Bool)
         do {
             keys = try keyStore()
-            opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+            let databaseURL = paths.currentDatabase.standardizedFileURL.resolvingSymlinksInPath()
+            stateLock.lock()
+            let hasOpenLibrary = _store != nil && _openedLibraryURL == databaseURL
+            stateLock.unlock()
+            opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, allowsCreation: !hasOpenLibrary)
         } catch {
             _ = try agentAccessGate.beginExclusiveChange()
             applyAgentAccessPolicy(.failClosed, needsRecovery: true,
@@ -443,6 +448,9 @@ public final class Vault {
             throw error
         }
         try adoptBootstrappedLibrary(opened, keyStore: keys)
+        stateLock.lock()
+        _openedLibraryURL = paths.currentDatabase.standardizedFileURL.resolvingSymlinksInPath()
+        stateLock.unlock()
     }
 
     private func adoptBootstrappedLibrary(
@@ -534,7 +542,7 @@ public final class Vault {
         stateLock.unlock()
         try current?.close()
         stateLock.lock()
-        if _store === current { _store = nil }
+        if _store === current { _store = nil; _openedLibraryURL = nil }
         stateLock.unlock()
     }
 
@@ -543,6 +551,7 @@ public final class Vault {
         _key = nil
         _store?.bindCredentialAuthenticationKey(nil)
         _store = nil
+        _openedLibraryURL = nil
         _managementSessionExpiresAt = nil
         _agentAccessPolicyState = nil
         _policyKeyStore = nil

@@ -90,26 +90,27 @@ extension CurrentLibraryAdoptionTests {
         try assertRejected(sql: Self.currentHistorySQL + "DROP TABLE activity_log;", error: .schemaMismatch)
     }
 
-    func testPendingKeyIsPromotedForBaselineOnlyUnfinishedCreation() throws {
+    func testPendingKeyIsDiscardedAndBaselineOnlyUnfinishedCreationIsRecreated() throws {
         let (paths, keys) = try unfinishedBaselineCreation()
         let pending = try XCTUnwrap(keys.pendingKey)
         try addHistoricalSiblings(paths)
         let siblings = try directoryBytes(paths.directory).filter { $0.key != "credentials-v2.db" }
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
-        XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
+        let generated = VaultCrypto.keyToData(opened.key)
+        XCTAssertNotEqual(generated, pending)
         XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
         XCTAssertEqual(try existingLegacyTables(opened.store), [])
         XCTAssertEqual(try opened.store.db.read { try CurrentLibrarySchema.normalizedSchema($0) },
                        try v15SchemaWithoutLegacyTables())
         try opened.store.close()
         XCTAssertEqual(try directoryBytes(paths.directory).filter { $0.key != "credentials-v2.db" }, siblings)
-        XCTAssertEqual(keys.appKey, pending)
+        XCTAssertEqual(keys.appKey, generated)
         XCTAssertNil(keys.pendingKey)
-        XCTAssertEqual(keys.mutations, 2)
+        XCTAssertEqual(keys.mutations, 4)
 
         let reopened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         try reopened.store.close()
-        XCTAssertEqual(keys.mutations, 3, "the App-key reopen only calls deletePendingKey")
+        XCTAssertEqual(keys.mutations, 5, "the App-key reopen only calls deletePendingKey")
     }
 
     /// A library left at `[askkey-0001-baseline]` by the baseline-only code,

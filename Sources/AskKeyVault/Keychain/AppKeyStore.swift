@@ -51,7 +51,23 @@ final class AppBoundKeyStore: AppKeyStore {
 
     func savePendingKey(_ data: Data) throws { try saveAppBound(data, service: pendingService) }
     func loadPendingKey() throws -> Data { try load(service: pendingService, missing: .missingPendingKey) }
-    func promotePendingKey() throws { try saveAppBound(loadPendingKey(), service: appService) }
+    func promotePendingKey(expected data: Data) throws {
+        try withKeychain { context in
+            // Pending is an ordering marker, never the source of the App key.
+            try verify(data, service: pendingService, account: Self.account, context: context)
+            guard try findItem(service: appService, account: Self.account, context: context) == nil else {
+                throw AppKeyStoreError.conflictingKey
+            }
+            try add(data, service: appService, account: Self.account, context: context)
+            do {
+                try verify(data, service: appService, account: Self.account, context: context)
+                try verify(data, service: pendingService, account: Self.account, context: context)
+            } catch {
+                try delete(service: appService)
+                throw error
+            }
+        }
+    }
     func loadAppKey() throws -> Data { try load(service: appService, missing: .missingAppKey) }
     func deleteLegacyKey() throws { try delete(service: legacyService) }
     func deletePendingKey() throws { try delete(service: pendingService) }
@@ -153,7 +169,7 @@ final class AppBoundKeyStore: AppKeyStore {
 package protocol AppKeyStore: AnyObject {
     func savePendingKey(_ data: Data) throws
     func loadPendingKey() throws -> Data
-    func promotePendingKey() throws
+    func promotePendingKey(expected data: Data) throws
     func loadAppKey() throws -> Data
     func deleteLegacyKey() throws
     func deletePendingKey() throws

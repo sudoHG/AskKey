@@ -85,7 +85,7 @@ private final class E2EPolicyStore: AppKeyStore {
     }
     func savePendingKey(_ data: Data) throws { throw CocoaError(.featureUnsupported) }
     func loadPendingKey() throws -> Data { throw CocoaError(.featureUnsupported) }
-    func promotePendingKey() throws { throw CocoaError(.featureUnsupported) }
+    func promotePendingKey(expected data: Data) throws { throw CocoaError(.featureUnsupported) }
     func loadAppKey() throws -> Data { throw CocoaError(.featureUnsupported) }
     func deleteLegacyKey() throws { }
     func deletePendingKey() throws { }

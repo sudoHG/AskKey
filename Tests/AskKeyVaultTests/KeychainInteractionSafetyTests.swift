@@ -18,7 +18,7 @@ final class KeychainInteractionSafetyTests: XCTestCase {
             { _ = try store.loadAppKey() },
             { _ = try store.loadPendingKey() },
             { try store.savePendingKey(Data(repeating: 0x42, count: 32)) },
-            { try store.promotePendingKey() },
+            { try store.promotePendingKey(expected: Data(repeating: 0x42, count: 32)) },
             { try store.deleteAppKey() },
             { try store.deletePendingKey() },
             { try store.deleteLegacyKey() },
