@@ -101,13 +101,13 @@ enum AgentAccessPolicyError: Error, LocalizedError {
         case .invalidPolicy:
             return "Agent access settings are invalid."
         case .recoveryRequired:
-            return "Agent access is paused until its settings are confirmed. This is needed once after updating to 0.3.2, or when saved settings cannot be verified. Choose Resume Agent Access and complete system authentication to restore the defaults: authentication for read approvals and 30-minute timed allowances. You can change these in Settings afterwards."
+            return "Agent access is paused for confirmation, needed once after updating from 0.3.1 or earlier or if saved settings cannot be verified. Resume Agent Access with system authentication restores defaults: authenticated read approvals and 30-minute timed allowances. Change these in Settings."
         case .unreadable:
             return "Ask Key could not read the saved agent access settings. Allow Keychain access, then try again."
         case .notOwner:
-            return "This Ask Key instance does not own Agent access for this library. Change settings in the running instance."
+            return "Agent access for this credential library is served by another running copy of Ask Key. Change settings there."
         case .ownershipRevoked:
-            return "This Ask Key instance has stopped serving this library because socket ownership could not be verified. Agent access is paused here. Check the local Ask Key folder, then retry."
+            return "Ask Key could not confirm that this copy can still serve this credential library, so Agent access is paused here. Quit any other running copy of Ask Key, then retry Agent access."
         }
     }
 }
