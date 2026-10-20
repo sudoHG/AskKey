@@ -33,7 +33,8 @@ final class AgentAccessPolicyTestLibrary {
                 try self.vault.updateTimedAllowance(enabled: enabled, minutes: minutes)
                 return try self.vault.agentAccessPolicyState()
             },
-            isPaused: { try self.vault.isAgentAccessPaused() }
+            isPaused: { try self.vault.isAgentAccessPaused() },
+            validateOwnership: { try self.vault.validateAgentAccessPolicyOwnership() }
         )
     }
 

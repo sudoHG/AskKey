@@ -145,8 +145,18 @@ final class AgentAccessPolicyTests: XCTestCase {
 
     func testPolicyLoadFailurePausesWithoutWriting() throws {
         let library = try makeLibrary(withCredential: true)
+        let saved = library.keys.policy
+        let writes = library.keys.policyWrites
         library.keys.policyLoadFailure = SyntheticPolicyFailure()
-        try assertFailClosedAfterReopen(library)
+        try library.reopen()
+        XCTAssertEqual(try library.vault.agentAccessPolicyState(),
+                       .init(policy: .defaults, needsRecovery: false, readUnavailable: true))
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        XCTAssertEqual(library.keys.policy, saved)
+        XCTAssertEqual(library.keys.policyWrites, writes)
+        library.keys.policyLoadFailure = nil
+        _ = try library.vault.brokerCredentialCatalog()
+        XCTAssertFalse(try library.vault.isAgentAccessPaused())
     }
 
     func testAuthenticatedRecoveryResumeWritesDefaultsAndSurvivesReopen() throws {

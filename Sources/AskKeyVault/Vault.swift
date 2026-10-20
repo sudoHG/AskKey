@@ -49,6 +49,7 @@ public final class Vault {
     private var _agentAccessPolicyState: AgentAccessPolicyState?
     private var _policyKeyStore: AppKeyStore?
     private var _agentAccessPolicyLatches = AgentAccessPolicyLatches()
+    let agentAccessPolicyOwnership = AgentAccessPolicyOwnership()
     private let pathsOverride: VaultBootstrapPaths?
     private let keyStoreOverride: AppKeyStore?
     var legacyAgentAccessRowsRemoved = false
@@ -58,7 +59,8 @@ public final class Vault {
     }
 
     func finishCredentialChange(wasPaused: Bool, snapshotChanged: Bool) {
-        agentAccessGate.endExclusiveChange(paused: wasPaused)
+        agentAccessGate.endExclusiveChange(paused: wasPaused,
+                                          retryPolicyRead: (try? savedAgentAccessPolicyState().readUnavailable) == true)
         if snapshotChanged { notifySnapshotRelevantChange() }
     }
 
@@ -110,6 +112,7 @@ public final class Vault {
         } else {
             self.fileDeliveryManager = Self.defaultFileDeliveryManager
         }
+        agentAccessPolicyOwnership.set(true)
         configureAgentTextWriteCleanup()
     }
 
@@ -141,6 +144,7 @@ public final class Vault {
                 factory: { try FileDeliveryManager(rootURL: testRoot) }
             )
         }
+        agentAccessPolicyOwnership.set(true)
         self.key = key
         if let key {
             do {
@@ -156,7 +160,9 @@ public final class Vault {
         let state = try savedAgentAccessPolicyState()
         return .init(policy: state.policy, needsRecovery: state.needsRecovery,
                      isPaused: try agentAccessGate.isPaused(), pauseNotPersisted: state.pauseNotPersisted,
-                     saveFailure: state.saveFailure, keychainConflict: state.keychainConflict)
+                     saveFailure: state.saveFailure, keychainConflict: state.keychainConflict,
+                     readUnavailable: state.readUnavailable, hasVerifiedPolicy: state.hasVerifiedPolicy,
+                     readFailure: state.readFailure)
     }
 
     func savedAgentAccessPolicyState() throws -> AgentAccessPolicyState {
@@ -318,7 +324,10 @@ public final class Vault {
     public func beginOnboardingCreation() throws {
         _ = try requireKey()
         let wasPaused = try agentAccessGate.beginExclusiveChange()
-        defer { agentAccessGate.endExclusiveChange(paused: wasPaused) }
+        defer {
+            agentAccessGate.endExclusiveChange(paused: wasPaused,
+                                              retryPolicyRead: (try? savedAgentAccessPolicyState().readUnavailable) == true)
+        }
         guard try store.fetchAllCredentials().isEmpty,
               try store.fetchRecycledCredentials().isEmpty else {
             throw VaultError.managementAuthenticationRequired
@@ -440,7 +449,7 @@ public final class Vault {
             opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, allowsCreation: !hasOpenLibrary)
         } catch {
             _ = try agentAccessGate.beginExclusiveChange()
-            applyAgentAccessPolicy(.failClosed, needsRecovery: true,
+            applyAgentAccessPolicy(.failClosed, needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
                                    keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
             endManagementSession()
@@ -456,14 +465,21 @@ public final class Vault {
     private func adoptBootstrappedLibrary(
         _ opened: (store: VaultStore, key: SymmetricKey, created: Bool), keyStore: AppKeyStore
     ) throws {
-        _ = try agentAccessGate.beginExclusiveChange()
+        _ = try agentAccessGate.beginExclusiveChange(reopening: true)
         var paused = true
-        defer { agentAccessGate.endExclusiveChange(paused: paused) }
+        defer {
+            let state = try? savedAgentAccessPolicyState()
+            agentAccessGate.endExclusiveChange(paused: paused,
+                                              retryPolicyRead: state?.readUnavailable == true && state?.policy.paused == false)
+        }
         do {
             let loaded = try loadAgentAccessPolicy(key: opened.key, keyStore: keyStore, created: opened.created)
             let state = resolveAgentAccessPolicyLatches(loaded, key: opened.key, keyStore: keyStore)
             applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery,
-                                   keychainConflict: state.keychainConflict)
+                                   keychainConflict: state.keychainConflict, readUnavailable: state.readUnavailable,
+                                   hasVerifiedPolicy: state.hasVerifiedPolicy,
+                                   readFailure: state.readFailure,
+                                   adoptingPersisted: true)
             stateLock.lock()
             let oldStore = _store
             stateLock.unlock()
@@ -474,9 +490,9 @@ public final class Vault {
             _policyKeyStore = keyStore
             stateLock.unlock()
             if !state.needsRecovery { removeLegacyAgentAccessRows(from: opened.store) }
-            paused = state.policy.paused
+            paused = state.isPaused
         } catch {
-            applyAgentAccessPolicy(.failClosed, needsRecovery: true,
+            applyAgentAccessPolicy(.failClosed, needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
                                    keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
             endManagementSession()

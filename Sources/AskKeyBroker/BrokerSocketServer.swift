@@ -7,9 +7,11 @@ public final class BrokerSocketServer {
     let failedReadBufferCleared: @Sendable (BrokerClearedReadBuffer) -> Void
     private let stateLock = NSLock()
     private var listenFD: Int32 = -1
+    private var boundIdentity: BrokerSocketPathIdentity?
     private var running = false
     private var activeConnections = 0
     private var activeRequests = 0
+    private var ownershipLossHandler: @Sendable () -> Void = {}
     private let acceptQueue = DispatchQueue(label: "com.sudohg.askkey.broker.accept")
     private let connectionQueue = DispatchQueue(label: "com.sudohg.askkey.broker.connection", attributes: .concurrent)
     let requestQueue = DispatchQueue(label: "com.sudohg.askkey.broker.request", attributes: .concurrent)
@@ -31,16 +33,22 @@ public final class BrokerSocketServer {
     }
 
     public func start() throws {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard listenFD < 0 else { throw BrokerSocketError.systemError("already started", EALREADY) }
         let directory = (socketPath as NSString).deletingLastPathComponent
         try FileManager.default.createDirectory(
             atPath: directory,
             withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700]
         )
-        unlink(socketPath)
+        let startupLock = try BrokerSocketStartupLock.acquire(for: socketPath)
+        defer { withExtendedLifetime(startupLock) {} }
+        try BrokerSocketPathIdentity.removeStaleSocket(at: socketPath)
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw BrokerSocketError.systemError("socket", errno) }
+        let identity: BrokerSocketPathIdentity
         do {
             var address = try makeBrokerAddress(path: socketPath)
             let result = withUnsafePointer(to: &address) {
@@ -49,6 +57,10 @@ public final class BrokerSocketServer {
                 }
             }
             guard result == 0 else { throw BrokerSocketError.systemError("bind", errno) }
+            guard let bound = try BrokerSocketPathIdentity.read(socketPath) else {
+                throw BrokerSocketError.systemError("bound socket missing", ENOENT)
+            }
+            identity = bound
             guard chmod(socketPath, 0o600) == 0 else {
                 throw BrokerSocketError.systemError("chmod", errno)
             }
@@ -57,25 +69,56 @@ public final class BrokerSocketServer {
             }
         } catch {
             close(fd)
-            unlink(socketPath)
             throw error
         }
 
-        stateLock.lock()
         listenFD = fd
+        boundIdentity = identity
         running = true
-        stateLock.unlock()
         acceptQueue.async { [weak self] in self?.acceptLoop() }
     }
 
     public func stop() {
         stateLock.lock()
+        stopLocked()
+        stateLock.unlock()
+    }
+
+    private func stopLocked() {
         running = false
         let fd = listenFD
         listenFD = -1
+        boundIdentity = nil
+        if fd >= 0 {
+            shutdown(fd, SHUT_RDWR)
+            close(fd)
+        }
+    }
+
+    package func setOwnershipLossHandler(_ handler: @escaping @Sendable () -> Void) {
+        stateLock.lock(); defer { stateLock.unlock() }
+        ownershipLossHandler = handler
+    }
+
+    package var ownsSocketPath: Bool {
+        stateLock.lock(); defer { stateLock.unlock() }
+        guard running, listenFD >= 0, let boundIdentity else { return false }
+        return (try? BrokerSocketPathIdentity.read(socketPath)) == boundIdentity
+    }
+
+    /// No callback runs under the socket lock: the Vault may quiesce providers.
+    func requireSocketOwnership() -> Bool {
+        stateLock.lock()
+        guard running, listenFD >= 0, let boundIdentity else { stateLock.unlock(); return false }
+        guard (try? BrokerSocketPathIdentity.read(socketPath)) == boundIdentity else {
+            let handler = ownershipLossHandler
+            stopLocked()
+            stateLock.unlock()
+            handler()
+            return false
+        }
         stateLock.unlock()
-        if fd >= 0 { close(fd) }
-        unlink(socketPath)
+        return true
     }
 
     private func acceptLoop() {
@@ -92,6 +135,11 @@ public final class BrokerSocketServer {
                 close(fd)
                 continue
             }
+            guard requireSocketOwnership() else {
+                _ = write(.failure(.agentAccessPaused), to: fd)
+                close(fd)
+                return
+            }
             guard reserveConnection() else {
                 _ = write(.failure(.resourceExhausted), to: fd)
                 close(fd)
@@ -105,7 +153,7 @@ public final class BrokerSocketServer {
         }
     }
 
-    private var isRunning: Bool {
+    package var isRunning: Bool {
         stateLock.lock(); defer { stateLock.unlock() }
         return running
     }

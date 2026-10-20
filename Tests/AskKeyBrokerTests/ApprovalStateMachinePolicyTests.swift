@@ -54,6 +54,7 @@ final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
     func testExplicitTimedAllowanceCapsAtTwoHoursAndAcceptsTheBoundary() throws {
         let start = Date(timeIntervalSince1970: 75_000)
         let machine = configuredMachine(clock: { start }, authenticate: { _ in true })
+        machine.updateDefaultTimedAllowance(120 * 60)
 
         let atMaximum = try machine.submit(request(operationID: "at-two-hours"), now: start)
         _ = try machine.decide(

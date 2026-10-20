@@ -87,7 +87,7 @@ final class AgentAccessPolicyLatchTests: XCTestCase {
         }
     }
 
-    func testFailedPauseThenFailedReadNeverWritesAfterReadRecovers() throws {
+    func testFailedPauseRetriesPersistenceAfterTransientReadRecovers() throws {
         let library = try makeLibrary()
         let savedPolicy = library.keys.policy
         library.keys.policySaveFailure = SyntheticPolicyFailure()
@@ -97,13 +97,15 @@ final class AgentAccessPolicyLatchTests: XCTestCase {
         let writes = library.keys.policyWrites
 
         try library.reopen()
-        try assertPaused(library, pending: true, recovery: true)
+        try assertPaused(library, pending: true)
+        XCTAssertEqual(library.keys.policyWrites, writes)
+        XCTAssertEqual(library.keys.policy, savedPolicy)
         library.keys.policyLoadFailure = nil
         try library.reopen()
 
-        try assertPaused(library, pending: true, recovery: true)
-        XCTAssertEqual(library.keys.policyWrites, writes)
-        XCTAssertEqual(library.keys.policy, savedPolicy)
+        try assertPaused(library, pending: false)
+        XCTAssertEqual(library.keys.policyWrites, writes + 1)
+        XCTAssertTrue(try AgentAccessPolicyAuthentication.open(XCTUnwrap(library.keys.policy), using: library.key).paused)
         try library.vault.resumeAgentAccess(using: .allow)
         XCTAssertEqual(try library.vault.agentAccessPolicyState(), .init(policy: .defaults, needsRecovery: false))
     }

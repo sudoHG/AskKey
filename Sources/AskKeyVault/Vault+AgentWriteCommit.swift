@@ -31,9 +31,10 @@ extension Vault {
                 declaredPurpose: request.callerPurpose
             ))
         }
-        let wasPaused = try agentAccessGate.beginExclusiveAgentChange()
+        var wasPaused = try agentAccessGate.beginExclusiveAgentChange()
         var changed = false
         defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
+        try revalidateExclusiveAgentAccess(paused: &wasPaused)
         let result = try agentTextWrites.synchronized {
             try commitAgentTextWriteSynchronized(
                 request,

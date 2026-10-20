@@ -23,6 +23,91 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         super.tearDown()
     }
 
+    func testRevokedOwnerPauseShowsUnsavedStateAndResumeRefusesBeforeFurtherAuthentication() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        var authentications = 0
+        let model = makeModel(library, authenticate: { authentications += 1; return .allow })
+        model.languageMode = "en"
+        try library.vault.setAgentAccessPolicyOwnership(true, validateOwnership: { false })
+        let delivery = try library.vault.fileDeliveryManager.get().materialize(credentialID: "synthetic", bytes: Data("synthetic".utf8))
+        await model.pauseAgentAccess()
+        XCTAssertEqual(authentications, 1)
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.agentAccessPauseNotPersisted)
+        XCTAssertTrue(try XCTUnwrap(model.agentAccessPolicyNotice).contains("No policy change was written"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: delivery.url.path))
+        await model.resumeAgentAccess()
+        XCTAssertEqual(authentications, 1)
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("has stopped serving"))
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("paused here"))
+    }
+
+    func testUnlockedPolicyAccessRejectionShowsSpecificLocalizedGuidance() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let model = makeModel(library)
+        library.keys.loadFailure = AppKeyStoreError.policyReadAccessDenied
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        model.refreshAgentAccessPauseState()
+        model.languageMode = "en"
+        let english = try XCTUnwrap(model.agentAccessPolicyNotice)
+        XCTAssertTrue(english.contains("keychain is unlocked"))
+        XCTAssertTrue(english.contains("access control in Keychain Access"))
+        XCTAssertFalse(english.contains("Allow Keychain access"))
+        model.languageMode = "zh-Hans"
+        let chinese = try XCTUnwrap(model.agentAccessPolicyNotice)
+        XCTAssertNotEqual(english, chinese)
+        XCTAssertTrue(chinese.contains("Agent "))
+    }
+
+    func testOwnershipRevocationKeepsBrokerRetryVisibleAfterTheErrorIsDismissed() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let model = makeModel(library)
+        model.languageMode = "en"
+        let shown = expectation(description: "Revocation reported on the main actor")
+        try library.vault.setAgentAccessPolicyOwnership(true, validateOwnership: { false }, onRevocation: {
+            error in Task { @MainActor in
+                model.presentBrokerOwnershipRevocation(error)
+                shown.fulfill()
+            }
+        })
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        await fulfillment(of: [shown], timeout: 2)
+        model.refreshAgentAccessPauseState()
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(model.brokerRecoveryAvailable)
+        let failure = try XCTUnwrap(model.brokerFailureMessage)
+        XCTAssertTrue(failure.contains("socket ownership could not be verified"))
+        model.errorMessage = nil
+        model.refreshAgentAccessPauseState()
+        XCTAssertEqual(model.brokerFailureMessage, failure)
+        XCTAssertTrue(model.brokerRecoveryAvailable)
+        var retries = 0
+        model.retryBrokerStart = { retries += 1 }
+        model.retryBrokerRecovery()
+        XCTAssertEqual(retries, 1)
+    }
+
+    func testNonOwnerTighteningRefreshesLocalSettingsAndTheUnsavedNotice() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        try library.vault.updateReadApprovalAuthentication(false, using: .allow)
+        let saved = library.keys.policy
+        let model = makeModel(library)
+        model.languageMode = "en"
+        try library.vault.setAgentAccessPolicyOwnership(false)
+        XCTAssertFalse(model.setReadApprovalAuthentication(true))
+        model.setTimedAllowance(enabled: false, minutes: 15)
+        XCTAssertTrue(model.readApprovalAuthenticationEnabled)
+        XCTAssertFalse(model.timedAllowanceEnabled)
+        XCTAssertEqual(model.defaultTimedAllowanceMinutes, 15)
+        XCTAssertTrue(model.isAgentAccessPaused)
+        XCTAssertTrue(try XCTUnwrap(model.agentAccessPolicyNotice).contains("could not save"))
+        XCTAssertEqual(library.keys.policy, saved)
+    }
+
     func testLegacyDefaultsCannotOverrideAuthenticatedPolicy() throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }

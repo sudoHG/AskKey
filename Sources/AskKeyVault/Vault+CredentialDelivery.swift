@@ -11,7 +11,7 @@ extension Vault {
         now: Date = Date(),
         cancellation: BrokerCancellation? = nil
     ) throws -> [BrokerCatalogItem] {
-        try agentAccessGate.beginAgentOperation()
+        try beginAgentOperation()
         defer { agentAccessGate.endAgentOperation() }
         let key = try requireKey()
         try cancellation?.check()
@@ -71,9 +71,10 @@ extension Vault {
         for request: BrokerTextRunRequest,
         cancellation: BrokerCancellation
     ) throws -> BrokerTextCredentialResolution {
-        try agentAccessGate.beginAgentOperation()
+        try beginAgentOperation()
         var ownsAgentOperation = true
         defer { if ownsAgentOperation { agentAccessGate.endAgentOperation() } }
+        let deliveryPolicy = try savedAgentAccessPolicyState().policy
         try cancellation.check()
         guard request.declarationsAreValid else { throw BrokerTextRuntimeError.invalidRequest }
         let key = try requireKey()
@@ -194,7 +195,14 @@ extension Vault {
             + fileDeliveries.map(\.expiresAt)).min()
         let completedFileDeliveries = fileDeliveries
         let lease = BrokerTextDeliveryLease(
-            beginSpawnAuthorization: { try gate.beginSpawnAuthorization() },
+            beginSpawnAuthorization: {
+                try gate.beginSpawnAuthorization(validating: {
+                    try self.revalidateAgentAccessPolicy()
+                    guard try self.savedAgentAccessPolicyState().policy == deliveryPolicy else {
+                        throw BrokerProviderError.requestRejected
+                    }
+                })
+            },
             validate: {
                 try cancellation.check()
                 guard records.allSatisfy({ record in

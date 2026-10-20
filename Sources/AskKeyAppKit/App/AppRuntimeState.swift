@@ -5,6 +5,9 @@ import AskKeyVault
 enum AppRuntimeState {
     private(set) static var normalRuntimeInitialized = false
     static var configuration = AppRuntimeConfiguration.production
+    static var libraryInstanceLock: LibraryInstanceLock?
+    static var libraryActivationObserver: NSObjectProtocol?
+    static let libraryActivation = LibraryInstanceActivation()
 
     static func makeVaultViewModel() -> VaultViewModel {
 #if DEBUG

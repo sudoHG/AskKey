@@ -81,6 +81,43 @@ final class AgentAccessPolicyTransitionTests: XCTestCase {
         XCTAssertFalse(try library.vault.isAgentAccessPaused())
     }
 
+    func testSettingsSaveCannotLiftAnExistingLocalLifecycleGatePause() throws {
+        let library = try makeLibrary()
+        XCTAssertFalse(try library.vault.agentAccessGate.beginExclusiveChange())
+        library.vault.agentAccessGate.endExclusiveChange(paused: true)
+        try library.vault.updateTimedAllowance(enabled: true, minutes: 30)
+        XCTAssertFalse(try library.vault.agentAccessPolicyState().policy.paused)
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+    }
+
+    func testTransientReadRecoveryCannotLiftAnExplicitLifecyclePause() throws {
+        let library = try makeLibrary()
+        library.keys.policyLoadFailure = SyntheticPolicyFailure()
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        XCTAssertFalse(try library.vault.agentAccessPolicyState().needsRecovery)
+        _ = try library.vault.agentAccessGate.beginExclusiveChange()
+        library.vault.agentAccessGate.endExclusiveChange(paused: true)
+        library.keys.policyLoadFailure = nil
+        XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+        XCTAssertTrue(try library.vault.isAgentAccessPaused())
+        try library.reopen()
+        XCTAssertFalse(try library.vault.isAgentAccessPaused())
+    }
+
+    func testOwnershipAndOnboardingChecksPreserveTransientReadRetry() throws {
+        for onboarding in [false, true] {
+            let library = try makeLibrary()
+            library.keys.policyLoadFailure = SyntheticPolicyFailure()
+            XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+            if onboarding { try library.vault.beginOnboardingCreation() }
+            else { try library.vault.setAgentAccessPolicyOwnership(true) }
+            library.keys.policyLoadFailure = nil
+            XCTAssertNoThrow(try library.vault.brokerCredentialCatalog())
+            XCTAssertFalse(try library.vault.isAgentAccessPaused())
+        }
+    }
+
     private func makeLibrary() throws -> AgentAccessPolicyLibrary {
         let library = try AgentAccessPolicyLibrary()
         addTeardownBlock { try library.close() }

@@ -4,7 +4,7 @@ import AskKeyBroker
 
 extension Vault {
     func requestAgentOrganization(_ request: AgentTextWriteRequest) throws -> AgentTextWriteRequestOutcome {
-        try agentAccessGate.beginAgentOperation()
+        try beginAgentOperation()
         defer { agentAccessGate.endAgentOperation() }
         return try agentOrganizations.synchronized {
             let digest = try agentTextWriteDigest(request)
@@ -48,9 +48,10 @@ extension Vault {
 
     func commitAgentOrganization(_ request: AgentTextWriteRequest, requestID: String,
                                  capability: String) throws -> AgentTextWriteResult {
-        let wasPaused = try agentAccessGate.beginExclusiveAgentChange()
+        var wasPaused = try agentAccessGate.beginExclusiveAgentChange()
         var changed = false
         defer { finishCredentialChange(wasPaused: wasPaused, snapshotChanged: changed) }
+        try revalidateExclusiveAgentAccess(paused: &wasPaused)
         return try agentOrganizations.synchronized {
             let digest = try agentTextWriteDigest(request)
             let capabilityDigest = Self.componentDigest(Data(capability.utf8))

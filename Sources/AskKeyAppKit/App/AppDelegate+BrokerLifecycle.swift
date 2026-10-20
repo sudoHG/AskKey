@@ -5,6 +5,14 @@ import AskKeyVault
 extension AppDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         if ManagementAuthenticationSubprocess.startIfRequested() { return }
+        defer {
+            AppRuntimeState.libraryActivation.install { [weak self] in self?.openManagementWindow() }
+        }
+        NotificationCenter.default.addObserver(
+            forName: .askKeyAgentAccessPolicyDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.vault.refreshAgentAccessPauseState() }
+        }
         launchSource = AppLaunchSource(event: NSAppleEventManager.shared().currentAppleEvent)
         ensureManagementWindow()
         _ = managementDockPolicy.handle(
@@ -67,6 +75,8 @@ extension AppDelegate {
     // protocol.
     private func startBroker() {
         guard brokerServer == nil else { return }
+        do { try Vault.shared.setAgentAccessPolicyOwnership(false) }
+        catch { presentBrokerRuntimeFailure(error); return }
         let topology = OfficialInstallTopology.decide(
             bundleURL: Bundle.main.bundleURL,
             isDevelopmentBuild: VaultConfiguration.isDevelopmentBuild
@@ -78,20 +88,6 @@ extension AppDelegate {
             brokerServer = nil
             return
         }
-        do {
-            try Vault.shared.prepareAgentRuntime()
-        } catch {
-            if error is VaultBootstrapError {
-                vault.errorMessage = UserFacingCopy.message(for: error)
-            } else {
-                vault.errorMessage = "Ask Key could not prepare Agent access. Open the app to review the vault state."
-            }
-            NSLog("AskKey: broker disabled because the vault store is unavailable: \(error.localizedDescription)")
-            brokerServer?.stop()
-            brokerServer = nil
-            return
-        }
-        vault.refreshAgentAccessPauseState()
         if AppRuntimeState.configuration.didStart == nil {
             CredentialExpiryReminderController.shared.onAuthorizationFailure = { [weak self] message in
                 Task { @MainActor [weak self] in
@@ -252,12 +248,42 @@ extension AppDelegate {
             socketPath: BrokerConfiguration.socketURL.path,
             handler: handler
         )
+        server.setOwnershipLossHandler {
+            try? Vault.shared.validateAgentAccessPolicyOwnership()
+        }
         do {
             try server.start()
+            try Vault.shared.setAgentAccessPolicyOwnership(true, validateOwnership: { [weak server] in
+                server?.ownsSocketPath == true
+            }, onRevocation: { [weak self, weak server] error in
+                server?.stop()
+                Task { @MainActor [weak self, weak server] in
+                    guard let self, let server, self.brokerServer === server else { return }
+                    self.brokerServer = nil
+                    self.fileWriteCoordinator = nil
+                    self.vault.presentBrokerOwnershipRevocation(error)
+                    self.vault.refreshAgentAccessPauseState()
+                }
+            })
+            do {
+                try Vault.shared.prepareAgentRuntime()
+            } catch {
+                server.stop()
+                try? Vault.shared.setAgentAccessPolicyOwnership(false)
+                if error is VaultBootstrapError {
+                    vault.errorMessage = UserFacingCopy.message(for: error)
+                } else {
+                    vault.errorMessage = "Ask Key could not prepare Agent access. Open the app to review the vault state."
+                }
+                NSLog("AskKey: broker disabled because the vault store is unavailable: \(error.localizedDescription)")
+                return
+            }
             brokerServer = server
             vault.clearBrokerRuntimeFailure()
             vault.refreshAgentAccessPauseState()
         } catch {
+            server.stop()
+            try? Vault.shared.setAgentAccessPolicyOwnership(false)
             presentBrokerRuntimeFailure(error)
         }
     }
@@ -271,6 +297,12 @@ extension AppDelegate {
     }
 
     private func retryBrokerStart() {
+        if let server = brokerServer, !server.ownsSocketPath {
+            try? Vault.shared.validateAgentAccessPolicyOwnership()
+            server.stop()
+            brokerServer = nil
+            fileWriteCoordinator = nil
+        }
         var recovery = BrokerRuntimeRecovery(
             isRunning: { [weak self] in self?.brokerServer != nil },
             start: { [weak self] in

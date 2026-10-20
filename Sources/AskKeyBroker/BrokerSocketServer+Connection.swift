@@ -20,6 +20,10 @@ extension BrokerSocketServer {
                 var data = frame.data
                 defer { data.resetBytes(in: data.startIndex..<data.endIndex) }
                 defer { frame.descriptors.forEach { close($0) } }
+                guard requireSocketOwnership() else {
+                    _ = write(.failure(.agentAccessPaused), to: fd)
+                    return
+                }
                 guard reserveRequest() else {
                     _ = write(.failure(.resourceExhausted), to: fd)
                     return
@@ -92,7 +96,11 @@ extension BrokerSocketServer {
         }
         requestQueue.async { [weak self] in
             guard let self else { completed.signal(); return }
-            box.set(self.handler.handle(request, descriptors: descriptors, cancellation: cancellation))
+            if self.requireSocketOwnership() {
+                box.set(self.handler.handle(request, descriptors: descriptors, cancellation: cancellation))
+            } else {
+                box.set(.failure(.agentAccessPaused))
+            }
             lease.release()
             completed.signal()
         }

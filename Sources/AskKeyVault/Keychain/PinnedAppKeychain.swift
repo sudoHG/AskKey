@@ -56,6 +56,12 @@ struct PinnedAppKeychain {
         let pinned: SecKeychain
         let searchList: [SecKeychain]
 
+        var isUnlocked: Bool {
+            var status = SecKeychainStatus()
+            guard SecKeychainGetStatus(pinned, &status) == errSecSuccess else { return false }
+            return status & SecKeychainStatus(kSecUnlockStateStatus) != 0
+        }
+
         func query(service: String, account: String) -> [String: Any] {
             KeychainQuery.forbidAuthenticationUI([
                 kSecClass as String: kSecClassGenericPassword,

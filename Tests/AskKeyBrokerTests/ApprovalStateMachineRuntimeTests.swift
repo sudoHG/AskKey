@@ -2,6 +2,27 @@ import XCTest
 @testable import AskKeyBroker
 
 final class ApprovalStateMachineRuntimeTests: ApprovalStateMachineTestCase {
+    func testTimedRevocationUsesEachRuntimeCredentialsApprovalSource() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        let once = request(operationID: "once-source", credentialID: "once")
+        let timed = request(operationID: "timed-source", credentialID: "timed")
+        let onceTicket = try machine.submit(once)
+        let timedTicket = try machine.submit(timed)
+        _ = try machine.decide(requestID: onceTicket.requestID, capability: onceTicket.capability, decision: .once)
+        _ = try machine.decide(requestID: timedTicket.requestID, capability: timedTicket.capability, decision: .timedAllow(duration: 60))
+        let authorization = try XCTUnwrap(machine.consumeForRuntime([
+            .init(requestID: onceTicket.requestID, capability: onceTicket.capability, operationRequest: once),
+            .init(requestID: timedTicket.requestID, capability: timedTicket.capability, operationRequest: timed)
+        ]))
+        defer { authorization.finish() }
+        let later = try machine.submit(request(operationID: "later-timed-for-once", credentialID: "once"))
+        _ = try machine.decide(requestID: later.requestID, capability: later.capability, decision: .timedAllow(duration: 60))
+        XCTAssertTrue(machine.revokeTimedAllowance(credentialID: "once"))
+        XCTAssertNoThrow(try authorization.validate(), "The mixed authorization used once-only approval for this credential")
+        XCTAssertTrue(machine.revokeTimedAllowance(credentialID: "timed"))
+        XCTAssertThrowsError(try authorization.validate())
+    }
+
     func testConcurrentCountCallbacksCannotPublishAnOlderCountLast() throws {
         let recorder = OrderedCountRecorder()
         let machine = BrokerApprovalStateMachine(

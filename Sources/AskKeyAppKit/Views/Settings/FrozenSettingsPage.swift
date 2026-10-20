@@ -99,6 +99,7 @@ struct FrozenSettingsPage: View {
                         .buttonStyle(.secondaryAction)
                     Button(confirmationTitle, role: .destructive) {
                         Task {
+                            guard vault.preflightAgentAccessPolicyChange() else { return }
                             guard let authenticator = await vault.confirmDeviceOwner(
                                 reason: ManagementAuthenticationAction.disableReadAuthentication.reasonKey
                             ) else { return }

@@ -7,7 +7,7 @@ extension VaultViewModel {
     /// the approval prompt, this needs no authentication.
     func denyPendingApproval(_ approval: BrokerPendingApproval) {
         do {
-            _ = try Vault.shared.approvalRequests.decide(
+            _ = try Vault.shared.decideAgentApproval(
                 requestID: approval.requestID,
                 capability: approval.capability,
                 decision: .deny

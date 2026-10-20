@@ -7,6 +7,7 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
 
     struct RuntimeAuthorization {
         let credentialIDs: Set<String>
+        let timedCredentialIDs: Set<String>
         let expiresAt: Date
         var valid = true
         var cleanups: [@Sendable () -> Void] = []

@@ -9,9 +9,11 @@ enum AppKeyStoreError: Error, Equatable, LocalizedError {
     case conflictingItem(AppKeychainItemKind)
     case policyPersistenceUnknown
     case policyPersistenceUnknownWithConflict(AppKeychainItemKind)
+    case policyReadAccessDenied
 
     var errorDescription: String? {
-        conflictingItemKind?.conflictMessage
+        if case .policyReadAccessDenied = self { return AgentAccessPolicyReadFailure.accessDenied.messageKey }
+        return conflictingItemKind?.conflictMessage
     }
 
     var conflictingItemKind: AppKeychainItemKind? {
@@ -76,8 +78,17 @@ final class AppBoundKeyStore: AppKeyStore {
     func loadAgentAccessPolicy() throws -> Data? {
         try withKeychain { context in
             guard let item = try findItem(service: appService, account: Self.policyAccount, context: context) else { return nil }
-            return try context.read(item)
+            do { return try context.read(item) }
+            catch { throw Self.policyReadError(error, keychainUnlocked: context.isUnlocked) }
         }
+    }
+
+    static func policyReadError(_ error: Error, keychainUnlocked: Bool) -> Error {
+        guard keychainUnlocked, case let AppKeyStoreError.securityFailure(status) = error,
+              [errSecAuthFailed, errSecInteractionNotAllowed, errSecInteractionRequired, errSecNoAccessForItem].contains(status) else {
+            return error
+        }
+        return AppKeyStoreError.policyReadAccessDenied
     }
 
     func saveAgentAccessPolicy(_ data: Data) throws {
