@@ -2783,12 +2783,12 @@
         }
       }
     },
-    "Agent access is paused for confirmation, needed once after updating from 0.3.1 or earlier or if saved settings cannot be verified. Resume Agent Access with system authentication restores defaults: authenticated read approvals and 30-minute timed allowances. Change these in Settings.": {
+    "Agent access is paused until you confirm its settings. This happens once after updating from 0.3.1 or earlier, or when saved settings can't be verified. Choose Resume Agent Access to restore the defaults (system authentication for read approvals, 30-minute timed allowances); you can change them in Settings.": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Agent access is paused for confirmation, needed once after updating from 0.3.1 or earlier or if saved settings cannot be verified. Resume Agent Access with system authentication restores defaults: authenticated read approvals and 30-minute timed allowances. Change these in Settings." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问暂停待确认：从 0.3.1 或更早版本升级后需确认一次，无法验证设置时也需确认。选择“恢复 Agent 访问”并完成系统认证，会恢复默认值：批准读取需系统认证，开启 30 分钟限时允许。之后可在“设置”中调整。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access is paused for confirmation, needed once after updating from 0.3.1 or earlier or if saved settings cannot be verified. Resume Agent Access with system authentication restores defaults: authenticated read approvals and 30-minute timed allowances. Change these in Settings.!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Agent access is paused until you confirm its settings. This happens once after updating from 0.3.1 or earlier, or when saved settings can't be verified. Choose Resume Agent Access to restore the defaults (system authentication for read approvals, 30-minute timed allowances); you can change them in Settings." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问已暂停，等待确认设置。从 0.3.1 或更早版本升级后需要确认一次，无法验证已保存的设置时也需要确认。选择“恢复 Agent 访问”即可恢复默认设置（批准读取需系统认证，限时允许 30 分钟），之后可在“设置”中调整。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access is paused until you confirm its settings. This happens once after updating from 0.3.1 or earlier, or when saved settings can't be verified. Choose Resume Agent Access to restore the defaults (system authentication for read approvals, 30-minute timed allowances); you can change them in Settings.!!]" } }
       }
     },
     "Agent access is paused in this run of Ask Key. No policy change was written. The pause may be lost when Ask Key restarts.": {
