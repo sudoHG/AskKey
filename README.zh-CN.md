@@ -16,8 +16,6 @@
 
 **[下载 macOS 版](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)**（免费、经过 Apple 公证，需 Apple 芯片及 macOS 14 或更高版本）· [官网](https://askkey.sudohg.com/zh/) · [English](README.md)
 
-> **Windows 版：** 独立的 Windows 实现维护在 [A1mAssist/AskKey](https://github.com/A1mAssist/AskKey)。
-
 > 请旨目前没有备份和恢复功能，请自行另存一份凭证原件。
 
 <p align="center">
@@ -52,6 +50,13 @@
 1. **存一份凭证。** 选择“新建凭证”，或用“从文件导入…”导入 `.env` 文件。新凭证默认“每次询问”。
 2. **接入你的 Agent。** 打开 **Agent 接入**页面，在 Claude Code、Codex、Cursor 或 Grok CLI 旁边选择“接入…”。详见[支持的客户端](#支持的客户端)。
 3. **试一次。** 把 **Agent 接入**页面上的示范提示词发给 Agent，例如“用请旨里的 Staging API 跑一条命令，确认变量都已拿到，不要显示值”。请旨会弹出批准窗口，选择“允许本次”。Agent 只看到命令的输出，这次使用会出现在**访问记录**里。在自己的项目里，用同样的说法让它运行真正的命令，比如 `./deploy.sh`。
+
+## Windows
+
+请旨本身是 macOS 应用。以下是社区贡献者在各自仓库中维护的第三方 Windows 移植：
+
+- [A1mAssist/AskKey](https://github.com/A1mAssist/AskKey)：C# 与 WinUI
+- [WENGENG-boop/AskKey-Windows](https://github.com/WENGENG-boop/AskKey-Windows)：Rust 与 Tauri
 
 ## 工作方式
 

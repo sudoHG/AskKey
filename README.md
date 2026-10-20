@@ -16,8 +16,6 @@
 
 **[Download for Mac](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)** (free, notarized, Apple silicon, macOS 14 or later) · [Website](https://askkey.sudohg.com/)
 
-> **Windows port:** The separate Windows implementation lives at [A1mAssist/AskKey](https://github.com/A1mAssist/AskKey).
-
 > Ask Key has no backup or recovery yet, so keep the originals of your credentials somewhere else.
 
 <p align="center">
@@ -52,6 +50,13 @@ The welcome page walks you through the same steps.
 1. **Store a credential.** Choose **New Credential**, or **Import from File…** to bring in a `.env` file. New credentials default to **Ask every time**.
 2. **Connect your Agent.** Open the **Agent access** page and choose **Connect…** next to Claude Code, Codex, Cursor or Grok CLI. See [Supported clients](#supported-clients).
 3. **Try it once.** Send your Agent the sample prompt from **Agent access**, for example "Use Staging API from Ask Key to run a command that checks its variables are set, without printing their values". Ask Key shows an approval prompt; choose **Allow once**. The Agent sees only the command's output, and the use appears in **Access records**. In your projects, ask for real commands such as `./deploy.sh` the same way.
+
+## Windows
+
+Ask Key itself is a macOS app. Community contributors maintain third-party Windows ports in their own repositories:
+
+- [A1mAssist/AskKey](https://github.com/A1mAssist/AskKey): C# and WinUI
+- [WENGENG-boop/AskKey-Windows](https://github.com/WENGENG-boop/AskKey-Windows): Rust and Tauri
 
 ## How it works
 
