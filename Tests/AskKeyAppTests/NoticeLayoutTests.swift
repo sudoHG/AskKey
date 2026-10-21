@@ -130,12 +130,17 @@ final class NoticeLayoutTests: AskKeyAppTestCase {
         XCTAssertNil(contentGap, "Content must reach the window bottom: \(context)")
         if sidebarGap != nil || contentGap != nil {
             let png = try XCTUnwrap(host.render().representation(using: .png, properties: [:]))
-            print("NOTICE_LAYOUT_FAILURE_BEGIN \(context)")
+            func emit(_ line: String) {
+                // One small write per line avoids mixing buffered PNG data with
+                // XCTest's failure output when stdout and stderr are combined.
+                FileHandle.standardError.write(Data((line + "\n").utf8))
+            }
+            emit("NOTICE_LAYOUT_FAILURE_BEGIN \(context)")
             let encoded = Array(png.base64EncodedString())
             for start in stride(from: 0, to: encoded.count, by: 4_000) {
-                print("NOTICE_LAYOUT_FAILURE_CHUNK \(String(encoded[start..<min(start + 4_000, encoded.count)]))")
+                emit("NOTICE_LAYOUT_FAILURE_CHUNK \(String(encoded[start..<min(start + 4_000, encoded.count)]))")
             }
-            print("NOTICE_LAYOUT_FAILURE_END")
+            emit("NOTICE_LAYOUT_FAILURE_END")
         }
     }
 }

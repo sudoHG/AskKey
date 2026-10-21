@@ -98,9 +98,7 @@ enum NoticeLayoutFixtures {
 
         func render(includingChrome: Bool = true) throws -> NSBitmapImageRep {
             let frameView = includingChrome ? try XCTUnwrap(view.superview) : view
-            frameView.layoutSubtreeIfNeeded()
-            let bitmap = try XCTUnwrap(frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds))
-            frameView.cacheDisplay(in: frameView.bounds, to: bitmap)
+            let bitmap = try NoticeLayoutFixtures.render(frameView)
             XCTAssertFalse(window.isVisible)
             return bitmap
         }
@@ -127,9 +125,28 @@ enum NoticeLayoutFixtures {
         window.appearance = NSAppearance(named: .aqua)
         window.contentView = host
         defer { window.close() }
-        host.layoutSubtreeIfNeeded()
-        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-        host.cacheDisplay(in: host.bounds, to: bitmap)
+        return try render(host)
+    }
+
+    static func render(_ view: NSView) throws -> NSBitmapImageRep {
+        view.layoutSubtreeIfNeeded()
+        view.displayIfNeeded()
+        view.layer?.displayIfNeeded()
+        CATransaction.flush()
+        let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        // cacheDisplay can omit a hidden SwiftUI ScrollView's entire backing
+        // layer on CI. Render that layer tree directly, preserving its geometry.
+        if let layer = view.layer {
+            let context = try XCTUnwrap(NSGraphicsContext(bitmapImageRep: bitmap)).cgContext
+            context.translateBy(x: -view.bounds.minX, y: -view.bounds.minY)
+            if view.isFlipped {
+                context.translateBy(x: 0, y: view.bounds.height)
+                context.scaleBy(x: 1, y: -1)
+            }
+            layer.render(in: context)
+        } else {
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+        }
         return bitmap
     }
 
