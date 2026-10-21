@@ -11,16 +11,18 @@ struct AgentAccessPolicyNotice: View {
                     .foregroundStyle(Theme.warning)
                 Text(message)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
                 if showsResumeAction {
                     Button(appLocalized("Resume Agent Access")) {
                         Task { await vault.resumeAgentAccess() }
                     }
                     .buttonStyle(.secondaryAction)
+                    .fixedSize()
                 }
             }
             .font(Theme.Fonts.caption)
             .padding(10)
-            .background(Theme.warningSubtle)
+            .background(Theme.warningSubtle, ignoresSafeAreaEdges: [])
             .accessibilityIdentifier("agent-access-policy-notice")
         }
     }

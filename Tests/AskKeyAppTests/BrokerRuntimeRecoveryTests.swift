@@ -207,15 +207,13 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
         )
 
         let settings = try String(
-            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/SettingsView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/ManagementContentColumn.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(settings.contains("Retry Agent access"))
-        let strip = try XCTUnwrap(settings.range(of: "brokerRecoveryStrip"))
-        let alert = try XCTUnwrap(settings.range(of: ".alert("))
-        XCTAssertLessThan(
-            strip.lowerBound,
-            alert.lowerBound,
+        XCTAssertTrue(settings.contains("if vault.brokerRecoveryAvailable"))
+        XCTAssertFalse(
+            settings.contains("vault.errorMessage"),
             "settings recovery must remain after the error alert is dismissed"
         )
 
@@ -236,6 +234,7 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
             unlockVault: {},
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
+            agentAccessPolicyOperations: AgentAccessPolicyTestState().operations,
             credentialMutations: .readOnly { ([], [], [], false) }
         )
         let runtime = IsolatedBrokerRuntime(vault: vault, directory: directory)
