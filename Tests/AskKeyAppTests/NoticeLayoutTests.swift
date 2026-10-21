@@ -56,7 +56,7 @@ final class NoticeLayoutTests: AskKeyAppTestCase {
                     if notices.count == 2 {
                         XCTAssertLessThanOrEqual(notices[1].maxY, notices[0].minY, context)
                     }
-                    try assertShellEdges(raster, model: model, context: context)
+                    try assertShellEdges(raster, host: host, model: model, context: context)
                     if (state == .locked && recovery && !broker)
                         || (state == .management && (recovery || broker)) {
                         try host.export("\(language)-\(state)-\(recovery ? "recovery" : "no-recovery")-\(broker ? "broker" : "no-broker")")
@@ -92,7 +92,10 @@ final class NoticeLayoutTests: AskKeyAppTestCase {
         }
     }
 
-    private func assertShellEdges(_ raster: NoticeRaster, model: NoticeLayoutFixtures.Model, context: String) throws {
+    private func assertShellEdges(
+        _ raster: NoticeRaster, host: NoticeLayoutFixtures.Host,
+        model: NoticeLayoutFixtures.Model, context: String
+    ) throws {
         let sidebar = try NoticeRaster(NoticeLayoutFixtures.notice(Theme.sidebarBackground.frame(height: 2), model: model, width: 2))
         let content = try NoticeRaster(NoticeLayoutFixtures.notice(Theme.windowBackground.frame(height: 2), model: model, width: 2))
         // The outer edges contain no labels or controls. A shortened or shifted
@@ -105,5 +108,14 @@ final class NoticeLayoutTests: AskKeyAppTestCase {
             !raster.matchesPixel(x: x, y: raster.height - 1, other: content, otherX: 0, otherY: 0)
         }
         XCTAssertNil(contentGap, "Content must reach the window bottom: \(context)")
+        if sidebarGap != nil || contentGap != nil {
+            let png = try XCTUnwrap(host.render().representation(using: .png, properties: [:]))
+            print("NOTICE_LAYOUT_FAILURE_BEGIN \(context)")
+            let encoded = Array(png.base64EncodedString())
+            for start in stride(from: 0, to: encoded.count, by: 4_000) {
+                print("NOTICE_LAYOUT_FAILURE_CHUNK \(String(encoded[start..<min(start + 4_000, encoded.count)]))")
+            }
+            print("NOTICE_LAYOUT_FAILURE_END")
+        }
     }
 }
