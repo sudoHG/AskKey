@@ -12,7 +12,7 @@ enum NoticeLayoutFixtures {
         private let suite = "NoticeLayoutTests-\(UUID().uuidString)"
         private let defaults: UserDefaults
 
-        init(language: String, state: SettingsEntryState, recovery: Bool, broker: Bool) throws {
+        init(language: String, state: SettingsEntryState, recovery: Bool, broker: Bool, longContent: Bool = false) throws {
             defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
             defaults.set(language, forKey: "languageMode")
             defaults.set("light", forKey: "appearanceMode")
@@ -21,10 +21,15 @@ enum NoticeLayoutFixtures {
             policy.state = .init(policy: recovery ? .failClosed : .defaults, needsRecovery: recovery)
             let credential = ManagedTextCredential(
                 id: "synthetic-notice-layout", name: "Synthetic API", value: nil,
-                usageInstructions: "Synthetic layout fixture", privateNotes: nil,
+                usageInstructions: longContent
+                    ? Array(repeating: "Synthetic layout fixture: use only for the approved workflow and verify the destination before delivery.", count: 24).joined(separator: "\n")
+                    : "Synthetic layout fixture",
+                privateNotes: nil,
                 groupName: nil, environmentVariable: nil, permission: .ask, expiresAt: nil,
                 payloadKind: .bundle, originalFilename: nil, byteSize: nil, contentDigest: nil,
-                fileBytes: nil, components: [.init(name: "API_KEY", value: nil)]
+                fileBytes: nil, components: longContent
+                    ? (1...8).map { .init(name: "SYNTHETIC_FIELD_\($0)", value: nil) }
+                    : [.init(name: "API_KEY", value: nil)]
             )
             let credentials = state == .locked || state == .management ? [credential] : []
             vault = VaultViewModel(
@@ -78,9 +83,6 @@ enum NoticeLayoutFixtures {
                 window = ManagementWindowConfiguration.makeWindow(
                     rootView: SettingsView().environment(model.vault)
                         .environment(\.locale, model.vault.appLocale)
-                        .frame(width: WorkspaceVisualContract.windowWidth,
-                               height: WorkspaceVisualContract.windowHeight)
-                        .ignoresSafeArea(.container, edges: .top)
                 )
             }
             view = window.contentView!

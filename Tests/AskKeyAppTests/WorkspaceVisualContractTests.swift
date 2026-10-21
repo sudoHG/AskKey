@@ -17,14 +17,16 @@ final class WorkspaceVisualContractTests: WorkspaceVisualContractTestSupport {
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
         window.title = "请旨"
 
         ManagementWindowConfiguration.apply(to: window)
 
         XCTAssertEqual(window.frame.size.width, 980, accuracy: 2)
         XCTAssertEqual(window.frame.size.height, 620, accuracy: 2)
-        XCTAssertEqual(window.contentMinSize, NSSize(width: 980, height: 620))
-        XCTAssertEqual(window.contentMaxSize, NSSize(width: 980, height: 620))
+        XCTAssertEqual(window.minSize, NSSize(width: 980, height: 620))
+        XCTAssertEqual(window.maxSize, NSSize(width: 980, height: 620))
         XCTAssertFalse(window.styleMask.contains(.resizable))
         XCTAssertFalse(window.collectionBehavior.contains(.fullScreenPrimary))
         XCTAssertEqual(window.title, "请旨")
@@ -49,10 +51,6 @@ final class WorkspaceVisualContractTests: WorkspaceVisualContractTestSupport {
         let window = ManagementWindowConfiguration.makeWindow(
             rootView: SettingsView()
                 .environment(viewModel)
-                .frame(
-                    width: WorkspaceVisualContract.windowWidth,
-                    height: WorkspaceVisualContract.windowHeight
-                )
         )
         window.title = "请旨"
 
@@ -77,14 +75,14 @@ final class WorkspaceVisualContractTests: WorkspaceVisualContractTestSupport {
         let resizeWatcher = watchResizes(window)
         defer { NotificationCenter.default.removeObserver(resizeWatcher) }
 
-        window.makeKeyAndOrderFront(nil)
+        // Exercise the key-window observer without showing a local window.
         NotificationCenter.default.post(
             name: NSWindow.didBecomeKeyNotification,
             object: window
         )
         restoredOversizedFrame = false
         pumpWindowLayout(window)
-        window.setContentSize(ManagementWindowConfiguration.frameSize)
+        window.setContentSize(window.contentRect(forFrameRect: window.frame).size)
         window.contentView?.invalidateIntrinsicContentSize()
         window.contentView?.needsLayout = true
         pumpWindowLayout(window)
@@ -116,15 +114,16 @@ final class WorkspaceVisualContractTests: WorkspaceVisualContractTestSupport {
         }
         restoredOversizedFrame = false
         ManagementWindowConfiguration.apply(to: oversized)
-        oversized.makeKeyAndOrderFront(nil)
         pumpWindowLayout(oversized)
-        oversized.setContentSize(ManagementWindowConfiguration.frameSize)
+        oversized.setContentSize(oversized.contentRect(forFrameRect: oversized.frame).size)
         oversized.contentView?.invalidateIntrinsicContentSize()
         pumpWindowLayout(oversized)
         XCTAssertFalse(restoredOversizedFrame)
         XCTAssertTrue(oversized.canBecomeKey)
         XCTAssertEqual(oversized.frame.size.width, 980, accuracy: 2)
         XCTAssertEqual(oversized.frame.size.height, 620, accuracy: 2)
+        XCTAssertFalse(window.isVisible)
+        XCTAssertFalse(oversized.isVisible)
         window.close()
     }
 }

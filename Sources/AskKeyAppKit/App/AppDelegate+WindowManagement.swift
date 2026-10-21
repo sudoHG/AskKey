@@ -52,11 +52,6 @@ extension AppDelegate {
             rootView: SettingsView()
                 .environment(vault)
                 .environment(\.locale, vault.appLocale)
-                .frame(
-                    width: WorkspaceVisualContract.windowWidth,
-                    height: WorkspaceVisualContract.windowHeight
-                )
-                .ignoresSafeArea(.container, edges: .top)
         )
         window.title = vault.brandName
         managementWindow = window

@@ -11,7 +11,9 @@ enum ManagementWindowConfiguration {
     private static var isApplying = false
 
     static func makeWindow<Content: View>(rootView: Content) -> NSWindow {
-        let hosting = NSHostingView(rootView: rootView)
+        let hosting = NSHostingView(rootView: rootView
+            .frame(width: frameSize.width, height: frameSize.height)
+            .ignoresSafeArea(.container, edges: .top))
         hosting.sizingOptions = []
         let window = ManagementWindow(
             contentRect: NSRect(origin: .zero, size: frameSize),
@@ -45,14 +47,15 @@ enum ManagementWindowConfiguration {
         guard !isApplying else { return }
         isApplying = true
         defer { isApplying = false }
-        if abs(window.frame.width - frameSize.width) > 2
-            || abs(window.frame.height - frameSize.height) > 2 {
+        // The design specifies the outer frame, including the title bar.
+        // Content-size limits can add that title bar again when AppKit applies them.
+        window.minSize = frameSize
+        window.maxSize = frameSize
+        if window.frame.size != frameSize {
             var frame = window.frame
             frame.size = frameSize
             window.setFrame(frame, display: true)
         }
-        window.contentMinSize = frameSize
-        window.contentMaxSize = frameSize
     }
 
     static func applyIfSettingsWindow(from note: Notification) {
