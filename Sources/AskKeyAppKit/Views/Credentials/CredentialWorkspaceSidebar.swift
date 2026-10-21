@@ -17,7 +17,7 @@ struct CredentialWorkspaceSidebar: View {
         VStack(alignment: .leading, spacing: 0) {
             // Leave room for the window's native title-bar controls.
             Color.clear
-                .frame(height: 32)
+                .frame(height: ManagementWindowConfiguration.titlebarClearance)
                 .accessibilityHidden(true)
                 .allowsHitTesting(false)
 

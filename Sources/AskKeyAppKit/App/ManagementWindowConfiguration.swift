@@ -2,6 +2,8 @@ import SwiftUI
 
 @MainActor
 enum ManagementWindowConfiguration {
+    // Both columns reserve this row inside the fixed, full-size content view.
+    static let titlebarClearance: CGFloat = 32
     static let frameSize = NSSize(
         width: WorkspaceVisualContract.windowWidth,
         height: WorkspaceVisualContract.windowHeight

@@ -9,13 +9,7 @@ struct SettingsView: View {
 
     var body: some View {
         let _ = AppLanguage.store.resolved
-        VStack(spacing: 0) {
-            AgentAccessPolicyNotice()
-            if vault.brokerRecoveryAvailable {
-                brokerRecoveryStrip
-            }
-            rootContent
-        }
+        rootContent
         .tint(Theme.accent)
         .environment(\.locale, vault.appLocale)
         .preferredColorScheme(vault.colorScheme)
@@ -31,26 +25,6 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea(.container, edges: .top)
-    }
-
-    private var brokerRecoveryStrip: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(Theme.Fonts.caption)
-                .foregroundStyle(Theme.warning)
-            if let message = vault.brokerFailureMessage {
-                Text(appLocalized(message))
-                    .font(Theme.Fonts.caption)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            Button(appLocalized("Retry Agent access")) {
-                vault.retryBrokerRecovery()
-            }
-            .buttonStyle(.plain)
-            .font(Theme.Fonts.caption.weight(.semibold))
-        }
-        .padding(10)
-        .background(Theme.warningSubtle)
     }
 
     @ViewBuilder
@@ -125,14 +99,12 @@ struct SettingsView: View {
     }
 
     private func prototypeShell<Content: View>(
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         HStack(spacing: 0) {
             prototypeSidebar.frame(width: WorkspaceVisualContract.sidebarWidth)
             Divider().overlay(Theme.neutralSubtle)
-            content()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.windowBackground)
+            ManagementContentColumn(content: content)
         }
     }
 
