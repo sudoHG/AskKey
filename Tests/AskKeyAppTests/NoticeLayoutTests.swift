@@ -76,7 +76,8 @@ final class NoticeLayoutTests: AskKeyAppTestCase {
             defer { host.close() }
             let raster = try NoticeRaster(host.render(includingChrome: false))
             let bitmap = try NoticeLayoutFixtures.notice(
-                AgentAccessPolicyNotice(showsResumeAction: false), model: model, width: 260, popover: true
+                AgentAccessPolicyNotice(showsResumeAction: false, usesCompactRecoveryMessage: true),
+                model: model, width: 260, popover: true
             )
             let template = try NoticeRaster(bitmap)
             let match = raster.find(template, atX: 0)
@@ -85,10 +86,29 @@ final class NoticeLayoutTests: AskKeyAppTestCase {
                 try NoticeLayoutFixtures.export(bitmap, name: "unmatched-popover-template")
             }
             XCTAssertEqual(host.view.bounds.width, 260, accuracy: 1)
-            let frame = try XCTUnwrap(match, "The full \(language) recovery notice must fit")
+            let frame = try XCTUnwrap(match, "The compact \(language) recovery notice must fit")
             XCTAssertTrue(host.view.bounds.contains(frame))
-            XCTAssertGreaterThan(frame.minY, 4 * 30, "The menu actions fit below the full notice")
+            XCTAssertGreaterThan(frame.minY, 4 * 30, "The menu actions fit below the notice")
             try host.export("\(language)-popover-recovery")
+        }
+    }
+
+    func testOnlyPopoverRecoveryParagraphIsShortened() throws {
+        let previousLanguage = AppLanguage.current
+        defer { AppLanguage.current = previousLanguage }
+        for (language, expected) in [
+            ("en", "Agent access is paused until you confirm its settings."),
+            ("zh-Hans", "Agent \u{8bbf}\u{95ee}\u{5df2}\u{6682}\u{505c}\u{ff0c}\u{7b49}\u{5f85}\u{786e}\u{8ba4}\u{8bbe}\u{7f6e}\u{3002}"),
+        ] {
+            let model = try NoticeLayoutFixtures.Model(language: language, state: .locked, recovery: true, broker: false)
+            defer { model.close() }
+            let full = try XCTUnwrap(model.vault.agentAccessPolicyNotice)
+            let failure = appLocalized("Ask Key could not save the agent access settings. No policy change was written. Agent access stays paused in this run; the pause may be lost when Ask Key restarts.")
+            XCTAssertEqual(AgentAccessPolicyNotice.displayedMessage(full, compactRecovery: true), expected)
+            XCTAssertEqual(AgentAccessPolicyNotice.displayedMessage(full, compactRecovery: false), full)
+            XCTAssertEqual(AgentAccessPolicyNotice.displayedMessage(failure, compactRecovery: true), failure)
+            XCTAssertEqual(AgentAccessPolicyNotice.displayedMessage("\(full)\n\(failure)", compactRecovery: true), "\(expected)\n\(failure)")
+            XCTAssertNil(AgentAccessPolicyNotice.displayedMessage(nil, compactRecovery: true))
         }
     }
 

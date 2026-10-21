@@ -210,7 +210,7 @@ final class BrokerRuntimeRecoveryTests: AskKeyAppTestCase {
             contentsOf: root.appendingPathComponent("Sources/AskKeyAppKit/Views/ManagementContentColumn.swift"),
             encoding: .utf8
         )
-        XCTAssertTrue(settings.contains("Retry Agent access"))
+        XCTAssertTrue(settings.contains("Retry Agent Access"))
         XCTAssertTrue(settings.contains("if vault.brokerRecoveryAvailable"))
         XCTAssertFalse(
             settings.contains("vault.errorMessage"),

@@ -2783,6 +2783,14 @@
         }
       }
     },
+    "Agent access is paused until you confirm its settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Agent access is paused until you confirm its settings." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 访问已暂停，等待确认设置。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent access is paused until you confirm its settings.!!]" } }
+      }
+    },
     "Agent access is paused until you confirm its settings. This happens once after updating from 0.3.1 or earlier, or when saved settings can't be verified. Choose Resume Agent Access to restore the defaults (system authentication for read approvals, 30-minute timed allowances); you can change them in Settings.": {
       "extractionState": "manual",
       "localizations": {
@@ -11576,6 +11584,14 @@
         }
       },
       "comment": "System authentication reason when confirming resume. Not the menu or Settings button title."
+    },
+    "Retry Agent Access": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Retry Agent Access" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重试 Agent 访问" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Retry Agent Access!!]" } }
+      }
     },
     "Retry Agent access": {
       "extractionState": "extracted_with_value",

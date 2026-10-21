@@ -35,11 +35,10 @@ struct BrokerRecoveryNotice: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Button(appLocalized("Retry Agent access")) {
+            Button(appLocalized("Retry Agent Access")) {
                 vault.retryBrokerRecovery()
             }
-            .buttonStyle(.plain)
-            .font(Theme.Fonts.caption.weight(.semibold))
+            .buttonStyle(.secondaryAction)
             .fixedSize()
         }
         .padding(10)
