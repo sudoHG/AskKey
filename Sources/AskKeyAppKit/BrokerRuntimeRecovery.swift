@@ -1,9 +1,15 @@
 import Foundation
+import Darwin
 import AskKeyBroker
 
 enum BrokerRuntimeFailure {
     static func userFacing(for error: Error) -> (message: String, canRetry: Bool) {
         switch error {
+        case BrokerSocketError.systemError(_, EADDRINUSE):
+            return (
+                "Ask Key could not start Agent access because this credential library is already in use. Quit any other running copy of Ask Key, then reopen Ask Key from Applications.",
+                true
+            )
         case BrokerFileWriteError.stagingNotADirectory:
             return (
                 "Ask Key could not start Agent access because the secure staging folder is a file. Remove that file, then retry.",

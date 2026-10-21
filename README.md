@@ -135,7 +135,11 @@ What Ask Key does not guarantee:
 
 ## Upgrade
 
-Quit Ask Key, download and verify the new DMG as described in [Install](#install), then replace `/Applications/Ask Key.app` with the app from the new DMG and relaunch. Your credential library and settings are kept. Watch [GitHub Releases](https://github.com/sudoHG/AskKey/releases) for new versions; there is no automatic update.
+Quit the running Ask Key app before replacing it. Download and verify the new DMG as described in [Install](#install), replace `/Applications/Ask Key.app` with the app from the new DMG, then open Ask Key from Applications. Your credentials and their permissions are kept.
+
+When upgrading from 0.3.1 to 0.3.2, Agent access is paused once until you choose **Resume Agent Access** and complete system authentication. This restores the default Agent access preferences: read approvals require system authentication, and timed allowances are enabled for 30 minutes. Your previous Agent access preferences are reset; you can change them again in **Settings**.
+
+Watch [GitHub Releases](https://github.com/sudoHG/AskKey/releases) for new versions; there is no automatic update.
 
 ## Uninstall
 

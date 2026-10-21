@@ -227,6 +227,11 @@ enum AppLanguage {
     }
 
     @MainActor
+    static func applySavedPreference(preferences: AppPreferences = AppPreferences()) {
+        apply(mode: preferences.languageMode)
+    }
+
+    @MainActor
     static func apply(mode: String) {
         let resolved = resolve(mode: mode)
         current = resolved

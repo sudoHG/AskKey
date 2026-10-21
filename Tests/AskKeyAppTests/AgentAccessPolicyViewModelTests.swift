@@ -39,7 +39,7 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: delivery.url.path))
         await model.resumeAgentAccess()
         XCTAssertEqual(authentications, 1)
-        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("has stopped serving"))
+        XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("could not confirm"))
         XCTAssertTrue(try XCTUnwrap(model.errorMessage).contains("paused here"))
     }
 
@@ -79,7 +79,7 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         XCTAssertTrue(model.isAgentAccessPaused)
         XCTAssertTrue(model.brokerRecoveryAvailable)
         let failure = try XCTUnwrap(model.brokerFailureMessage)
-        XCTAssertTrue(failure.contains("socket ownership could not be verified"))
+        XCTAssertTrue(failure.contains("Quit any other running copy"))
         model.errorMessage = nil
         model.refreshAgentAccessPauseState()
         XCTAssertEqual(model.brokerFailureMessage, failure)
@@ -445,12 +445,24 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         model.refreshAgentAccessPauseState()
         model.languageMode = "en"
         let english = try XCTUnwrap(model.agentAccessPolicyNotice)
-        XCTAssertTrue(english.contains("missing or changed outside Ask Key"))
+        XCTAssertTrue(AppLanguage.containsKey(english, language: "en"))
+        XCTAssertTrue(AppLanguage.containsKey(english, language: "zh-Hans"))
+        for detail in ["once after updating from 0.3.1 or earlier", "can't be verified", "Resume Agent Access",
+                       "system authentication for read approvals", "30-minute", "Settings"] {
+            XCTAssertTrue(english.contains(detail), "Recovery notice must explain \(detail)")
+        }
+        XCTAssertFalse(english.contains("changed outside"))
         model.languageMode = "zh-Hans"
         let chinese = try XCTUnwrap(model.agentAccessPolicyNotice)
         XCTAssertFalse(chinese.isEmpty)
         XCTAssertNotEqual(chinese, english)
         XCTAssertEqual(chinese, AppLanguage.localized(english, language: "zh-Hans"))
+        for detail in ["0.3.1", "\u{6216}\u{66f4}\u{65e9}\u{7248}\u{672c}", "\u{786e}\u{8ba4}\u{4e00}\u{6b21}",
+                       "\u{65e0}\u{6cd5}\u{9a8c}\u{8bc1}", "\u{6062}\u{590d} Agent \u{8bbf}\u{95ee}",
+                       "\u{6279}\u{51c6}\u{8bfb}\u{53d6}\u{9700}\u{7cfb}\u{7edf}\u{8ba4}\u{8bc1}",
+                       "\u{9650}\u{65f6}\u{5141}\u{8bb8} 30 \u{5206}\u{949f}", "\u{8bbe}\u{7f6e}"] {
+            XCTAssertTrue(chinese.contains(detail), "Recovery notice must explain \(detail)")
+        }
         XCTAssertTrue(model.agentAccessPolicyNeedsRecovery)
     }
 

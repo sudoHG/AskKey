@@ -27,17 +27,16 @@ extension AppRuntimeState {
                 Task { @MainActor in libraryActivation.request() }
             }
             guard let lock = try responder.acquire(in: directory) else {
-                if !activateRunningLibrary(center: center, name: name, namespace: namespace) {
-                    showLibraryInstanceFailure(
-                        "Ask Key is already using this library, but the running instance did not respond. Try opening it again."
-                    )
+                let result = activateRunningLibrary(center: center, name: name, namespace: namespace)
+                if let message = result.messageKey {
+                    showLibraryInstanceFailure(message)
                 }
                 return false
             }
             libraryInstanceLock = lock
             return true
         } catch {
-            let format = appLocalized("The library instance lock could not be acquired: %@")
+            let format = appLocalized("Ask Key could not open this credential library. Quit any other running copy, then try again. Details: %@")
             showLibraryInstanceFailure(String(format: format, error.localizedDescription))
             return false
         }
@@ -47,8 +46,8 @@ extension AppRuntimeState {
 
     private static func activateRunningLibrary(
         center: DistributedNotificationCenter, name: Notification.Name, namespace: String
-    ) -> Bool {
-        guard let executable = Bundle.main.executableURL else { return false }
+    ) -> LibraryInstanceActivationResult {
+        guard let executable = Bundle.main.executableURL else { return .unverifiedReply }
         let identity = LibraryInstanceApplicationIdentity(bundleIdentifier: Bundle.main.bundleIdentifier,
                                                          executableURL: executable)
         let request = UUID().uuidString
@@ -58,18 +57,25 @@ extension AppRuntimeState {
         }
         defer { center.removeObserver(observer) }
         let deadline = Date().addingTimeInterval(2)
+        var result = LibraryInstanceActivationResult.noReply
         repeat {
             center.postNotificationName(name, object: namespace, userInfo: ["request": request], deliverImmediately: true)
             RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.2)))
-            if let pid = reply.processIdentifier, let running = NSRunningApplication(processIdentifier: pid),
-               identity.matches(bundleIdentifier: running.bundleIdentifier, executableURL: running.executableURL,
-                                pid: pid, ownPID: ProcessInfo.processInfo.processIdentifier) {
-                NSApplication.shared.yieldActivation(to: running)
-                running.activate(options: [.activateAllWindows])
-                return true
+            if let pid = reply.processIdentifier {
+                let running = NSRunningApplication(processIdentifier: pid)
+                result = LibraryInstanceActivationResult.classify(
+                    identity: identity, bundleIdentifier: running?.bundleIdentifier,
+                    executableURL: running?.executableURL, pid: pid,
+                    ownPID: ProcessInfo.processInfo.processIdentifier
+                )
+                if result == .activated, let running {
+                    NSApplication.shared.yieldActivation(to: running)
+                    running.activate(options: [.activateAllWindows])
+                    return .activated
+                }
             }
         } while Date() < deadline
-        return false
+        return result
     }
 
     private static func showLibraryInstanceFailure(_ reason: String) {
@@ -77,5 +83,38 @@ extension AppRuntimeState {
         alert.messageText = appLocalized("Ask Key could not open this library")
         alert.informativeText = appLocalized(reason)
         alert.runModal()
+    }
+}
+
+enum LibraryInstanceActivationResult: Equatable {
+    case activated, noReply, differentLocation, unverifiedReply
+
+    static func classify(
+        identity: LibraryInstanceApplicationIdentity, bundleIdentifier: String?,
+        executableURL: URL?, pid: Int32, ownPID: Int32
+    ) -> Self {
+        if identity.matches(bundleIdentifier: bundleIdentifier, executableURL: executableURL,
+                            pid: pid, ownPID: ownPID) {
+            return .activated
+        }
+        if pid > 0, pid != ownPID, let bundleIdentifier,
+           bundleIdentifier == identity.bundleIdentifier, let executableURL,
+           identity.executableURL.resolvingSymlinksInPath().standardizedFileURL
+            != executableURL.resolvingSymlinksInPath().standardizedFileURL {
+            return .differentLocation
+        }
+        return .unverifiedReply
+    }
+
+    var messageKey: String? {
+        switch self {
+        case .activated: return nil
+        case .noReply:
+            return "Ask Key is already using this library, but the running instance did not respond. Try opening it again."
+        case .differentLocation:
+            return "Another copy of Ask Key is already running from a different location. Quit it, then open Ask Key from Applications."
+        case .unverifiedReply:
+            return "Ask Key could not verify the running copy. Quit any other running copy, then open Ask Key from Applications."
+        }
     }
 }
