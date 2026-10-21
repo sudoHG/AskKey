@@ -13,6 +13,11 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 ### Changed
 
 - One Ask Key process serves each library. Opening the app again activates the running instance; opening another copy reports that a copy is already running.
+- When Agent access is paused, agents are told to ask you to resume it.
+
+### Fixed
+
+- The management window no longer leaves an empty strip along its bottom edge.
 
 ### Upgrade notes
 
