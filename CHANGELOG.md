@@ -2,6 +2,25 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
+## [0.3.2] - 2026-10-21
+
+### Security
+
+- Agent-access settings are stored in the App-only login keychain and authenticated with the App key. Missing, invalid or conflicting policy pauses Agent access until system-authenticated recovery succeeds.
+- New vaults generate fresh keys instead of adopting existing pending keys.
+- Agent requests, approval decisions and final delivery revalidate agent-access policy and Broker ownership across processes; stricter settings remain in force.
+
+### Changed
+
+- One Ask Key process serves each library. Opening the app again activates the running instance; opening another copy reports that a copy is already running.
+
+### Upgrade notes
+
+- Quit the running app before replacing it with this version.
+- On the first launch after updating an existing library, Agent access is paused. Choose **Resume Agent Access** and complete system authentication to continue; credentials and their permissions are kept.
+- Resume restores the agent-access defaults: read approvals require authentication, timed allowance is enabled, and its duration is 30 minutes. Review **Settings** afterwards to restore your preferences.
+- Keys outside the login keychain or duplicate Keychain items require the [manual repair in the feature guide](docs/features.md#resolving-a-keychain-conflict-after-an-update).
+
 ## [0.3.1] - 2026-10-11
 
 ### Fixed
