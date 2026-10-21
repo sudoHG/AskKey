@@ -117,17 +117,29 @@ final class NoticeLayoutTests: AskKeyAppTestCase {
         model: NoticeLayoutFixtures.Model, context: String
     ) throws {
         let sidebar = try NoticeRaster(NoticeLayoutFixtures.notice(Theme.sidebarBackground.frame(height: 2), model: model, width: 2))
-        let content = try NoticeRaster(NoticeLayoutFixtures.notice(Theme.windowBackground.frame(height: 2), model: model, width: 2))
         // The outer edges contain no labels or controls. A shortened or shifted
         // shell leaves the NSWindow background here instead of the column colors.
         let sidebarGap = (0..<raster.height).first { y in
             !raster.matchesPixel(x: 0, y: y, other: sidebar, otherX: 0, otherY: 0)
         }
         XCTAssertNil(sidebarGap, "Sidebar must reach both window edges: \(context)")
-        let contentGap = (Int((WorkspaceVisualContract.sidebarWidth + 2) * raster.scale)..<raster.width).first { x in
-            !raster.matchesPixel(x: x, y: raster.height - 1, other: content, otherX: 0, otherY: 0)
+        var contentGap: Int?
+        if model.vault.settingsEntryState == .onboarding || model.vault.settingsEntryState == .empty {
+            // Hidden native scroll views can be absent from bitmap/layer renders
+            // on CI. Measure their actual viewport instead of transparent pixels.
+            let frame = try host.scrollViewFrame()
+            let bounds = host.view.convert(host.view.bounds, to: nil)
+            XCTAssertEqual(frame.minY, bounds.minY, accuracy: 0.5, context)
+            XCTAssertEqual(frame.minX, WorkspaceVisualContract.sidebarWidth + 1, accuracy: 0.5, context)
+            XCTAssertEqual(frame.maxX, bounds.maxX, accuracy: 0.5, context)
+            XCTAssertGreaterThan(frame.height, 0, context)
+        } else {
+            let content = try NoticeRaster(NoticeLayoutFixtures.notice(Theme.windowBackground.frame(height: 2), model: model, width: 2))
+            contentGap = (Int((WorkspaceVisualContract.sidebarWidth + 2) * raster.scale)..<raster.width).first { x in
+                !raster.matchesPixel(x: x, y: raster.height - 1, other: content, otherX: 0, otherY: 0)
+            }
+            XCTAssertNil(contentGap, "Content must reach the window bottom: \(context)")
         }
-        XCTAssertNil(contentGap, "Content must reach the window bottom: \(context)")
         if sidebarGap != nil || contentGap != nil {
             let png = try XCTUnwrap(host.render().representation(using: .png, properties: [:]))
             func emit(_ line: String) {
