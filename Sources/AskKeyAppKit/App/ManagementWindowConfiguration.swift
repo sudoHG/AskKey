@@ -12,7 +12,7 @@ enum ManagementWindowConfiguration {
 
     static func makeWindow<Content: View>(rootView: Content) -> NSWindow {
         let hosting = NSHostingView(rootView: rootView
-            .frame(width: frameSize.width, height: frameSize.height)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea(.container, edges: .top))
         hosting.sizingOptions = []
         let window = ManagementWindow(
