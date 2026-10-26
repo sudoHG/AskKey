@@ -3,6 +3,7 @@
 
 import argparse
 from pathlib import Path
+import plistlib
 import re
 import subprocess
 import sys
@@ -46,6 +47,24 @@ def selected_sdk():
     return result
 
 
+def test_product_binaries(directory):
+    bundles = sorted(path for path in Path(directory).glob("*.xctest") if path.is_dir())
+    if not bundles:
+        raise ValueError(f"No XCTest bundles found in {directory}")
+    binaries = []
+    for bundle in bundles:
+        with (bundle / "Contents/Info.plist").open("rb") as source:
+            executable = plistlib.load(source).get("CFBundleExecutable")
+        if (not isinstance(executable, str) or not executable or executable in {".", ".."}
+                or Path(executable).name != executable):
+            raise ValueError(f"Invalid CFBundleExecutable in {bundle}")
+        binary = bundle / "Contents/MacOS" / executable
+        if not binary.is_file():
+            raise ValueError(f"Tested binary is missing: {binary}")
+        binaries.append(binary)
+    return binaries
+
+
 def check_binary(binary, expected, test_host=False):
     if not Path(binary).is_file():
         raise ValueError(f"Tested binary is missing: {binary}")
@@ -69,11 +88,15 @@ def main():
     parser.add_argument("binaries", nargs="*")
     parser.add_argument("--test-host", action="append", default=[], metavar="BINARY",
                         help="Apple XCTest host: require the Release SDK major and log full versions")
+    parser.add_argument("--test-products", action="append", default=[], metavar="DIRECTORY",
+                        help="Check each XCTest bundle's CFBundleExecutable, excluding debug symbols")
     args = parser.parse_args()
-    if not args.binaries and not args.test_host:
-        parser.error("at least one binary or --test-host is required")
+    if not args.binaries and not args.test_host and not args.test_products:
+        parser.error("at least one binary, --test-host or --test-products is required")
     try:
         expected = selected_sdk()
+        for directory in args.test_products:
+            args.binaries.extend(test_product_binaries(directory))
         for binary in args.binaries:
             check_binary(binary, expected)
         for binary in args.test_host:

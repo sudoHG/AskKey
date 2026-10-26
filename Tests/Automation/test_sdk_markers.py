@@ -4,6 +4,7 @@ from contextlib import redirect_stdout
 import importlib.util
 import io
 from pathlib import Path
+import plistlib
 import subprocess
 import tempfile
 import unittest
@@ -107,6 +108,49 @@ class SDKMarkerTests(unittest.TestCase):
             with patch.object(MARKERS.subprocess, "check_output", side_effect=subprocess.CalledProcessError(1, "vtool")):
                 with self.assertRaises(subprocess.CalledProcessError):
                     MARKERS.check_binary(binary, "27.0")
+
+    def make_test_bundle(self, directory, executable="SyntheticTests"):
+        contents = Path(directory) / "SyntheticTests.xctest/Contents"
+        (contents / "MacOS").mkdir(parents=True)
+        with (contents / "Info.plist").open("wb") as output:
+            plistlib.dump({"CFBundleExecutable": executable}, output)
+        return contents
+
+    def test_bundle_with_dsym_checks_only_its_declared_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            contents = self.make_test_bundle(temporary)
+            binary = contents / "MacOS/SyntheticTests"
+            binary.touch()
+            symbols = contents / "MacOS/SyntheticTests.dSYM/Contents/Resources/Relocations/aarch64"
+            symbols.mkdir(parents=True)
+            (symbols / "SyntheticTests.yml").write_text("synthetic debug relocations")
+            argv = ["check_sdk_markers.py", "--test-products", temporary]
+            with patch.object(MARKERS.sys, "argv", argv), \
+                    patch.object(MARKERS, "selected_sdk", return_value="27.0"), \
+                    patch.object(MARKERS.subprocess, "check_output", return_value=marker()) as inspect, \
+                    redirect_stdout(io.StringIO()):
+                self.assertEqual(MARKERS.main(), 0)
+            inspect.assert_called_once_with(["xcrun", "vtool", "-show-build", str(binary)], text=True)
+
+    def test_bundle_discovery_rejects_empty_test_products(self):
+        with tempfile.TemporaryDirectory() as temporary, self.assertRaisesRegex(ValueError, "No XCTest"):
+            MARKERS.test_product_binaries(temporary)
+
+    def test_bundle_discovery_rejects_invalid_executable_metadata(self):
+        for name in [None, "", "../outside-bundle", ".", ".."]:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
+                contents = self.make_test_bundle(temporary, executable=name or "placeholder")
+                properties = {} if name is None else {"CFBundleExecutable": name}
+                with (contents / "Info.plist").open("wb") as output:
+                    plistlib.dump(properties, output)
+                with self.assertRaisesRegex(ValueError, "Invalid CFBundleExecutable"):
+                    MARKERS.test_product_binaries(temporary)
+
+    def test_bundle_discovery_rejects_missing_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            self.make_test_bundle(temporary)
+            with self.assertRaisesRegex(ValueError, "missing"):
+                MARKERS.test_product_binaries(temporary)
 
 
 if __name__ == "__main__":

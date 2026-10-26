@@ -36,10 +36,7 @@ jobs:
       - name: Test
         run: |
           swift test
-          BIN_DIR="$(swift build --show-bin-path)"
-          while IFS= read -r -d '' TEST_BINARY; do
-            python3 scripts/check_sdk_markers.py "$TEST_BINARY"
-          done < <(find "$BIN_DIR" -type f -path '*.xctest/Contents/MacOS/*' -print0)
+          python3 scripts/check_sdk_markers.py --test-products "$(swift build --show-bin-path)"
 
       - name: Check release binary for E2E symbols
         run: |
