@@ -21,14 +21,30 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Report toolchain and Release SDK
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun --sdk macosx --show-sdk-version
+
       - name: Build
-        run: swift build
+        run: |
+          swift build
+          BIN_DIR="$(swift build --show-bin-path)"
+          python3 scripts/check_sdk_markers.py "$BIN_DIR/AskKeyApp" "$BIN_DIR/AskKeyE2EApp" "$BIN_DIR/askkey"
 
       - name: Test
-        run: swift test
+        run: |
+          swift test
+          BIN_DIR="$(swift build --show-bin-path)"
+          while IFS= read -r -d '' TEST_BINARY; do
+            python3 scripts/check_sdk_markers.py "$TEST_BINARY"
+          done < <(find "$BIN_DIR" -type f -path '*.xctest/Contents/MacOS/*' -print0)
 
       - name: Check release binary for E2E symbols
-        run: bash scripts/check_release_symbols.sh
+        run: |
+          bash scripts/check_release_symbols.sh
+          python3 scripts/check_sdk_markers.py "$(swift build -c release --show-bin-path)/AskKeyApp"
 
       - name: Check optimized cancellation runtime
         run: bash scripts/test-cancellation-runtime.sh
@@ -50,10 +66,17 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Report toolchain and Release SDK
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun --sdk macosx --show-sdk-version
       - name: Install XcodeGen
         run: brew list xcodegen || brew install xcodegen
       - name: Run required desktop flows
-        run: bash scripts/run-e2e.sh
+        run: |
+          bash scripts/run-e2e.sh
+          python3 scripts/check_sdk_markers.py .build/AskKeyApp.app/Contents/MacOS/AskKeyApp .build/AskKeyApp.app/Contents/Helpers/askkey
       - name: Capture optional key screen screenshots
         continue-on-error: true
         run: bash scripts/run-e2e.sh screenshots
@@ -65,3 +88,58 @@ jobs:
           path: Tests/UI/output/
           if-no-files-found: error
           retention-days: 7
+
+  release-sdk-window-check:
+    # The preview image is informational; the two macos-latest jobs remain required.
+    runs-on: xcode-27
+    continue-on-error: true
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Report toolchain and Release SDK
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun --sdk macosx --show-sdk-version
+      - name: Build and check Debug and Release SDK markers
+        run: |
+          swift build --product AskKeyApp
+          swift build -c release --product AskKeyApp --jobs 2
+          python3 scripts/check_sdk_markers.py "$(swift build --show-bin-path)/AskKeyApp" "$(swift build -c release --show-bin-path)/AskKeyApp"
+      - name: Check visible management-window lifecycle with the Release SDK
+        run: swift test --filter ManagementWindowSizingTests/testVisibleWindowLifecycleKeepsTheDesignedFrameOnCI
+      - name: One-off regression proof against 87ab16d
+        run: |
+          git fetch --no-tags --depth=1 origin 87ab16db1a5cd4ed326fed3f9731b1e0d7e4ecdb
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          import subprocess
+          import tempfile
+
+          root = Path.cwd()
+          baseline = "87ab16db1a5cd4ed326fed3f9731b1e0d7e4ecdb"
+          with tempfile.TemporaryDirectory(prefix="askkey-sdk-baseline-") as temporary:
+              checkout = Path(temporary)
+              archive = subprocess.check_output(["git", "archive", baseline])
+              subprocess.run(["tar", "-x", "-C", str(checkout)], input=archive, check=True)
+              for path in ["Package.swift", "scripts/check_sdk_markers.py",
+                           "Tests/AskKeyAppTests/SDKMarkerTests.swift",
+                           "Tests/AskKeyAppTests/ManagementWindowSizingTests.swift",
+                           "Tests/AskKeyAppTests/ManagementWindowSizingFixtures.swift",
+                           "Tests/AskKeyAppTests/NoticeLayoutFixtures.swift"]:
+                  shutil.copyfile(root / path, checkout / path)
+              # Match the historical AppDelegate's fixed root wrapper in the test fixture.
+              fixture = checkout / "Tests/AskKeyAppTests/ManagementWindowSizingFixtures.swift"
+              text = fixture.read_text()
+              anchor = "            .preferredColorScheme(.light)"
+              assert text.count(anchor) == 1
+              fixture.write_text(text.replace(anchor, anchor + "\n"
+                  "            .frame(width: WorkspaceVisualContract.windowWidth,\n"
+                  "                   height: WorkspaceVisualContract.windowHeight)\n"
+                  "            .ignoresSafeArea(.container, edges: .top)"))
+              print(f"One-off visible-window regression: {baseline}", flush=True)
+              result = subprocess.run(["swift", "test", "--package-path", str(checkout), "--filter",
+                  "ManagementWindowSizingTests/testVisibleWindowLifecycleKeepsTheDesignedFrameOnCI"])
+              raise SystemExit(result.returncode)
+          PY

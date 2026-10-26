@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Reject Mach-O products whose SDK marker differs from the selected Release SDK."""
+
+import argparse
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+
+def version(value):
+    if not re.fullmatch(r"\d+(?:\.\d+){0,2}", value):
+        raise ValueError(f"Invalid SDK version: {value!r}")
+    return tuple((list(map(int, value.split("."))) + [0, 0])[:3])
+
+
+def build_versions(output):
+    markers = []
+    for block in re.split(r"(?m)^\s*Load command \d+\s*$", output):
+        if not re.search(r"(?m)^\s*cmd LC_BUILD_VERSION\s*$", block):
+            continue
+        fields = {}
+        for field in ("platform", "minos", "sdk"):
+            match = re.search(rf"(?m)^\s*{field}\s+(\S+)\s*$", block)
+            if match is None:
+                raise ValueError(f"LC_BUILD_VERSION is missing {field}")
+            fields[field] = match.group(1)
+        if fields["platform"] != "MACOS":
+            raise ValueError(f"Expected MACOS, found {fields['platform']}")
+        version(fields["minos"])
+        version(fields["sdk"])
+        markers.append(fields)
+    if not markers:
+        raise ValueError("No macOS LC_BUILD_VERSION marker found")
+    return markers
+
+
+def selected_sdk():
+    result = subprocess.check_output(
+        ["xcrun", "--sdk", "macosx", "--show-sdk-version"], text=True
+    ).strip()
+    version(result)
+    return result
+
+
+def check_binary(binary, expected):
+    if not Path(binary).is_file():
+        raise ValueError(f"Tested binary is missing: {binary}")
+    output = subprocess.check_output(["xcrun", "vtool", "-show-build", str(binary)], text=True)
+    markers = build_versions(output)
+    for marker in markers:
+        print(f"SDK marker: {binary}: platform {marker['platform']} "
+              f"minos {marker['minos']} sdk {marker['sdk']}; Release SDK {expected}", flush=True)
+        if version(marker["sdk"]) != version(expected):
+            raise ValueError(f"SDK mismatch for {binary}: {marker['sdk']} != Release SDK {expected}")
+    return markers
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("binaries", nargs="+")
+    args = parser.parse_args()
+    try:
+        expected = selected_sdk()
+        for binary in args.binaries:
+            check_binary(binary, expected)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print(f"FAIL: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

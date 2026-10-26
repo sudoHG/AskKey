@@ -1,5 +1,6 @@
 // swift-tools-version: 6.0
 import PackageDescription
+import Foundation
 
 let package = Package(
     name: "AskKey",
@@ -126,3 +127,25 @@ let package = Package(
         ),
     ]
 )
+
+#if os(macOS)
+// Debug link defaults can record the deployment target as the SDK version.
+// AppKit's linked-before behavior follows that marker, not the SDK used to compile.
+let sdkQuery = Process()
+let sdkOutput = Pipe()
+sdkQuery.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+sdkQuery.arguments = ["--sdk", "macosx", "--show-sdk-version"]
+sdkQuery.standardOutput = sdkOutput
+try sdkQuery.run()
+let sdkVersion = String(decoding: sdkOutput.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+sdkQuery.waitUntilExit()
+precondition(sdkQuery.terminationStatus == 0 && sdkVersion.range(of: #"^\d+\.\d+(\.\d+)?$"#, options: .regularExpression) != nil,
+             "Unable to determine the selected macOS SDK version")
+for target in package.targets where target.type == .executable || target.type == .test {
+    target.linkerSettings = (target.linkerSettings ?? []) + [.unsafeFlags([
+        "-Xlinker", "-platform_version", "-Xlinker", "macos",
+        "-Xlinker", "14.0", "-Xlinker", sdkVersion,
+    ])]
+}
+#endif

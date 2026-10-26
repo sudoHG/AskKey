@@ -1,0 +1,92 @@
+"""SDK marker validation must reject legacy or incomplete binary evidence."""
+
+from contextlib import redirect_stdout
+import importlib.util
+import io
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+from unittest.mock import patch
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SPEC = importlib.util.spec_from_file_location("sdk_markers", ROOT / "scripts/check_sdk_markers.py")
+MARKERS = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MARKERS)
+
+
+def marker(sdk="27.0", platform="MACOS"):
+    return f"""Load command 10
+      cmd LC_BUILD_VERSION
+  cmdsize 32
+ platform {platform}
+    minos 14.0
+      sdk {sdk}
+   ntools 1
+     tool LD
+  version 27037.1
+"""
+
+
+class SDKMarkerTests(unittest.TestCase):
+    def test_reads_build_version_without_confusing_minimum_system_and_sdk(self):
+        self.assertEqual(MARKERS.build_versions(marker()), [
+            {"platform": "MACOS", "minos": "14.0", "sdk": "27.0"}
+        ])
+
+    def test_reads_every_architecture_of_a_universal_binary(self):
+        self.assertEqual(len(MARKERS.build_versions(marker() + marker("26.5"))), 2)
+
+    def test_rejects_missing_or_old_style_load_commands(self):
+        for output in ["", "Load command 1\n cmd LC_VERSION_MIN_MACOSX\n version 14.0\n sdk 27.0\n"]:
+            with self.subTest(output=output), self.assertRaisesRegex(ValueError, "No macOS"):
+                MARKERS.build_versions(output)
+
+    def test_rejects_incomplete_build_version(self):
+        for field in ["platform MACOS", "minos 14.0", "sdk 27.0"]:
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "missing"):
+                MARKERS.build_versions(marker().replace(field, ""))
+
+    def test_rejects_other_platforms(self):
+        with self.assertRaisesRegex(ValueError, "Expected MACOS"):
+            MARKERS.build_versions(marker(platform="IOS"))
+
+    def test_rejects_invalid_version_fields(self):
+        for sdk in ["unknown", "27.0.beta", "27.0.0.1"]:
+            with self.subTest(sdk=sdk), self.assertRaisesRegex(ValueError, "Invalid SDK"):
+                MARKERS.build_versions(marker(sdk))
+
+    def check(self, output, expected="27.0"):
+        with tempfile.TemporaryDirectory() as temporary:
+            binary = Path(temporary) / "synthetic-binary"
+            binary.touch()
+            with patch.object(MARKERS.subprocess, "check_output", return_value=output), redirect_stdout(io.StringIO()):
+                return MARKERS.check_binary(binary, expected)
+
+    def test_accepts_equivalent_sdk_version_spellings(self):
+        self.assertEqual(len(self.check(marker("27.0.0"))), 1)
+
+    def test_rejects_deployment_target_misreported_as_sdk(self):
+        with self.assertRaisesRegex(ValueError, "SDK mismatch"):
+            self.check(marker("14.0"))
+
+    def test_rejects_a_mismatch_in_one_architecture(self):
+        with self.assertRaisesRegex(ValueError, "SDK mismatch"):
+            self.check(marker() + marker("14.0"))
+
+    def test_rejects_missing_binary(self):
+        with tempfile.TemporaryDirectory() as temporary, self.assertRaisesRegex(ValueError, "missing"):
+            MARKERS.check_binary(Path(temporary) / "missing-binary", "27.0")
+
+    def test_propagates_inspection_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            binary = Path(temporary) / "synthetic-binary"
+            binary.touch()
+            with patch.object(MARKERS.subprocess, "check_output", side_effect=subprocess.CalledProcessError(1, "vtool")):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    MARKERS.check_binary(binary, "27.0")
+
+
+if __name__ == "__main__":
+    unittest.main()

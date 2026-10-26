@@ -66,6 +66,7 @@ fi
 xcodebuild build -scheme "$APP_PRODUCT" -configuration "$CONFIG" \
   -derivedDataPath "$DD" -destination "platform=macOS" \
   "${APP_BUILD_SETTINGS[@]}"
+python3 scripts/check_sdk_markers.py "$PRODUCTS/$APP_PRODUCT" "$CLI"
 
 echo "==> Assembling $APP …"
 rm -rf "$APP"
