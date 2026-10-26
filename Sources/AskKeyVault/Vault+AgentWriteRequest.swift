@@ -60,7 +60,23 @@ extension Vault {
             guard existing.digest == digest else { throw BrokerApprovalError.payloadMismatch }
             candidate = existing
         } else {
-            candidate = try freezeAgentTextWrite(request, digest: digest, key: key, files: files)
+            do {
+                candidate = try freezeAgentTextWrite(request, digest: digest, key: key, files: files)
+            } catch VaultError.credentialNameConflict(let name) {
+                switch request.action {
+                case .create, .createBundle:
+                    // Use the same projection as list_credentials: Hidden and
+                    // recycled names must retain the generic failure.
+                    let normalized = CredentialName.normalized(name)
+                    if try brokerCredentialCatalog(now: currentDate).contains(where: {
+                        CredentialName.normalized($0.name) == normalized
+                    }) {
+                        throw BrokerProviderError.credentialNameConflict
+                    }
+                default: break
+                }
+                throw VaultError.credentialNameConflict(name)
+            }
         }
         let reservation = try agentTextWrites.store(candidate)
         do {

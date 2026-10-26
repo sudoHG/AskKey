@@ -9,6 +9,7 @@ public enum BrokerErrorCode: String, Codable, Equatable, Sendable {
     case deadlineExceeded = "deadline_exceeded"
     case responseTooLarge = "response_too_large"
     case internalError = "internal_error"
+    case credentialNameConflict = "credential_name_conflict"
     case agentAccessPaused = "agent_access_paused"
     case requestRejected = "request_rejected"
 }
