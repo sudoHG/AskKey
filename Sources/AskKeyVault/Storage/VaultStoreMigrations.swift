@@ -4,7 +4,9 @@ import GRDB
 enum CurrentLibrarySchema {
     static let baselineIdentifier = "askkey-0001-baseline"
     static let dropLegacyTablesIdentifier = "askkey-0002-drop-legacy-tables"
-    static let currentIdentifiers = [baselineIdentifier, dropLegacyTablesIdentifier]
+    static let componentMetadataIdentifier = "askkey-0003-component-metadata"
+    static let preMetadataIdentifiers = [baselineIdentifier, dropLegacyTablesIdentifier]
+    static let currentIdentifiers = preMetadataIdentifiers + [componentMetadataIdentifier]
     static let legacyIdentifiers = [
         "v1", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
         "v12-remove-folder-associations", "v13-remove-project-path",
@@ -62,7 +64,15 @@ enum CurrentLibrarySchema {
             // stays untouched; GRDB still records this migration as applied.
             if try legacyTablesHoldNoUserData(db) { try dropLegacyTables(db) }
         }
+        migrator.registerMigration(componentMetadataIdentifier, foreignKeyChecks: .immediate) { db in
+            guard try opening(db) == .preMetadata else { throw VaultBootstrapError.invalidState }
+            try addComponentMetadata(db)
+        }
         return migrator
+    }
+
+    private static func addComponentMetadata(_ db: Database) throws {
+        try db.execute(sql: "ALTER TABLE credentials ADD COLUMN encrypted_component_metadata BLOB")
     }
 
     /// True only when the legacy tables hold nothing beyond the Default seed
@@ -98,9 +108,9 @@ enum CurrentLibrarySchema {
         }
     }
 
-    /// `.current` libraries are at both AskKey identifiers, with the legacy
+    /// `.current` libraries are at all AskKey identifiers, with the legacy
     /// tables either dropped or kept because they may hold user data.
-    enum Opening: Equatable { case baseline, legacyV15, current }
+    enum Opening: Equatable { case baseline, legacyV15, preMetadata, current }
 
     static func opening(_ db: Database) throws -> Opening {
         guard try db.tableExists("grdb_migrations") else {
@@ -111,11 +121,14 @@ enum CurrentLibrarySchema {
         let acceptedSchemas: [Bool] // whether the legacy tables are dropped
         if identifiers == [baselineIdentifier] { (opening, acceptedSchemas) = (.baseline, [false]) }
         else if identifiers == legacyIdentifiers { (opening, acceptedSchemas) = (.legacyV15, [false]) }
+        else if identifiers == preMetadataIdentifiers { (opening, acceptedSchemas) = (.preMetadata, [true, false]) }
         else if identifiers == currentIdentifiers { (opening, acceptedSchemas) = (.current, [true, false]) }
         else { throw VaultBootstrapError.unsupportedMigrations }
 
         let schema = try normalizedSchema(db)
-        guard try acceptedSchemas.contains(where: { try expectedSchema(legacyTablesDropped: $0) == schema }) else {
+        guard try acceptedSchemas.contains(where: {
+            try expectedSchema(legacyTablesDropped: $0, componentMetadata: opening == .current) == schema
+        }) else {
             throw VaultBootstrapError.schemaMismatch
         }
         return opening
@@ -123,12 +136,13 @@ enum CurrentLibrarySchema {
 
     /// Built directly rather than by running the full migrator, because
     /// the drop migration itself calls `opening`.
-    private static func expectedSchema(legacyTablesDropped: Bool) throws -> [String] {
+    private static func expectedSchema(legacyTablesDropped: Bool, componentMetadata: Bool) throws -> [String] {
         let expected = try DatabaseQueue()
         defer { try? expected.close() }
         try migrator().migrate(expected, upTo: baselineIdentifier)
         return try expected.write { db in
             if legacyTablesDropped { try dropLegacyTables(db) }
+            if componentMetadata { try addComponentMetadata(db) }
             return try normalizedSchema(db)
         }
     }

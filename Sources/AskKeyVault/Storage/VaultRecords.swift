@@ -29,6 +29,8 @@ struct CredentialRecord: Codable, FetchableRecord, PersistableRecord {
     var contentDigest: Data?
     var deletedAt: String?
     var authenticationTag: Data? = nil
+    // Nil is omitted by Codable, preserving authentication of pre-metadata rows.
+    var encryptedComponentMetadata: Data? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -49,6 +51,7 @@ struct CredentialRecord: Codable, FetchableRecord, PersistableRecord {
         case contentDigest = "content_digest"
         case deletedAt = "deleted_at"
         case authenticationTag = "authentication_tag"
+        case encryptedComponentMetadata = "encrypted_component_metadata"
     }
 }
 

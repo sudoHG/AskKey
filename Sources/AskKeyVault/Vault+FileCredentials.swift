@@ -306,7 +306,10 @@ extension Vault {
             encryptedOriginalFilename: encryptedOriginalFilename,
             byteSize: byteSize,
             contentDigest: contentDigest,
-            deletedAt: existing?.deletedAt
+            deletedAt: existing?.deletedAt,
+            encryptedComponentMetadata: try CredentialComponentMetadata(
+                singleKind: .file, mapping: environmentVariable
+            ).encrypted(using: key)
         )
     }
 

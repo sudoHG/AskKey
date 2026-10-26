@@ -473,6 +473,9 @@ public final class Vault {
                                               retryPolicyRead: state?.readUnavailable == true && state?.policy.paused == false)
         }
         do {
+            try opened.store.backfillComponentMetadata(using: opened.key) {
+                try self.credentialComponents(from: $0, key: opened.key)
+            }
             let loaded = try loadAgentAccessPolicy(key: opened.key, keyStore: keyStore, created: opened.created)
             let state = resolveAgentAccessPolicyLatches(loaded, key: opened.key, keyStore: keyStore)
             applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery,

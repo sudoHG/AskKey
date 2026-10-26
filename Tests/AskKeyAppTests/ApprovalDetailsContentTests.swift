@@ -163,4 +163,16 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             XCTAssertLessThan(width, 100, "\(language): values keep most of the card's width")
         }
     }
+
+    func testBundleDeliveryNamesUseTheExistingReadPresentationInBothLanguages() {
+        Fixtures.withLanguages { _ in
+            let display = Fixtures.display(environment: ["TOKEN", "USER"], files: ["CERT_FILE"])
+            let request = Fixtures.request(.read, name: "Bundle", display: display)
+            let details = ApprovalDetailsContent(request: request, credentialName: "Bundle")
+            guard case .lines(let lines) = details.rows.last?.value else { return XCTFail("Expected delivery lines") }
+            XCTAssertEqual(lines.count, 3)
+            XCTAssertEqual(lines.flatMap { $0.text.segments.filter(\.code).map(\.text) }, ["TOKEN", "USER", "CERT_FILE"])
+            XCTAssertTrue(lines.allSatisfy { $0.text.plainText.contains("Bundle") })
+        }
+    }
 }

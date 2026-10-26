@@ -152,7 +152,7 @@ enum VaultBootstrap {
     /// Builds the library at `credentials-v2.db.creating` and renames it into
     /// place only when complete, so the current path holds either nothing or a
     /// complete library: `VaultStore` runs every migration on the new file, so
-    /// it is at both AskKey identifiers with the legacy tables dropped before
+    /// it is at all AskKey identifiers with the legacy tables dropped before
     /// the rename. The generated key is promoted after the rename; without
     /// an App key, the next launch discards and recreates these empty contents.
     private static func createNewLibrary(
@@ -314,7 +314,7 @@ enum VaultBootstrap {
 
     /// Exact first-creation contents, eligible for discard without an App key
     /// even if promotion had happened. No pending value is ever resumed.
-    /// Creation ends at both AskKey identifiers with the legacy tables dropped (its seed always
+    /// Creation ends at all AskKey identifiers with the legacy tables dropped (its seed always
     /// qualifies); a library created by the baseline-only code before
     /// askkey-0002 existed is at the baseline identifier with its seed.
     /// The expected value comes from the real migrator at the same
@@ -323,7 +323,8 @@ enum VaultBootstrap {
         let target: String
         switch try CurrentLibrarySchema.opening(db) {
         case .baseline: target = CurrentLibrarySchema.baselineIdentifier
-        case .current: target = CurrentLibrarySchema.dropLegacyTablesIdentifier
+        case .preMetadata: target = CurrentLibrarySchema.dropLegacyTablesIdentifier
+        case .current: target = CurrentLibrarySchema.componentMetadataIdentifier
         case .legacyV15: throw VaultBootstrapError.missingKey
         }
         let expected = try DatabaseQueue()

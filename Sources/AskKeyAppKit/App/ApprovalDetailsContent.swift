@@ -67,8 +67,8 @@ struct ApprovalDetailsContent: Equatable {
     }
 
     /// One line per variable the command gets. A credential with a variable
-    /// has one item, named after the credential; a multi-item credential's
-    /// mapping is not opened before approval, so its items stay unnamed.
+    /// has one item, named after the credential. Bundle mappings arrive from
+    /// separately encrypted metadata, without opening component values.
     private static func handsOver(_ display: BrokerApprovalOperationRequest.Display, credentialName: String) -> [Line] {
         guard let environment = display.environmentVariables, let files = display.temporaryFileVariables else {
             return [Line(text: ApprovalLine(appLocalizedFormat(

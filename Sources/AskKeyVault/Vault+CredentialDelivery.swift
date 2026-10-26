@@ -57,8 +57,8 @@ extension Vault {
                 usageInstructions: instructions,
                 environmentVariable: environmentVariable,
                 expired: expired,
-                components: try credentialComponents(from: record, key: key).map {
-                    BrokerCatalogComponent(name: $0.name, payloadKind: $0.value.payloadKind == .file ? .file : .text, delivery: $0.delivery)
+                components: try CredentialComponentMetadata.read(from: record, using: key).components.map {
+                    BrokerCatalogComponent(name: $0.name, payloadKind: $0.payloadKind == .file ? .file : .text, delivery: $0.delivery)
                 },
                 group: group
             )
@@ -157,7 +157,12 @@ extension Vault {
         let credentials: [BrokerTextCredential]
         do {
             credentials = try records.flatMap { record -> [BrokerTextCredential] in
-                try credentialComponents(from: record, key: key).compactMap { component in
+                let components = try credentialComponents(from: record, key: key)
+                guard try CredentialComponentMetadata(components: components)
+                    == CredentialComponentMetadata.read(from: record, using: key) else {
+                    throw CredentialRecordAuthenticationError.invalidAuthentication
+                }
+                return try components.compactMap { component in
                     try cancellation.check()
                     switch component.delivery {
                     case .none:
@@ -244,16 +249,17 @@ extension Vault {
     ) throws -> BrokerApprovalOperationRequest.Display {
         var environmentVariables: [String]?
         var temporaryFileVariables: [String]?
-        // Bundle mappings share encryptedPayload with component values. Do not
-        // open that payload before approval merely to provide display names.
-        if record.payloadKind != CredentialPayloadKind.bundle.rawValue {
-            let variable = try record.encryptedEnvironmentVariable.map {
-                try VaultCrypto.decrypt($0, using: key)
+        // Unavailable metadata must not prevent submitting an approval that can
+        // be denied. Catalog and post-approval delivery still fail closed.
+        if let metadata = try? CredentialComponentMetadata.read(from: record, using: key) {
+            environmentVariables = metadata.components.compactMap {
+                if case .environmentVariable(let variable) = $0.delivery { return Self.escapedDisplayText(variable) }
+                return nil
             }
-            environmentVariables = record.payloadKind == CredentialPayloadKind.text.rawValue
-                ? variable.map { [$0] } ?? [] : []
-            temporaryFileVariables = record.payloadKind == CredentialPayloadKind.file.rawValue
-                ? variable.map { [$0] } ?? [] : []
+            temporaryFileVariables = metadata.components.compactMap {
+                if case .temporaryFile(let variable) = $0.delivery { return Self.escapedDisplayText(variable) }
+                return nil
+            }
         }
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let directory = request.workingDirectory.map { path -> String in

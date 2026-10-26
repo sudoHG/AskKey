@@ -117,7 +117,8 @@ package final class VaultStore {
         }
         // Pending migrations run only after the identity, schema and
         // credential-authentication checks above: every migration for a new
-        // file, askkey-0002 for an adopted or baseline library, none otherwise.
+        // file, pending steps for an adopted/baseline/pre-metadata library,
+        // none for an already current library.
         if opening != .current { try migrate() }
     }
 

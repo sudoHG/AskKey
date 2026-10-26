@@ -34,7 +34,7 @@ final class RuntimeApprovalDisplayTests: XCTestCase {
         }
     }
 
-    func testFileNamesComeFromMetadataAndBundleNamesRemainUnavailable() throws {
+    func testFileAndBundleDeliveredNamesComeFromMetadata() throws {
         for kind in [CredentialPayloadKind.file, .bundle] {
             let harness = try makeHarness()
             _ = try createCredential(kind, in: harness)
@@ -45,8 +45,8 @@ final class RuntimeApprovalDisplayTests: XCTestCase {
                 XCTAssertEqual(display.environmentVariables, [])
                 XCTAssertEqual(display.temporaryFileVariables, ["KEY_FILE"])
             } else {
-                XCTAssertNil(display.environmentVariables)
-                XCTAssertNil(display.temporaryFileVariables)
+                XCTAssertEqual(display.environmentVariables, ["TOKEN"])
+                XCTAssertEqual(display.temporaryFileVariables, ["KEY_FILE"])
             }
             XCTAssertFalse(String(describing: display).contains("synthetic-private-filename"))
             XCTAssertFalse(String(describing: display).contains("synthetic-value"))
