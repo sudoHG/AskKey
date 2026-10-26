@@ -32,6 +32,9 @@ def build_versions(output):
         markers.append(fields)
     if not markers:
         raise ValueError("No macOS LC_BUILD_VERSION marker found")
+    architectures = re.findall(r"\(architecture [^)]+\):", output)
+    if architectures and len(markers) != len(architectures):
+        raise ValueError("Missing LC_BUILD_VERSION marker for an architecture")
     return markers
 
 

@@ -38,6 +38,12 @@ class SDKMarkerTests(unittest.TestCase):
     def test_reads_every_architecture_of_a_universal_binary(self):
         self.assertEqual(len(MARKERS.build_versions(marker() + marker("26.5"))), 2)
 
+    def test_rejects_a_universal_binary_with_one_architecture_missing_its_marker(self):
+        output = "binary (architecture arm64):\n" + marker()
+        output += "binary (architecture x86_64):\nLoad command 1\n cmd LC_VERSION_MIN_MACOSX\n"
+        with self.assertRaisesRegex(ValueError, "for an architecture"):
+            MARKERS.build_versions(output)
+
     def test_rejects_missing_or_old_style_load_commands(self):
         for output in ["", "Load command 1\n cmd LC_VERSION_MIN_MACOSX\n version 14.0\n sdk 27.0\n"]:
             with self.subTest(output=output), self.assertRaisesRegex(ValueError, "No macOS"):
