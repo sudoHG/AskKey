@@ -166,13 +166,22 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
 
     func testBundleDeliveryNamesUseTheExistingReadPresentationInBothLanguages() {
         Fixtures.withLanguages { _ in
-            let display = Fixtures.display(environment: ["TOKEN", "USER"], files: ["CERT_FILE"])
+            let display = BrokerApprovalOperationRequest.Display(commandLine: "./deploy.sh", workingDirectory: nil,
+                executableBasename: "deploy.sh", environmentVariables: ["TOKEN", "USER"], temporaryFileVariables: ["CERT_FILE"],
+                components: [
+                    .init(name: "API Token", payloadKind: .text, delivery: .environmentVariable("TOKEN")),
+                    .init(name: "User", payloadKind: .text, delivery: .environmentVariable("USER")),
+                    .init(name: "Certificate", payloadKind: .file, delivery: .temporaryFile("CERT_FILE")),
+                    .init(name: "Local Recovery", payloadKind: .text, delivery: .none),
+                ])
             let request = Fixtures.request(.read, name: "Bundle", display: display)
             let details = ApprovalDetailsContent(request: request, credentialName: "Bundle")
             guard case .lines(let lines) = details.rows.last?.value else { return XCTFail("Expected delivery lines") }
             XCTAssertEqual(lines.count, 3)
             XCTAssertEqual(lines.flatMap { $0.text.segments.filter(\.code).map(\.text) }, ["TOKEN", "USER", "CERT_FILE"])
-            XCTAssertTrue(lines.allSatisfy { $0.text.plainText.contains("Bundle") })
+            XCTAssertEqual(lines.map { $0.text.segments.filter { !$0.code }.first?.text }, ["API Token", "User", "Certificate"])
+            XCTAssertTrue(lines.allSatisfy(\.wrapsVariables))
+            XCTAssertFalse(lines.contains { $0.text.plainText.contains("Bundle") || $0.text.plainText.contains("Local Recovery") })
         }
     }
 }

@@ -47,6 +47,8 @@ final class RuntimeApprovalDisplayTests: XCTestCase {
             } else {
                 XCTAssertEqual(display.environmentVariables, ["TOKEN"])
                 XCTAssertEqual(display.temporaryFileVariables, ["KEY_FILE"])
+                XCTAssertEqual(display.components?.map(\.name), ["TOKEN", "KEY_FILE"])
+                XCTAssertEqual(display.components?.map(\.delivery), [.environmentVariable("TOKEN"), .temporaryFile("KEY_FILE")])
             }
             XCTAssertFalse(String(describing: display).contains("synthetic-private-filename"))
             XCTAssertFalse(String(describing: display).contains("synthetic-value"))

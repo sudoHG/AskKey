@@ -63,6 +63,8 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
         /// Nil means the mapping is unavailable without decrypting values.
         public let environmentVariables: [String]?
         public let temporaryFileVariables: [String]?
+        /// App-only delivered bundle component labels and mappings; never a wire field.
+        public let components: [BrokerCatalogComponent]?
 
         public var commandSummary: String {
             guard commandLine.count > 160 else { return commandLine }
@@ -74,13 +76,15 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
             workingDirectory: String?,
             executableBasename: String?,
             environmentVariables: [String]?,
-            temporaryFileVariables: [String]?
+            temporaryFileVariables: [String]?,
+            components: [BrokerCatalogComponent]? = nil
         ) {
             self.commandLine = commandLine
             self.workingDirectory = workingDirectory
             self.executableBasename = executableBasename
             self.environmentVariables = environmentVariables
             self.temporaryFileVariables = temporaryFileVariables
+            self.components = components
         }
     }
 }

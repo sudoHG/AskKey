@@ -249,9 +249,16 @@ extension Vault {
     ) throws -> BrokerApprovalOperationRequest.Display {
         var environmentVariables: [String]?
         var temporaryFileVariables: [String]?
+        var components: [BrokerCatalogComponent]?
         // Unavailable metadata must not prevent submitting an approval that can
         // be denied. Catalog and post-approval delivery still fail closed.
         if let metadata = try? CredentialComponentMetadata.read(from: record, using: key) {
+            if record.payloadKind == CredentialPayloadKind.bundle.rawValue {
+                components = metadata.components.filter { $0.delivery.environmentVariable != nil }.map {
+                    BrokerCatalogComponent(name: Self.escapedDisplayText($0.name),
+                        payloadKind: $0.payloadKind == .file ? .file : .text, delivery: $0.delivery)
+                }
+            }
             environmentVariables = metadata.components.compactMap {
                 if case .environmentVariable(let variable) = $0.delivery { return Self.escapedDisplayText(variable) }
                 return nil
@@ -274,7 +281,8 @@ extension Vault {
             workingDirectory: directory,
             executableBasename: Self.runtimeExecutableBasename(request.command),
             environmentVariables: environmentVariables,
-            temporaryFileVariables: temporaryFileVariables
+            temporaryFileVariables: temporaryFileVariables,
+            components: components
         )
     }
 

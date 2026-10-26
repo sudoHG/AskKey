@@ -37,6 +37,7 @@ final class BundleApprovalRenderTests: AskKeyAppTestCase {
                 XCTAssertEqual(display.temporaryFileVariables, ["RELEASE_CERT_FILE"])
                 XCTAssertFalse(String(describing: display).contains("LOCAL_RECOVERY_CODE"))
                 XCTAssertFalse(String(describing: display).contains("synthetic-value"))
+                XCTAssertEqual(display.components?.map(\.name), components.filter { $0.delivery != .none }.map(\.name))
                 for expanded in [false, true] {
                     let prompt = FrozenAgentApprovalPrompt(request: request, trustedCredentialName: "Release Tools",
                         expiresAt: Date(timeIntervalSinceNow: 300), timedAllowanceEnabled: true,
@@ -92,7 +93,7 @@ final class BundleApprovalRenderTests: AskKeyAppTestCase {
             CredentialComponentInput(name: "Service \($0)", value: .text("synthetic-value-\($0)"),
                 delivery: .environmentVariable(String(format: "STAGING_SERVICE_%02d_ACCESS_TOKEN", $0)))
         } : [
-            .init(name: "Token", value: .text("synthetic-value"), delivery: .environmentVariable("RELEASE_TOKEN")),
+            .init(name: "API Token", value: .text("synthetic-value"), delivery: .environmentVariable("RELEASE_TOKEN")),
             .init(name: "User", value: .text("synthetic-value"), delivery: .environmentVariable("RELEASE_USER")),
             .init(name: "Host", value: .text("synthetic-value"), delivery: .environmentVariable("RELEASE_HOST")),
         ]

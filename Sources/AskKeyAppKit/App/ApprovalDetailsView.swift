@@ -42,7 +42,14 @@ struct ApprovalDetailsView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                     VStack(alignment: .leading, spacing: 2) {
-                        ApprovalLineText(line: line.text, tag: line.tag)
+                        if line.wrapsVariables {
+                            ApprovalVariableLine(line: line.text)
+                                .alignmentGuide(.firstTextBaseline) { _ in NSFont.systemFont(ofSize: 12).ascender }
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel(Text(verbatim: line.text.plainText))
+                        } else {
+                            ApprovalLineText(line: line.text, tag: line.tag)
+                        }
                         if let note = line.note {
                             Text(verbatim: note)
                                 .foregroundStyle(Theme.textSecondary)
