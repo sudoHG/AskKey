@@ -9,6 +9,14 @@ import subprocess
 import sys
 
 
+MACH_O_MAGICS = {
+    bytes.fromhex(value) for value in (
+        "feedface", "cefaedfe", "feedfacf", "cffaedfe",
+        "cafebabe", "bebafeca", "cafebabf", "bfbafeca",
+    )
+}
+
+
 def version(value):
     if not re.fullmatch(r"\d+(?:\.\d+){0,2}", value):
         raise ValueError(f"Invalid SDK version: {value!r}")
@@ -53,14 +61,21 @@ def test_product_binaries(directory):
         raise ValueError(f"No XCTest bundles found in {directory}")
     binaries = []
     for bundle in bundles:
-        with (bundle / "Contents/Info.plist").open("rb") as source:
-            executable = plistlib.load(source).get("CFBundleExecutable")
-        if (not isinstance(executable, str) or not executable or executable in {".", ".."}
-                or Path(executable).name != executable):
-            raise ValueError(f"Invalid CFBundleExecutable in {bundle}")
+        properties = bundle / "Contents/Info.plist"
+        if properties.exists():
+            with properties.open("rb") as source:
+                executable = plistlib.load(source).get("CFBundleExecutable")
+            if (not isinstance(executable, str) or not executable or executable in {".", ".."}
+                    or Path(executable).name != executable):
+                raise ValueError(f"Invalid CFBundleExecutable in {bundle}")
+        else:
+            executable = bundle.stem
         binary = bundle / "Contents/MacOS" / executable
         if not binary.is_file():
             raise ValueError(f"Tested binary is missing: {binary}")
+        with binary.open("rb") as source:
+            if source.read(4) not in MACH_O_MAGICS:
+                raise ValueError(f"Tested binary is not Mach-O: {binary}")
         binaries.append(binary)
     return binaries
 
@@ -89,7 +104,7 @@ def main():
     parser.add_argument("--test-host", action="append", default=[], metavar="BINARY",
                         help="Apple XCTest host: require the Release SDK major and log full versions")
     parser.add_argument("--test-products", action="append", default=[], metavar="DIRECTORY",
-                        help="Check each XCTest bundle's CFBundleExecutable, excluding debug symbols")
+                        help="Check each XCTest bundle's executable, excluding debug symbols")
     args = parser.parse_args()
     if not args.binaries and not args.test_host and not args.test_products:
         parser.error("at least one binary, --test-host or --test-products is required")

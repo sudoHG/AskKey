@@ -120,7 +120,7 @@ class SDKMarkerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             contents = self.make_test_bundle(temporary)
             binary = contents / "MacOS/SyntheticTests"
-            binary.touch()
+            binary.write_bytes(b"\xcf\xfa\xed\xfe" + b"synthetic Mach-O fixture")
             symbols = contents / "MacOS/SyntheticTests.dSYM/Contents/Resources/Relocations/aarch64"
             symbols.mkdir(parents=True)
             (symbols / "SyntheticTests.yml").write_text("synthetic debug relocations")
@@ -131,6 +131,43 @@ class SDKMarkerTests(unittest.TestCase):
                     redirect_stdout(io.StringIO()):
                 self.assertEqual(MARKERS.main(), 0)
             inspect.assert_called_once_with(["xcrun", "vtool", "-show-build", str(binary)], text=True)
+
+    def test_native_bundle_without_info_plist_finds_its_macho_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            contents = self.make_test_bundle(temporary)
+            (contents / "Info.plist").unlink()
+            binary = contents / "MacOS/SyntheticTests"
+            binary.write_bytes(b"\xcf\xfa\xed\xfe" + b"synthetic Mach-O fixture")
+            self.assertEqual(MARKERS.test_product_binaries(temporary), [binary])
+
+    def test_native_bundle_does_not_select_an_unrelated_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            contents = self.make_test_bundle(temporary)
+            (contents / "Info.plist").unlink()
+            (contents / "MacOS/Unrelated").write_bytes(b"\xcf\xfa\xed\xfe")
+            with self.assertRaisesRegex(ValueError, "missing"):
+                MARKERS.test_product_binaries(temporary)
+
+    def test_bundle_discovery_accepts_macho_and_fat_headers(self):
+        for header in ["feedface", "cefaedfe", "feedfacf", "cffaedfe",
+                       "cafebabe", "bebafeca", "cafebabf", "bfbafeca"]:
+            with self.subTest(header=header), tempfile.TemporaryDirectory() as temporary:
+                contents = self.make_test_bundle(temporary, executable="DeclaredExecutable")
+                binary = contents / "MacOS/DeclaredExecutable"
+                binary.write_bytes(bytes.fromhex(header))
+                self.assertEqual(MARKERS.test_product_binaries(temporary), [binary])
+
+    def test_bundle_discovery_rejects_non_macho_executables_with_or_without_plist(self):
+        for has_plist in [True, False]:
+            for contents_bytes in [b"", b"\xcf\xfa\xed", b"synthetic text"]:
+                with self.subTest(has_plist=has_plist, contents_bytes=contents_bytes), \
+                        tempfile.TemporaryDirectory() as temporary:
+                    contents = self.make_test_bundle(temporary)
+                    if not has_plist:
+                        (contents / "Info.plist").unlink()
+                    (contents / "MacOS/SyntheticTests").write_bytes(contents_bytes)
+                    with self.assertRaisesRegex(ValueError, "not Mach-O"):
+                        MARKERS.test_product_binaries(temporary)
 
     def test_bundle_discovery_rejects_empty_test_products(self):
         with tempfile.TemporaryDirectory() as temporary, self.assertRaisesRegex(ValueError, "No XCTest"):
