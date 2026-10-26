@@ -60,6 +60,9 @@ final class BundleApprovalRenderTests: AskKeyAppTestCase {
                         XCTAssertEqual(promptHeight, FrozenAgentApprovalPrompt.maximumHeight, accuracy: 0.5)
                     }
                     let frame = try XCTUnwrap(content.superview)
+                    // Warm lazy SwiftUI image drawing before exporting the complete panel.
+                    _ = try NoticeLayoutFixtures.render(frame)
+                    RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.02))
                     let bitmap = try NoticeLayoutFixtures.render(frame)
                     XCTAssertFalse(panel.isVisible)
                     try Self.export(bitmap, name: "\(language)-\(variant)-\(expanded ? "details" : "collapsed")")
