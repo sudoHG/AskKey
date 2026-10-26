@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject Mach-O products whose SDK marker differs from the selected Release SDK."""
+"""Check Release SDK markers, allowing minor differences only for Apple's test host."""
 
 import argparse
 from pathlib import Path
@@ -46,27 +46,38 @@ def selected_sdk():
     return result
 
 
-def check_binary(binary, expected):
+def check_binary(binary, expected, test_host=False):
     if not Path(binary).is_file():
         raise ValueError(f"Tested binary is missing: {binary}")
     output = subprocess.check_output(["xcrun", "vtool", "-show-build", str(binary)], text=True)
     markers = build_versions(output)
     for marker in markers:
+        policy = " (XCTest host: same SDK major required)" if test_host else ""
         print(f"SDK marker: {binary}: platform {marker['platform']} "
-              f"minos {marker['minos']} sdk {marker['sdk']}; Release SDK {expected}", flush=True)
-        if version(marker["sdk"]) != version(expected):
+              f"minos {marker['minos']} sdk {marker['sdk']}; Release SDK {expected}{policy}", flush=True)
+        if test_host:
+            if version(marker["sdk"])[0] != version(expected)[0]:
+                raise ValueError(f"SDK major mismatch for XCTest host {binary}: "
+                                 f"{marker['sdk']} != Release SDK {expected}")
+        elif version(marker["sdk"]) != version(expected):
             raise ValueError(f"SDK mismatch for {binary}: {marker['sdk']} != Release SDK {expected}")
     return markers
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("binaries", nargs="+")
+    parser.add_argument("binaries", nargs="*")
+    parser.add_argument("--test-host", action="append", default=[], metavar="BINARY",
+                        help="Apple XCTest host: require the Release SDK major and log full versions")
     args = parser.parse_args()
+    if not args.binaries and not args.test_host:
+        parser.error("at least one binary or --test-host is required")
     try:
         expected = selected_sdk()
         for binary in args.binaries:
             check_binary(binary, expected)
+        for binary in args.test_host:
+            check_binary(binary, expected, test_host=True)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1

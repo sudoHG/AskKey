@@ -63,12 +63,12 @@ class SDKMarkerTests(unittest.TestCase):
             with self.subTest(sdk=sdk), self.assertRaisesRegex(ValueError, "Invalid SDK"):
                 MARKERS.build_versions(marker(sdk))
 
-    def check(self, output, expected="27.0"):
+    def check(self, output, expected="27.0", test_host=False):
         with tempfile.TemporaryDirectory() as temporary:
             binary = Path(temporary) / "synthetic-binary"
             binary.touch()
             with patch.object(MARKERS.subprocess, "check_output", return_value=output), redirect_stdout(io.StringIO()):
-                return MARKERS.check_binary(binary, expected)
+                return MARKERS.check_binary(binary, expected, test_host=test_host)
 
     def test_accepts_equivalent_sdk_version_spellings(self):
         self.assertEqual(len(self.check(marker("27.0.0"))), 1)
@@ -76,6 +76,21 @@ class SDKMarkerTests(unittest.TestCase):
     def test_rejects_deployment_target_misreported_as_sdk(self):
         with self.assertRaisesRegex(ValueError, "SDK mismatch"):
             self.check(marker("14.0"))
+
+    def test_products_reject_minor_sdk_mismatches(self):
+        with self.assertRaisesRegex(ValueError, "SDK mismatch"):
+            self.check(marker("26.4"), expected="26.5")
+
+    def test_apple_test_host_allows_minor_sdk_differences(self):
+        self.assertEqual(len(self.check(marker("26.4"), expected="26.5", test_host=True)), 1)
+
+    def test_apple_test_host_rejects_major_sdk_mismatches(self):
+        with self.assertRaisesRegex(ValueError, "SDK major mismatch"):
+            self.check(marker("14.0"), test_host=True)
+
+    def test_apple_test_host_rejects_missing_markers(self):
+        with self.assertRaisesRegex(ValueError, "No macOS"):
+            self.check("", test_host=True)
 
     def test_rejects_a_mismatch_in_one_architecture(self):
         with self.assertRaisesRegex(ValueError, "SDK mismatch"):

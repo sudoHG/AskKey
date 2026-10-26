@@ -3,7 +3,7 @@ import MachO
 import XCTest
 
 final class SDKMarkerTests: XCTestCase {
-    func testTestProcessAndBundleUseTheReleaseSDK() throws {
+    func testTestProcessUsesReleaseSDKMajorAndBundleUsesExactSDK() throws {
         try SDKMarkerTestSupport.checkTestProcess()
     }
 }
@@ -19,7 +19,7 @@ enum SDKMarkerTestSupport {
         let output = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["python3", root.appendingPathComponent("scripts/check_sdk_markers.py").path,
-                             String(cString: image), bundle.path]
+                             "--test-host", String(cString: image), bundle.path]
         process.standardOutput = output
         process.standardError = output
         try process.run()
