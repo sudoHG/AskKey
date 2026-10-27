@@ -7,52 +7,57 @@ import AskKeyBroker
 /// Hidden panels use the same factory, hosting and observers as live presentation.
 @MainActor
 final class AgentApprovalScreenLayoutTests: AskKeyAppTestCase {
-    private var visiblePanels: [NSPanel] = []
-
-    override func tearDown() {
-        for panel in visiblePanels {
-            panel.orderOut(nil)
-            panel.contentViewController = nil
-            panel.close()
-        }
-        visiblePanels = []
-        super.tearDown()
-    }
-
-    func testVisibleTitleSubtitleAndActionsStayInsideShortPanelsOnCI() throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["GITHUB_ACTIONS"] == "true", environment["CI"] == "true" else {
-            throw XCTSkip("Visible approval geometry runs only in the GitHub Actions test process")
-        }
+    func testProductionAllocationPreservesTitleSubtitleActionsAndFooterOnShortScreens() throws {
         _ = NSApplication.shared
-        let screen = try XCTUnwrap(NSScreen.main).visibleFrame
         try ApprovalCardFixtures.withLanguages { language in
             for height: CGFloat in [300, 420] {
                 for expanded in [false, true] {
-                    var prompt = ApprovalCardFixtures.prompt(.readDefault)
-                    prompt.detailsExpanded = expanded
-                    let visible = NSRect(x: screen.minX + 20, y: screen.minY + 20,
-                                         width: screen.width - 40, height: height)
+                    let request = ApprovalCardFixtures.request(.read,
+                        purpose: String(repeating: "Deploy the synthetic staging service. ", count: 40),
+                        display: ApprovalCardFixtures.display(environment: (1...48).map { "SYNTHETIC_TOKEN_\($0)" }))
+                    let prompt = FrozenAgentApprovalPrompt(request: request,
+                        expiresAt: Date().addingTimeInterval(300), timedAllowanceEnabled: true,
+                        detailsExpanded: expanded, finish: { _ in XCTFail("Layout never decides a request") })
+                    let visible = NSRect(x: 0, y: 0, width: 1024, height: height)
                     let panel = AppDelegate.makeFrozenApprovalPanel(prompt, visibleFrame: { _ in visible })
-                    visiblePanels.append(panel)
-                    panel.makeKeyAndOrderFront(nil)
+                    defer { panel.contentViewController = nil; panel.close() }
                     layout(panel)
-                    XCTAssertTrue(panel.isVisible)
-                    guard let nodes = accessibilityElements(try XCTUnwrap(panel.contentView)) else { return }
-                    var frames: [String: CGRect] = [:]
-                    for identifier in ["approval-title", "approval-subtitle", "approval-allow-once",
-                                       "approval-allow-timed", "approval-deny"] {
-                        let node = try XCTUnwrap(nodes.first { $0.identifier == identifier },
-                            "\(language), \(height), Details=\(expanded): missing \(identifier); nodes: \(nodes.map(\.description))")
-                        let frame = try XCTUnwrap(node.frame, identifier)
-                        XCTAssertGreaterThan(frame.height, 0, identifier)
-                        XCTAssertTrue(panel.frame.insetBy(dx: -1, dy: -1).contains(frame), identifier)
-                        XCTAssertTrue(visible.insetBy(dx: -1, dy: -1).contains(frame), identifier)
-                        frames[identifier] = frame
+                    let hosting = try XCTUnwrap(panel.contentViewController as? NSHostingController<AgentApprovalPanelContent>)
+                    let budget = hosting.rootView.layout.maximumHeight - Theme.Spacing.lg
+                    let presentation = prompt.presentation
+                    let parts = ApprovalCardPart.allCases
+                    let ideals = parts.map {
+                        measure(prompt.cardPart($0, presentation: presentation, expanded: expanded))
                     }
-                    XCTAssertGreaterThan(try XCTUnwrap(frames["approval-subtitle"]).minY,
-                                         try XCTUnwrap(frames["approval-allow-once"]).maxY)
-                    panel.orderOut(nil)
+                    let regions = zip(parts, ideals).map { pair in pair.0.region(idealHeight: pair.1) }
+                    let allocated = ApprovalCardLayout.allocate(regions, maximumHeight: budget)
+                    let idealByPart = Dictionary(uniqueKeysWithValues: zip(parts, ideals))
+                    let actualByPart = Dictionary(uniqueKeysWithValues: zip(parts, allocated))
+                    let context = "\(language), \(height), Details=\(expanded)"
+                    let title = measure(prompt.title(presentation.content))
+                    let subtitle = measure(prompt.subtitle(presentation.content))
+                    XCTAssertGreaterThan(title, 0, context)
+                    XCTAssertGreaterThan(subtitle, 0, context)
+                    XCTAssertEqual(try XCTUnwrap(idealByPart[.header]), title + subtitle, accuracy: 0.5, context)
+                    for part in [ApprovalCardPart.header, .actions, .footer] {
+                        XCTAssertGreaterThan(try XCTUnwrap(idealByPart[part]), 0, context)
+                        XCTAssertEqual(try XCTUnwrap(actualByPart[part]), try XCTUnwrap(idealByPart[part]),
+                                       accuracy: 0.5, "\(context): \(part) keeps its complete ideal height")
+                    }
+                    XCTAssertTrue(allocated.allSatisfy { $0 >= 0 }, context)
+                    XCTAssertLessThanOrEqual(allocated.reduce(0, +), budget + 0.5, context)
+                    let iconHeight = try XCTUnwrap(actualByPart[.icon])
+                    if ideals.reduce(0, +) > budget {
+                        XCTAssertEqual(iconHeight, 0, "\(context): drop the icon before text")
+                    } else {
+                        XCTAssertEqual(iconHeight, try XCTUnwrap(idealByPart[.icon]), context)
+                    }
+                    if expanded {
+                        XCTAssertLessThan(try XCTUnwrap(actualByPart[.content]), try XCTUnwrap(idealByPart[.content]),
+                                          "\(context): long Details scroll instead of squeezing the header")
+                    }
+                    XCTAssertFalse(panel.isVisible)
+                    XCTAssertLessThanOrEqual(panel.frame.height, height + 0.5)
                 }
             }
         }
@@ -117,6 +122,17 @@ final class AgentApprovalScreenLayoutTests: AskKeyAppTestCase {
         XCTAssertFalse(panel.isVisible)
     }
 
+    private func measure<V: View>(_ view: V) -> CGFloat {
+        let hosting = NSHostingView(rootView: view
+            .environment(\.locale, AppLanguage.store.locale)
+            .frame(width: FrozenAgentApprovalPrompt.contentWidth)
+            .fixedSize(horizontal: false, vertical: true))
+        hosting.appearance = NSAppearance(named: .aqua)
+        hosting.frame.size = hosting.fittingSize
+        hosting.layoutSubtreeIfNeeded()
+        return hosting.fittingSize.height
+    }
+
     private func layout(_ panel: NSPanel) {
         let deadline = Date().addingTimeInterval(2)
         for _ in 0..<8 {
@@ -124,95 +140,6 @@ final class AgentApprovalScreenLayoutTests: AskKeyAppTestCase {
             panel.layoutIfNeeded()
             panel.contentView?.layoutSubtreeIfNeeded()
             RunLoop.main.run(mode: .default, before: min(deadline, Date().addingTimeInterval(0.01)))
-        }
-    }
-
-    /// Role-specific AppKit accessibility protocols need not implement the full
-    /// NSAccessibility protocol. Traverse the public selectors on every node.
-    private func accessibilityElements(
-        _ root: Any, reportFailure: (String) -> Void = { XCTFail($0) }
-    ) -> [AccessibilityNode]? {
-        var visited: Set<ObjectIdentifier> = []
-        var pending: [(Any, Int)] = [(root, 0)]
-        var nodes: [AccessibilityNode] = []
-        let deadline = Date().addingTimeInterval(5)
-        while let (value, depth) = pending.popLast() {
-            guard let object = value as? NSObject, !visited.contains(ObjectIdentifier(object)) else { continue }
-            let limit: String?
-            if depth > 64 { limit = "depth exceeded 64" }
-            else if nodes.count >= 5000 { limit = "node count exceeded 5000" }
-            else if Date() >= deadline { limit = "traversal exceeded 5 seconds" }
-            else { limit = nil }
-            if let limit {
-                reportFailure("AX traversal stopped: \(limit); next: \(type(of: object)); collected nodes: \(nodes.map(\.description))")
-                return nil
-            }
-            visited.insert(ObjectIdentifier(object))
-            let node = AccessibilityNode(object: object)
-            nodes.append(node)
-            let children = node.value("accessibilityChildren") as? [Any] ?? []
-            pending.append(contentsOf: children.reversed().map { ($0, depth + 1) })
-        }
-        return nodes
-    }
-
-    func testAccessibilityTraversalVisitsCyclesOnlyOnce() throws {
-        let first = AccessibilityFixtureNode("first")
-        let second = AccessibilityFixtureNode("second")
-        first.accessibilityChildren = [second]
-        second.accessibilityChildren = [first]
-        defer { first.accessibilityChildren = []; second.accessibilityChildren = [] }
-        let nodes = try XCTUnwrap(accessibilityElements(first))
-        XCTAssertEqual(nodes.map(\.identifier), ["first", "second"])
-    }
-
-    func testAccessibilityTraversalFailsAtDepthLimitWithCollectedIdentifiers() {
-        let nodes = (0...65).map { AccessibilityFixtureNode("depth-\($0)") }
-        for index in 0..<65 { nodes[index].accessibilityChildren = [nodes[index + 1]] }
-        var failures: [String] = []
-        XCTAssertNil(accessibilityElements(nodes[0], reportFailure: { failures.append($0) }))
-        XCTAssertEqual(failures.count, 1)
-        XCTAssertTrue(failures.first?.contains("depth exceeded 64") == true)
-        XCTAssertTrue(failures.first?.contains("depth-0") == true)
-        XCTAssertTrue(failures.first?.contains("depth-64") == true)
-    }
-
-    func testAccessibilityTraversalFailsAtNodeLimitWithCollectedIdentifiers() {
-        let root = AccessibilityFixtureNode("root")
-        root.accessibilityChildren = (0..<5000).map { AccessibilityFixtureNode("node-\($0)") }
-        var failures: [String] = []
-        XCTAssertNil(accessibilityElements(root, reportFailure: { failures.append($0) }))
-        XCTAssertEqual(failures.count, 1)
-        XCTAssertTrue(failures.first?.contains("node count exceeded 5000") == true)
-        XCTAssertTrue(failures.first?.contains("root") == true)
-        XCTAssertTrue(failures.first?.contains("node-4998") == true)
-    }
-
-    private struct AccessibilityNode {
-        let object: NSObject
-        let identifier: String?
-        var frame: CGRect? { (value("accessibilityFrame") as? NSValue)?.rectValue }
-        var description: String { "\(type(of: object)):\(identifier ?? "<no identifier>")" }
-
-        init(object: NSObject) {
-            self.object = object
-            identifier = object.responds(to: NSSelectorFromString("accessibilityIdentifier"))
-                ? object.value(forKey: "accessibilityIdentifier") as? String : nil
-        }
-
-        func value(_ key: String) -> Any? {
-            guard object.responds(to: NSSelectorFromString(key)) else { return nil }
-            return object.value(forKey: key)
-        }
-    }
-
-    private final class AccessibilityFixtureNode: NSObject {
-        @objc var accessibilityIdentifier: String
-        @objc var accessibilityChildren: [AccessibilityFixtureNode] = []
-
-        init(_ identifier: String) {
-            accessibilityIdentifier = identifier
-            super.init()
         }
     }
 }

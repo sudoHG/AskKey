@@ -87,6 +87,13 @@ struct ApprovalCardLayout: Layout {
     let maximumHeight: CGFloat
     var minimumFlexibleHeight: CGFloat = 80
 
+    struct Region {
+        let idealHeight: CGFloat
+        var priority: Int? = nil
+        var minimumHeight: CGFloat? = nil
+        var collapsible = false
+    }
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? FrozenAgentApprovalPrompt.contentWidth
         return CGSize(width: width, height: heights(width: width, maximum: proposal.height, subviews: subviews).reduce(0, +))
@@ -103,19 +110,29 @@ struct ApprovalCardLayout: Layout {
 
     private func heights(width: CGFloat, maximum: CGFloat?, subviews: Subviews) -> [CGFloat] {
         let maximumHeight = min(self.maximumHeight, maximum ?? self.maximumHeight)
-        var heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
+        let regions = subviews.map { subview in
+            let height = subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+            return subview[ApprovalCardPartKey.self]?.region(idealHeight: height)
+                ?? Region(idealHeight: height, priority: subview[ApprovalCardFlexibleKey.self])
+        }
+        return Self.allocate(regions, maximumHeight: maximumHeight, minimumFlexibleHeight: minimumFlexibleHeight)
+    }
+
+    static func allocate(_ regions: [Region], maximumHeight: CGFloat,
+                         minimumFlexibleHeight: CGFloat = 80) -> [CGFloat] {
+        var heights = regions.map(\.idealHeight)
         // The icon and its top spacing disappear before any text is squeezed.
-        for index in subviews.indices where subviews[index][ApprovalCardCollapsibleKey.self] {
+        for index in regions.indices where regions[index].collapsible {
             if heights.reduce(0, +) > maximumHeight { heights[index] = 0 }
         }
-        let flexible = subviews.indices
-            .compactMap { index in subviews[index][ApprovalCardFlexibleKey.self].map { (index, $0) } }
+        let flexible = regions.indices
+            .compactMap { index in regions[index].priority.map { (index, $0) } }
             .sorted { $0.1 < $1.1 }
             .map(\.0)
         for index in flexible {
             let excess = heights.reduce(0, +) - maximumHeight
             guard excess > 0 else { break }
-            let minimum = subviews[index][ApprovalCardMinimumHeightKey.self] ?? minimumFlexibleHeight
+            let minimum = regions[index].minimumHeight ?? minimumFlexibleHeight
             heights[index] = max(min(heights[index], minimum), heights[index] - excess)
         }
         return heights
@@ -127,10 +144,20 @@ struct ApprovalCardFlexibleKey: LayoutValueKey {
     static let defaultValue: Int? = nil
 }
 
-struct ApprovalCardCollapsibleKey: LayoutValueKey {
-    static let defaultValue = false
+/// Shared sizing priorities for the production card's five regions.
+enum ApprovalCardPart: CaseIterable, Hashable {
+    case icon, header, content, actions, footer
+
+    func region(idealHeight: CGFloat) -> ApprovalCardLayout.Region {
+        switch self {
+        case .icon: .init(idealHeight: idealHeight, collapsible: true)
+        case .header: .init(idealHeight: idealHeight, priority: 2)
+        case .content: .init(idealHeight: idealHeight, priority: 1, minimumHeight: 0)
+        case .actions, .footer: .init(idealHeight: idealHeight)
+        }
+    }
 }
 
-struct ApprovalCardMinimumHeightKey: LayoutValueKey {
-    static let defaultValue: CGFloat? = nil
+struct ApprovalCardPartKey: LayoutValueKey {
+    static let defaultValue: ApprovalCardPart? = nil
 }
