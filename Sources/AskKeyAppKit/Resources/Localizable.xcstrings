@@ -14886,6 +14886,14 @@
         }
       }
     },
+    "This credential name is already in use. The credential was not saved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This credential name is already in use. The credential was not saved." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此凭证名称已被使用，凭证未保存。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This credential name is already in use. The credential was not saved.!!]" } }
+      }
+    },
     "Ask Key could not complete this change.": {
       "extractionState": "extracted_with_value",
       "localizations": {

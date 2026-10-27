@@ -189,6 +189,32 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertEqual(result["outcome"] as? String, "denied")
     }
 
+    func testApprovedUnavailableNameMessageInEnglish() throws {
+        try captureUnavailableNameMessage(language: "en", name: "20-en-approved-write-name-unavailable",
+            message: "This credential name is already in use. The credential was not saved.")
+    }
+
+    func testApprovedUnavailableNameMessageInChinese() throws {
+        try captureUnavailableNameMessage(language: "zh-Hans", name: "21-zh-approved-write-name-unavailable",
+            message: "\u{6B64}\u{51ED}\u{8BC1}\u{540D}\u{79F0}\u{5DF2}\u{88AB}\u{4F7F}\u{7528}\u{FF0C}\u{51ED}\u{8BC1}\u{672A}\u{4FDD}\u{5B58}\u{3002}")
+    }
+
+    private func captureUnavailableNameMessage(language: String, name: String, message: String) throws {
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "approval-unavailable-name-screenshots"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
+        app.launch()
+        _ = try waitForEvidence("approval-pending.json")
+        XCTAssertTrue(app.buttons["approval-allow-once"].waitForExistence(timeout: 8))
+        click("approval-allow-once")
+        let result = try waitForEvidence("approval-result.json")
+        XCTAssertEqual(result["outcome"] as? String, "internal_error")
+        XCTAssertEqual(result["unchanged"] as? Bool, true)
+        // Only this explicit user action brings management forward after approval.
+        app.activate()
+        waitForText(message)
+        capture(name)
+    }
+
     private func capture(_ name: String, approval: Bool = false) {
         // AppKit's floating approval NSPanel is exposed as a dialog, while the
         // management scene is a window. Query both before taking a window crop.

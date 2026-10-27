@@ -24,7 +24,8 @@ extension Vault {
                 from: .init(name: name, value: value, permission: .ask),
                 id: credentialID,
                 key: key,
-                existing: nil
+                existing: nil,
+                checkNameAvailability: false
             )
             mutation = .create(record)
             credentialExpiresAt = nil
@@ -51,7 +52,7 @@ extension Vault {
             mutation = .create(try preparedBundleRecord(
                 from: .init(name: name, components: components, usageInstructions: instructions ?? "",
                     groupName: groupAssignment, permission: .ask),
-                id: credentialID, key: key, existing: nil))
+                id: credentialID, key: key, existing: nil, checkNameAvailability: false))
             credentialExpiresAt = nil
             operation = .create
         case let .modifyBundle(name, changes, instructions, group):

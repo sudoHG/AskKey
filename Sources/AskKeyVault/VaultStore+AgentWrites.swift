@@ -41,6 +41,16 @@ extension VaultStore {
                 return .init(operationID: existing.operationId, credentialID: existing.credentialId)
             }
 
+            switch frozen.mutation {
+            case .create(let record), .modify(let record, _):
+                if let conflict = try CredentialRecord.filter(Column("name_index") == record.nameIndex).fetchOne(db),
+                   conflict.id != record.id {
+                    // This transaction runs only after approval. Never carry a
+                    // conflicting credential's name or identity across the boundary.
+                    throw VaultError.agentWriteNameUnavailable
+                }
+            case .delete: break
+            }
             if let group = frozen.groupAssignment {
                 guard let key = credentialGroupsKey else { throw VaultError.vaultLocked }
                 try commitAgentGroup(group, creationApproved: frozen.summary?.createsGroup == true, key: key, db: db)

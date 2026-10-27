@@ -7,14 +7,16 @@ extension Vault {
         from input: TextCredentialInput,
         id: String,
         key: SymmetricKey,
-        existing: CredentialRecord?
+        existing: CredentialRecord?,
+        checkNameAvailability: Bool = true
     ) throws -> CredentialRecord {
         let displayName = try CredentialName.displayName(from: input.name)
         let nameIndex = CredentialIndex.hash(
             normalizedName: CredentialName.normalized(displayName),
             vaultKey: key
         )
-        if let conflict = try store.fetchCredentialIncludingRecycled(nameIndex: nameIndex), conflict.id != id {
+        if checkNameAvailability,
+           let conflict = try store.fetchCredentialIncludingRecycled(nameIndex: nameIndex), conflict.id != id {
             throw VaultError.credentialNameConflict(displayName)
         }
         let group = try CredentialName.optionalDisplayName(input.groupName)
@@ -49,14 +51,16 @@ extension Vault {
         from input: BundleCredentialInput,
         id: String,
         key: SymmetricKey,
-        existing: CredentialRecord?
+        existing: CredentialRecord?,
+        checkNameAvailability: Bool = true
     ) throws -> CredentialRecord {
         let displayName = try CredentialName.displayName(from: input.name)
         let nameIndex = CredentialIndex.hash(
             normalizedName: CredentialName.normalized(displayName),
             vaultKey: key
         )
-        if let conflict = try store.fetchCredentialIncludingRecycled(nameIndex: nameIndex), conflict.id != id {
+        if checkNameAvailability,
+           let conflict = try store.fetchCredentialIncludingRecycled(nameIndex: nameIndex), conflict.id != id {
             throw VaultError.credentialNameConflict(displayName)
         }
         let components = try CredentialBundleValidator.validatedComponents(input.components)

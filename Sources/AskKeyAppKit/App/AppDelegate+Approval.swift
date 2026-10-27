@@ -290,17 +290,33 @@ extension AppDelegate {
         guard !lockedApprovalReminderPosted, lockedApprovalReminderAttempt == nil else { return }
         let attempt = UUID()
         lockedApprovalReminderAttempt = attempt
+        postApprovalNotification(identifier: "askkey-locked-approval-reminder", title: title, body: body) { [weak self] result in
+            guard self?.lockedApprovalReminderAttempt == attempt else { return }
+            self?.lockedApprovalReminderAttempt = nil
+            self?.lockedApprovalReminderPosted = LockedApprovalReminderDeliveryPolicy.marksNotificationPosted(for: result)
+        }
+    }
+
+    func presentAgentWriteNameUnavailable() {
+        let message = "This credential name is already in use. The credential was not saved."
+        vault.errorMessage = message
+        postApprovalNotification(identifier: "askkey-agent-write-failure", title: vault.brandName,
+            body: displayedUserMessage(message)) { _ in }
+    }
+
+    private func postApprovalNotification(
+        identifier: String, title: String, body: String,
+        completion: @escaping @MainActor (LockedApprovalReminderDeliveryResult) -> Void
+    ) {
+        NSApp.dockTile.badgeLabel = "!"
         let center = UNUserNotificationCenter.current()
-        center.getNotificationSettings { [weak self] settings in
+        center.getNotificationSettings { settings in
             guard settings.authorizationStatus == .authorized
                     || settings.authorizationStatus == .provisional else {
-                Task { @MainActor [weak self] in
-                    guard self?.lockedApprovalReminderAttempt == attempt else { return }
-                    self?.lockedApprovalReminderAttempt = nil
-                    self?.lockedApprovalReminderPosted = LockedApprovalReminderDeliveryPolicy
-                        .marksNotificationPosted(for: .authorizationUnavailable)
+                Task { @MainActor in
+                    completion(.authorizationUnavailable)
                     NSLog(
-                        "AskKey: locked approval notification unavailable; using Dock badge fallback"
+                        "AskKey: approval notification unavailable; using Dock badge fallback"
                     )
                 }
                 return
@@ -309,22 +325,17 @@ extension AppDelegate {
             content.title = title
             content.body = body
             let request = UNNotificationRequest(
-                identifier: "askkey-locked-approval-reminder",
+                identifier: identifier,
                 content: content,
                 trigger: nil
             )
-            center.add(request) { [weak self] error in
-                Task { @MainActor [weak self] in
-                    guard self?.lockedApprovalReminderAttempt == attempt else { return }
-                    self?.lockedApprovalReminderAttempt = nil
-                    let result: LockedApprovalReminderDeliveryResult = error == nil
-                        ? .delivered
-                        : .deliveryFailed
-                    self?.lockedApprovalReminderPosted = LockedApprovalReminderDeliveryPolicy
-                        .marksNotificationPosted(for: result)
-                    if let error {
+            center.add(request) { error in
+                let delivered = error == nil
+                Task { @MainActor in
+                    completion(delivered ? .delivered : .deliveryFailed)
+                    if !delivered {
                         NSLog(
-                            "AskKey: locked approval reminder failed; using Dock badge fallback: \(error.localizedDescription)"
+                            "AskKey: approval notification failed; using Dock badge fallback"
                         )
                     }
                 }
