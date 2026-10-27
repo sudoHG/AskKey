@@ -80,7 +80,7 @@ struct FrozenWriteSummaryContent: Equatable {
         }
     }
 
-    /// Each item is matched by name and tagged from its own value digest.
+    /// Frozen upserts replace values even when the old value is unknown.
     private static func modifiedComponents(_ summary: BrokerCredentialWriteSummary) -> [Component] {
         let digestsEqual = summary.beforeDigest != nil && summary.beforeDigest == summary.afterDigest
         let before = Dictionary(summary.before.map { (ApprovalCopy.matchKey($0.name), $0) }, uniquingKeysWith: { first, _ in first })
@@ -90,7 +90,9 @@ struct FrozenWriteSummaryContent: Equatable {
                 return Component(name: after.name, tag: .new, delivery: after.delivery, carriesValue: true)
             }
             let valueChanged: Bool
-            if let oldDigest = old.valueDigest, let newDigest = after.valueDigest {
+            if let changed = after.valueChanged {
+                valueChanged = changed
+            } else if let oldDigest = old.valueDigest, let newDigest = after.valueDigest {
                 valueChanged = oldDigest != newDigest
             } else {
                 // Without per-item digests, claim a replacement unless nothing changed.

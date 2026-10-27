@@ -97,22 +97,26 @@ public enum BrokerCredentialGroupChange: Codable, Equatable, Sendable {
 public struct BrokerCredentialComponentSummary: Equatable, Sendable {
     public let name: String
     public let payloadKind: BrokerCatalogPayloadKind
-    public let byteCount: Int
+    public let byteCount: Int?
     public let delivery: BrokerComponentDelivery
-    public let masked: Bool
+    public let masked: Bool?
     /// App-side only: a vault-keyed digest of this component's value, so an
     /// approval card can tell exactly which values change. Never part of a
     /// Broker response and never logged.
     public let valueDigest: String?
+    /// App-only intent: false for untouched metadata, true for an upsert.
+    /// Nil supports summaries that carry their own value comparison.
+    public let valueChanged: Bool?
 
-    public init(name: String, payloadKind: BrokerCatalogPayloadKind, byteCount: Int, delivery: BrokerComponentDelivery,
-                masked: Bool, valueDigest: String? = nil) {
+    public init(name: String, payloadKind: BrokerCatalogPayloadKind, byteCount: Int?, delivery: BrokerComponentDelivery,
+                masked: Bool?, valueDigest: String? = nil, valueChanged: Bool? = nil) {
         self.name = name
         self.payloadKind = payloadKind
         self.byteCount = byteCount
         self.delivery = delivery
         self.masked = masked
         self.valueDigest = valueDigest
+        self.valueChanged = valueChanged
     }
 }
 

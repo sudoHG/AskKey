@@ -3,8 +3,7 @@ import XCTest
 import AskKeyBroker
 @testable import AskKeyVault
 
-/// The App-side write summary carries one keyed value digest per component so
-/// an approval card can tag each item exactly; it never leaves the App.
+/// Stored values stay closed; the card gets explicit intent for each upsert.
 final class AgentWriteComponentDigestTests: AgentTextWriteTestSupport {
     private func createReleaseCheck(_ harness: Harness) throws {
         _ = try harness.vault.createBundleCredential(.init(name: "Release Check", components: [
@@ -15,7 +14,7 @@ final class AgentWriteComponentDigestTests: AgentTextWriteTestSupport {
         ], usageInstructions: "Use for release checks.", groupName: "Release Tools", permission: .ask), using: .allow)
     }
 
-    func testRotatingOneSameLengthComponentChangesOnlyItsDigest() throws {
+    func testRotatingOneComponentLeavesOldSizesAndDigestsUnknown() throws {
         let harness = try makeHarness { _ in true }
         try createReleaseCheck(harness)
         let rotated = "synthetic-token-bbbb"
@@ -26,19 +25,22 @@ final class AgentWriteComponentDigestTests: AgentTextWriteTestSupport {
         let summary = try harness.vault.frozenAgentWriteSummary(operationID: request.operationID,
             requestID: ticket.requestID, capability: ticket.capability)
 
-        // Size and delivery alone cannot tell the rotated item apart.
         XCTAssertEqual(summary.before.map(\.name), ["USER", "TOKEN", "CERT"])
         XCTAssertEqual(summary.after.map(\.name), ["USER", "TOKEN", "CERT"])
-        XCTAssertEqual(summary.before.map(\.byteCount), summary.after.map(\.byteCount))
+        XCTAssertEqual(summary.before.map(\.byteCount), [nil, nil, nil])
+        XCTAssertEqual(summary.after.map(\.byteCount), [nil, rotated.utf8.count, nil])
         XCTAssertEqual(summary.before.map(\.delivery), summary.after.map(\.delivery))
-        XCTAssertNotEqual(summary.beforeDigest, summary.afterDigest)
+        XCTAssertNil(summary.beforeDigest)
+        XCTAssertNotNil(summary.afterDigest)
 
         let before = summary.before.map(\.valueDigest)
         let after = summary.after.map(\.valueDigest)
-        XCTAssertTrue((before + after).allSatisfy { $0?.count == 64 })
-        XCTAssertEqual(before[0], after[0], "USER is unchanged")
-        XCTAssertNotEqual(before[1], after[1], "TOKEN is replaced")
-        XCTAssertEqual(before[2], after[2], "CERT is unchanged")
+        XCTAssertEqual(before, [nil, nil, nil])
+        XCTAssertNil(after[0])
+        XCTAssertEqual(after[1]?.count, 64)
+        XCTAssertNil(after[2])
+        XCTAssertEqual(summary.after.map(\.valueChanged), [false, true, false])
+        XCTAssertEqual(summary.before.map(\.masked), [nil, nil, nil])
 
         // Keyed by the vault, so a leaked digest would not confirm a guessed value.
         let plain = SHA256.hash(data: Data(rotated.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -50,7 +52,7 @@ final class AgentWriteComponentDigestTests: AgentTextWriteTestSupport {
         }
     }
 
-    func testDigestsAreStableAcrossFreezesAndIgnoreDeliveryChanges() throws {
+    func testResendingSameValueStillMarksAnUpsertAndKeepsProposedDigestStable() throws {
         let harness = try makeHarness { _ in true }
         try createReleaseCheck(harness)
         func summary(_ operationID: String, delivery: BrokerComponentDelivery) throws -> BrokerCredentialWriteSummary {
@@ -63,9 +65,10 @@ final class AgentWriteComponentDigestTests: AgentTextWriteTestSupport {
         }
         let same = try summary("same-user", delivery: .environmentVariable("RELEASE_USER"))
         let moved = try summary("moved-user", delivery: .environmentVariable("RELEASE_LOGIN"))
-        XCTAssertEqual(same.before.map(\.valueDigest), same.after.map(\.valueDigest), "re-sending a value keeps its digest")
-        XCTAssertEqual(same.before.map(\.valueDigest), moved.before.map(\.valueDigest), "digests are stable across freezes")
-        XCTAssertEqual(moved.before[0].valueDigest, moved.after[0].valueDigest, "a new delivery does not change the value")
+        XCTAssertEqual(same.before.map(\.valueDigest), [nil, nil, nil])
+        XCTAssertEqual(same.after.map(\.valueDigest), moved.after.map(\.valueDigest))
+        XCTAssertEqual(same.after.map(\.valueChanged), [true, false, false])
+        XCTAssertEqual(moved.after.map(\.valueChanged), [true, false, false])
         XCTAssertNotEqual(moved.before[0].delivery, moved.after[0].delivery)
     }
 }

@@ -34,6 +34,7 @@ public enum VaultError: Error, LocalizedError {
     case invalidCredentialName(String)
     case credentialNameConflict(String)
     case agentWriteNameUnavailable
+    case agentWriteMaterialTooLarge
     case credentialNotFound(String)
     case credentialChanged
     case credentialUnavailable
@@ -71,6 +72,8 @@ public enum VaultError: Error, LocalizedError {
             return "A credential named '\(name)' already exists."
         case .agentWriteNameUnavailable:
             return "Ask Key could not complete this change."
+        case .agentWriteMaterialTooLarge:
+            return "The updated credential exceeds the 5 MiB size limit. The credential was not saved."
         case .credentialNotFound(let name):
             return "Credential '\(name)' was not found."
         case .credentialChanged:

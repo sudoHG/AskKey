@@ -197,10 +197,9 @@ final class AuditBrokerBoundaryTests: XCTestCase {
             requestID: modifyTicket.requestID, capability: modifyTicket.capability, using: .deny))
         let reveal = try harness.vault.revealFrozenCredentialWrite(operationID: modify.operationID,
             requestID: modifyTicket.requestID, capability: modifyTicket.capability, using: .allow)
-        XCTAssertEqual(reveal.before.count, 3)
-        XCTAssertEqual(reveal.after.count, 3)
-        XCTAssertEqual(reveal.after[1], reveal.before[1])
-        XCTAssertEqual(reveal.after[2], reveal.before[2])
+        XCTAssertEqual(reveal.before.map(\.name), ["token"])
+        XCTAssertEqual(reveal.after.map(\.name), ["token"])
+        XCTAssertFalse(String(describing: reveal).contains("synthetic-certificate"))
         XCTAssertEqual(reveal.after[0].delivery, .environmentVariable("NEW_TOKEN"))
         XCTAssertThrowsError(try harness.vault.listTextCredentials())
         _ = try harness.vault.approvalRequests.decide(requestID: modifyTicket.requestID,
