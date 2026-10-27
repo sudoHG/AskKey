@@ -35,14 +35,14 @@ enum ApprovalCopy {
             "(?:组里有\\s*|合并后共\\s*)?[（(]?\\d+\\s*个(?:对\\s*Agent\\s*隐藏|隐藏的凭证|凭证)[）)]?", // i18n-literal: Counted phrases stay together.
             "\\(?\\d+\\s+(?:hidden(?:\\s+from\\s+agents)?|credentials?)\\)?",
             "会动到\\s*\\d+\\s*个隐藏的凭证|\\s*的(?:新)?值", // i18n-literal: Chinese phrases are layout tokens.
-            "环境变量|交给程序|不交付|被拒绝|移到|无法撤销|修改或删除仍需你批准", // i18n-literal: Chinese phrases are layout tokens.
+            "环境变量|交给程序|不交付|被拒绝|移到|无法撤销|看不到|修改或删除仍需你批准", // i18n-literal: Chinese phrases are layout tokens.
         ].joined(separator: "|")
         let quoted = try? NSRegularExpression(pattern: pattern)
         var result = text
         for match in (quoted?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []).reversed() {
             if let range = Range(match.range, in: result) { result.replaceSubrange(range, with: unbroken(String(result[range]))) }
         }
-        let keys = AppLanguage.store.resolved == "zh-Hans"
+        let keys = AppLanguage.resolve(mode: AppLanguage.current) == "zh-Hans"
             ? ["%@ (not verified)", "hidden from agents", "Ungrouped", "Credential", "Group", "Instructions"]
             : []
         return keys.reduce(result) { result, key in

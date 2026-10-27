@@ -1,6 +1,14 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Approval delivery mapping warning": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The delivery mapping is unavailable. This run will be refused. Choose Deny." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "交付映射不可用。\n本次运行将被拒绝，请选择“拒绝”。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The delivery mapping is unavailable. This run will be refused. Choose Deny.!!]" } }
+      }
+    },
     "Approval list conjunction": {
       "extractionState": "manual",
       "localizations": {
@@ -21,7 +29,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Its %1$@%3$@ moves to %2$@ and isn’t deleted." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@移到%2$@，不会删除%3$@。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@%3$@移到%2$@，不会删除。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Its %1$@%3$@ moves to %2$@ and isn’t deleted.!!]" } }
       }
     },
@@ -29,7 +37,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Its %1$@%3$@ move to %2$@ and aren’t deleted." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@移到%2$@，不会删除%3$@。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@%3$@移到%2$@，不会删除。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Its %1$@%3$@ move to %2$@ and aren’t deleted.!!]" } }
       }
     },

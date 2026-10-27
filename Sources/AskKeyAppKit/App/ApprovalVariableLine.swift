@@ -4,7 +4,7 @@ import SwiftUI
 /// Variables prefer underscore breaks; commands wrap between words. All text
 /// exports and accessibility keep the original, including partial selections.
 struct ApprovalVariableLine: NSViewRepresentable {
-    enum CodeWrapping: Equatable { case variable, command }
+    enum CodeWrapping: Equatable { case variable, identifier, command }
     let line: ApprovalLine
     var codeWrapping = CodeWrapping.variable
 
@@ -58,9 +58,9 @@ struct ApprovalVariableLine: NSViewRepresentable {
                     originalOffsets.append(originalOffset)
                 }
                 for character in segment.text {
-                    let breakAtSpace = codeWrapping == .command && (character.isWhitespace || previous?.isWhitespace == true)
-                    if segment.code, let previous, !breakAtSpace, codeWrapping == .command || previous != "_" {
-                        if wordLength == (codeWrapping == .command ? 24 : 12) {
+                    let breakAtSpace = codeWrapping != .variable && (character.isWhitespace || previous?.isWhitespace == true)
+                    if segment.code, let previous, !breakAtSpace, codeWrapping != .variable || previous != "_" {
+                        if wordLength == (codeWrapping == .variable ? 12 : 24) {
                             insert("\u{200b}")
                             wordLength = 0
                         } else { insert("\u{2060}") }
@@ -72,7 +72,7 @@ struct ApprovalVariableLine: NSViewRepresentable {
                     }
                     let underscoreBreak = codeWrapping == .variable && character == "_"
                     if segment.code, underscoreBreak { insert("\u{200b}") }
-                    wordLength = underscoreBreak || (codeWrapping == .command && character.isWhitespace) ? 0 : wordLength + 1
+                    wordLength = underscoreBreak || (codeWrapping != .variable && character.isWhitespace) ? 0 : wordLength + 1
                     previous = character
                 }
                 attributed.append(NSAttributedString(string: displayed, attributes: [

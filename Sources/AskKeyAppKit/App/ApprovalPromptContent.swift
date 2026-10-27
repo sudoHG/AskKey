@@ -35,7 +35,7 @@ struct ApprovalPromptContent: Equatable {
         commandSummary = display?.commandSummary
         fullCommand = display?.commandLine
         warning = display.map { $0.environmentVariables == nil || $0.temporaryFileVariables == nil } == true
-            ? appLocalized("The delivery mapping is unavailable. This run will be refused. Choose Deny.") : nil
+            ? appLocalized("Approval delivery mapping warning") : nil
     }
 
     /// Shared with the pending list so both say the same sentence.

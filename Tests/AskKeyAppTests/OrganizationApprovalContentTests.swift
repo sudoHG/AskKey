@@ -94,6 +94,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                 XCTAssertEqual(content.rows[1].title, "Move the credential “Service 2” from “Ungrouped” to “Group 1”")
             } else {
                 XCTAssertEqual(content.subtitle, "共 12 步，会动到 3 个隐藏的凭证") // i18n-literal: Assert the Simplified Chinese organize subtitle.
+                XCTAssertEqual(content.rows[3].detail, "2 个凭证（1 个对 Agent 隐藏）移到“未分组”，不会删除。") // i18n-literal: Chinese deletion note order.
                 XCTAssertEqual(content.rows[1].title, "把凭证“Service 2”从“未分组”移到“Group 1”") // i18n-literal: Assert the Simplified Chinese move step.
             }
         }

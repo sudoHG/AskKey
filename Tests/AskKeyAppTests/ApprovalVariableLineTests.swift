@@ -4,6 +4,23 @@ import XCTest
 
 @MainActor
 final class ApprovalVariableLineTests: AskKeyAppTestCase {
+    func testDeliveredIdentifierMovesWholeToTheNextLine() throws {
+        let variable = "STAGING_API_TOKEN"
+        let line = ApprovalLine(format: "Staging API → environment variable %@", code: [variable])
+        let view = ApprovalVariableLine.TextView()
+        view.configure(line, codeWrapping: .identifier)
+        _ = view.measuredSize(width: 160)
+        let manager = try XCTUnwrap(view.layoutManager)
+        var fragments: [String] = []
+        manager.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: manager.numberOfGlyphs)) { _, _, _, glyphs, _ in
+            let characters = manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+            fragments.append((view.string as NSString).substring(with: characters)
+                .replacingOccurrences(of: "\u{2060}", with: "").replacingOccurrences(of: "\u{200b}", with: ""))
+        }
+        XCTAssertTrue(fragments.contains { $0.contains(variable) }, "\(fragments)")
+        XCTAssertEqual(fragments.joined(), line.plainText)
+    }
+
     func testCommandFlagsStayWholeAndAllExportsKeepTheExactCommand() throws {
         let command = "./deploy.sh " + (1...18).map { "--flag-\($0) value-\($0)" }.joined(separator: " ")
         let view = ApprovalVariableLine.TextView()

@@ -6,6 +6,16 @@ import AskKeyBroker
 
 @MainActor
 final class ApprovalCardPolishTests: AskKeyAppTestCase {
+    func testEnglishCopyDoesNotInheritChineseWrappingFromTheObservableStore() {
+        let mode = AppLanguage.store.mode
+        let current = AppLanguage.current
+        defer { AppLanguage.apply(mode: mode); AppLanguage.current = current }
+        AppLanguage.apply(mode: "zh-Hans")
+        AppLanguage.current = "en"
+        let purpose = "Deploy the staging site (not verified)"
+        XCTAssertEqual(ApprovalCopy.wrapping(purpose), purpose)
+    }
+
     func testProvidedValuesNameOnlyNewOrReplacedItems() {
         ApprovalCardFixtures.withLanguages { language in
             for (card, names) in [

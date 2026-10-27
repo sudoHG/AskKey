@@ -55,7 +55,7 @@ struct ApprovalDetailsView: View {
                 ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                     VStack(alignment: .leading, spacing: 2) {
                         if line.wrapsVariables {
-                            ApprovalVariableLine(line: line.text)
+                            ApprovalVariableLine(line: line.text, codeWrapping: .identifier)
                                 .alignmentGuide(.firstTextBaseline) { _ in NSFont.systemFont(ofSize: 12).ascender }
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel(Text(verbatim: line.text.plainText))
