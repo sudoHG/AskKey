@@ -1,6 +1,17 @@
 import Foundation
 
 extension ClaudeCodeMCPAdapter {
+    func inspectTimedOutWrite() -> ClaudeCodeMCPWriteOutcome {
+        // Settle the write even if the caller cancelled; this read is bounded
+        // by the same process timeout and never changes configuration.
+        guard let entry = try? inspectEntry(cleanup: true) else { return .uncertain }
+        switch entry.state {
+        case .absent: return .notWritten
+        case .matching: return .written
+        case .different, .scopeConflict: return .uncertain
+        }
+    }
+
     struct Entry {
         let state: ClaudeCodeMCPPlan.State
         var connected = false

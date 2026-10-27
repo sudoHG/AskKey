@@ -60,7 +60,14 @@ public struct ClaudeCodeMCPAdapter: Sendable {
         let json = try JSONSerialization.data(withJSONObject: [
             "type": "stdio", "command": helperURL.path, "args": ["mcp"],
         ], options: [.sortedKeys])
-        let added = try runClaude(["mcp", "add-json", "askkey", String(decoding: json, as: UTF8.self), "--scope", "user"])
+        let added: AskKeySystem.RestrictedProcess.Result
+        do {
+            added = try runClaude(["mcp", "add-json", "askkey", String(decoding: json, as: UTF8.self), "--scope", "user"])
+        } catch ClaudeCodeMCPError.timeout {
+            // The CLI may have committed before it stopped responding. Read
+            // once without retrying or claiming ownership for a rollback.
+            throw ClaudeCodeMCPError.writeTimedOut(inspectTimedOutWrite())
+        }
         guard added.status == 0 else { throw ClaudeCodeMCPError.addFailed }
         do {
             let status = try verify(version: plan.version)

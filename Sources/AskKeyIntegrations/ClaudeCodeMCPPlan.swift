@@ -19,6 +19,13 @@ public struct ClaudeCodeMCPConnectionStatus: Equatable, Sendable {
     public let helperVersion: String
 }
 
+/// Configuration observed after an add command timed out; connection health is unverified.
+public enum ClaudeCodeMCPWriteOutcome: Equatable, Sendable {
+    case written
+    case notWritten
+    case uncertain
+}
+
 public enum ClaudeCodeMCPError: Error, Equatable, Sendable {
     case missingExecutable
     case unsupportedVersion
@@ -32,6 +39,7 @@ public enum ClaudeCodeMCPError: Error, Equatable, Sendable {
     case rollbackFailed(original: String, cleanup: String)
     case cancelled
     case timeout
+    case writeTimedOut(ClaudeCodeMCPWriteOutcome)
     case outputTooLarge
     case processFailed
 }

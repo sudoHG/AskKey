@@ -352,7 +352,7 @@ final class AgentOnboardingCoordinator {
                 session.attempt.phase = .recoveryRequired
             case .restored:
                 session.attempt.phase = .rolledBack
-            case .verifiedAndKept:
+            case .verifiedAndKept, .writtenUnverified, .uncertain:
                 session.attempt.phase = .needsAction
             case .notWritten:
                 session.attempt.phase = .needsAction
@@ -360,7 +360,15 @@ final class AgentOnboardingCoordinator {
                     session.plan = nil
                 }
             }
-            if report.changeStatus == .verifiedAndKept || report.outcome == .verifiedConnected {
+            if case .claudeWriteTimedOut = failure {
+                // The approved plan predates an indeterminate write. Require
+                // a fresh check and discard any earlier connection success.
+                session.plan = nil
+                session.lastKnownResult = report.changeStatus == .writtenUnverified
+                    ? AgentLastKnownResult(outcome: .configuredUnverified, checkedAt: clock(),
+                        targetSummary: report.targetSummary)
+                    : nil
+            } else if report.changeStatus == .verifiedAndKept || report.outcome == .verifiedConnected {
                 session.lastKnownResult = AgentLastKnownResult(
                     outcome: report.outcome,
                     checkedAt: clock(),
@@ -391,6 +399,7 @@ final class AgentOnboardingCoordinator {
         let change: AgentChangeStatus
         switch failure {
         case .restoreFailed: change = .restoreFailed
+        case .claudeWriteTimedOut(let outcome): change = AgentChangeStatus(outcome)
         case .planChanged: change = .notWritten
         default: change = .notWritten
         }
