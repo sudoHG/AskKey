@@ -151,9 +151,9 @@ enum VaultBootstrap {
 
     /// Builds the library at `credentials-v2.db.creating` and renames it into
     /// place only when complete, so the current path holds either nothing or a
-    /// complete library: `VaultStore` runs every migration on the new file, so
-    /// it is at both AskKey identifiers with the legacy tables dropped before
-    /// the rename. The generated key is promoted after the rename; without
+    /// complete 0002 library with the legacy tables dropped before the rename.
+    /// The generated key is promoted after the rename, then the atomic key-bound
+    /// 0003 migration runs before adoption. Without
     /// an App key, the next launch discards and recreates these empty contents.
     private static func createNewLibrary(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore,
@@ -191,6 +191,7 @@ enum VaultBootstrap {
             store.bindCredentialAuthenticationKey(key)
             try tightenPermissions(paths: paths)
             try makeDurableAndPromote(paths: paths, keyStore: keyStore, key: key, synchronize: synchronize)
+            try store.prepareComponentMetadata(using: key)
             return (store, key)
         } catch {
             try? store.close()
@@ -314,21 +315,24 @@ enum VaultBootstrap {
 
     /// Exact first-creation contents, eligible for discard without an App key
     /// even if promotion had happened. No pending value is ever resumed.
-    /// Creation ends at both AskKey identifiers with the legacy tables dropped (its seed always
-    /// qualifies); a library created by the baseline-only code before
+    /// Pre-promotion creation ends at 0002 with the legacy tables dropped (its
+    /// seed always qualifies); a library created by baseline-only code before
     /// askkey-0002 existed is at the baseline identifier with its seed.
     /// The expected value comes from the real migrator at the same
     /// identifiers. Any extra row or other schema disqualifies it.
+    /// Empty 0003 contents may additionally contain only the structurally
+    /// well-formed completion marker; its lost key cannot authenticate it.
     static func requireUnfinishedFirstCreation(_ db: Database) throws {
         let target: String
         switch try CurrentLibrarySchema.opening(db) {
         case .baseline: target = CurrentLibrarySchema.baselineIdentifier
-        case .current: target = CurrentLibrarySchema.dropLegacyTablesIdentifier
+        case .preMetadata: target = CurrentLibrarySchema.dropLegacyTablesIdentifier
+        case .current: target = CurrentLibrarySchema.componentMetadataIdentifier
         case .legacyV15: throw VaultBootstrapError.missingKey
         }
         let expected = try DatabaseQueue()
         defer { try? expected.close() }
-        try CurrentLibrarySchema.migrator().migrate(expected, upTo: target)
+        try CurrentLibrarySchema.migrator(componentMetadataKey: VaultCrypto.generateKey()).migrate(expected, upTo: target)
         guard try CurrentLibrarySchema.normalizedSchema(db) == expected.read(CurrentLibrarySchema.normalizedSchema),
               try FirstCreationContents(db) == expected.read(FirstCreationContents.init) else {
             throw VaultBootstrapError.missingKey
@@ -380,7 +384,14 @@ enum VaultBootstrap {
             }
             var values: [String: DatabaseValue] = [:]
             for row in try Row.fetchAll(db, sql: "SELECT key, value FROM config") {
-                values[row["key"]] = Self.abstracted(row["value"], seed: projectID)
+                let key: String = row["key"]
+                if key == VaultStore.componentMetadataCompletionKey {
+                    let marker: String = row["value"]
+                    guard VaultStore.isWellFormedComponentMetadataCompletionMarker(marker) else {
+                        throw VaultBootstrapError.missingKey
+                    }
+                    values[key] = "\u{0}component-metadata-completion".databaseValue
+                } else { values[key] = Self.abstracted(row["value"], seed: projectID) }
             }
             config = values
         }

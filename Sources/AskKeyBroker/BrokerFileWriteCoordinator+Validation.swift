@@ -9,6 +9,7 @@ extension BrokerFileWriteCoordinator {
 
     static func validFilename(_ value: String) -> Bool {
         validField(value)
+            && value.utf8.count <= 255
             && value != "."
             && value != ".."
             && !value.contains("/")

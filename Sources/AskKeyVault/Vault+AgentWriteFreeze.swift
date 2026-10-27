@@ -85,6 +85,7 @@ extension Vault {
             if !changes.isEmpty {
                 updated.payloadKind = CredentialPayloadKind.bundle.rawValue
                 updated.encryptedPayload = try VaultCrypto.encrypt(JSONEncoder().encode(components), using: key)
+                updated.encryptedComponentMetadata = try CredentialComponentMetadata(components: components).encrypted(using: key)
                 updated.encryptedEnvironmentVariable = nil
                 updated.encryptedOriginalFilename = nil
                 updated.byteSize = nil

@@ -47,7 +47,7 @@ extension BrokerApprovalStateMachine {
             .compactMap { $0 }
             .allSatisfy { $0.utf8.count <= BrokerLimits.maximumFieldBytes }
             && validSubject(request)
-            && [request.retransmissionDigest].compactMap { $0 }.allSatisfy {
+            && [request.retransmissionDigest, request.readProjectionDigest].compactMap { $0 }.allSatisfy {
                 $0.utf8.count == 64 && $0.unicodeScalars.allSatisfy {
                     CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0)
                 }

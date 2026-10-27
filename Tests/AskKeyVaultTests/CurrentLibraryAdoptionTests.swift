@@ -31,7 +31,6 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         let (paths, keys) = try fixtureLibrary()
         var original = try allDataRows(paths.currentDatabase)
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
-        try verifyManifest(store: opened.store, key: opened.key, directory: paths.directory)
         XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
         XCTAssertEqual(try existingLegacyTables(opened.store), [])
         XCTAssertEqual(try opened.store.db.read { try CurrentLibrarySchema.normalizedSchema($0) },
@@ -48,6 +47,9 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         for name in before.keys { XCTAssertEqual(after[name], before[name], name) }
         XCTAssertEqual(keys.mutations, 2)
         XCTAssertNil(keys.pendingKey)
+        let verified = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        defer { try? verified.store.close() }
+        try verifyManifest(store: verified.store, key: verified.key, directory: paths.directory)
     }
 
     func testAdoptionIgnoresHistoricalSiblingsAndPendingFiles() throws {
@@ -175,11 +177,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         let pending = try XCTUnwrap(keys.pendingKey)
         XCTAssertNotEqual(pending, appKey)
         try addHistoricalSiblings(paths)
-        let before = try directoryBytes(paths.directory)
-        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
-        XCTAssertEqual(VaultCrypto.keyToData(opened.key), appKey)
-        try opened.store.close()
-        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        try assertEmptyAppKeyUpgradePreservesFiles(paths: paths, keys: keys, appKey: appKey)
         XCTAssertEqual(keys.appKey, appKey)
         XCTAssertEqual(keys.pendingKey, pending)
         XCTAssertEqual(keys.mutations, 0, "the different pending key is neither used nor deleted")
@@ -190,11 +188,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         let pending = try XCTUnwrap(keys.pendingKey)
         keys.appKey = pending
         keys.pendingLoadFailure = AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
-        let before = try directoryBytes(paths.directory)
-        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
-        XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
-        try opened.store.close()
-        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        try assertEmptyAppKeyUpgradePreservesFiles(paths: paths, keys: keys, appKey: pending)
         XCTAssertEqual(keys.appKey, pending)
         XCTAssertEqual(keys.pendingKey, pending)
         XCTAssertEqual(keys.mutations, 0, "an unreadable pending key is never deleted")
@@ -406,7 +400,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         XCTAssertEqual(keys.mutations, 0)
     }
 
-    static let currentIdentifiers = ["askkey-0001-baseline", "askkey-0002-drop-legacy-tables"]
+    static let currentIdentifiers = ["askkey-0001-baseline", "askkey-0002-drop-legacy-tables", "askkey-0003-component-metadata"]
 
     private struct InterruptedCreation: Error {}
 
@@ -488,7 +482,13 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
             return try database.read { db in
                 let tables = try String.fetchAll(db, sql: "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name != 'grdb_migrations' ORDER BY name")
                 return try Dictionary(uniqueKeysWithValues: tables.map { table in
-                    (table, try Row.fetchAll(db, sql: "SELECT * FROM \"\(table)\" ORDER BY rowid"))
+                    // Compare every field except the metadata/tag pair and
+                    // completion marker; migration tests verify those changes.
+                    let columns = try db.columns(in: table).map(\.name)
+                        .filter { table != "credentials" || !["encrypted_component_metadata", "authentication_tag"].contains($0) }
+                        .map(\.quotedDatabaseIdentifier).joined(separator: ", ")
+                    let predicate = table == "config" ? " WHERE key != 'component_metadata_completion_v1'" : ""
+                    return (table, try Row.fetchAll(db, sql: "SELECT \(columns) FROM \"\(table)\"\(predicate) ORDER BY rowid"))
                 })
             }
         }
@@ -522,7 +522,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
                     continue
                 }
                 XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \"\(table)\""),
-                               table == "grdb_migrations" ? 2 : count, table)
+                               table == "grdb_migrations" ? Self.currentIdentifiers.count : table == "config" ? count + 1 : count, table)
             }
             let writes = try Row.fetchAll(db, sql: "SELECT * FROM agent_write_operations ORDER BY operation_id").map { row in
                 V15Write(operationID: row["operation_id"], credentialID: row["credential_id"],
@@ -532,6 +532,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
             }
             XCTAssertEqual(writes, manifest.writeOperations)
         }
+        try verifyCompletedComponentMetadata(store: store, key: key, vault: vault)
         for credential in active {
             let item = try vault.revealTextCredential(id: credential.id, using: .allow)
             XCTAssertTrue(item.privateNotes?.hasPrefix("SYNTHETIC-") == true)

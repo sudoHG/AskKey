@@ -51,6 +51,7 @@ extension Vault {
     }
 
     func beginAgentOperation() throws {
+        try store.requireComponentMetadata()
         try validateAgentAccessPolicyOwnership()
         try agentAccessGate.beginAgentOperation(validating: revalidateAgentAccessPolicy)
     }
@@ -58,6 +59,7 @@ extension Vault {
     /// Agent commits already own the exclusive gate, so retain any newly
     /// discovered pause when the caller's defer releases that gate.
     func revalidateExclusiveAgentAccess(paused: inout Bool) throws {
+        try store.requireComponentMetadata()
         do { try requireAgentAccessPolicyOwnership() }
         catch { paused = true; throw error }
         let previous = try savedAgentAccessPolicyState()

@@ -21,7 +21,7 @@ final class HelperPausedMCPTests: HelperMCPTestCase {
         XCTAssertEqual(payload, [
             "status": "request_rejected",
             "brokerCode": "agent_access_paused",
-            "next_step": "Ask the user to choose Resume Agent Access in Ask Key.",
+            "next_step": "Ask the user to open Ask Key and review Agent access. Resume if paused; resolve any component metadata issue shown in the library, then reopen Ask Key before retrying.",
         ])
         let unrelated = try callMCPTool(processInput: input, processOutput: output, id: 2, name: "list_credentials")
         let unrelatedPayload = try XCTUnwrap(
@@ -56,7 +56,7 @@ final class HelperPausedCLITests: HelperApprovalWaitTestCase {
             XCTAssertEqual(result.status, 1)
             XCTAssertTrue(result.stdoutText.isEmpty)
             XCTAssertTrue(result.stderrText.contains("agent_access_paused"))
-            XCTAssertTrue(result.stderrText.contains("Ask the user to choose Resume Agent Access in Ask Key."))
+            XCTAssertTrue(result.stderrText.contains("resolve any component metadata issue shown in the library"))
         }
     }
 }

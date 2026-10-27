@@ -7,6 +7,8 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
     public let operation: BrokerApprovalOperation
     public let payloadDigest: String
     public let retransmissionDigest: String?
+    /// App-only component projection binding for timed read allowances.
+    public let readProjectionDigest: String?
     public let credentialName: String?
     public let callerName: String?
     public let callerPurpose: String?
@@ -26,7 +28,8 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
         callerPurpose: String? = nil,
         retransmissionDigest: String? = nil,
         display: Display? = nil,
-        organizationCredentialIDs: [String]? = nil
+        organizationCredentialIDs: [String]? = nil,
+        readProjectionDigest: String? = nil
     ) {
         self.operationID = operationID
         self.credentialID = credentialID
@@ -34,6 +37,7 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
         self.operation = operation
         self.payloadDigest = payloadDigest
         self.retransmissionDigest = retransmissionDigest
+        self.readProjectionDigest = readProjectionDigest
         self.credentialName = credentialName
         self.callerName = callerName
         self.callerPurpose = callerPurpose
@@ -50,6 +54,7 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
             && lhs.operation == rhs.operation
             && lhs.payloadDigest == rhs.payloadDigest
             && lhs.retransmissionDigest == rhs.retransmissionDigest
+            && lhs.readProjectionDigest == rhs.readProjectionDigest
             && lhs.credentialName == rhs.credentialName
             && lhs.callerName == rhs.callerName
             && lhs.callerPurpose == rhs.callerPurpose
@@ -63,6 +68,8 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
         /// Nil means the mapping is unavailable without decrypting values.
         public let environmentVariables: [String]?
         public let temporaryFileVariables: [String]?
+        /// App-only delivered bundle component labels and mappings; never a wire field.
+        public let components: [BrokerCatalogComponent]?
 
         public var commandSummary: String {
             guard commandLine.count > 160 else { return commandLine }
@@ -74,13 +81,15 @@ public struct BrokerApprovalOperationRequest: Equatable, Sendable {
             workingDirectory: String?,
             executableBasename: String?,
             environmentVariables: [String]?,
-            temporaryFileVariables: [String]?
+            temporaryFileVariables: [String]?,
+            components: [BrokerCatalogComponent]? = nil
         ) {
             self.commandLine = commandLine
             self.workingDirectory = workingDirectory
             self.executableBasename = executableBasename
             self.environmentVariables = environmentVariables
             self.temporaryFileVariables = temporaryFileVariables
+            self.components = components
         }
     }
 }
@@ -96,6 +105,7 @@ extension BrokerApprovalOperationRequest {
             && callerPurpose == other.callerPurpose
             && organizationCredentialIDs == other.organizationCredentialIDs
             && retransmissionDigest == other.retransmissionDigest
+            && readProjectionDigest == other.readProjectionDigest
             && constantTimeEqual(payloadDigest, other.payloadDigest)
     }
 

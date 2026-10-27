@@ -12,7 +12,8 @@ enum NoticeLayoutFixtures {
         private let suite = "NoticeLayoutTests-\(UUID().uuidString)"
         private let defaults: UserDefaults
 
-        init(language: String, state: SettingsEntryState, recovery: Bool, broker: Bool, longContent: Bool = false) throws {
+        init(language: String, state: SettingsEntryState, recovery: Bool, broker: Bool, longContent: Bool = false,
+             metadataIssue: ComponentMetadataUpgradeError? = nil) throws {
             defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
             defaults.set(language, forKey: "languageMode")
             defaults.set("light", forKey: "appearanceMode")
@@ -32,6 +33,8 @@ enum NoticeLayoutFixtures {
                     : [.init(name: "API_KEY", value: nil)]
             )
             let credentials = state == .locked || state == .management ? [credential] : []
+            var mutations = CredentialWorkspaceMutations.readOnly { (credentials, [], [], false) }
+            mutations.componentMetadataIssue = { metadataIssue }
             vault = VaultViewModel(
                 runtimeFileCleanupFailures: { false },
                 accessRecords: .empty,
@@ -45,7 +48,7 @@ enum NoticeLayoutFixtures {
                 agentAccessPolicyOperations: policy.operations,
                 pauseAgentAccess: { _ in XCTFail("Rendering must not change policy") },
                 resumeAgentAccess: { _ in XCTFail("Rendering must not change policy") },
-                credentialMutations: .readOnly { (credentials, [], [], false) }
+                credentialMutations: mutations
             )
             vault.isLocked = state != .management
             vault.hasManagementSession = state == .management

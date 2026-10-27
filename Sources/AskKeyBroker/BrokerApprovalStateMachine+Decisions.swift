@@ -86,6 +86,7 @@ extension BrokerApprovalStateMachine {
                     min(windowEnd, $0)
                 } ?? windowEnd
                 timedAllowances[entry.request.credentialID] = effectiveWindowEnd
+                timedAllowanceProjectionDigests[entry.request.credentialID] = entry.request.readProjectionDigest
                 entry.expiresAt = min(entry.expiresAt, effectiveWindowEnd)
                 entry.state = .approved
                 entry.approvedByTimedAllowance = true

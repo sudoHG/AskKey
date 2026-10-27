@@ -17,6 +17,7 @@ extension BrokerApprovalStateMachine {
             let now = clock()
             if forExpiry { expireUnconsumedLocked(now: now) }
             timedAllowances.removeValue(forKey: credentialID)
+            timedAllowanceProjectionDigests.removeValue(forKey: credentialID)
             invalidateRuntimeAuthorizationsLocked(credentialID: credentialID)
             var count = 0
             for operationID in entriesByOperationID.keys {
@@ -38,6 +39,7 @@ extension BrokerApprovalStateMachine {
         mutate {
             paused = true
             timedAllowances.removeAll()
+            timedAllowanceProjectionDigests.removeAll()
             invalidateRuntimeAuthorizationsLocked()
             for operationID in entriesByOperationID.keys {
                 guard var entry = entriesByOperationID[operationID],

@@ -35,6 +35,7 @@ struct CredentialWorkspaceMutations {
     var revokeTimedAllowance: (String) -> Bool
     var storedCredentialCount: () throws -> Int
     var accessRecords: CredentialAccessRecordMutations
+    var componentMetadataIssue: () -> ComponentMetadataUpgradeError? = { nil }
 
     func counting(_ count: @escaping () throws -> Int) -> CredentialWorkspaceMutations {
         var copy = self
@@ -101,7 +102,8 @@ struct CredentialWorkspaceMutations {
         timedAllowanceDeadline: { Vault.shared.approvalRequests.timedAllowanceDeadline(credentialID: $0) },
         revokeTimedAllowance: { Vault.shared.approvalRequests.revokeTimedAllowance(credentialID: $0) },
         storedCredentialCount: { try Vault.shared.storedCredentialCount() },
-        accessRecords: .live
+        accessRecords: .live,
+        componentMetadataIssue: { Vault.shared.componentMetadataIssue }
     )
 
     static func readOnly(

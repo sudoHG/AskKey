@@ -9,6 +9,7 @@ struct ApprovalDetailsContent: Equatable {
         let text: ApprovalLine
         /// A second line in the secondary color, such as a step's result.
         var note: String? = nil
+        var wrapsVariables: Bool = false
     }
 
     enum Value: Equatable {
@@ -67,20 +68,31 @@ struct ApprovalDetailsContent: Equatable {
     }
 
     /// One line per variable the command gets. A credential with a variable
-    /// has one item, named after the credential; a multi-item credential's
-    /// mapping is not opened before approval, so its items stay unnamed.
+    /// has one item, named after the credential. Bundle mappings arrive from
+    /// separately encrypted metadata, without opening component values.
     private static func handsOver(_ display: BrokerApprovalOperationRequest.Display, credentialName: String) -> [Line] {
         guard let environment = display.environmentVariables, let files = display.temporaryFileVariables else {
-            return [Line(text: ApprovalLine(appLocalizedFormat(
-                "The items of %@ that are set to be given to programs (names are shown after you approve)",
-                ApprovalCopy.quoted(credentialName))))]
+            return [Line(text: ApprovalLine(appLocalized("The delivery mapping is unavailable. This run will be refused. Choose Deny.")))]
         }
-        let lines = environment.map {
-            Line(text: ApprovalLine(format: appLocalized("%1$@ → environment variable %2$@"), plain: [credentialName], code: [$0]))
-        } + files.map {
-            Line(text: ApprovalLine(format: appLocalized("%1$@ → temporary file %2$@"), plain: [credentialName], code: [$0]))
+        let lines: [Line]
+        if let components = display.components {
+            lines = components.compactMap { component in
+                switch component.delivery {
+                case .environmentVariable(let variable): return deliveredLine(component.name, variable: variable, file: false)
+                case .temporaryFile(let variable): return deliveredLine(component.name, variable: variable, file: true)
+                case .none: return nil
+                }
+            }
+        } else {
+            lines = environment.map { deliveredLine(credentialName, variable: $0, file: false) }
+                + files.map { deliveredLine(credentialName, variable: $0, file: true) }
         }
         return lines.isEmpty ? [Line(text: ApprovalLine(appLocalized("Nothing from this credential is given to the command")))] : lines
+    }
+
+    private static func deliveredLine(_ name: String, variable: String, file: Bool) -> Line {
+        let format = file ? appLocalized("%1$@ → temporary file %2$@") : appLocalized("%1$@ → environment variable %2$@")
+        return Line(text: ApprovalLine(format: format, plain: [name], code: [variable]), wrapsVariables: true)
     }
 
     private static func writeRows(_ write: FrozenWriteSummaryContent) -> [Row] {

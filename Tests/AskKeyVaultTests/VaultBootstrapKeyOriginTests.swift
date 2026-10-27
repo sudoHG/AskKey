@@ -135,7 +135,7 @@ final class VaultBootstrapKeyOriginTests: XCTestCase {
             XCTAssertEqual(sqlite3_file_control(db.sqliteConnection, nil, SQLITE_FCNTL_PERSIST_WAL, &persistWAL), SQLITE_OK)
         }
         let database = try DatabaseQueue(path: paths.currentDatabase.path, configuration: configuration)
-        try CurrentLibrarySchema.migrator().migrate(database)
+        try CurrentLibrarySchema.migrator().migrate(database, upTo: CurrentLibrarySchema.dropLegacyTablesIdentifier)
         try database.close()
         XCTAssertTrue(FileManager.default.fileExists(atPath: paths.currentDatabase.path + "-wal"))
         XCTAssertTrue(FileManager.default.fileExists(atPath: paths.currentDatabase.path + "-shm"))

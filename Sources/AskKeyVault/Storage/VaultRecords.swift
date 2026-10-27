@@ -29,6 +29,33 @@ struct CredentialRecord: Codable, FetchableRecord, PersistableRecord {
     var contentDigest: Data?
     var deletedAt: String?
     var authenticationTag: Data? = nil
+    // Nil is omitted by Codable, preserving authentication of pre-metadata rows.
+    var encryptedComponentMetadata: Data? = nil
+    // Persistence-only compatibility with an upgrade that rolled back to 0002.
+    // This flag never participates in the authenticated Codable representation.
+    var includesComponentMetadataColumn = true
+
+    func encode(to container: inout PersistenceContainer) throws {
+        container["id"] = id
+        container["name_index"] = nameIndex
+        container["encrypted_display_name"] = encryptedDisplayName
+        container["encrypted_payload"] = encryptedPayload
+        container["encrypted_usage_instructions"] = encryptedUsageInstructions
+        container["encrypted_private_notes"] = encryptedPrivateNotes
+        container["encrypted_group_name"] = encryptedGroupName
+        container["encrypted_environment_variable"] = encryptedEnvironmentVariable
+        container["payload_kind"] = payloadKind
+        container["permission"] = permission
+        container["expires_at"] = expiresAt
+        container["created_at"] = createdAt
+        container["updated_at"] = updatedAt
+        container["encrypted_original_filename"] = encryptedOriginalFilename
+        container["byte_size"] = byteSize
+        container["content_digest"] = contentDigest
+        container["deleted_at"] = deletedAt
+        container["authentication_tag"] = authenticationTag
+        if includesComponentMetadataColumn { container["encrypted_component_metadata"] = encryptedComponentMetadata }
+    }
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -49,6 +76,7 @@ struct CredentialRecord: Codable, FetchableRecord, PersistableRecord {
         case contentDigest = "content_digest"
         case deletedAt = "deleted_at"
         case authenticationTag = "authentication_tag"
+        case encryptedComponentMetadata = "encrypted_component_metadata"
     }
 }
 

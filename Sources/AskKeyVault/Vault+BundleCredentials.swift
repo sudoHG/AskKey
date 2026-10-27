@@ -54,6 +54,7 @@ extension Vault {
                 throw VaultError.credentialNotFound(id)
             }
             existing.encryptedPayload = try VaultCrypto.encrypt(JSONEncoder().encode(validated), using: key)
+            existing.encryptedComponentMetadata = try CredentialComponentMetadata(components: validated).encrypted(using: key)
             existing.payloadKind = CredentialPayloadKind.bundle.rawValue
             existing.encryptedEnvironmentVariable = nil
             existing.encryptedOriginalFilename = nil

@@ -116,7 +116,7 @@ func mcpStatusError(
         payload["next_step"] = AgentUsageGuide.rejected
     }
     if brokerCode == BrokerErrorCode.agentAccessPaused.rawValue {
-        payload["next_step"] = "Ask the user to choose Resume Agent Access in Ask Key."
+        payload["next_step"] = AgentUsageGuide.pausedAccessRecovery
     }
     if brokerCode == BrokerErrorCode.credentialNameConflict.rawValue {
         payload["next_step"] = "A credential with this name already exists. Use list_credentials to find it, then choose a different name or use modify_credential to update it."

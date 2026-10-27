@@ -55,19 +55,23 @@ struct FrozenSettingsPage: View {
         return GroupedList(header: appLocalized("Agent Access")) {
             settingRow(
                 appLocalized("Agent Access"),
-                vault.isAgentAccessPaused
+                vault.componentMetadataFailure != nil
+                    ? appLocalized("Unavailable: component metadata needs attention. Review the library before retrying Agent access.")
+                    : vault.isAgentAccessPaused
                     ? appLocalized("Paused: new requests and temporary deliveries are stopped.")
                     : appLocalized("Running: Agents can request credentials according to each permission.")
             ) {
-                Button(vault.isAgentAccessPaused ? appLocalized("Resume") : appLocalized("Pause")) {
-                    Task {
-                        vault.isAgentAccessPaused
-                            ? await vault.resumeAgentAccess()
-                            : await vault.pauseAgentAccess()
+                if vault.componentMetadataFailure == nil {
+                    Button(vault.isAgentAccessPaused ? appLocalized("Resume") : appLocalized("Pause")) {
+                        Task {
+                            vault.isAgentAccessPaused
+                                ? await vault.resumeAgentAccess()
+                                : await vault.pauseAgentAccess()
+                        }
                     }
+                    .buttonStyle(.secondaryAction)
+                    .accessibilityIdentifier("settings-agent-access")
                 }
-                .buttonStyle(.secondaryAction)
-                .accessibilityIdentifier("settings-agent-access")
             }
             GroupedListSeparator()
             settingRow(

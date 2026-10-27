@@ -8,7 +8,7 @@ import XCTest
 final class RuntimeApprovalDisplayTests: XCTestCase {
     func testDisplayAndDigestComeFromSameDecodedRequestWithoutInheritedEnvironment() throws {
         let harness = try makeHarness()
-        _ = try createCredential(.text, in: harness)
+        let created = try createCredential(.text, in: harness)
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let request = BrokerTextRunRequest(
             operationID: "decoded-display", command: ["/opt/synthetic/deploy.sh", "two words", "it's", ""],
@@ -29,13 +29,17 @@ final class RuntimeApprovalDisplayTests: XCTestCase {
         XCTAssertEqual(display.executableBasename, "deploy.sh")
         XCTAssertEqual(display.environmentVariables, ["TOKEN"])
         XCTAssertEqual(display.temporaryFileVariables, [])
-        XCTAssertEqual(approval.payloadDigest, SHA256.hash(data: encoded).map { String(format: "%02x", $0) }.joined())
+        let record = try XCTUnwrap(harness.store.fetchCredential(id: created.id))
+        let metadata = try CredentialComponentMetadata.read(from: record, using: try harness.vault.requireKey())
+        XCTAssertEqual(approval.payloadDigest, try RuntimeReadApprovalBinding(request: decoded,
+            credentialID: record.id, metadata: metadata).payloadDigest())
+        XCTAssertNotEqual(approval.payloadDigest, SHA256.hash(data: encoded).map { String(format: "%02x", $0) }.joined())
         for privateText in ["synthetic-inherited-secret", "synthetic-untrusted-home", "synthetic-value"] {
             XCTAssertFalse(String(describing: display).contains(privateText))
         }
     }
 
-    func testFileNamesComeFromMetadataAndBundleNamesRemainUnavailable() throws {
+    func testFileAndBundleDeliveredNamesComeFromMetadata() throws {
         for kind in [CredentialPayloadKind.file, .bundle] {
             let harness = try makeHarness()
             _ = try createCredential(kind, in: harness)
@@ -46,8 +50,10 @@ final class RuntimeApprovalDisplayTests: XCTestCase {
                 XCTAssertEqual(display.environmentVariables, [])
                 XCTAssertEqual(display.temporaryFileVariables, ["KEY_FILE"])
             } else {
-                XCTAssertNil(display.environmentVariables)
-                XCTAssertNil(display.temporaryFileVariables)
+                XCTAssertEqual(display.environmentVariables, ["TOKEN"])
+                XCTAssertEqual(display.temporaryFileVariables, ["KEY_FILE"])
+                XCTAssertEqual(display.components?.map(\.name), ["TOKEN", "KEY_FILE"])
+                XCTAssertEqual(display.components?.map(\.delivery), [.environmentVariable("TOKEN"), .temporaryFile("KEY_FILE")])
             }
             XCTAssertFalse(String(describing: display).contains("synthetic-private-filename"))
             XCTAssertFalse(String(describing: display).contains("synthetic-value"))

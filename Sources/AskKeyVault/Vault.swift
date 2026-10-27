@@ -159,7 +159,7 @@ public final class Vault {
     package func agentAccessPolicyState() throws -> AgentAccessPolicyState {
         let state = try savedAgentAccessPolicyState()
         return .init(policy: state.policy, needsRecovery: state.needsRecovery,
-                     isPaused: try agentAccessGate.isPaused(), pauseNotPersisted: state.pauseNotPersisted,
+                     isPaused: try componentMetadataIssue != nil || agentAccessGate.isPaused(), pauseNotPersisted: state.pauseNotPersisted,
                      saveFailure: state.saveFailure, keychainConflict: state.keychainConflict,
                      readUnavailable: state.readUnavailable, hasVerifiedPolicy: state.hasVerifiedPolicy,
                      readFailure: state.readFailure)
@@ -398,7 +398,7 @@ public final class Vault {
     /// so a mapped name is always a valid, unambiguous key in the environment a
     /// credential is delivered into. `CredentialFieldValidation` applies this rule
     /// to every credential and component mapping before it is stored.
-    static let secretNamePattern = "^[A-Za-z_][A-Za-z0-9_]*$"
+    static let secretNamePattern = "\\A[A-Za-z_][A-Za-z0-9_]*\\z"
 
     static func validateSecretName(_ name: String) throws {
         guard name.utf8.count <= BrokerLimits.maximumFieldBytes else {
@@ -438,6 +438,7 @@ public final class Vault {
     }
 
     private func openBootstrappedLibrary(paths: VaultBootstrapPaths, keyStore: () throws -> AppKeyStore) throws {
+        _ = try agentAccessGate.beginExclusiveChange(reopening: true)
         let keys: AppKeyStore
         let opened: (store: VaultStore, key: SymmetricKey, created: Bool)
         do {
@@ -448,7 +449,6 @@ public final class Vault {
             stateLock.unlock()
             opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, allowsCreation: !hasOpenLibrary)
         } catch {
-            _ = try agentAccessGate.beginExclusiveChange()
             applyAgentAccessPolicy(.failClosed, needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
                                    keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
@@ -456,16 +456,17 @@ public final class Vault {
             agentAccessGate.endExclusiveChange(paused: true)
             throw error
         }
-        try adoptBootstrappedLibrary(opened, keyStore: keys)
+        try adoptBootstrappedLibrary(opened, keyStore: keys, exclusiveGateHeld: true)
         stateLock.lock()
         _openedLibraryURL = paths.currentDatabase.standardizedFileURL.resolvingSymlinksInPath()
         stateLock.unlock()
     }
 
     private func adoptBootstrappedLibrary(
-        _ opened: (store: VaultStore, key: SymmetricKey, created: Bool), keyStore: AppKeyStore
+        _ opened: (store: VaultStore, key: SymmetricKey, created: Bool), keyStore: AppKeyStore,
+        exclusiveGateHeld: Bool = false
     ) throws {
-        _ = try agentAccessGate.beginExclusiveChange(reopening: true)
+        if !exclusiveGateHeld { _ = try agentAccessGate.beginExclusiveChange(reopening: true) }
         var paused = true
         defer {
             let state = try? savedAgentAccessPolicyState()
@@ -473,6 +474,7 @@ public final class Vault {
                                               retryPolicyRead: state?.readUnavailable == true && state?.policy.paused == false)
         }
         do {
+            try opened.store.prepareComponentMetadata(using: opened.key)
             let loaded = try loadAgentAccessPolicy(key: opened.key, keyStore: keyStore, created: opened.created)
             let state = resolveAgentAccessPolicyLatches(loaded, key: opened.key, keyStore: keyStore)
             applyAgentAccessPolicy(state.policy, needsRecovery: state.needsRecovery,
@@ -490,7 +492,7 @@ public final class Vault {
             _policyKeyStore = keyStore
             stateLock.unlock()
             if !state.needsRecovery { removeLegacyAgentAccessRows(from: opened.store) }
-            paused = state.isPaused
+            paused = state.isPaused || opened.store.componentMetadataIssue != nil
         } catch {
             applyAgentAccessPolicy(.failClosed, needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
                                    keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)

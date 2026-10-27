@@ -13,7 +13,7 @@ struct AgentAccessPolicyNotice: View {
                 Text(message)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
-                if showsResumeAction {
+                if showsResumeAction, vault.componentMetadataFailure == nil {
                     Button(appLocalized("Resume Agent Access")) {
                         Task { await vault.resumeAgentAccess() }
                     }

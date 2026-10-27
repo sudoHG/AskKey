@@ -21,4 +21,11 @@ final class VaultWriteValidationTests: XCTestCase {
             XCTAssertNoThrow(try Vault.validateSecretName(good), "name '\(good)' should be accepted")
         }
     }
+
+    func testVariableIdentifiersRejectTrailingLineTerminators() {
+        for suffix in ["\n", "\r", "\r\n", "\u{85}", "\u{2028}", "\u{2029}"] {
+            XCTAssertThrowsError(try Vault.validateSecretName("TOKEN" + suffix))
+            XCTAssertThrowsError(try CredentialFieldValidation.environmentVariable("TOKEN" + suffix))
+        }
+    }
 }

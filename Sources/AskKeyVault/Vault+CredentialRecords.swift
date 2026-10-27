@@ -38,7 +38,10 @@ extension Vault {
             encryptedOriginalFilename: nil,
             byteSize: nil,
             contentDigest: nil,
-            deletedAt: existing?.deletedAt
+            deletedAt: existing?.deletedAt,
+            encryptedComponentMetadata: try CredentialComponentMetadata(
+                singleKind: .text, mapping: environmentVariable
+            ).encrypted(using: key)
         )
     }
 
@@ -77,7 +80,8 @@ extension Vault {
             encryptedOriginalFilename: nil,
             byteSize: nil,
             contentDigest: nil,
-            deletedAt: existing?.deletedAt
+            deletedAt: existing?.deletedAt,
+            encryptedComponentMetadata: try CredentialComponentMetadata(components: components).encrypted(using: key)
         )
     }
 

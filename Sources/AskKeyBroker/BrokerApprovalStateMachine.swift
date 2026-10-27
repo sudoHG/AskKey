@@ -47,6 +47,7 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
     var entriesByOperationID: [String: Entry] = [:]
     var operationOrder: [String] = []
     var timedAllowances: [String: Date] = [:]
+    var timedAllowanceProjectionDigests: [String: String] = [:]
     // Active leases are independent of the bounded, evictable ticket history.
     var runtimeAuthorizations: [UUID: RuntimeAuthorization] = [:]
     var reportedPendingCount = 0

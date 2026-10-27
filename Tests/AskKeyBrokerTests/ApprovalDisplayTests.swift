@@ -77,7 +77,8 @@ final class ApprovalDisplayTests: XCTestCase {
 
     private func display(_ command: String) -> BrokerApprovalOperationRequest.Display {
         .init(commandLine: command, workingDirectory: "~/synthetic", executableBasename: "tool",
-              environmentVariables: ["TOKEN"], temporaryFileVariables: ["KEY_FILE"])
+              environmentVariables: ["TOKEN"], temporaryFileVariables: ["KEY_FILE"],
+              components: [.init(name: command, payloadKind: .text, delivery: .environmentVariable("TOKEN"))])
     }
 
     private func request(

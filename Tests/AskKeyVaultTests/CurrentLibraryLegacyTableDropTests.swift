@@ -47,9 +47,9 @@ extension CurrentLibraryAdoptionTests {
                 defer { try? database.close() }
                 try database.read { db in
                     XCTAssertEqual(try String.fetchAll(db, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid"),
-                                   Self.currentIdentifiers)
+                                   CurrentLibrarySchema.preMetadataIdentifiers)
                     XCTAssertEqual(try CurrentLibrarySchema.legacyTables.filter { try db.tableExists($0) }, [])
-                    XCTAssertEqual(try CurrentLibrarySchema.opening(db), .current)
+                    XCTAssertEqual(try CurrentLibrarySchema.opening(db), .preMetadata)
                     XCTAssertNoThrow(try VaultBootstrap.requireUnfinishedFirstCreation(db))
                 }
             }
@@ -131,12 +131,17 @@ extension CurrentLibraryAdoptionTests {
             _ = try sourceVault.createTextCredential(
                 .init(name: name, value: value, permission: .allowed), using: .allow)
         }
+        for var record in try sourceStore.fetchAllCredentials() {
+            record.encryptedComponentMetadata = nil
+            try sourceStore.updateCredential(record)
+        }
         sourceVault.lock()
         try sourceStore.close()
         let baseline = try DatabaseQueue(path: paths.currentDatabase.path)
         try baseline.writeWithoutTransaction { db in
             try db.execute(sql: "ATTACH DATABASE ? AS source", arguments: [source.path])
-            try db.execute(sql: "INSERT INTO credentials SELECT * FROM source.credentials")
+            let columns = try db.columns(in: "credentials").map { $0.name.quotedDatabaseIdentifier }.joined(separator: ", ")
+            try db.execute(sql: "INSERT INTO credentials (\(columns)) SELECT \(columns) FROM source.credentials")
             try db.execute(sql: "DETACH DATABASE source")
         }
         try baseline.close()
@@ -150,6 +155,7 @@ extension CurrentLibraryAdoptionTests {
         XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
         XCTAssertEqual(try existingLegacyTables(opened.store), [])
         XCTAssertEqual(try opened.store.db.read { try CurrentLibrarySchema.opening($0) }, .current)
+        XCTAssertEqual(try allDataRows(paths.currentDatabase)["credentials"], credentialRows)
         let vault = Vault(store: opened.store, key: opened.key)
         try vault.beginManagementSession(using: .allow)
         let listed = try vault.listTextCredentials()
@@ -160,7 +166,6 @@ extension CurrentLibraryAdoptionTests {
         }
         vault.lock()
         try opened.store.close()
-        XCTAssertEqual(try allDataRows(paths.currentDatabase)["credentials"], credentialRows)
         XCTAssertEqual(keys.appKey, appKey)
         XCTAssertNil(keys.pendingKey)
 
@@ -210,7 +215,6 @@ extension CurrentLibraryAdoptionTests {
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         XCTAssertEqual(try identifiers(opened.store), Self.currentIdentifiers)
         XCTAssertEqual(try existingLegacyTables(opened.store), CurrentLibrarySchema.legacyTables.sorted())
-        try verifyManifest(store: opened.store, key: opened.key, directory: paths.directory, legacyRowsKept: true)
         try opened.store.close()
         XCTAssertEqual(try allDataRows(paths.currentDatabase), original)
         XCTAssertEqual(keys.mutations, 1, "only the best-effort deletePendingKey")
@@ -222,6 +226,9 @@ extension CurrentLibraryAdoptionTests {
         XCTAssertEqual(try directoryBytes(paths.directory), before)
         XCTAssertEqual(try allDataRows(paths.currentDatabase), original)
         XCTAssertEqual(keys.mutations, 2)
+        let verified = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        defer { try? verified.store.close() }
+        try verifyManifest(store: verified.store, key: verified.key, directory: paths.directory, legacyRowsKept: true)
     }
 
     func insertAuthenticatedCredential(into paths: VaultBootstrapPaths, key pending: Data) throws {
@@ -234,12 +241,17 @@ extension CurrentLibraryAdoptionTests {
         _ = try Vault(store: store, key: key).createTextCredential(
             .init(name: "SYNTHETIC-TOKEN", value: "synthetic", environmentVariable: "SYNTHETIC_TOKEN",
                   permission: .allowed), using: .deny)
+        for var record in try store.fetchAllCredentials() {
+            record.encryptedComponentMetadata = nil
+            try store.updateCredential(record)
+        }
         try store.close()
         let database = try DatabaseQueue(path: paths.currentDatabase.path)
         defer { try? database.close() }
         try database.writeWithoutTransaction { db in
             try db.execute(sql: "ATTACH DATABASE ? AS source", arguments: [source.path])
-            try db.execute(sql: "INSERT INTO credentials SELECT * FROM source.credentials")
+            let columns = try db.columns(in: "credentials").map { $0.name.quotedDatabaseIdentifier }.joined(separator: ", ")
+            try db.execute(sql: "INSERT INTO credentials (\(columns)) SELECT \(columns) FROM source.credentials")
             try db.execute(sql: "DETACH DATABASE source")
             XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM credentials"), 1)
         }
@@ -278,6 +290,7 @@ extension CurrentLibraryAdoptionTests {
         return try expected.write { db in
             try db.execute(sql: String(contentsOf: fixture("schema.sql"), encoding: .utf8))
             try db.execute(sql: Self.dropLegacyTablesSQL)
+            try db.execute(sql: "ALTER TABLE credentials ADD COLUMN encrypted_component_metadata BLOB")
             return try CurrentLibrarySchema.normalizedSchema(db)
         }
     }

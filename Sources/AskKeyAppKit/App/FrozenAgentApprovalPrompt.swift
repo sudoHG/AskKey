@@ -66,6 +66,14 @@ struct FrozenAgentApprovalPrompt: View {
             appIcon
             header(content)
                 .layoutValue(key: ApprovalCardFlexibleKey.self, value: 2)
+            if let warning = content.warning {
+                Text(verbatim: warning)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.warning)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, Theme.Spacing.md)
+            }
             if cancelledAuthenticationDecision != nil {
                 Text(appLocalized("Authentication cancelled. Nothing was handed over."))
                     .font(Theme.Fonts.secondary)

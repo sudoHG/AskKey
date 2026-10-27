@@ -71,7 +71,8 @@ final class VaultBootstrapTests: XCTestCase {
         let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
         let generated = VaultCrypto.keyToData(opened.key)
         XCTAssertNotEqual(generated, pending)
-        XCTAssertEqual(try opened.store.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM grdb_migrations") }, 2)
+        XCTAssertEqual(try opened.store.db.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM grdb_migrations") },
+                       CurrentLibrarySchema.currentIdentifiers.count)
         try opened.store.close()
         XCTAssertEqual(keys.appKey, generated)
         XCTAssertNil(keys.pendingKey)
@@ -385,7 +386,7 @@ final class VaultBootstrapTests: XCTestCase {
         if let discarded { XCTAssertNotEqual(generated, discarded) }
         XCTAssertEqual(try opened.store.db.read {
             try String.fetchAll($0, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid")
-        }, [CurrentLibrarySchema.baselineIdentifier, CurrentLibrarySchema.dropLegacyTablesIdentifier])
+        }, CurrentLibrarySchema.currentIdentifiers)
         XCTAssertFalse(try opened.store.db.read { try $0.tableExists("projects") })
         try opened.store.close()
         var expected = [paths.creatingDatabase, paths.currentDatabase, paths.directory]
