@@ -69,6 +69,30 @@ final class AgentAccessPresentationTests: AskKeyAppTestCase {
         XCTAssertFalse(presentation.showsConnectedGuide)
     }
 
+    func testConnectedEmptyStateLeadInDoesNotIntroduceASampleInEitherLanguage() {
+        for language in ["en", "zh-Hans"] {
+            AppLanguage.current = language
+            for client in AgentClient.allCases {
+                let presentation = AgentAccessPresentation(
+                    client: client, session: session(phase: .completed, result: verified(.enabled)),
+                    hasSampleCredential: false
+                )
+                let expected: String
+                if language == "en" {
+                    expected = client == .claudeCode
+                        ? "Start a new \(client.rawValue) session to use it."
+                        : "Start a new \(client.rawValue) task to use it."
+                } else {
+                    expected = client == .claudeCode
+                        ? "新开一个 \(client.rawValue) 会话就能用。" // i18n-literal: Assert the Simplified Chinese catalog value.
+                        : "新开一个 \(client.rawValue) 任务就能用。" // i18n-literal: Assert the Simplified Chinese catalog value.
+                }
+                XCTAssertEqual(presentation.detail, expected)
+                XCTAssertTrue(presentation.showsConnectedGuide)
+            }
+        }
+    }
+
     func testMissingDiscoveryNeedsAttentionAndLeadsWithDiscoveryStatus() {
         let codex = AgentAccessPresentation(
             client: .codex,
@@ -169,13 +193,16 @@ final class AgentAccessPresentationTests: AskKeyAppTestCase {
             AgentOnboardingCopy.samplePrompt(credentialName: "demo-api").plainText,
             "Use demo-api from Ask Key to run a command that checks its variables are set, without printing their values"
         )
-        XCTAssertEqual(
-            AgentOnboardingCopy.samplePrompt(credentialName: nil).plainText,
-            "Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values"
-        )
+        XCTAssertEqual(AgentOnboardingCopy.samplePromptEmptyTitle, "No credential available for Agents")
+        XCTAssertEqual(AgentOnboardingCopy.samplePromptEmptyDetail,
+                       "Create a credential, or change an existing credential's permission or delivery.")
         XCTAssertTrue(AgentOnboardingCopy.sshReminderNote.plainText.contains("never authorizes"))
 
         AppLanguage.current = "zh-Hans"
+        XCTAssertEqual(AgentOnboardingCopy.samplePromptEmptyTitle,
+                       "暂无可供 Agent 使用的凭证") // i18n-literal: Assert the Simplified Chinese catalog value.
+        XCTAssertEqual(AgentOnboardingCopy.samplePromptEmptyDetail,
+                       "创建凭证，或调整现有凭证的权限或交付方式。") // i18n-literal: Assert the Simplified Chinese catalog value.
         XCTAssertEqual(
             AgentOnboardingCopy.samplePrompt(credentialName: "demo-api").plainText,
             "用请旨里的 demo-api 跑一条命令，确认变量都已拿到，不要显示值" // i18n-literal: Assert the Simplified Chinese catalog value.
