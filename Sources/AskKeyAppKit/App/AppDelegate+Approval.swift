@@ -328,6 +328,15 @@ extension AppDelegate {
 
     func presentAgentWriteNameUnavailable() {
         let message = "This credential name is already in use. The credential was not saved."
+        presentAgentWriteFailure(message)
+    }
+
+    func presentAgentWriteMaterialTooLarge() {
+        let message = "The updated credential exceeds the 5 MiB size limit. The credential was not saved."
+        presentAgentWriteFailure(message)
+    }
+
+    private func presentAgentWriteFailure(_ message: String) {
         vault.errorMessage = message
         postApprovalNotification(identifier: "askkey-agent-write-failure", title: vault.brandName,
             body: displayedUserMessage(message)) { _ in }

@@ -25,7 +25,8 @@ extension VaultStore {
         clock: () -> Date,
         resultDigest: String? = nil,
         expectedFileDigest: Data? = nil,
-        credentialGroupsKey: SymmetricKey? = nil
+        credentialGroupsKey: SymmetricKey? = nil,
+        rebuildComponents: ((CredentialRecord) throws -> CredentialRecord)? = nil
     ) throws -> AgentTextWriteResult {
         try db.write { db in
             let committedAt = clock()
@@ -69,11 +70,14 @@ extension VaultStore {
                     throw VaultError.credentialChanged
                 }
                 _ = try authenticatedCredential(current)
+                try requireFrozenAgentWriteState(current, frozen: frozen)
                 if let expectedFileDigest, current.contentDigest != expectedFileDigest {
                     throw VaultError.credentialChanged
                 }
                 try requireAgentWriteCredentialUnexpired(current, at: committedAt)
-                try credentialForPersistence(record).update(db)
+                guard frozen.componentChanges.isEmpty || rebuildComponents != nil else { throw BrokerApprovalError.invalidRequest }
+                let prepared = try rebuildComponents?(current) ?? record
+                try credentialForPersistence(prepared).update(db)
                 credentialID = record.id
                 operation = .modify
             case let .delete(id, expectedUpdatedAt, deletedAt):
@@ -83,6 +87,7 @@ extension VaultStore {
                     throw VaultError.credentialChanged
                 }
                 _ = try authenticatedCredential(current)
+                try requireFrozenAgentWriteState(current, frozen: frozen)
                 try requireAgentWriteCredentialUnexpired(current, at: committedAt)
                 var recycled = current
                 recycled.deletedAt = deletedAt
@@ -101,6 +106,12 @@ extension VaultStore {
                 resultDigest: resultDigest
             ).insert(db)
             return .init(operationID: frozen.operationID, credentialID: credentialID)
+        }
+    }
+
+    private func requireFrozenAgentWriteState(_ current: CredentialRecord, frozen: FrozenAgentTextWrite) throws {
+        if let digest = frozen.beforeStateDigest, try current.agentWriteStateDigest() != digest {
+            throw VaultError.credentialChanged
         }
     }
 

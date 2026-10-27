@@ -226,7 +226,9 @@ extension AppDelegate {
             commitTextWrite: { [weak self] request, requestID, capability in
                 let result: AgentTextWriteResult
                 do {
-                    result = try mapAgentTextWriteProviderError {
+                    result = try mapAgentTextWriteProviderError(onMaterialTooLarge: { [weak self] in
+                        Task { @MainActor [weak self] in self?.presentAgentWriteMaterialTooLarge() }
+                    }) {
                         try Vault.shared.commitAgentTextWrite(
                             request,
                             requestID: requestID,
@@ -333,10 +335,13 @@ extension AppDelegate {
     }
 }
 
-private func mapAgentTextWriteProviderError<T>(_ body: () throws -> T) throws -> T {
+func mapAgentTextWriteProviderError<T>(onMaterialTooLarge: () -> Void = {}, _ body: () throws -> T) throws -> T {
     do {
         return try body()
     } catch BrokerApprovalError.capacityReached {
+        throw BrokerProviderError.resourceExhausted
+    } catch VaultError.agentWriteMaterialTooLarge {
+        onMaterialTooLarge()
         throw BrokerProviderError.resourceExhausted
     } catch BrokerApprovalError.requestNotFound {
         throw BrokerProviderError.requestNotFound

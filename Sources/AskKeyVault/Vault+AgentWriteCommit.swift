@@ -85,7 +85,10 @@ extension Vault {
                     requestID: requestID,
                     capabilityDigest: agentTextWriteCapabilityDigest(capability),
                     clock: { currentDate },
-                    credentialGroupsKey: try requireKey()
+                    credentialGroupsKey: try requireKey(),
+                    rebuildComponents: frozen.componentChanges.isEmpty ? nil : { current in
+                        try self.rebuildAgentWriteComponents(frozen, current: current, key: self.requireKey())
+                    }
                 )
             }
             agentTextWrites.remove(operationID: request.operationID)
@@ -117,6 +120,35 @@ extension Vault {
             }
             throw error
         }
+    }
+
+    private func rebuildAgentWriteComponents(_ frozen: FrozenAgentTextWrite, current: CredentialRecord,
+        key: SymmetricKey) throws -> CredentialRecord {
+        // This closure runs inside the approved transaction, after row-state,
+        // authentication and expiry checks. Open the old payload exactly once.
+        let before = try credentialComponents(from: current, key: key)
+        guard try CredentialComponentMetadata.read(from: current, using: key) == CredentialComponentMetadata(components: before) else {
+            throw CredentialRecordAuthenticationError.invalidAuthentication
+        }
+        let merged = try FrozenAgentComponentChange.applying(frozen.componentChanges, to: before,
+            name: { $0.name }, replacement: { $0 })
+        let size = merged.reduce(0) { total, component in
+            switch component.value {
+            case .text(let value): return total + value.utf8.count
+            case .file(_, let bytes): return total + bytes.count
+            }
+        }
+        guard size <= CredentialBundleValidator.maximumMaterialBytes else { throw VaultError.agentWriteMaterialTooLarge }
+        let components = try CredentialBundleValidator.validatedComponents(merged)
+        guard case .modify(var record, _) = frozen.mutation else { throw BrokerApprovalError.invalidRequest }
+        record.payloadKind = CredentialPayloadKind.bundle.rawValue
+        record.encryptedPayload = try VaultCrypto.encrypt(JSONEncoder().encode(components), using: key)
+        record.encryptedComponentMetadata = try CredentialComponentMetadata(components: components).encrypted(using: key)
+        record.encryptedEnvironmentVariable = nil
+        record.encryptedOriginalFilename = nil
+        record.byteSize = nil
+        record.contentDigest = nil
+        return record
     }
 
     private func cancelAgentWritesForExpiry(credentialID: String) {

@@ -137,7 +137,22 @@ extension Vault {
         var originalFilename: String?
         var privateNotes: String?
         var components: [ManagedCredentialComponent] = []
-        if payloadKind == .bundle {
+        let metadata: CredentialComponentMetadata?
+        if includeSecrets {
+            metadata = nil
+        } else {
+            // Failed historical upgrades must remain repairable in management.
+            // Missing details never trigger a fallback to opening the payload.
+            metadata = try? CredentialComponentMetadata.read(from: record, using: key)
+        }
+        if payloadKind == .bundle, let metadata {
+            components = metadata.components.map {
+                // Masking is value-side information. Unrevealed projections
+                // stay protected; authenticated reveal reloads the real flag.
+                ManagedCredentialComponent(name: $0.name, kind: $0.payloadKind,
+                    value: nil, delivery: $0.delivery, masked: true)
+            }
+        } else if payloadKind == .bundle, includeSecrets {
             let decoded = try JSONDecoder().decode(
                 [CredentialComponentInput].self,
                 from: VaultCrypto.decryptData(record.encryptedPayload, using: key)
@@ -151,6 +166,12 @@ extension Vault {
                     masked: $0.masked
                 )
             }
+        }
+        let environmentVariable: String?
+        if includeSecrets {
+            environmentVariable = try record.encryptedEnvironmentVariable.map { try VaultCrypto.decrypt($0, using: key) }
+        } else {
+            environmentVariable = payloadKind == .bundle ? nil : metadata?.components.first?.delivery.environmentVariable
         }
         if includeSecrets {
             privateNotes = try VaultCrypto.decrypt(record.encryptedPrivateNotes, using: key)
@@ -174,7 +195,7 @@ extension Vault {
             usageInstructions: try VaultCrypto.decrypt(record.encryptedUsageInstructions, using: key),
             privateNotes: privateNotes,
             groupName: try record.encryptedGroupName.map { try VaultCrypto.decrypt($0, using: key) },
-            environmentVariable: try record.encryptedEnvironmentVariable.map { try VaultCrypto.decrypt($0, using: key) },
+            environmentVariable: environmentVariable,
             permission: permission,
             expiresAt: try record.expiresAt.map { try parseExpiry($0) },
             payloadKind: payloadKind,
@@ -183,7 +204,8 @@ extension Vault {
             contentDigest: digestHex,
             fileBytes: fileBytes,
             components: components,
-            deletedAt: try record.deletedAt.map { try parseExpiry($0) }
+            deletedAt: try record.deletedAt.map { try parseExpiry($0) },
+            componentDetailsAvailable: includeSecrets || metadata != nil
         )
     }
 

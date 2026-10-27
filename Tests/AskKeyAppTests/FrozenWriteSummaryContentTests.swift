@@ -51,6 +51,24 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         XCTAssertNil(modify.instructionsDiff)
     }
 
+    func testUnknownOldValuesUseExplicitUpsertIntentInBothLanguages() {
+        let old = BrokerCredentialComponentSummary(name: "TOKEN", payloadKind: .text, byteCount: nil,
+            delivery: .environmentVariable("TOKEN"), masked: nil, valueChanged: false)
+        let untouched = BrokerCredentialComponentSummary(name: "USER", payloadKind: .text, byteCount: nil,
+            delivery: .environmentVariable("USER"), masked: nil, valueChanged: false)
+        let upsert = BrokerCredentialComponentSummary(name: "TOKEN", payloadKind: .text, byteCount: 10,
+            delivery: .environmentVariable("TOKEN"), masked: false, valueChanged: true)
+        Fixtures.withLanguages { _ in
+            let replaced = content(modification(before: [old, untouched], after: [upsert, untouched], beforeDigest: nil, afterDigest: nil))
+            XCTAssertEqual(replaced.components.map(\.tag), [.replaced, .unchanged])
+            XCTAssertEqual(replaced.valueComponents.map(\.name), ["TOKEN"])
+            XCTAssertTrue(replaced.isDestructive)
+            let unchanged = content(modification(before: [old, untouched], after: [old, untouched], beforeDigest: nil, afterDigest: nil))
+            XCTAssertEqual(unchanged.components.map(\.tag), [.unchanged, .unchanged])
+            XCTAssertTrue(unchanged.valueComponents.isEmpty)
+        }
+    }
+
     func testAddedItemLosesNothing() {
         let modify = content(Fixtures.addedSummary)
         XCTAssertEqual(modify.components.map(\.tag), [.unchanged, .unchanged, .new])
