@@ -42,9 +42,9 @@ final class AgentApprovalScreenLayoutTests: AskKeyAppTestCase {
                     var frames: [String: CGRect] = [:]
                     for identifier in ["approval-title", "approval-subtitle", "approval-allow-once",
                                        "approval-allow-timed", "approval-deny"] {
-                        let node = try XCTUnwrap(nodes.first { $0.accessibilityIdentifier() == identifier },
-                            "\(language), \(height), Details=\(expanded): missing \(identifier)")
-                        let frame = node.accessibilityFrame()
+                        let node = try XCTUnwrap(nodes.first { $0.identifier == identifier },
+                            "\(language), \(height), Details=\(expanded): missing \(identifier); nodes: \(nodes.map(\.description))")
+                        let frame = try XCTUnwrap(node.frame, identifier)
                         XCTAssertGreaterThan(frame.height, 0, identifier)
                         XCTAssertTrue(panel.frame.insetBy(dx: -1, dy: -1).contains(frame), identifier)
                         XCTAssertTrue(visible.insetBy(dx: -1, dy: -1).contains(frame), identifier)
@@ -125,8 +125,27 @@ final class AgentApprovalScreenLayoutTests: AskKeyAppTestCase {
         }
     }
 
-    private func accessibilityElements(_ root: Any) -> [any NSAccessibilityProtocol] {
-        guard let element = root as? any NSAccessibilityProtocol else { return [] }
-        return [element] + (element.accessibilityChildren() ?? []).flatMap(accessibilityElements)
+    /// Role-specific AppKit accessibility protocols need not implement the full
+    /// NSAccessibility protocol. Traverse the public selectors on every node.
+    private func accessibilityElements(_ root: Any) -> [AccessibilityNode] {
+        var visited: Set<ObjectIdentifier> = []
+        func visit(_ value: Any) -> [AccessibilityNode] {
+            guard let object = value as? NSObject, visited.insert(ObjectIdentifier(object)).inserted else { return [] }
+            let node = AccessibilityNode(object: object)
+            return [node] + (node.value("accessibilityChildren") as? [Any] ?? []).flatMap(visit)
+        }
+        return visit(root)
+    }
+
+    private struct AccessibilityNode {
+        let object: NSObject
+        var identifier: String? { value("accessibilityIdentifier") as? String }
+        var frame: CGRect? { (value("accessibilityFrame") as? NSValue)?.rectValue }
+        var description: String { "\(type(of: object)):\(identifier ?? "<no identifier>")" }
+
+        func value(_ key: String) -> Any? {
+            guard object.responds(to: NSSelectorFromString(key)) else { return nil }
+            return object.value(forKey: key)
+        }
     }
 }
