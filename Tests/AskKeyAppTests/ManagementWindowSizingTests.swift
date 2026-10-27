@@ -68,6 +68,7 @@ final class ManagementWindowSizingTests: AskKeyAppTestCase {
         guard environment["GITHUB_ACTIONS"] == "true", environment["CI"] == "true" else {
             throw XCTSkip("Visible window lifecycle runs only in the GitHub Actions test process")
         }
+        try SDKMarkerTestSupport.checkTestProcess()
         let previousLanguage = AppLanguage.current
         defer { AppLanguage.current = previousLanguage }
         let observers = ManagementWindowConfiguration.installObservers()
@@ -77,14 +78,17 @@ final class ManagementWindowSizingTests: AskKeyAppTestCase {
             defer { model.close() }
             let host = ManagementWindowSizingHost(model: model)
             defer { host.close() }
+            let designedFrame = host.window.frame
             for _ in 0..<2 {
                 host.window.makeKeyAndOrderFront(nil)
                 host.layout()
                 XCTAssertTrue(host.window.isVisible)
                 try assertFrameAndEdges(host, model: model, context: "CI visible \(state)")
+                XCTAssertEqual(host.window.frame, designedFrame, "Activation must preserve the window position")
                 ManagementWindowConfiguration.apply(to: host.window)
                 host.layout()
                 try assertFrameAndEdges(host, model: model, context: "CI reapplied \(state)")
+                XCTAssertEqual(host.window.frame, designedFrame, "Reapplication must preserve the window position")
                 host.window.orderOut(nil)
             }
         }
