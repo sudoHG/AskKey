@@ -26,6 +26,7 @@ package enum E2EAppRuntime {
     private static func configureE2EAuthentication() {
         let capturesApproval = scenario == "approval-screenshots"
         let command = controlDirectory.appendingPathComponent("command-cancel-authentication.txt")
+        let failureCommand = controlDirectory.appendingPathComponent("command-fail-authentication.txt")
         let evidence = controlDirectory.appendingPathComponent("authentication-cancelled.json")
         Vault.shared.approvalRequests.configureAuthentication { _ in
             let cancelled = capturesApproval && FileManager.default.fileExists(atPath: command.path)
@@ -33,7 +34,11 @@ package enum E2EAppRuntime {
                 let response = try? JSONSerialization.data(withJSONObject: ["outcome": "cancelled"])
                 try? response?.write(to: evidence, options: .atomic)
             }
-            return !cancelled
+            let failed = capturesApproval && FileManager.default.fileExists(
+                atPath: failureCommand.path
+            )
+            let outcome: ManagementAuthenticationOutcome = cancelled ? .cancelled : failed ? .failed : .authenticated
+            return ApprovalAuthenticationAttempt.current?.record(outcome) ?? (outcome == .authenticated)
         }
     }
     static func prepareIsolation() {
@@ -177,7 +182,13 @@ package enum E2EAppRuntime {
         let model = VaultViewModel.configured(
             languageMode: ProcessInfo.processInfo.environment["ASKKEY_E2E_LANGUAGE"] ?? "zh-Hans",
             appearanceMode: "light", completedOnboarding: selectedScenario != "screenshots-welcome",
-            unlockVault: {}, authenticateDeviceOwner: { _ in .allow },
+            unlockVault: {}, authenticateDeviceOwner: { _ in
+                switch selectedScenario {
+                case "screenshots-authentication-cancelled": .cancelled
+                case "screenshots-authentication-failed": .failed
+                default: .authenticated(.allow)
+                }
+            },
             loginItemIsEnabled: { false }, setLoginItemEnabled: { _ in },
             onboardingOperations: operations
         )

@@ -11,7 +11,8 @@ final class AgentOnboardingCoordinator {
 
     private let clock: () -> Date
     private var cancellations: [AgentClient: AgentCheckCancellation] = [:]
-    private var authenticationBusy = false
+    private var authenticationOperationID: UUID?
+    private var authenticationTasks: [AgentClient: Task<AgentAuthenticationOutcome, Never>] = [:]
 
     init(
         operations: AgentOnboardingOperations = .inactive,
@@ -42,6 +43,7 @@ final class AgentOnboardingCoordinator {
     func disappear() {
         for client in AgentClient.allCases {
             cancelCheck(client)
+            cancelAuthentication(client)
         }
     }
 
@@ -57,6 +59,7 @@ final class AgentOnboardingCoordinator {
     func collapse() {
         if let client = expandedClient {
             cancelCheck(client)
+            cancelAuthentication(client)
         }
         expandedClient = nil
     }
@@ -102,6 +105,10 @@ final class AgentOnboardingCoordinator {
         cancellations[client]?.cancel()
         var session = session(for: client)
         let wasAuthenticating = session.attempt.phase == .authenticating
+        if wasAuthenticating {
+            authenticationTasks.removeValue(forKey: client)?.cancel()
+            authenticationOperationID = nil
+        }
         session.operationID = UUID()
         if session.attempt.phase.isReadonlyInFlight || session.attempt.phase == .authenticating {
             if let locked = recoveryLock(session.attempt.changeStatus),
@@ -141,15 +148,21 @@ final class AgentOnboardingCoordinator {
         session.attempt.failure = nil
         sessions[client] = session
 
-        if authenticationBusy {
+        if authenticationOperationID != nil {
             session.attempt.phase = .readyToConfirm
             sessions[client] = session
             notifyWriteSettledIfNeeded()
             return
         }
-        authenticationBusy = true
-        let auth = await operations.authenticate()
-        authenticationBusy = false
+        authenticationOperationID = operationID
+        let authenticate = operations.authenticate
+        let task = Task { await authenticate() }
+        authenticationTasks[client] = task
+        let auth = await task.value
+        if authenticationOperationID == operationID {
+            authenticationOperationID = nil
+            authenticationTasks[client] = nil
+        }
         guard sessions[client]?.operationID == operationID else {
             notifyWriteSettledIfNeeded()
             return

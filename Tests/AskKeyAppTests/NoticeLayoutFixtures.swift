@@ -42,7 +42,7 @@ enum NoticeLayoutFixtures {
                 unlockVault: { XCTFail("Rendering must not unlock a library") },
                 beginManagementSession: { _ in XCTFail("Rendering must not authenticate") },
                 beginOnboardingManagementSession: { XCTFail("Rendering must not start onboarding") },
-                authenticateDeviceOwner: { _ in XCTFail("Rendering must not authenticate"); return nil },
+                authenticateDeviceOwner: { _ in XCTFail("Rendering must not authenticate"); return .cancelled },
                 preferences: AppPreferences(defaults: defaults),
                 loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
                 agentAccessPolicyOperations: policy.operations,

@@ -10,7 +10,7 @@ final class ReviewPrivateNotesTests: AskKeyAppTestCase {
         _ = NSApplication.shared
         let defaults = UserDefaults(suiteName: "ReviewPrivateNotes-\(UUID())")!
         let model = VaultViewModel(runtimeFileCleanupFailures: { false }, accessRecords: .empty, eraseLocalLibrary: { _, _, _ in }, unlockVault: {},
-            beginManagementSession: { _ in }, authenticateDeviceOwner: { _ in nil },
+            beginManagementSession: { _ in }, authenticateDeviceOwner: { _ in .cancelled },
             preferences: AppPreferences(defaults: defaults), loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             credentialMutations: .readOnly { ([], [], [], false) })
         let credential = ManagedTextCredential(id: "synthetic", name: "Synthetic", value: nil,

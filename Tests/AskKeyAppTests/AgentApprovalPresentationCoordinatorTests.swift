@@ -227,7 +227,7 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
             },
             lockedReminder: { _, _ in self.reminders += 1 },
             feedback: { self.messages.append($0) },
-            present: { pending, _, finish in
+            present: { pending, _, _, finish in
                 self.presented.append(pending.request.operationID)
                 self.panelDisplay = self.currentDisplay
                 self.panelCovered = false

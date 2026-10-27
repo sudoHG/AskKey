@@ -44,6 +44,8 @@ package final class VaultViewModel {
     var onboarding = AgentOnboardingCoordinator()
     var errorMessage: String?
     @ObservationIgnored private var isUnlocking = false
+    @ObservationIgnored var managementAuthentications: [UUID: ManagementAuthenticationCancellation] = [:]
+    let authenticationRunner: ManagementAuthenticationRunner
     /// Set by the popover to hand the "new credential" action over to the manager
     /// window: a `MenuBarExtra(.window)` popover closes as soon as a sheet takes
     /// key focus, so the add form can't live there. The manager consumes and
@@ -217,7 +219,7 @@ package final class VaultViewModel {
     let loadCredentialWorkspaceImpl: () throws -> (credentials: [ManagedTextCredential], recycled: [ManagedTextCredential], groups: [String], accessRecordWriteFailure: Bool)
     let credentialMutations: CredentialWorkspaceMutations
     private(set) var managementAuthorizationGeneration: UInt64 = 0
-    let authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticator?)?
+    let authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticationResult)?
     let pauseAgentAccessImpl: (ManagementAuthenticator) throws -> Void
     let resumeAgentAccessImpl: (ManagementAuthenticator) throws -> Void
 
@@ -238,7 +240,8 @@ package final class VaultViewModel {
         beginOnboardingManagementSession: @escaping () throws -> Void = {
             try Vault.shared.beginOnboardingCreation()
         },
-        authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticator?)? = nil,
+        authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticationResult)? = nil,
+        authenticationRunner: ManagementAuthenticationRunner = .shared,
         preferences: AppPreferences = AppPreferences(),
         loginItem: LoginItemController = LoginItemController(),
         managementSessionIdleLimit: TimeInterval = Vault.managementSessionIdleLimit,
@@ -262,6 +265,7 @@ package final class VaultViewModel {
         loadCredentialWorkspaceImpl = credentialMutations.loadWorkspace
         self.credentialMutations = credentialMutations
         self.authenticateDeviceOwner = authenticateDeviceOwner
+        self.authenticationRunner = authenticationRunner
         pauseAgentAccessImpl = pauseAgentAccess
         resumeAgentAccessImpl = resumeAgentAccess
         self.preferences = preferences
@@ -302,9 +306,13 @@ package final class VaultViewModel {
             renewManagementSession()
             return .confirmed
         }
-        guard let authenticator = await confirmDeviceOwner(reason: CredentialManagementCopy.manageReason) else {
-            errorMessage = nil
-            return .cancelled
+        let result = await deviceOwnerAuthentication(reason: CredentialManagementCopy.manageReason)
+        errorMessage = result.messageKey.map { appLocalized($0) }
+        let authenticator: ManagementAuthenticator
+        switch result {
+        case .authenticated(let confirmed): authenticator = confirmed
+        case .cancelled: return .cancelled
+        case .failed: return .failed
         }
         do {
             try beginManagementSessionImpl(authenticator)
@@ -312,7 +320,7 @@ package final class VaultViewModel {
             renewManagementSession()
             return .confirmed
         } catch {
-            errorMessage = nil
+            presentError(error)
             return .failed
         }
     }
@@ -408,6 +416,9 @@ package final class VaultViewModel {
         // Closing/locking invalidates approvals still awaiting system auth too.
         // A later successful response must not recreate the closed session.
         managementAuthorizationGeneration &+= 1
+        managementAuthentications.values.forEach { $0.cancel() }
+        managementAuthentications.removeAll()
+        onboarding.disappear()
         managementSessionPolicy.cancel()
         Vault.shared.endManagementSession()
         hasManagementSession = false

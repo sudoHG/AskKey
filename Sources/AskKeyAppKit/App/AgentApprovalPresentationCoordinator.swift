@@ -10,7 +10,7 @@ final class AgentApprovalPresentationCoordinator {
     private let refreshExpiration: () -> Void
     private let lockedReminder: (String, String) -> Void
     private let feedback: (String) -> Void
-    private let present: (BrokerPendingApproval, BrokerApprovalDecision?, @escaping (BrokerApprovalDecision?) -> Void) -> AgentApprovalPanelActions
+    private let present: (BrokerPendingApproval, BrokerApprovalDecision?, ManagementAuthenticationOutcome?, @escaping (BrokerApprovalDecision?) -> Void) -> AgentApprovalPanelActions
     private let applyDecision: (BrokerPendingApproval, BrokerApprovalDecision) -> Void
     private var activeRequest: BrokerPendingApproval?
     private var presentationID: UUID?
@@ -26,7 +26,7 @@ final class AgentApprovalPresentationCoordinator {
         refreshExpiration: @escaping () -> Void,
         lockedReminder: @escaping (String, String) -> Void,
         feedback: @escaping (String) -> Void,
-        present: @escaping (BrokerPendingApproval, BrokerApprovalDecision?, @escaping (BrokerApprovalDecision?) -> Void) -> AgentApprovalPanelActions,
+        present: @escaping (BrokerPendingApproval, BrokerApprovalDecision?, ManagementAuthenticationOutcome?, @escaping (BrokerApprovalDecision?) -> Void) -> AgentApprovalPanelActions,
         applyDecision: @escaping (BrokerPendingApproval, BrokerApprovalDecision) -> Void
     ) {
         self.screenState = screenState
@@ -42,6 +42,7 @@ final class AgentApprovalPresentationCoordinator {
     func presentPendingApproval(
         operationID: String? = nil,
         cancelledAuthenticationDecision: BrokerApprovalDecision? = nil,
+        authenticationOutcome: ManagementAuthenticationOutcome? = nil,
         userInitiated: Bool = false
     ) {
         let requests: [BrokerPendingApproval]
@@ -78,7 +79,7 @@ final class AgentApprovalPresentationCoordinator {
         activeRequest = pending
         let id = UUID()
         presentationID = id
-        let actions = present(pending, cancelledAuthenticationDecision) { [weak self] decision in
+        let actions = present(pending, cancelledAuthenticationDecision, authenticationOutcome) { [weak self] decision in
             self?.finish(decision, pending: pending, presentationID: id)
         }
         if presentationID == id, !applyingDecision { panel = actions }

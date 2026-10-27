@@ -8,7 +8,7 @@ import XCTest
 
 @MainActor
 final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
-    func testCancellingChineseManagementAuthenticationStaysSilent() async {
+    func testCancellingChineseManagementAuthenticationDoesNotShowAnError() async {
         var presentation: ManagementAuthenticationPresentation?
         let login = LoginItemProbe()
         let viewModel = makeViewModel(
@@ -16,7 +16,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
             login: login,
             authenticateDeviceOwner: { value in
                 presentation = value
-                return nil
+                return .cancelled
             }
         )
         viewModel.languageMode = "zh-Hans"
@@ -35,6 +35,31 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
         XCTAssertFalse(viewModel.hasManagementSession)
     }
 
+    func testManagementAndSettingsKeepCancellationSilentAndReportFailuresInBothLanguages() async {
+        for language in ["en", "zh-Hans"] {
+            for outcome in [ManagementAuthenticationOutcome.cancelled, .failed] {
+                let model = makeViewModel(
+                    preferences: AppPreferences(defaults: defaults), login: LoginItemProbe(),
+                    authenticateDeviceOwner: { _ in ManagementAuthenticationResult(outcome) }
+                )
+                model.languageMode = language
+                let expectedError = outcome == .failed
+                    ? (language == "en" ? "System authentication failed." : "系统验证失败。") : nil
+                await model.unlockForManagement()
+                XCTAssertEqual(model.errorMessage, expectedError)
+                XCTAssertTrue(model.isLocked)
+                XCTAssertFalse(model.hasManagementSession)
+
+                let authenticator = await model.confirmDeviceOwner(
+                    reason: ManagementAuthenticationAction.disableReadAuthentication.reasonKey
+                )
+                XCTAssertNil(authenticator)
+                XCTAssertEqual(model.errorMessage, expectedError)
+                XCTAssertFalse(model.hasManagementSession)
+            }
+        }
+    }
+
     func testWindowAppearanceDoesNotInvokeManagementUnlock() throws {
         let root = repoRoot()
         let settings = try String(
@@ -48,6 +73,57 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
 
         XCTAssertFalse(settings.contains("if vault.settingsEntryState == .locked { vault.unlock() }"))
         XCTAssertFalse(popover.contains("selectedIndex = 0\n            vault.unlock()"))
+    }
+
+    func testOnboardingPreservesAuthenticatedCancelledAndFailedInBothLanguages() async {
+        for language in ["en", "zh-Hans"] {
+            for outcome in [ManagementAuthenticationOutcome.authenticated, .cancelled, .failed] {
+                var sessionStarts = 0
+                let model = makeViewModel(
+                    preferences: AppPreferences(defaults: defaults), login: LoginItemProbe(),
+                    beginManagementSession: { _ in sessionStarts += 1 },
+                    authenticateDeviceOwner: { _ in ManagementAuthenticationResult(outcome) }
+                )
+                model.languageMode = language
+                let result = await model.authenticateForOnboardingWrite()
+                switch outcome {
+                case .authenticated:
+                    XCTAssertEqual(result, .confirmed)
+                    XCTAssertEqual(sessionStarts, 1)
+                    XCTAssertNil(model.errorMessage)
+                case .cancelled:
+                    XCTAssertEqual(result, .cancelled)
+                    XCTAssertEqual(sessionStarts, 0)
+                    XCTAssertNil(model.errorMessage)
+                case .failed:
+                    XCTAssertEqual(result, .failed)
+                    XCTAssertEqual(sessionStarts, 0)
+                    XCTAssertEqual(model.errorMessage, language == "en" ? "System authentication failed." : "系统验证失败。")
+                }
+            }
+        }
+    }
+
+    func testManagementCloseCancelsItsRunningAuthenticationHandle() async throws {
+        let fixture = try AuthenticationChildFixture()
+        defer { fixture.remove() }
+        let model = makeViewModel(
+            preferences: AppPreferences(defaults: defaults), login: LoginItemProbe(),
+            authenticationRunner: fixture.runner()
+        )
+        let pending = Task { await model.unlockForManagement() }
+        try await fixture.waitForStart()
+        let handle = try XCTUnwrap(model.managementAuthentications.values.first)
+        model.endManagementSession()
+        await pending.value
+        XCTAssertTrue(handle.isCancelled)
+        XCTAssertFalse(model.hasManagementSession)
+        XCTAssertTrue(model.isLocked)
+        let deadline = Date().addingTimeInterval(2)
+        while fixture.events.count < 3, Date() < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertEqual(fixture.events, ["started", "cancel", "focus-returned"])
     }
 
     func testAgentApprovalUsesDirectConfirmationUnlessTheScreenIsLocked() throws {
@@ -65,7 +141,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
             preferences: AppPreferences(defaults: defaults),
             login: login,
             unlockVault: { throw VaultError.keychainReadFailed(-128) },
-            authenticateDeviceOwner: { _ in .allow }
+            authenticateDeviceOwner: { _ in .authenticated(.allow) }
         )
         viewModel.languageMode = "zh-Hans"
 
@@ -82,7 +158,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
             preferences: AppPreferences(defaults: defaults),
             login: login,
             unlockVault: { throw VaultError.keychainWriteFailed(-128) },
-            authenticateDeviceOwner: { _ in .allow }
+            authenticateDeviceOwner: { _ in .authenticated(.allow) }
         )
         viewModel.languageMode = "zh-Hans"
 
@@ -99,7 +175,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
             preferences: AppPreferences(defaults: defaults),
             login: login,
             unlockVault: { throw VaultError.keychainReadFailed(-25293) },
-            authenticateDeviceOwner: { _ in .allow }
+            authenticateDeviceOwner: { _ in .authenticated(.allow) }
         )
 
         viewModel.languageMode = "zh-Hans"
@@ -122,7 +198,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
             preferences: AppPreferences(defaults: defaults),
             login: login,
             unlockVault: { throw VaultError.vaultStorageUnavailable },
-            authenticateDeviceOwner: { _ in .allow }
+            authenticateDeviceOwner: { _ in .authenticated(.allow) }
         )
 
         viewModel.languageMode = "en"
@@ -147,7 +223,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
             preferences: AppPreferences(defaults: defaults),
             login: login,
             unlockVault: { throw failure },
-            authenticateDeviceOwner: { _ in .allow }
+            authenticateDeviceOwner: { _ in .authenticated(.allow) }
         )
 
         viewModel.languageMode = "zh-Hans"
@@ -168,7 +244,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
             login: login,
             authenticateDeviceOwner: { presentation in
                 presentations.append(presentation)
-                return nil
+                return .cancelled
             }
         )
 
@@ -224,7 +300,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
     func testClosingManagementWindowRejectsLateAuthenticationAndAllowsFreshRetry() async {
         let preferences = AppPreferences(defaults: defaults)
         preferences.hasCompletedOnboarding = true
-        var continuation: CheckedContinuation<ManagementAuthenticator?, Never>?
+        var continuation: CheckedContinuation<ManagementAuthenticationResult, Never>?
         var delayAuthentication = true
         var sessionStarts = 0
         var keyLoads = 0
@@ -236,7 +312,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
             beginManagementSession: { _ in sessionStarts += 1 },
             storedCredentialCount: { 1 },
             authenticateDeviceOwner: { _ in
-                guard delayAuthentication else { return .allow }
+                guard delayAuthentication else { return .authenticated(.allow) }
                 return await withCheckedContinuation {
                     continuation = $0
                     started.fulfill()
@@ -247,7 +323,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
         await fulfillment(of: [started], timeout: 2)
         ManagementSessionLifecycle { viewModel.endManagementSession() }
             .handle(.windowClosed(identifier: "settings"))
-        continuation?.resume(returning: .allow)
+        continuation?.resume(returning: .authenticated(.allow))
         await pending.value
         XCTAssertEqual(keyLoads, 0)
         XCTAssertEqual(sessionStarts, 0)
@@ -261,7 +337,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
     }
 
     func testCancelledManagementAuthenticationCannotUnlockOnLateSuccess() async {
-        var continuation: CheckedContinuation<ManagementAuthenticator?, Never>?
+        var continuation: CheckedContinuation<ManagementAuthenticationResult, Never>?
         let started = expectation(description: "system authentication started")
         var sessionStarts = 0
         let viewModel = makeViewModel(
@@ -278,7 +354,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
         let pending = Task { await viewModel.unlockForManagement() }
         await fulfillment(of: [started], timeout: 2)
         pending.cancel()
-        continuation?.resume(returning: .allow)
+        continuation?.resume(returning: .authenticated(.allow))
         await pending.value
         XCTAssertEqual(sessionStarts, 0)
         XCTAssertTrue(viewModel.isLocked)

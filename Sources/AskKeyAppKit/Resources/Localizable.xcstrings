@@ -403,6 +403,14 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Apply!!]" } }
       }
     },
+    "Authentication failed. Nothing was handed over.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Authentication failed. Nothing was handed over." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "验证失败，未交出任何内容" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Authentication failed. Nothing was handed over.!!]" } }
+      }
+    },
     "Authentication cancelled. Nothing was handed over.": {
       "extractionState": "manual",
       "localizations": {

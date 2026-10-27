@@ -26,7 +26,7 @@ final class AgentAccessMenuSessionTests: AskKeyAppTestCase {
         var sessionStarts = 0
         let viewModel = makeViewModel(
             storedCredentialCount: { 2 },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             beginManagementSession: { _ in sessionStarts += 1 },
             isAgentAccessPaused: { paused },
             pauseAgentAccess: { _ in
@@ -52,7 +52,7 @@ final class AgentAccessMenuSessionTests: AskKeyAppTestCase {
         var resumeCalls = 0
         let viewModel = makeViewModel(
             storedCredentialCount: { 1 },
-            authenticateDeviceOwner: { _ in nil },
+            authenticateDeviceOwner: { _ in .cancelled },
             isAgentAccessPaused: { paused },
             resumeAgentAccess: { _ in
                 resumeCalls += 1
@@ -73,7 +73,7 @@ final class AgentAccessMenuSessionTests: AskKeyAppTestCase {
         var paused = true
         let viewModel = makeViewModel(
             storedCredentialCount: { 1 },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             isAgentAccessPaused: { paused },
             resumeAgentAccess: { _ in paused = false }
         )
@@ -125,7 +125,7 @@ final class AgentAccessMenuSessionTests: AskKeyAppTestCase {
     func testManagementIdleKeepsWindowStateAsLockedWorkbench() async {
         let viewModel = makeViewModel(
             storedCredentialCount: { 2 },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             managementSessionIdleLimit: 0.05
         )
         viewModel.completeOnboarding(enableLaunchAtLogin: false)
@@ -154,7 +154,7 @@ final class AgentAccessMenuSessionTests: AskKeyAppTestCase {
 
     private func makeViewModel(
         storedCredentialCount: @escaping () throws -> Int,
-        authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticator?)? = nil,
+        authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticationResult)? = nil,
         beginManagementSession: @escaping (ManagementAuthenticator) throws -> Void = { _ in },
         isAgentAccessPaused: @escaping () throws -> Bool = { false },
         pauseAgentAccess: @escaping (ManagementAuthenticator) throws -> Void = { _ in },

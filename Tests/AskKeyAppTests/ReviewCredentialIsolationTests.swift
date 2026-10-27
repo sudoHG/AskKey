@@ -14,7 +14,7 @@ final class ReviewCredentialIsolationTests: AskKeyAppTestCase {
             eraseLocalLibrary: { _, _, _ in },
             unlockVault: {},
             beginManagementSession: { _ in },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             credentialMutations: box.mutations()
@@ -44,7 +44,7 @@ final class ReviewCredentialIsolationTests: AskKeyAppTestCase {
             eraseLocalLibrary: { _, _, _ in },
             unlockVault: {},
             beginManagementSession: { _ in },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             credentialMutations: .readOnly { ([], [], [], false) }
@@ -104,7 +104,7 @@ final class ReviewCredentialIsolationTests: AskKeyAppTestCase {
             eraseLocalLibrary: { _, _, _ in },
             unlockVault: {},
             beginManagementSession: { _ in },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             credentialMutations: .readOnly { ([], [], [], false) }
@@ -139,7 +139,7 @@ final class ReviewCredentialIsolationTests: AskKeyAppTestCase {
             eraseLocalLibrary: { _, _, _ in },
             unlockVault: {},
             beginManagementSession: { _ in },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             credentialMutations: box.mutations()
@@ -166,7 +166,7 @@ final class ReviewCredentialIsolationTests: AskKeyAppTestCase {
             eraseLocalLibrary: { _, _, _ in },
             unlockVault: {},
             beginManagementSession: { _ in },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             credentialMutations: .readOnly { ([], [], [], false) }
@@ -194,7 +194,7 @@ final class ReviewCredentialIsolationTests: AskKeyAppTestCase {
             eraseLocalLibrary: { _, _, _ in },
             unlockVault: {},
             beginManagementSession: { _ in },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             credentialMutations: box.mutations()

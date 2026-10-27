@@ -187,7 +187,7 @@ final class WorkspacePrototypeContractTests: WorkspaceVisualContractTestSupport 
             runtimeFileCleanupFailures: { false },
             accessRecords: .empty,
             eraseLocalLibrary: { _, _, _ in },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             preferences: AppPreferences(defaults: pausedDefaults),
             loginItem: LoginItemController(isEnabled: { true }, setEnabled: { _ in }),
             agentAccessPolicyOperations: .init(
