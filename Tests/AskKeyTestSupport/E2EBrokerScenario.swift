@@ -72,6 +72,10 @@ final class E2EBrokerScenario {
             try await metadataApprovalScreenshot()
             return
         }
+        if scenario == "approval-unavailable-name-screenshots" {
+            try await unavailableNameScreenshot()
+            return
+        }
         if scenario == "approval-organization-screenshots" {
             try await organizationApprovalScreenshot()
             return
@@ -166,6 +170,51 @@ final class E2EBrokerScenario {
         }
         try require(decision == .denied, "Screenshot organization write must be denied")
         try report("approval-result.json", ["outcome": "denied"])
+    }
+
+    private func unavailableNameScreenshot() async throws {
+        try require(directory == E2EAppRuntime.runDirectory, "Write fixtures require E2E isolation")
+        try Vault.shared.beginManagementSession(using: .allow)
+        let existing: ManagedTextCredential
+        do {
+            existing = try Vault.shared.createTextCredential(.init(name: "Staging API",
+                value: "synthetic-existing", permission: .hidden), using: .allow)
+        } catch {
+            Vault.shared.endManagementSession()
+            throw error
+        }
+        Vault.shared.endManagementSession()
+        var arguments: [String: Any] = [
+            "operation_id": "unavailable-" + directory.lastPathComponent,
+            "name": "Staging API", "caller_name": "E2E Agent",
+            "components": [["name": "token", "text": "synthetic-replacement",
+                "delivery": ["type": "none"]]]
+        ]
+        let reply = try await call("create_credential", arguments, evidence: "write-pending.json")
+        guard !reply.isError,
+              case .success(.textWriteRequest(.submitted(let ticket))) = try JSONDecoder().decode(BrokerResponse.self, from: reply.data),
+              ticket.state == .pending else { throw failure("Expected pending write approval") }
+        try report("approval-pending.json", ["requestID": ticket.requestID])
+        var decision = BrokerRequestState.pending
+        try await waitUntil {
+            let status = try await self.call("request_status", ["request_id": ticket.requestID,
+                "capability": ticket.capability], evidence: "write-status.json")
+            decision = try self.state(status)
+            return decision != .pending
+        }
+        try require(decision == .approved, "Screenshot write must be approved")
+        arguments["request_id"] = ticket.requestID
+        arguments["capability"] = ticket.capability
+        let failed = try await call("create_credential", arguments, evidence: "write-failed.json")
+        try require(failed.isError && failed.body["brokerCode"] as? String == "internal_error",
+                    "Approved write must return the generic failure")
+        try Vault.shared.beginManagementSession(using: .allow)
+        defer { Vault.shared.endManagementSession() }
+        let saved = try Vault.shared.revealTextCredential(id: existing.id, using: .allow)
+        try require(saved.value == "synthetic-existing" && saved.permission == .hidden,
+                    "Failed write changed the existing credential")
+        try require(try Vault.shared.listTextCredentials().count == 2, "Failed write created a credential")
+        try report("approval-result.json", ["outcome": "internal_error", "unchanged": true])
     }
 
     private func metadataApprovalScreenshot() async throws {

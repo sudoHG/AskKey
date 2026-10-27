@@ -224,12 +224,20 @@ extension AppDelegate {
                 }
             },
             commitTextWrite: { [weak self] request, requestID, capability in
-                let result = try mapAgentTextWriteProviderError {
-                    try Vault.shared.commitAgentTextWrite(
-                        request,
-                        requestID: requestID,
-                        capability: capability
-                    )
+                let result: AgentTextWriteResult
+                do {
+                    result = try mapAgentTextWriteProviderError {
+                        try Vault.shared.commitAgentTextWrite(
+                            request,
+                            requestID: requestID,
+                            capability: capability
+                        )
+                    }
+                } catch VaultError.agentWriteNameUnavailable {
+                    Task { @MainActor [weak self] in
+                        self?.vault.errorMessage = "This credential name is already in use. The credential was not saved."
+                    }
+                    throw VaultError.agentWriteNameUnavailable
                 }
                 Task { @MainActor [weak self] in self?.vault.refreshCredentialSummary() }
                 return result

@@ -33,6 +33,7 @@ public enum VaultError: Error, LocalizedError {
     case managementAuthenticationRequired
     case invalidCredentialName(String)
     case credentialNameConflict(String)
+    case agentWriteNameUnavailable
     case credentialNotFound(String)
     case credentialChanged
     case credentialUnavailable
@@ -68,6 +69,8 @@ public enum VaultError: Error, LocalizedError {
             return "Credential names cannot be empty, contain control characters, exceed \(CredentialName.maximumLength) characters, or exceed \(BrokerLimits.maximumFieldBytes) UTF-8 bytes."
         case .credentialNameConflict(let name):
             return "A credential named '\(name)' already exists."
+        case .agentWriteNameUnavailable:
+            return "Ask Key could not complete this change."
         case .credentialNotFound(let name):
             return "Credential '\(name)' was not found."
         case .credentialChanged:
