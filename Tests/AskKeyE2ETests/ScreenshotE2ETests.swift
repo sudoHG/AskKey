@@ -231,7 +231,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(app.buttons["approval-deny"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.buttons["approval-allow-once"].label, "Apply")
         waitForText("“E2E Agent” wants to organize groups")
-        waitForText("6 steps · 1 merge · affects 3 hidden credentials")
+        waitForText("6 steps, 1 merge; affects 3 hidden credentials")
         XCTAssertFalse(app.buttons["approval-reveal-frozen-material"].exists)
         XCTAssertFalse(app.buttons["approval-allow-timed"].exists)
         capture("16-approval-organization", approval: true)
@@ -240,14 +240,14 @@ final class ScreenshotE2ETests: E2EBaseCase {
         waitForText("Move the credential “Staging API” from “Old Services” to “Staging Services”", containing: true)
         waitForText("Rename the group “Old Services” to “Renamed Services”", containing: true)
         waitForText("It has 3 credentials (2 hidden from agents).", containing: true)
-        waitForText("Move 3 credentials to “Ungrouped”; nothing is deleted (2 hidden from agents).", containing: true)
+        waitForText("Its 3 credentials (2 hidden from agents) move to “Ungrouped” and aren’t deleted.", containing: true)
         let operations = app.scrollViews["approval-organization-operations"]
         XCTAssertTrue(operations.exists)
         operations.scroll(byDeltaX: 0, deltaY: -600)
         waitForText("Create the group “Existing Private Services”", containing: true)
         waitForText("Already exists; nothing changes. It has 1 credential (hidden from agents).",
                     containing: true)
-        waitForText("Merge the group “Merge Source” into “Existing Merge Services”",
+        waitForText("“Merge Source” into “Existing Merge Services”",
                     containing: true)
         waitForText("E2E Agent requested a rename, but can’t see the existing group. The merged group will have 4 credentials (3 hidden from agents). This can’t be undone.",
                     containing: true)

@@ -173,6 +173,7 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             let width = ApprovalDetailsContent.labelWidth()
             XCTAssertGreaterThan(width, 30)
             XCTAssertLessThan(width, 100, "\(language): values keep most of the card's width")
+            if language == "zh-Hans" { XCTAssertLessThan(width, 55, "Keep main's Chinese value-column width") }
         }
     }
 

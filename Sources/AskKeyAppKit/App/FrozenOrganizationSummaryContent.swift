@@ -54,10 +54,11 @@ struct FrozenOrganizationSummaryContent: Equatable {
             case .deleteGroup(let name, let members, let hidden):
                 tag = nil
                 title = appLocalizedFormat("Delete the group %@", ApprovalCopy.quoted(name))
-                let hiddenNote = hidden > 0
-                    ? appLocalizedFormat("Approval hidden count suffix", appLocalizedFormat("%lld hidden from agents", hidden)) : ""
+                let hiddenText = members == 1 ? appLocalized("hidden from agents")
+                    : appLocalizedFormat("%lld hidden from agents", hidden)
+                let hiddenNote = hidden > 0 ? appLocalizedFormat("Approval hidden count suffix", hiddenText) : ""
                 detail = members == 0 ? appLocalized("The group is empty.")
-                    : appLocalizedFormat("Move %1$@ to %2$@; nothing is deleted%3$@.",
+                    : appLocalizedFormat(members == 1 ? "Approval group deletion singular" : "Approval group deletion plural",
                         ApprovalCopy.members(members, hidden: 0), ApprovalCopy.group(nil), hiddenNote)
             }
             return Row(number: index + 1, tag: tag, title: title, detail: detail)

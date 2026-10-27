@@ -135,13 +135,13 @@ struct ApprovalDetailsContent: Equatable {
             break
         }
         if !write.valueComponents.isEmpty {
-            let names = ApprovalCopy.list(write.valueComponents.map(\.name))
+            let names = ApprovalLine.codeList(write.valueComponents.map(\.name))
             let replacement = write.valueComponents.contains { $0.tag == .replaced }
             let format = write.valueComponents.count == 1
                 ? (replacement ? "%1$@ knows the new %2$@ value." : "%1$@ knows the value of %2$@.")
                 : (replacement ? "%1$@ knows the new values of %2$@." : "%1$@ knows the values of %2$@.")
             rows.append(Row(label: appLocalized("Value"), value: .revealableValue,
-                note: ApprovalLine(format: appLocalized(format), plain: [requester], code: [names])))
+                note: ApprovalLine(format: appLocalized(format), arguments: [ApprovalLine(requester), names])))
         }
         return rows
     }
@@ -151,8 +151,7 @@ struct ApprovalDetailsContent: Equatable {
     static func labelWidth() -> CGFloat {
         let labels = ["Requested by", "Purpose", "Command", "Runs in", "Hands over", "Contents", "Instructions",
                       "Changes", "Group", "Value"].map { appLocalized($0) }
-            + [appLocalizedFormat("%lld minutes", 999), appLocalizedFormat("Step %lld", 64),
-               appLocalizedFormat("Steps %1$lld–%2$lld", 64, 64)]
+            + [appLocalizedFormat("%lld minutes", 999), appLocalizedFormat("Step %lld", 64)]
         let font = NSFont.systemFont(ofSize: 12)
         return ceil(labels.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0) + 1
     }

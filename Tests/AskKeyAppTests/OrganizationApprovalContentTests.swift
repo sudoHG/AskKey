@@ -26,7 +26,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                     "Delete the group “Temp”",
                 ])
                 XCTAssertEqual(details, [nil, nil, "It has 3 credentials (2 hidden from agents).",
-                    "Move 1 credential to “Ungrouped”; nothing is deleted."])
+                    "Its 1 credential moves to “Ungrouped” and isn’t deleted."])
             } else {
                 XCTAssertEqual(titles, [
                     "新建分组“Staging Services”", // i18n-literal: Assert the Simplified Chinese organize step.
@@ -51,7 +51,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                 XCTAssertEqual(content.rows[0].detail,
                     "Already exists; nothing changes. It has 1 credential (hidden from agents).")
                 XCTAssertEqual(content.rows[1].title,
-                    "Merge the group “Merge Source” into “Existing Merge Services”")
+                    "“Merge Source” into “Existing Merge Services”")
                 XCTAssertEqual(content.rows[1].detail,
                     "Claude Code requested a rename, but can’t see the existing group. The merged group will have 4 credentials (3 hidden from agents). This can’t be undone.")
             } else {
@@ -59,7 +59,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                 XCTAssertEqual(content.rows[0].detail,
                     "分组已存在，不做改动。组里有 1 个凭证（对 Agent 隐藏）。") // i18n-literal: Assert the Simplified Chinese no-op detail.
                 XCTAssertEqual(content.rows[1].title,
-                    "把分组“Merge Source”合并到“Existing Merge Services”") // i18n-literal: Assert the Simplified Chinese merge step.
+                    "把分组 “Merge Source” 并入 “Existing Merge Services”") // i18n-literal: Assert the Simplified Chinese merge step.
                 XCTAssertEqual(content.rows[1].detail,
                     "Claude Code 请求的是改名，但它看不到已有的同名分组。合并后共 4 个凭证（3 个对 Agent 隐藏），无法撤销。") // i18n-literal: Assert the Simplified Chinese merge result.
             }
@@ -90,7 +90,7 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
             XCTAssertEqual(content.rows.map(\.number), Array(1...12))
             XCTAssertFalse(content.isDestructive)
             if language == "en" {
-                XCTAssertEqual(content.subtitle, "12 steps · affects 3 hidden credentials")
+                XCTAssertEqual(content.subtitle, "12 steps; affects 3 hidden credentials")
                 XCTAssertEqual(content.rows[1].title, "Move the credential “Service 2” from “Ungrouped” to “Group 1”")
             } else {
                 XCTAssertEqual(content.subtitle, "共 12 步，会动到 3 个隐藏的凭证") // i18n-literal: Assert the Simplified Chinese organize subtitle.
@@ -120,8 +120,8 @@ final class OrganizationApprovalContentTests: AskKeyAppTestCase {
                 .mergeGroup(from: "C", to: "D", members: 1, nonvisible: 0, targetMembers: 0, targetNonvisible: 0),
             ]), requester: "Claude Code")
             XCTAssertEqual([one.subtitle, two.subtitle], language == "en"
-                ? ["1 step · 1 merge · affects 1 hidden credential", "2 steps · 2 merges"]
-                : ["共 1 步，含 1 次合并分组，会动到 1 个隐藏的凭证", "共 2 步，含 2 次合并分组"]) // i18n-literal: Assert Simplified Chinese organize subtitles.
+                ? ["1 step, 1 merge; affects 1 hidden credential", "2 steps, 2 merges"]
+                : ["共 1 步，含 1 次合并，会动到 1 个隐藏的凭证", "共 2 步，含 2 次合并"]) // i18n-literal: Assert Simplified Chinese organize subtitles.
             XCTAssertTrue(two.isDestructive)
         }
     }

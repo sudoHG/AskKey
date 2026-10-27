@@ -4,6 +4,30 @@ import XCTest
 
 @MainActor
 final class ApprovalVariableLineTests: AskKeyAppTestCase {
+    func testCommandFlagsStayWholeAndAllExportsKeepTheExactCommand() throws {
+        let command = "./deploy.sh " + (1...18).map { "--flag-\($0) value-\($0)" }.joined(separator: " ")
+        let view = ApprovalVariableLine.TextView()
+        view.configure(ApprovalLine(format: "%@", code: [command]), codeWrapping: .command)
+        _ = view.measuredSize(width: 110)
+        let manager = try XCTUnwrap(view.layoutManager)
+        var fragments: [String] = []
+        manager.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: manager.numberOfGlyphs)) { _, _, _, glyphs, _ in
+            let characters = manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+            fragments.append((view.string as NSString).substring(with: characters)
+                .replacingOccurrences(of: "\u{2060}", with: "").replacingOccurrences(of: "\u{200b}", with: ""))
+        }
+        XCTAssertEqual(fragments.joined(), command)
+        XCTAssertFalse(fragments.contains { $0.trimmingCharacters(in: .whitespaces).hasSuffix("--") })
+        view.setSelectedRange(NSRange(location: 0, length: (view.string as NSString).length))
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        XCTAssertTrue(view.writeSelection(to: pasteboard, types: view.writablePasteboardTypes))
+        XCTAssertEqual(pasteboard.string(forType: .string), command)
+        XCTAssertEqual(view.accessibilityValue(), command)
+        view.setSelectedRange((view.string as NSString).range(of: ApprovalCopy.unbroken("--flag-12")))
+        XCTAssertEqual(view.selectedPlainText, "--flag-12")
+    }
+
     func testCopyAndAccessibilityKeepOriginalTextIncludingUnicodeAndPartialSelections() {
         let variable = "STAGING_SERVICE_ACCESS_TOKEN"
         let line = ApprovalLine(format: "%1$@ → environment variable %2$@", plain: ["API Token 🙂"], code: [variable])

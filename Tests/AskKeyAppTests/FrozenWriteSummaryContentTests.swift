@@ -115,7 +115,7 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         XCTAssertEqual(changed.components.map(\.tag), [.changed, .removed])
         XCTAssertEqual(changed.changedComponents.map(\.name), ["TOKEN", "USER"])
         XCTAssertTrue(changed.valueComponents.isEmpty, "a new delivery for the same value adds no value to view")
-        XCTAssertEqual(changed.subtitle, "Changes the settings of 1 item, removes 1 item; the removed value can’t be recovered")
+        XCTAssertEqual(changed.subtitle, "Changes the settings of 1 item, removes 1 item; it can’t be recovered")
         XCTAssertTrue(changed.isDestructive)
         // Summaries without per-item digests claim a replacement rather than "unchanged".
         let legacy = BrokerCredentialComponentSummary(name: "TOKEN", payloadKind: .text, byteCount: 28,

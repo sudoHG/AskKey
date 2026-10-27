@@ -37,19 +37,19 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
         .modifyAdded: .init(title: "“Claude Code” wants to change “Release Check”", subtitle: "Adds 1 item",
                             buttons: ["Change", "Deny"]),
         .modifyRemoved: .init(title: "“Claude Code” wants to change “Release Check”",
-                              subtitle: "Removes 1 item; the removed value can’t be recovered", buttons: ["Change", "Deny"]),
+                              subtitle: "Removes 1 item; it can’t be recovered", buttons: ["Change", "Deny"]),
         .modifyMixed: .init(title: "“Claude Code” wants to change “Release Check”",
                             subtitle: "Replaces 1 value, changes the group; the old value can’t be recovered",
                             buttons: ["Change", "Deny"]),
         .delete: .init(title: "“Claude Code” wants to delete “Release Check”",
                        subtitle: "Moves to the Recycle Bin; restorable for 30 days", buttons: ["Delete", "Deny"]),
         .organize: .init(title: "“Claude Code” wants to organize groups",
-                         subtitle: "4 steps · affects 2 hidden credentials", buttons: ["Apply", "Deny"]),
+                         subtitle: "4 steps; affects 2 hidden credentials", buttons: ["Apply", "Deny"]),
         .organizeExistingAndMerge: .init(title: "“Claude Code” wants to organize groups",
-                                         subtitle: "2 steps · 1 merge · affects 1 hidden credential",
+                                         subtitle: "2 steps, 1 merge; affects 1 hidden credential",
                                          buttons: ["Apply", "Deny"]),
         .organizeTwelveSteps: .init(title: "“Claude Code” wants to organize groups",
-                                    subtitle: "12 steps · affects 3 hidden credentials", buttons: ["Apply", "Deny"]),
+                                    subtitle: "12 steps; affects 3 hidden credentials", buttons: ["Apply", "Deny"]),
     ]
 
     // i18n-literal: Simplified Chinese card copy from the #177 table.
@@ -83,7 +83,7 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
         .organize: .init(title: "“Claude Code”想整理分组", subtitle: "共 4 步，会动到 2 个隐藏的凭证", // i18n-literal: Chinese organize card.
                          buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.
         .organizeExistingAndMerge: .init(title: "“Claude Code”想整理分组", // i18n-literal: Chinese organize card.
-                                         subtitle: "共 2 步，含 1 次合并分组，会动到 1 个隐藏的凭证", // i18n-literal: Chinese organize card.
+                                         subtitle: "共 2 步，含 1 次合并，会动到 1 个隐藏的凭证", // i18n-literal: Chinese organize card.
                                          buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.
         .organizeTwelveSteps: .init(title: "“Claude Code”想整理分组", subtitle: "共 12 步，会动到 3 个隐藏的凭证", // i18n-literal: Chinese organize card.
                                     buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.

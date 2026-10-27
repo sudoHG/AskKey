@@ -37,7 +37,7 @@ enum FrozenApprovalActions {
 
     /// What the timed allowance covers, shown in Details and on hover.
     static func timedScope(minutes: Int) -> String {
-        appLocalizedFormat("For %lld minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.", minutes)
+        appLocalizedFormat("Approval timed scope", minutes)
     }
 
     static func titles(operation: BrokerApprovalOperation, timedAllowanceEnabled: Bool, minutes: Int = 30,

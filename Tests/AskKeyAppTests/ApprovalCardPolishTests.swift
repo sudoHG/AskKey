@@ -7,7 +7,7 @@ import AskKeyBroker
 @MainActor
 final class ApprovalCardPolishTests: AskKeyAppTestCase {
     func testProvidedValuesNameOnlyNewOrReplacedItems() {
-        ApprovalCardFixtures.withLanguages { _ in
+        ApprovalCardFixtures.withLanguages { language in
             for (card, names) in [
                 (ApprovalCardFixtures.Card.create, ["TOKEN", "CERT", "RECOVERY_CODE"]),
                 (.modifySomeValues, ["TOKEN"]), (.modifyAdded, ["CERT"]),
@@ -16,8 +16,10 @@ final class ApprovalCardPolishTests: AskKeyAppTestCase {
                 let value = prompt.presentation.details.rows.first { $0.value == .revealableValue }
                 let format = names.count > 1 ? "%1$@ knows the values of %2$@."
                     : (card == .modifySomeValues ? "%1$@ knows the new %2$@ value." : "%1$@ knows the value of %2$@.")
-                XCTAssertEqual(value?.note?.plainText, appLocalizedFormat(format, "Claude Code", ApprovalCopy.list(names)))
-                XCTAssertEqual(value?.note?.segments.filter(\.code).map(\.text), [ApprovalCopy.list(names)])
+                let list = language == "zh-Hans" && names.count == 3
+                    ? "TOKEN、CERT 和 RECOVERY_CODE" : ApprovalCopy.list(names) // i18n-literal: Chinese name-list separators.
+                XCTAssertEqual(value?.note?.plainText, appLocalizedFormat(format, "Claude Code", list))
+                XCTAssertEqual(value?.note?.segments.filter(\.code).map(\.text), names)
                 XCTAssertFalse(prompt.presentation.content.title.contains(value?.note?.plainText ?? "unexpected"))
             }
             for card in [ApprovalCardFixtures.Card.modifyMetadata, .modifyRemoved, .delete] {
@@ -77,6 +79,16 @@ final class ApprovalCardPolishTests: AskKeyAppTestCase {
                 let title = ApprovalCardFixtures.copy(.organize).title as NSString
                 XCTAssertLessThanOrEqual(title.size(withAttributes: [.font: NSFont.systemFont(ofSize: 13, weight: .bold)]).width,
                     FrozenAgentApprovalPrompt.contentWidth)
+            }
+            for card in [ApprovalCardFixtures.Card.modifyRemoved, .organizeExistingAndMerge, .organizeManyMoves] {
+                let subtitle = ApprovalCardFixtures.copy(card).subtitle! as NSString
+                XCTAssertLessThanOrEqual(subtitle.size(withAttributes: [.font: NSFont.systemFont(ofSize: 13)]).width,
+                    FrozenAgentApprovalPrompt.contentWidth, "\(language): \(card)")
+            }
+            let phrases = language == "en" ? ["(2 hidden from agents)", "1 credential"]
+                : ["组里有 1 个凭证", "合并后共 4 个凭证", "（2 个对 Agent 隐藏）"] // i18n-literal: Counted phrases.
+            for phrase in phrases {
+                XCTAssertEqual(ApprovalCopy.wrapping(phrase), ApprovalCopy.unbroken(phrase))
             }
         }
     }

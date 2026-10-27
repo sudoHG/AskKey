@@ -21,6 +21,7 @@ struct ApprovalDetailsView: View {
                     Text(verbatim: ApprovalCopy.unbroken(row.label))
                         .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .accessibilityLabel(Text(verbatim: row.label))
                         .frame(width: labelWidth, alignment: .leading)
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
@@ -47,7 +48,8 @@ struct ApprovalDetailsView: View {
             Text(verbatim: ApprovalCopy.wrapping(text)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel(Text(verbatim: text))
         case .code(let code):
-            Text(verbatim: code).font(Theme.Fonts.mono).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            ApprovalVariableLine(line: ApprovalLine(format: "%@", code: [code]), codeWrapping: .command)
+                .alignmentGuide(.firstTextBaseline) { _ in NSFont.systemFont(ofSize: 12).ascender }
         case .lines(let lines):
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
