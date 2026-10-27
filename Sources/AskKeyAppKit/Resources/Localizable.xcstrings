@@ -1,6 +1,30 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Claude Code timed out, but Ask Key found the requested connection settings. The connection is not verified. Check again to finish setup.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Claude Code timed out, but Ask Key found the requested connection settings. The connection is not verified. Check again to finish setup." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Claude Code 已超时，但请旨重新检查后找到了所需的连接设置。连接尚未验证。请再次检查以完成设置。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Claude Code timed out, but Ask Key found the requested connection settings. The connection is not verified. Check again to finish setup.!!]" } }
+      }
+    },
+    "Claude Code timed out. Ask Key checked again and found no Ask Key connection settings. Check again before confirming another change.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Claude Code timed out. Ask Key checked again and found no Ask Key connection settings. Check again before confirming another change." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Claude Code 已超时。请旨重新检查后未找到请旨的连接设置。请再次检查，然后再确认新的更改。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Claude Code timed out. Ask Key checked again and found no Ask Key connection settings. Check again before confirming another change.!!]" } }
+      }
+    },
+    "Claude Code timed out. Ask Key could not confirm whether the connection settings were written. Review the askkey connection in Claude Code, then check again.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Claude Code timed out. Ask Key could not confirm whether the connection settings were written. Review the askkey connection in Claude Code, then check again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Claude Code 已超时。请旨无法确认连接设置是否已写入。请在 Claude Code 中检查 askkey 连接，然后再次检查。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Claude Code timed out. Ask Key could not confirm whether the connection settings were written. Review the askkey connection in Claude Code, then check again.!!]" } }
+      }
+    },
     "Claude Code hooks are disabled. Re-enable hooks in Claude Code, then check again.": {
       "extractionState": "manual",
       "localizations": {

@@ -23,9 +23,19 @@ enum AgentOnboardingPhase: String, Equatable, Sendable {
 
 enum AgentChangeStatus: String, Equatable, Sendable {
     case notWritten
+    case writtenUnverified
+    case uncertain
     case verifiedAndKept
     case restored
     case restoreFailed
+
+    init(_ outcome: ClaudeCodeMCPWriteOutcome) {
+        switch outcome {
+        case .written: self = .writtenUnverified
+        case .notWritten: self = .notWritten
+        case .uncertain: self = .uncertain
+        }
+    }
 }
 
 package enum AgentKnownOutcome: String, Equatable, Sendable {
@@ -59,6 +69,7 @@ package enum AgentOnboardingFailure: Error, Equatable, Sendable {
     case restoreFailed
     case cliMissing
     case timedOut
+    case claudeWriteTimedOut(ClaudeCodeMCPWriteOutcome)
     case communicationFailed
     case planChanged
     case discoverySetupFailed
@@ -199,6 +210,7 @@ extension AgentOnboardingFailure {
             case .rollbackFailed: return .restoreFailed
             case .cancelled: return .cancelled
             case .timeout: return .timedOut
+            case .writeTimedOut(let outcome): return .claudeWriteTimedOut(outcome)
             case .outputTooLarge, .processFailed: return .communicationFailed
             case .addFailed: return .verificationFailed
             case .verificationFailed(let reason):
