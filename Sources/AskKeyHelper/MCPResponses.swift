@@ -106,10 +106,12 @@ private func brokerFailureStatus(_ code: BrokerErrorCode) -> String {
 func mcpStatusError(
     id: Any?,
     status: String,
-    brokerCode: String? = nil
+    brokerCode: String? = nil,
+    nextStep: String? = nil
 ) throws -> [String: Any] {
     var payload = ["status": status]
     if let brokerCode { payload["brokerCode"] = brokerCode }
+    if let nextStep { payload["next_step"] = nextStep }
     if brokerCode == BrokerErrorCode.requestRejected.rawValue {
         payload["next_step"] = AgentUsageGuide.rejected
     }
