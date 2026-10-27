@@ -173,8 +173,12 @@ extension AgentClientConnector {
             } catch let error as ClaudeCodeMCPError {
                 var report = applyFailure(error, plan: plan)
                 report.changeStatus = .notWritten
-                // connect() rolls back every verification failure itself,
-                // including helper and broker failures with distinct UI states.
+                // Ordinary verification failures are rolled back by connect().
+                // A timed-out add is only re-inspected, never blindly removed.
+                if case .writeTimedOut(let outcome) = error {
+                    report.changeStatus = AgentChangeStatus(outcome)
+                    report.outcome = outcome == .written ? .configuredUnverified : .notConfigured
+                }
                 if case .verificationFailed = error { report.changeStatus = .restored }
                 if case .rollbackFailed = error { report.changeStatus = .restoreFailed }
                 return report
