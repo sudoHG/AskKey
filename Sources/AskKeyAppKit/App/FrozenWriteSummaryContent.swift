@@ -32,7 +32,6 @@ struct FrozenWriteSummaryContent: Equatable {
     let valueOnlyChange: Bool
     /// A modify that overwrites or removes values that can't be recovered.
     let isDestructive: Bool
-    let recoveryWarning: String?
 
     var valueComponents: [Component] { components.filter(\.carriesValue) }
     /// Modify: the items that change, in order; unchanged ones are left out.
@@ -62,7 +61,6 @@ struct FrozenWriteSummaryContent: Equatable {
         valueOnlyChange = componentsChanged && !instructionsChanged && !groupChanged
             && components.allSatisfy { $0.tag == .unchanged || $0.tag == .replaced }
         isDestructive = modify && components.contains { $0.tag == .replaced || $0.tag == .removed }
-        recoveryWarning = modify && !valueOnlyChange ? Self.recoveryWarning(components) : nil
         switch summary.operation {
         case .create:
             subtitle = summary.afterGroup.map { group in
@@ -72,11 +70,11 @@ struct FrozenWriteSummaryContent: Equatable {
             }
         case .modify where valueOnlyChange:
             subtitle = components.filter { $0.tag == .replaced }.count == 1
-                ? appLocalized("The old value can't be recovered")
-                : appLocalized("The old values can't be recovered")
+                ? appLocalized("Approval old value loss")
+                : appLocalized("Approval old values loss")
         case .modify:
-            subtitle = Self.changeSubtitle(components, instructions: instructionsChanged,
-                group: groupChanged)
+            let changes = Self.changeSubtitle(components, instructions: instructionsChanged, group: groupChanged)
+            subtitle = Self.withConsequences(changes, components: components)
         case .read, .delete, .organize:
             subtitle = nil
         }
@@ -113,7 +111,7 @@ struct FrozenWriteSummaryContent: Equatable {
         return rows
     }
 
-    /// The short change summary; recovery and full instruction edits live in Details.
+    /// Changes first; value loss always ends the subtitle.
     private static func changeSubtitle(_ components: [Component], instructions: Bool,
                                        group: Bool) -> String {
         func count(_ tag: ApprovalTag) -> Int { components.filter { $0.tag == tag }.count }
@@ -142,16 +140,16 @@ struct FrozenWriteSummaryContent: Equatable {
         return ApprovalCopy.capitalized(clauses.joined(separator: appLocalized("Clause separator")))
     }
 
-    private static func recoveryWarning(_ components: [Component]) -> String? {
+    private static func withConsequences(_ changes: String, components: [Component]) -> String {
         let replaced = components.filter { $0.tag == .replaced }.count
         let removed = components.filter { $0.tag == .removed }.count
         switch (replaced, removed) {
-        case (0, 0): return nil
-        case (1, 0): return appLocalized("The old value can't be recovered")
-        case (_, 0): return appLocalized("The old values can't be recovered")
-        case (0, 1): return appLocalized("The removed value can't be recovered")
-        case (0, _): return appLocalized("The removed values can't be recovered")
-        default: return appLocalized("The old and removed values can't be recovered")
+        case (0, 0): return changes
+        case (1, 0): return appLocalizedFormat("Approval old value loss summary", changes)
+        case (_, 0): return appLocalizedFormat("Approval old values loss summary", changes)
+        case (0, 1): return appLocalizedFormat("Approval removed value loss summary", changes)
+        case (0, _): return appLocalizedFormat("Approval removed values loss summary", changes)
+        default: return appLocalizedFormat("Approval old and removed values loss summary", changes)
         }
     }
 }

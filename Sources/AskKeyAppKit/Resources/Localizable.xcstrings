@@ -1,20 +1,212 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "hidden from agents": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "hidden from agents" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "对 Agent 隐藏" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!hidden from agents!!]" } }
+      }
+    },
+    "“%@” wants to organize groups": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "“%@” wants to organize groups" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "“%@”想整理分组" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!“%@” wants to organize groups!!]" } }
+      }
+    },
+    "Approval single hidden member": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "1 credential (hidden from agents)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "1 个凭证（对 Agent 隐藏）" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!1 credential (hidden from agents)!!]" } }
+      }
+    },
+    "%1$@ with %2$lld hidden from agents": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ (%2$lld hidden from agents)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@（%2$lld 个对 Agent 隐藏）" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ (%2$lld hidden from agents)!!]" } }
+      }
+    },
+    " (old value can’t be recovered)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": " (old value can’t be recovered)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "（旧值无法找回）" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!! (old value can’t be recovered)!!]" } }
+      }
+    },
+    " (can’t be recovered)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": " (can’t be recovered)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "（无法找回）" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!! (can’t be recovered)!!]" } }
+      }
+    },
+    "%1$@ knows the new %2$@ value.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ knows the new %2$@ value." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 知道 %2$@ 的新值" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ knows the new %2$@ value.!!]" } }
+      }
+    },
+    "%1$@ knows the value of %2$@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ knows the value of %2$@." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 知道 %2$@ 的值" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ knows the value of %2$@.!!]" } }
+      }
+    },
+    "%1$@ knows the new values of %2$@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ knows the new values of %2$@." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 知道 %2$@ 的新值" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ knows the new values of %2$@.!!]" } }
+      }
+    },
+    "%1$@ knows the values of %2$@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ knows the values of %2$@." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 知道 %2$@ 的值" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ knows the values of %2$@.!!]" } }
+      }
+    },
+    "Approval old value loss": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The old value can’t be recovered" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "旧值无法找回" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The old value can’t be recovered!!]" } }
+      }
+    },
+    "Approval old values loss": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The old values can’t be recovered" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "旧值无法找回" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The old values can’t be recovered!!]" } }
+      }
+    },
+    "Approval old value loss summary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@; the old value can’t be recovered" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，旧值无法找回" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; the old value can’t be recovered!!]" } }
+      }
+    },
+    "Approval old values loss summary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@; the old values can’t be recovered" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，旧值无法找回" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; the old values can’t be recovered!!]" } }
+      }
+    },
+    "Approval removed value loss summary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@; the removed value can’t be recovered" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，移除的值无法找回" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; the removed value can’t be recovered!!]" } }
+      }
+    },
+    "Approval removed values loss summary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@; removed values can’t be recovered" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，移除的值无法找回" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; removed values can’t be recovered!!]" } }
+      }
+    },
+    "Approval old and removed values loss summary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@; old and removed values can’t be recovered" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，旧值和移除的值无法找回" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; old and removed values can’t be recovered!!]" } }
+      }
+    },
+    "Already exists; nothing changes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Already exists; nothing changes." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "分组已存在，不做改动。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Already exists; nothing changes.!!]" } }
+      }
+    },
+    "%1$@ requested a rename, but can’t see the existing group. The merged group will have %2$@. This can’t be undone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ requested a rename, but can’t see the existing group. The merged group will have %2$@. This can’t be undone." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 请求的是改名，但它看不到已有的同名分组。合并后共 %2$@，无法撤销。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ requested a rename, but can’t see the existing group. The merged group will have %2$@. This can’t be undone.!!]" } }
+      }
+    },
+    "Approval hidden count suffix": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": " (%@)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "（%@）" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!! (%@)!!]" } }
+      }
+    },
+    "%lld hidden from agents": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld hidden from agents" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个对 Agent 隐藏" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld hidden from agents!!]" } }
+      }
+    },
+    "Move %1$@ to %2$@; nothing is deleted%3$@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Move %1$@ to %2$@; nothing is deleted%3$@." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@移到%2$@，不会删除%3$@。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Move %1$@ to %2$@; nothing is deleted%3$@.!!]" } }
+      }
+    },
+    "%@ · affects 1 hidden credential": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@ · affects 1 hidden credential" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，会动到 1 个隐藏的凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@ · affects 1 hidden credential!!]" } }
+      }
+    },
+    "%1$@ · affects %2$lld hidden credentials": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ · affects %2$lld hidden credentials" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@，会动到 %2$lld 个隐藏的凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ · affects %2$lld hidden credentials!!]" } }
+      }
+    },
+    "Move %1$lld credentials to %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Move %1$lld credentials to %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "把 %1$lld 个凭证移到%2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Move %1$lld credentials to %2$@!!]" } }
+      }
+    },
     "stored only, not delivered to programs": {
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "stored only, not delivered to programs" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "仅保存，不交付" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!stored only, not delivered to programs!!]" } }
-      }
-    },
-    "Already known to %1$@: %2$@.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Already known to %1$@: %2$@." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 已知这些值：%2$@。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Already known to %1$@: %2$@.!!]" } }
       }
     },
     "Merge the group %1$@ into %2$@": {
@@ -25,19 +217,11 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Merge the group %1$@ into %2$@!!]" } }
       }
     },
-    "%1$@ requested a rename; %2$@ already exists and is hidden from %1$@.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%1$@ requested a rename; %2$@ already exists and is hidden from %1$@." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 请求改名；%2$@ 已存在且对 %1$@ 隐藏。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ requested a rename; %2$@ already exists and is hidden from %1$@.!!]" } }
-      }
-    },
     "%@ · 1 merge": {
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "%@ · 1 merge" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@ · 合并 1 次" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，含 1 次合并分组" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@ · 1 merge!!]" } }
       }
     },
@@ -45,24 +229,8 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "%1$@ · %2$lld merges" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ · 合并 %2$lld 次" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@，含 %2$lld 次合并分组" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ · %2$lld merges!!]" } }
-      }
-    },
-    "Changes the group of 1 hidden credential.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Changes the group of 1 hidden credential." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "更改 1 个隐藏凭证的分组。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Changes the group of 1 hidden credential.!!]" } }
-      }
-    },
-    "Changes the groups of %lld hidden credentials.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Changes the groups of %lld hidden credentials." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "更改 %lld 个隐藏凭证的分组。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Changes the groups of %lld hidden credentials.!!]" } }
       }
     },
     "Steps %1$lld–%2$lld": {
@@ -79,62 +247,6 @@
         "en": { "stringUnit": { "state": "translated", "value": "Move %1$lld credentials from %2$@ to %3$@" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "把 %1$lld 个凭证从%2$@移到%3$@" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Move %1$lld credentials from %2$@ to %3$@!!]" } }
-      }
-    },
-    "1 credential, hidden from agents.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "1 credential, hidden from agents." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "1 个凭证，对 Agent 隐藏。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!1 credential, hidden from agents.!!]" } }
-      }
-    },
-    "%lld credentials, all hidden from agents.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%lld credentials, all hidden from agents." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个凭证，均对 Agent 隐藏。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%lld credentials, all hidden from agents.!!]" } }
-      }
-    },
-    "Impact": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Impact" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "影响" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Impact!!]" } }
-      }
-    },
-    "Recovery": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Recovery" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "恢复" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Recovery!!]" } }
-      }
-    },
-    "The removed value can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "The removed value can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "移除的值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The removed value can't be recovered!!]" } }
-      }
-    },
-    "The removed values can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "The removed values can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "移除的值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The removed values can't be recovered!!]" } }
-      }
-    },
-    "The old and removed values can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "The old and removed values can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "旧值和移除的值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The old and removed values can't be recovered!!]" } }
       }
     },
     "Claude Code timed out, but Ask Key found the requested connection settings. The connection is not verified. Check again to finish setup.": {

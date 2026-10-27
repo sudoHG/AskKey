@@ -104,7 +104,6 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             let instructions = language == "en" ? "Instructions" : "说明" // i18n-literal: Chinese label.
             let group = language == "en" ? "Group" : "分组" // i18n-literal: Chinese label.
             let value = language == "en" ? "Value" : "值" // i18n-literal: Chinese label.
-            let recovery = appLocalized("Recovery")
             XCTAssertEqual(labels(.modifyMetadata), requester + [instructions])
             XCTAssertEqual(values(.modifyMetadata)[2], "diff: checks", "the diff names what was deleted")
             XCTAssertEqual(labels(.modifyInstructionsAndGroup), requester + [instructions, group])
@@ -112,10 +111,11 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             XCTAssertEqual(labels(.modifyValue), requester + [changes, value])
             XCTAssertEqual(labels(.modifySomeValues), requester + [changes, value])
             XCTAssertEqual(labels(.modifyAdded), requester + [changes, value])
-            XCTAssertEqual(labels(.modifyRemoved), requester + [changes, recovery])
-            XCTAssertEqual(labels(.modifyMixed), requester + [changes, group, value, recovery])
+            XCTAssertEqual(labels(.modifyRemoved), requester + [changes])
+            XCTAssertEqual(labels(.modifyMixed), requester + [changes, group, value])
             XCTAssertEqual([values(.modifySomeValues)[2], values(.modifyAdded)[2], values(.modifyRemoved)[2]], language == "en"
-                ? ["Replaced TOKEN", "New CERT", "Removed USER"] : ["替换 TOKEN", "新增 CERT", "移除 USER"]) // i18n-literal: Chinese change rows.
+                ? ["Replaced TOKEN (old value can’t be recovered)", "New CERT", "Removed USER (can’t be recovered)"]
+                : ["替换 TOKEN（旧值无法找回）", "新增 CERT", "移除 USER（无法找回）"]) // i18n-literal: Chinese change rows.
             let newGroup = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
                 before: [Fixtures.token], after: [Fixtures.token], beforeDigest: "same", afterDigest: "same",
                 beforeGroup: "Release Tools", afterGroup: "Operations", createsGroup: true)
@@ -134,24 +134,24 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
                 ? ["Requested by", "Purpose", "Contents"] : ["请求方", "用途", "内容"]) // i18n-literal: Chinese delete labels.
             XCTAssertEqual(values(.delete)[2], "TOKEN\nUSER")
             XCTAssertEqual(labels(.organize), language == "en"
-                ? ["Requested by", "Purpose", "Impact", "Step 1", "Step 2", "Step 3", "Step 4"]
-                : ["请求方", "用途", "影响", "第 1 步", "第 2 步", "第 3 步", "第 4 步"]) // i18n-literal: Chinese organize labels.
-            XCTAssertEqual(values(.organize)[3], language == "en"
+                ? ["Requested by", "Purpose", "Step 1", "Step 2", "Step 3", "Step 4"]
+                : ["请求方", "用途", "第 1 步", "第 2 步", "第 3 步", "第 4 步"]) // i18n-literal: Chinese organize labels.
+            XCTAssertEqual(values(.organize)[2], language == "en"
                 ? "Create the group “Staging Services”" : "新建分组“Staging Services”") // i18n-literal: Chinese organize step.
-            XCTAssertEqual(values(.organizeExistingAndMerge)[3], language == "en"
-                ? "No change Create the group “Existing Private Services”\nThis group already exists, so nothing is created or changed. 1 credential, hidden from agents."
-                : "无变化 新建分组“Existing Private Services”\n这个分组已经存在，不会新建或改动任何内容。1 个凭证，对 Agent 隐藏。") // i18n-literal: Chinese organize step.
-            XCTAssertEqual(labels(.organizeTwelveSteps).count, 15)
+            XCTAssertEqual(values(.organizeExistingAndMerge)[2], language == "en"
+                ? "No change Create the group “Existing Private Services”\nAlready exists; nothing changes. It has 1 credential (hidden from agents)."
+                : "无变化 新建分组“Existing Private Services”\n分组已存在，不做改动。组里有 1 个凭证（对 Agent 隐藏）。") // i18n-literal: Chinese organize step.
+            XCTAssertEqual(labels(.organizeTwelveSteps).count, 14)
         }
     }
 
-    func testDetailsNeverRepeatTheTitleOrSubtitle() {
+    func testDetailsDoNotAddDuplicateHeaderRows() {
         Fixtures.withLanguages { language in
             for card in Card.allCases {
                 let copy = Fixtures.copy(card)
                 for value in values(card) {
                     XCTAssertNotEqual(value, copy.title, "\(language) \(card.rawValue)")
-                    if let subtitle = copy.subtitle {
+                    if let subtitle = copy.subtitle, card != .modifyValue, card != .modifySomeValues {
                         XCTAssertFalse(value.contains(subtitle), "\(language) \(card.rawValue): \(value)")
                     }
                 }

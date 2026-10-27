@@ -190,7 +190,6 @@ struct FrozenAgentApprovalPrompt: View {
                     .font(Theme.Fonts.body)
                     .foregroundStyle(Theme.text)
                     .multilineTextAlignment(.center)
-                    .lineLimit(request.operation == .create ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
                     .help(Text(verbatim: subtitle))
                     .padding(.top, Theme.Spacing.sm)

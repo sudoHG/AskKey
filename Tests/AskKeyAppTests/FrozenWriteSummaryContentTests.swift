@@ -115,8 +115,7 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         XCTAssertEqual(changed.components.map(\.tag), [.changed, .removed])
         XCTAssertEqual(changed.changedComponents.map(\.name), ["TOKEN", "USER"])
         XCTAssertTrue(changed.valueComponents.isEmpty, "a new delivery for the same value adds no value to view")
-        XCTAssertEqual(changed.subtitle, "Changes the settings of 1 item, removes 1 item")
-        XCTAssertEqual(changed.recoveryWarning, "The removed value can't be recovered")
+        XCTAssertEqual(changed.subtitle, "Changes the settings of 1 item, removes 1 item; the removed value can’t be recovered")
         XCTAssertTrue(changed.isDestructive)
         // Summaries without per-item digests claim a replacement rather than "unchanged".
         let legacy = BrokerCredentialComponentSummary(name: "TOKEN", payloadKind: .text, byteCount: 28,
@@ -177,7 +176,7 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         }
     }
 
-    func testChangeSubtitlesListChangesAndKeepRecoveryInDetails() {
+    func testChangeSubtitlesListChangesAndEndWithConsequences() {
         let previous = AppLanguage.current
         defer { AppLanguage.current = previous }
         let rotated = Fixtures.component("TOKEN", bytes: 28, .environmentVariable("RELEASE_CHECK_TOKEN"), value: "rotated")
@@ -191,11 +190,10 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         for language in ["en", "zh-Hans"] {
             AppLanguage.current = language
             XCTAssertEqual(content(everything).subtitle, language == "en"
-                ? "Replaces 1 value, changes the settings of 1 item, changes the instructions and the group, adds 1 item, removes 1 item"
-                : "替换 1 项的值，更改 1 项的设置，更改使用说明和分组，新增 1 项，移除 1 项") // i18n-literal: Assert the Simplified Chinese change subtitle.
-            XCTAssertEqual(content(everything).recoveryWarning, appLocalized("The old and removed values can't be recovered"))
+                ? "Replaces 1 value, changes the settings of 1 item, changes the instructions and the group, adds 1 item, removes 1 item; old and removed values can’t be recovered"
+                : "替换 1 项的值，更改 1 项的设置，更改使用说明和分组，新增 1 项，移除 1 项，旧值和移除的值无法找回") // i18n-literal: Assert the Simplified Chinese change subtitle.
             XCTAssertEqual(content(twoValues).subtitle, language == "en"
-                ? "The old values can't be recovered" : "旧值将无法找回") // i18n-literal: Assert the Simplified Chinese value subtitle.
+                ? "The old values can’t be recovered" : "旧值无法找回") // i18n-literal: Assert the Simplified Chinese value subtitle.
         }
         XCTAssertTrue(content(everything).isDestructive)
         XCTAssertFalse(content(everything).valueOnlyChange)

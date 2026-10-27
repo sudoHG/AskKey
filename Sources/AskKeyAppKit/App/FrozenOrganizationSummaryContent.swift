@@ -15,9 +15,8 @@ struct FrozenOrganizationSummaryContent: Equatable {
     let rows: [Row]
     /// A merge can't be undone automatically.
     let isDestructive: Bool
-    /// Compact step and merge counts; the impact belongs in Details.
+    /// Step and merge counts, followed by the hidden-credential consequence.
     let subtitle: String
-    let impact: String?
 
     init(summary: BrokerOrganizationSummary, requester: String) {
         let steps = summary.operations.enumerated().map { index, operation in
@@ -38,34 +37,28 @@ struct FrozenOrganizationSummaryContent: Equatable {
                 tag = .noChange
                 title = appLocalizedFormat("Create the group %@", ApprovalCopy.quoted(name))
                 detail = ApprovalCopy.sentences([
-                    appLocalized("This group already exists, so nothing is created or changed."),
+                    appLocalized("Already exists; nothing changes."),
                     Self.contents(members: members, hidden: hidden),
                 ])
             case .renameGroup(let from, let to, let members, let hidden):
                 tag = nil
                 title = appLocalizedFormat("Rename the group %1$@ to %2$@", ApprovalCopy.quoted(from), ApprovalCopy.quoted(to))
-                detail = members == 0
-                    ? appLocalized("When it's renamed, the group is empty.")
-                    : appLocalizedFormat("When it's renamed, the group has %@.", ApprovalCopy.members(members, hidden: hidden))
+                detail = Self.contents(members: members, hidden: hidden)
             case .mergeGroup(let from, let to, let members, let hidden, let targetMembers, let targetHidden):
                 // The requester asked for a rename; the target exists but is
                 // hidden from it, so the batch merges the two groups.
                 tag = .merge
                 title = appLocalizedFormat("Merge the group %1$@ into %2$@", ApprovalCopy.quoted(from), ApprovalCopy.quoted(to))
-                detail = ApprovalCopy.sentences([
-                    appLocalizedFormat("%1$@ requested a rename; %2$@ already exists and is hidden from %1$@.",
-                        ApprovalCopy.quoted(requester), ApprovalCopy.quoted(to)),
-                    appLocalizedFormat("%1$@ disappears and %2$@ will have %3$@.", ApprovalCopy.quoted(from),
-                        ApprovalCopy.quoted(to), ApprovalCopy.members(members + targetMembers, hidden: hidden + targetHidden)),
-                    appLocalized("A merge can't be undone automatically."),
-                ])
+                detail = appLocalizedFormat("%1$@ requested a rename, but can’t see the existing group. The merged group will have %2$@. This can’t be undone.",
+                    requester, ApprovalCopy.members(members + targetMembers, hidden: hidden + targetHidden))
             case .deleteGroup(let name, let members, let hidden):
                 tag = nil
                 title = appLocalizedFormat("Delete the group %@", ApprovalCopy.quoted(name))
-                detail = members == 0
-                    ? appLocalized("The group is empty.")
-                    : appLocalizedFormat("Its %1$@ won't be deleted and will become %2$@.",
-                        ApprovalCopy.members(members, hidden: hidden), ApprovalCopy.group(nil))
+                let hiddenNote = hidden > 0
+                    ? appLocalizedFormat("Approval hidden count suffix", appLocalizedFormat("%lld hidden from agents", hidden)) : ""
+                detail = members == 0 ? appLocalized("The group is empty.")
+                    : appLocalizedFormat("Move %1$@ to %2$@; nothing is deleted%3$@.",
+                        ApprovalCopy.members(members, hidden: 0), ApprovalCopy.group(nil), hiddenNote)
             }
             return Row(number: index + 1, tag: tag, title: title, detail: detail)
         }
@@ -83,11 +76,13 @@ struct FrozenOrganizationSummaryContent: Equatable {
         }
         let hidden = Self.hiddenCredentials(summary)
         if hidden == 1 {
-            impact = appLocalized("Changes the group of 1 hidden credential.")
+            subtitle = appLocalizedFormat("%@ · affects 1 hidden credential", subtitle)
         } else if hidden > 1 {
-            impact = appLocalizedFormat("Changes the groups of %lld hidden credentials.", hidden)
-        } else {
-            impact = nil
+            subtitle = appLocalizedFormat("%1$@ · affects %2$lld hidden credentials", subtitle, hidden)
+        }
+        if rows.count == 1, rows[0].lastNumber != nil, let first = summary.operations.first,
+           case .move(_, _, let destination) = first {
+            subtitle = appLocalizedFormat("Move %1$lld credentials to %2$@", count, ApprovalCopy.group(destination))
         }
         self.subtitle = subtitle
     }
@@ -150,10 +145,6 @@ struct FrozenOrganizationSummaryContent: Equatable {
     }
 
     private static func contents(members: Int, hidden: Int) -> String {
-        if members > 0, members == hidden {
-            return members == 1 ? appLocalized("1 credential, hidden from agents.")
-                : appLocalizedFormat("%lld credentials, all hidden from agents.", members)
-        }
         return members == 0
             ? appLocalized("The group is empty.")
             : appLocalizedFormat("It has %@.", ApprovalCopy.members(members, hidden: hidden))

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import XCTest
 import AskKeyBroker
@@ -13,9 +14,11 @@ final class ApprovalCardPolishTests: AskKeyAppTestCase {
             ] {
                 let prompt = ApprovalCardFixtures.prompt(card)
                 let value = prompt.presentation.details.rows.first { $0.value == .revealableValue }
-                XCTAssertEqual(value?.note, appLocalizedFormat("Already known to %1$@: %2$@.", "Claude Code",
-                    ApprovalCopy.list(names.map(ApprovalCopy.quoted))))
-                XCTAssertFalse(prompt.presentation.content.title.contains(value?.note ?? "unexpected"))
+                let format = names.count > 1 ? "%1$@ knows the values of %2$@."
+                    : (card == .modifySomeValues ? "%1$@ knows the new %2$@ value." : "%1$@ knows the value of %2$@.")
+                XCTAssertEqual(value?.note?.plainText, appLocalizedFormat(format, "Claude Code", ApprovalCopy.list(names)))
+                XCTAssertEqual(value?.note?.segments.filter(\.code).map(\.text), [ApprovalCopy.list(names)])
+                XCTAssertFalse(prompt.presentation.content.title.contains(value?.note?.plainText ?? "unexpected"))
             }
             for card in [ApprovalCardFixtures.Card.modifyMetadata, .modifyRemoved, .delete] {
                 XCTAssertFalse(ApprovalCardFixtures.prompt(card).presentation.details.rows.contains { $0.value == .revealableValue })
@@ -34,6 +37,11 @@ final class ApprovalCardPolishTests: AskKeyAppTestCase {
         XCTAssertTrue(old.runs.contains { $0.strikethroughStyle == .single })
         XCTAssertTrue(new.runs.contains { $0.underlineStyle == .single })
         XCTAssertFalse(new.runs.contains { $0.strikethroughStyle != nil })
+        for run in new.runs where run.underlineStyle != nil {
+            let text = String(new[run.range].characters)
+            XCTAssertFalse(text.first?.isWhitespace == true)
+            XCTAssertFalse(text.last?.isWhitespace == true)
+        }
     }
 
     func testSimilarMovesKeepNamesStepNumbersAndOperationOrder() {
@@ -58,12 +66,18 @@ final class ApprovalCardPolishTests: AskKeyAppTestCase {
         }
     }
 
-    func testChineseTermsStayTogetherWithoutChangingTheCopy() {
+    func testNamesAndTermsStayTogetherWithoutChangingTheCopy() {
         ApprovalCardFixtures.withLanguages { language in
             let text = ApprovalCardFixtures.copy(.create).title
             let wrapped = ApprovalCopy.wrapping(text)
-            XCTAssertEqual(wrapped.replacingOccurrences(of: "\u{2060}", with: ""), text)
-            XCTAssertEqual(wrapped.contains("\u{2060}"), language == "zh-Hans")
+            XCTAssertEqual(wrapped.replacingOccurrences(of: "\u{2060}", with: "")
+                .replacingOccurrences(of: "\u{00A0}", with: " "), text)
+            XCTAssertTrue(wrapped.contains("\u{2060}"))
+            if language == "en" {
+                let title = ApprovalCardFixtures.copy(.organize).title as NSString
+                XCTAssertLessThanOrEqual(title.size(withAttributes: [.font: NSFont.systemFont(ofSize: 13, weight: .bold)]).width,
+                    FrozenAgentApprovalPrompt.contentWidth)
+            }
         }
     }
 }

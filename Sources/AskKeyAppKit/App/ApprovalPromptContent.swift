@@ -45,7 +45,7 @@ struct ApprovalPromptContent: Equatable {
         case .create: return appLocalized("“%1$@” wants to create the credential “%2$@”")
         case .modify: return appLocalized("“%1$@” wants to change “%2$@”")
         case .delete: return appLocalized("“%1$@” wants to delete “%2$@”")
-        case .organize: return appLocalized("“%@” wants to organize your groups")
+        case .organize: return appLocalized("“%@” wants to organize groups")
         }
     }
 

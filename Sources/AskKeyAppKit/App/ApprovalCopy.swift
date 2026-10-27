@@ -28,13 +28,25 @@ enum ApprovalCopy {
         }
     }
 
-    /// Keep the catalog's Chinese terms together without changing stored copy.
+    /// Keep names and short phrases together without changing semantic copy.
     @MainActor static func wrapping(_ text: String) -> String {
-        guard AppLanguage.store.resolved == "zh-Hans" else { return text }
-        return ["Credential", "Group", "Instructions"].reduce(text) { result, key in
-            let term = appLocalized(key)
-            return result.replacingOccurrences(of: term, with: term.map(String.init).joined(separator: "\u{2060}"))
+        let pattern = "“[^”]*”(?:的(?:新)?值|的\\s+\\S+)?|会动到\\s*\\d+\\s*个隐藏的凭证|\\s*的(?:新)?值|无法撤销" // i18n-literal: Chinese phrases are layout tokens.
+        let quoted = try? NSRegularExpression(pattern: pattern)
+        var result = text
+        for match in (quoted?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []).reversed() {
+            if let range = Range(match.range, in: result) { result.replaceSubrange(range, with: unbroken(String(result[range]))) }
         }
+        let keys = AppLanguage.store.resolved == "zh-Hans"
+            ? ["%@ (not verified)", "hidden from agents", "Ungrouped", "Credential", "Group", "Instructions"]
+            : []
+        return keys.reduce(result) { result, key in
+            let term = key == "%@ (not verified)" ? appLocalizedFormat(key, "") : appLocalized(key)
+            return result.replacingOccurrences(of: term, with: unbroken(term))
+        }
+    }
+
+    static func unbroken(_ text: String) -> String {
+        text.replacingOccurrences(of: " ", with: "\u{00A0}").map(String.init).joined(separator: "\u{2060}")
     }
 
     /// "3 credentials (2 hidden from agents)"; the clause is omitted at zero.
@@ -42,7 +54,8 @@ enum ApprovalCopy {
         let members = count == 1
             ? appLocalizedFormat("%lld credential", count)
             : appLocalizedFormat("%lld credentials", count)
-        return hidden > 0 ? appLocalizedFormat("%1$@ (%2$lld hidden from agents)", members, hidden) : members
+        if count == 1, hidden == 1 { return appLocalized("Approval single hidden member") }
+        return hidden > 0 ? appLocalizedFormat("%1$@ with %2$lld hidden from agents", members, hidden) : members
     }
 
     static func sentences(_ parts: [String]) -> String {

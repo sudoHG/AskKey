@@ -1,8 +1,8 @@
 import AppKit
 import AskKeyBroker
 
-/// The rows under Details: a label and a value each, in a fixed order per
-/// card. Nothing here repeats the card's title or subtitle.
+/// Label/value rows in a fixed order. Changed items carry their consequence
+/// inline; Details adds no duplicate title or subtitle row.
 struct ApprovalDetailsContent: Equatable {
     struct Line: Equatable {
         var tag: ApprovalTag? = nil
@@ -26,7 +26,7 @@ struct ApprovalDetailsContent: Equatable {
     struct Row: Equatable {
         let label: String
         let value: Value
-        var note: String? = nil
+        var note: ApprovalLine? = nil
     }
 
     let rows: [Row]
@@ -60,9 +60,6 @@ struct ApprovalDetailsContent: Equatable {
                 rows.append(Row(label: appLocalized("Value"), value: .revealableValue))
             }
         case .organize:
-            if let impact = organization?.impact {
-                rows.append(Row(label: appLocalized("Impact"), value: .text(impact)))
-            }
             rows += (organization?.rows ?? []).map { step in
                 Row(label: step.lastNumber.map { appLocalizedFormat("Steps %1$lld–%2$lld", step.number, $0) }
                         ?? appLocalizedFormat("Step %lld", step.number),
@@ -115,7 +112,12 @@ struct ApprovalDetailsContent: Equatable {
             let changed = write.changedComponents
             if !changed.isEmpty {
                 rows.append(Row(label: appLocalized("Changes"), value: .lines(changed.map {
-                    Line(tag: $0.tag, text: ApprovalLine(format: "%@", code: [$0.name]))
+                    let consequence = switch $0.tag {
+                    case .replaced: appLocalized(" (old value can’t be recovered)")
+                    case .removed: appLocalized(" (can’t be recovered)")
+                    default: ""
+                    }
+                    return Line(tag: $0.tag, text: ApprovalLine(format: "%@", code: [$0.name]) + ApprovalLine(consequence))
                 })))
             }
             if let diff = write.instructionsDiff {
@@ -133,12 +135,13 @@ struct ApprovalDetailsContent: Equatable {
             break
         }
         if !write.valueComponents.isEmpty {
-            let names = ApprovalCopy.list(write.valueComponents.map { ApprovalCopy.quoted($0.name) })
+            let names = ApprovalCopy.list(write.valueComponents.map(\.name))
+            let replacement = write.valueComponents.contains { $0.tag == .replaced }
+            let format = write.valueComponents.count == 1
+                ? (replacement ? "%1$@ knows the new %2$@ value." : "%1$@ knows the value of %2$@.")
+                : (replacement ? "%1$@ knows the new values of %2$@." : "%1$@ knows the values of %2$@.")
             rows.append(Row(label: appLocalized("Value"), value: .revealableValue,
-                note: appLocalizedFormat("Already known to %1$@: %2$@.", requester, names)))
-        }
-        if let warning = write.recoveryWarning {
-            rows.append(Row(label: appLocalized("Recovery"), value: .text(warning)))
+                note: ApprovalLine(format: appLocalized(format), plain: [requester], code: [names])))
         }
         return rows
     }
@@ -147,8 +150,9 @@ struct ApprovalDetailsContent: Equatable {
     /// for the longest label.
     static func labelWidth() -> CGFloat {
         let labels = ["Requested by", "Purpose", "Command", "Runs in", "Hands over", "Contents", "Instructions",
-                      "Changes", "Group", "Value", "Recovery", "Impact"].map { appLocalized($0) }
-            + [appLocalizedFormat("%lld minutes", 999), appLocalizedFormat("Step %lld", 64)]
+                      "Changes", "Group", "Value"].map { appLocalized($0) }
+            + [appLocalizedFormat("%lld minutes", 999), appLocalizedFormat("Step %lld", 64),
+               appLocalizedFormat("Steps %1$lld–%2$lld", 64, 64)]
         let font = NSFont.systemFont(ofSize: 12)
         return ceil(labels.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0) + 1
     }

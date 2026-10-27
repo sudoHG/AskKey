@@ -39,6 +39,7 @@ struct ApprovalLineText: View {
         Text(attributed)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel(Text(verbatim: (tag.map { $0.title + " " } ?? "") + line.plainText))
     }
 
     private var attributed: AttributedString {

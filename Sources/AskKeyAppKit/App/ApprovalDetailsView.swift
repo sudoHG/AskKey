@@ -18,12 +18,14 @@ struct ApprovalDetailsView: View {
             Rectangle().fill(Theme.separator).frame(height: 1)
             ForEach(Array(content.rows.enumerated()), id: \.offset) { _, row in
                 HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.md) {
-                    Text(verbatim: row.label)
+                    Text(verbatim: ApprovalCopy.unbroken(row.label))
                         .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                        .accessibilityLabel(Text(verbatim: row.label))
                         .frame(width: labelWidth, alignment: .leading)
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         if let note = row.note {
-                            Text(verbatim: ApprovalCopy.wrapping(note))
+                            ApprovalLineText(line: note)
                                 .foregroundStyle(Theme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -43,6 +45,7 @@ struct ApprovalDetailsView: View {
         switch value {
         case .text(let text):
             Text(verbatim: ApprovalCopy.wrapping(text)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(Text(verbatim: text))
         case .code(let code):
             Text(verbatim: code).font(Theme.Fonts.mono).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         case .lines(let lines):
@@ -59,6 +62,7 @@ struct ApprovalDetailsView: View {
                         }
                         if let note = line.note {
                             Text(verbatim: ApprovalCopy.wrapping(note))
+                                .accessibilityLabel(Text(verbatim: note))
                                 .foregroundStyle(Theme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -84,7 +88,12 @@ struct ApprovalDetailsView: View {
     /// Full before/after sentences retain context; marks also work without color.
     static func attributed(_ runs: [ApprovalTextDiff.Run]) -> AttributedString {
         runs.reduce(into: AttributedString()) { result, run in
-            var part = AttributedString(run.text)
+            let leading = run.kind == .added ? String(run.text.prefix(while: \.isWhitespace)) : ""
+            let trailing = run.kind == .added ? String(run.text.reversed().prefix(while: \.isWhitespace).reversed()) : ""
+            let marked = run.kind == .added ? run.text.trimmingCharacters(in: .whitespacesAndNewlines) : run.text
+            if marked.isEmpty { result += AttributedString(run.text); return }
+            result += AttributedString(leading)
+            var part = AttributedString(marked)
             switch run.kind {
             case .same: break
             case .removed:
@@ -96,6 +105,7 @@ struct ApprovalDetailsView: View {
                 part.font = Theme.Fonts.secondary.weight(.semibold)
             }
             result += part
+            result += AttributedString(trailing)
         }
     }
 
