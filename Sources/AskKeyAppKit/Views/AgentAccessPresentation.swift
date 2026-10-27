@@ -365,6 +365,15 @@ enum AgentOnboardingCopy {
             return appLocalizedFormat("%@ was not found. Install or open it, then check again.", name)
         case .timedOut:
             return appLocalizedFormat("Could not read %@'s local configuration. Check again.", name)
+        case .claudeWriteTimedOut(let outcome):
+            switch outcome {
+            case .written:
+                return appLocalized("Claude Code timed out, but Ask Key found the requested connection settings. The connection is not verified. Check again to finish setup.")
+            case .notWritten:
+                return appLocalized("Claude Code timed out. Ask Key checked again and found no Ask Key connection settings. Check again before confirming another change.")
+            case .uncertain:
+                return appLocalized("Claude Code timed out. Ask Key could not confirm whether the connection settings were written. Review the askkey connection in Claude Code, then check again.")
+            }
         case .communicationFailed:
             return appLocalizedFormat("Could not read %@'s local configuration. Check again.", name)
         case .planChanged:

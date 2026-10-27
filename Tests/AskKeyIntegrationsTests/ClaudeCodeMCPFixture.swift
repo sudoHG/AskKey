@@ -82,8 +82,16 @@ final class ClaudeCodeMCPFixture {
           printf '%s' "$4" > "$HOME/added-json"
           printf 'add\\n' >> "$HOME/mutations"
           [ "$mode" = add-fail ] && exit 1
+          [ "$mode" = timeout-not-written ] && exec /bin/sleep 20
           printf matching > "$HOME/state"
+          case "$mode" in timeout-*) printf '{"mcpServers":{"askkey":%s}}' "$4" > "$HOME/.claude.json";; esac
           if [ "$mode" = concurrent-change ]; then printf different > "$HOME/state"; fi
+          if [ "$mode" = timeout-different ]; then
+            printf different > "$HOME/state"
+            printf '{"mcpServers":{"askkey":{"type":"stdio","command":"/synthetic/other-helper","args":["mcp"]}}}' > "$HOME/.claude.json"
+          fi
+          if [ "$mode" = timeout-project ]; then printf project > "$HOME/state"; fi
+          case "$mode" in timeout-*) exec /bin/sleep 20;; esac
           exit 0
         fi
         if [ "$2" = remove ]; then
@@ -106,6 +114,13 @@ final class ClaudeCodeMCPFixture {
           exit 0
         fi
         if [ "$2" = get ]; then
+          if [ -f "$HOME/added-json" ]; then
+            case "$mode" in
+              timeout-unreadable) printf 'new output contract\\n'; exit 0;;
+              timeout-read-fail) printf 'Permission denied\\n' >&2; exit 1;;
+              timeout-read-timeout) exec /bin/sleep 20;;
+            esac
+          fi
           if [ "$mode" = cancel-after-add ] && [ "$state" = matching ] && [ ! -f "$HOME/cancelled" ]; then
             touch "$HOME/cancelled"
             sleep 20
@@ -127,7 +142,7 @@ final class ClaudeCodeMCPFixture {
           [ "$state" = different ] && command='/synthetic/other-helper'
           status='✔ Connected'
           [ "$mode" = wrong-status ] && status='✓ Connected'
-          case "$mode" in disconnected|rollback-fail|rollback-retained) status='✘ Failed to connect';; esac
+          case "$mode" in disconnected|rollback-fail|rollback-retained|timeout-disconnected) status='✘ Failed to connect';; esac
           printf 'askkey:\\n  Scope: %s\\n  Status: %s\\n' "$scope" "$status"
           [ "$status" = '✘ Failed to connect' ] && printf '  Issue: CONNECTION_CLOSED: Connection closed\\n'
           [ "$mode" = unknown-field ] && printf '  Future diagnostic: synthetic detail\\n  \\n'

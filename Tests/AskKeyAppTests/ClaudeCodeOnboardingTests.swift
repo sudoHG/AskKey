@@ -164,9 +164,33 @@ final class ClaudeCodeOnboardingTests: AskKeyAppTestCase {
             (.verificationFailed("client_disconnected"), .verificationFailed),
             (.rollbackFailed(original: "synthetic", cleanup: "synthetic"), .restoreFailed),
             (.cancelled, .cancelled), (.timeout, .timedOut),
+            (.writeTimedOut(.written), .claudeWriteTimedOut(.written)),
+            (.writeTimedOut(.notWritten), .claudeWriteTimedOut(.notWritten)),
+            (.writeTimedOut(.uncertain), .claudeWriteTimedOut(.uncertain)),
             (.outputTooLarge, .communicationFailed), (.processFailed, .communicationFailed),
         ]
         for (error, expected) in cases { XCTAssertEqual(AgentOnboardingFailure.from(error), expected) }
+    }
+
+    func testTimedOutAddReportsReinspectionAndDoesNotInstallHooks() throws {
+        for (mode, outcome, change, failure) in [
+            ("timeout-written", AgentKnownOutcome.configuredUnverified, AgentChangeStatus.writtenUnverified,
+             ClaudeCodeMCPWriteOutcome.written),
+            ("timeout-not-written", .notConfigured, .notWritten, .notWritten),
+            ("timeout-unreadable", .notConfigured, .uncertain, .uncertain),
+        ] {
+            let fixture = try ClaudeOnboardingFixture()
+            let plan = try XCTUnwrap(fixture.connector.check(.claudeCode).plan)
+            try fixture.write("mode", mode)
+            let report = try fixture.connector.apply(.claudeCode, plan: plan)
+            XCTAssertEqual(report.outcome, outcome)
+            XCTAssertEqual(report.changeStatus, change)
+            XCTAssertEqual(report.failure, .claudeWriteTimedOut(failure))
+            XCTAssertEqual(fixture.mutations, ["add"])
+            XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.hooks.path))
+            let calls = try String(contentsOf: fixture.home.appendingPathComponent("calls"), encoding: .utf8)
+            XCTAssertEqual(calls.split(whereSeparator: \.isNewline).last, "mcp get askkey")
+        }
     }
 }
 
@@ -199,7 +223,10 @@ private final class ClaudeOnboardingFixture {
         case "$2" in
           add-json)
             printf 'add\\n' >> "$HOME/mutations"
+            [ "$mode" = timeout-not-written ] && exec /bin/sleep 20
             printf matching > "$HOME/state"
+            case "$mode" in timeout-*) printf '{"mcpServers":{"askkey":%s}}' "$4" > "$HOME/.claude.json";; esac
+            case "$mode" in timeout-*) exec /bin/sleep 20;; esac
             case "$mode" in disconnect-after-add|rollback-fail) printf disconnected > "$HOME/state";; esac
             if [ "$mode" = hook-race ]; then
               mkdir -p "$HOME/.claude"
@@ -211,14 +238,20 @@ private final class ClaudeOnboardingFixture {
             [ "$mode" = rollback-fail ] && exit 1
             printf absent > "$HOME/state"; exit 0;;
           get)
-            [ "$state" = absent ] && { printf 'No MCP server named "askkey".\\n' >&2; exit 1; }
+            if [ "$mode" = timeout-unreadable ] && [ "$state" = matching ]; then
+              printf 'new output contract\\n'; exit 0
+            fi
+            [ "$state" = absent ] && { printf 'No MCP server named "askkey". Run `claude mcp add` to add one.\\n' >&2; exit 1; }
             scope='User config (available in all your projects)'
             [ "$state" = project ] && scope='Project config (shared via .mcp.json)'
             command='\(helper.path)'
             [ "$state" = different ] && command='/synthetic/other'
             status='✔ Connected'
             [ "$state" = disconnected ] && status='✘ Failed to connect'
-            printf 'askkey:\\n  Scope: %s\\n  Status: %s\\n  Type: stdio\\n  Command: %s\\n  Args: mcp\\n' "$scope" "$status" "$command"
+            printf 'askkey:\\n  Scope: %s\\n  Status: %s\\n' "$scope" "$status"
+            [ "$state" = disconnected ] && printf '  Issue: CONNECTION_CLOSED: Connection closed\\n'
+            printf '  Type: stdio\\n  Command: %s\\n  Args: mcp\\n' "$command"
+            printf '\\nTo remove this server, run: claude mcp remove askkey -s user\\n'
             exit 0;;
         esac
         exit 64
