@@ -15,7 +15,7 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
         XCTAssertFalse(harness.coordinator.isPresenting)
         XCTAssertTrue(harness.presented.isEmpty)
         harness.modal = false
-        drainModalRetry()
+        waitForModalRetry { harness.presented == ["first"] }
         XCTAssertEqual(harness.presented, ["first"])
         XCTAssertEqual(harness.refreshes, 1)
     }
@@ -28,7 +28,7 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
             harness.coordinator.presentPendingApproval()
             if expired { harness.now.addTimeInterval(301) } else { harness.pending = [] }
             harness.modal = false
-            drainModalRetry()
+            waitForModalRetry { harness.refreshes == 1 }
             XCTAssertTrue(harness.presented.isEmpty)
             XCTAssertFalse(harness.coordinator.isPresenting)
             XCTAssertTrue(harness.applied.isEmpty)
@@ -43,7 +43,7 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
         harness.coordinator.presentPendingApproval()
         XCTAssertTrue(harness.presented.isEmpty)
         harness.modal = false
-        drainModalRetry()
+        waitForModalRetry { harness.presented == ["second"] }
         XCTAssertEqual(harness.presented, ["second"])
     }
 
@@ -55,14 +55,21 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
         harness.screenState = .locked
         harness.modal = false
         let loads = harness.loads
-        drainModalRetry()
+        waitForModalRetry { harness.reminders == 1 }
         XCTAssertEqual(harness.loads, loads)
         XCTAssertEqual(harness.reminders, 1)
         XCTAssertTrue(harness.presented.isEmpty)
     }
 
-    private func drainModalRetry() {
-        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+    private func waitForModalRetry(
+        file: StaticString = #filePath, line: UInt = #line, until condition: () -> Bool
+    ) {
+        let deadline = Date().addingTimeInterval(2)
+        while !condition(), Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        XCTAssertTrue(condition(), "Timed out waiting for the modal approval retry to reach its expected state.",
+                      file: file, line: line)
     }
 
     func testLockedManagementActionBringsOpenPanelForwardOnCurrentDisplay() {
