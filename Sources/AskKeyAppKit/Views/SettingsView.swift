@@ -17,10 +17,10 @@ struct SettingsView: View {
             navigation.applyPendingNotification(to: vault)
         }
         .onChange(of: navigation.notificationRevision) { _, _ in
-            onboardingRoute = nil
             navigation.applyPendingNotification(to: vault)
         }
         .onChange(of: vault.settingsEntryState) { _, _ in
+            if vault.settingsEntryState != .management { navigation.interaction.reset() }
             navigation.applyPendingNotification(to: vault)
         }
         .onChange(of: vault.languageMode) { _, _ in updateWindowTitle() }
@@ -48,7 +48,8 @@ struct SettingsView: View {
         case .management:
             CredentialManagementView(
                 selectedSection: $navigation.section,
-                route: $navigation.route
+                route: $navigation.route,
+                interaction: navigation.interaction
             )
             .id(navigation.notificationRevision)
             .environment(vault)

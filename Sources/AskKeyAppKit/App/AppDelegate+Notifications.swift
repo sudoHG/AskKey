@@ -17,6 +17,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             self.managementNavigation.handleNotificationResponse(
                 actionIdentifier: response.actionIdentifier,
                 userInfo: response.notification.request.content.userInfo,
+                entryState: self.vault.settingsEntryState,
                 openManagement: self.openManagementWindow
             )
             completionHandler()

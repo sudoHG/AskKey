@@ -120,11 +120,132 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
         for action in [UNNotificationDismissActionIdentifier, "unknown-action"] {
             navigation.handleNotificationResponse(
                 actionIdentifier: action, userInfo: NotificationRoute.credential(id).userInfo,
+                entryState: .locked,
                 openManagement: { XCTFail("Only a click should open management") }
             )
         }
         XCTAssertEqual(navigation.notificationRevision, 0)
         XCTAssertEqual(navigation.route, .library)
+    }
+
+    func testOpenEditorImportAndNestedConfirmationPagesOnlyBringWindowForward() throws {
+        let fixture = try makeFixture()
+        for page in [CredentialWorkspaceRoute.editor(template: .custom, credentialID: id),
+                     .fileImport, .templateChooser, .settings] {
+            let navigation = ManagementNavigation()
+            navigation.route = page
+            navigation.section = .named("SYNTHETIC draft group")
+            var opens = 0
+            click(.credential(otherID), navigation: navigation, entryState: .management) { opens += 1 }
+            XCTAssertEqual(opens, 1)
+            XCTAssertEqual(navigation.route, page)
+            XCTAssertEqual(navigation.section, .named("SYNTHETIC draft group"))
+            XCTAssertEqual(navigation.notificationRevision, 0, "The existing view keeps its identity")
+            navigation.route = .library
+            fixture.vault.isLocked = false
+            fixture.vault.hasManagementSession = true
+            navigation.applyPendingNotification(to: fixture.vault)
+            XCTAssertEqual(fixture.loads, 0, "The blocked destination was dropped")
+        }
+    }
+
+    func testOpenDeleteConfirmationIsPreservedAndDestinationIsDropped() throws {
+        let fixture = try makeFixture()
+        let navigation = ManagementNavigation()
+        navigation.route = .credentialDetail(id)
+        navigation.interaction.deletingCredential = fixture.credentials[0]
+        var opens = 0
+        click(.pendingRequests, navigation: navigation, entryState: .management) { opens += 1 }
+        XCTAssertEqual(opens, 1)
+        XCTAssertEqual(navigation.route, .credentialDetail(id))
+        XCTAssertEqual(navigation.interaction.deletingCredential?.id, id)
+        XCTAssertEqual(navigation.notificationRevision, 0)
+        navigation.interaction.deletingCredential = nil
+        fixture.vault.isLocked = false
+        fixture.vault.hasManagementSession = true
+        fixture.vault.pendingApprovalCount = 1
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(navigation.route, .credentialDetail(id), "Closing the confirmation must not resume the click")
+        XCTAssertEqual(fixture.loads, 0)
+    }
+
+    func testGroupPermanentDeleteAndSearchStateAlsoPreventNavigation() {
+        let protections: [(ManagementInteractionState) -> Void] = [
+            { (state: ManagementInteractionState) in state.deletingGroupName = "SYNTHETIC" },
+            { $0.permanentlyDeletingCredentialID = self.id },
+            { $0.showingNewGroup = true; $0.newGroupName = "SYNTHETIC draft" },
+            { $0.searchText = "SYNTHETIC query" },
+        ]
+        for protect in protections {
+            let navigation = ManagementNavigation()
+            protect(navigation.interaction)
+            click(.pendingRequests, navigation: navigation, entryState: .management)
+            XCTAssertEqual(navigation.notificationRevision, 0)
+            XCTAssertTrue(navigation.interaction.hasWorkInProgress)
+        }
+    }
+
+    func testOnboardingInProgressAndFirstRunKeepTheirCurrentPage() {
+        for entry in [SettingsEntryState.onboarding, .empty, .management] {
+            let navigation = ManagementNavigation()
+            let page: CredentialWorkspaceRoute = entry == .management ? .agentAccess : .library
+            navigation.route = page
+            var opens = 0
+            click(.credential(id), navigation: navigation, entryState: entry) { opens += 1 }
+            XCTAssertEqual(opens, 1)
+            XCTAssertEqual(navigation.route, page)
+            XCTAssertEqual(navigation.notificationRevision, 0)
+        }
+    }
+
+    func testOpeningAnEditorBeforeUnlockDropsTheDeferredDestination() async throws {
+        let fixture = try makeFixture()
+        let navigation = ManagementNavigation()
+        click(.credential(id), navigation: navigation)
+        navigation.route = .editor(template: .custom, credentialID: nil)
+        await fixture.vault.unlockForManagement()
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(navigation.route, .editor(template: .custom, credentialID: nil))
+        navigation.route = .library
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(navigation.route, .library)
+    }
+
+    func testRealRootPreservesConfirmationAndExpandedAgentOnboarding() async throws {
+        let fixture = try makeFixture()
+        fixture.vault.isLocked = false
+        fixture.vault.hasManagementSession = true
+        let previous = AppRuntimeState.configuration
+        AppRuntimeState.configuration = .init(makeViewModel: { fixture.vault })
+        defer { AppRuntimeState.configuration = previous }
+        _ = NSApplication.shared
+        let delegate = AppDelegate()
+        let navigation = delegate.managementNavigation
+        navigation.route = .credentialDetail(id)
+        delegate.ensureManagementWindow()
+        let window = try XCTUnwrap(delegate.managementWindow)
+        defer { window.close() }
+        await layoutHiddenWindow(window)
+        navigation.interaction.deletingCredential = fixture.credentials[0]
+        click(.pendingRequests, navigation: navigation, entryState: .management) {
+            delegate.ensureManagementWindow()
+        }
+        await layoutHiddenWindow(window)
+        XCTAssertEqual(navigation.route, .credentialDetail(id))
+        XCTAssertEqual(navigation.interaction.deletingCredential?.id, id)
+        navigation.interaction.deletingCredential = nil
+        navigation.route = .agentAccess
+        await layoutHiddenWindow(window)
+        fixture.vault.onboarding.explain(.codex)
+        click(.credential(id), navigation: navigation, entryState: .management) {
+            delegate.ensureManagementWindow()
+        }
+        await layoutHiddenWindow(window)
+        XCTAssertEqual(navigation.route, .agentAccess)
+        XCTAssertEqual(fixture.vault.onboarding.expandedClient, .codex)
+        XCTAssertEqual(fixture.vault.onboarding.session(for: .codex).attempt.phase, .explanation)
+        XCTAssertEqual(navigation.notificationRevision, 0)
+        XCTAssertFalse(window.isVisible)
     }
 
     func testColdClickBeforeWindowCreationSurvivesUntilTheRootCanConsumeIt() async throws {
@@ -159,11 +280,12 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
 
     private func click(
         _ route: NotificationRoute, navigation: ManagementNavigation,
+        entryState: SettingsEntryState = .locked,
         open: () -> Void = {}
     ) {
         navigation.handleNotificationResponse(
             actionIdentifier: UNNotificationDefaultActionIdentifier,
-            userInfo: route.userInfo, openManagement: open
+            userInfo: route.userInfo, entryState: entryState, openManagement: open
         )
     }
 
