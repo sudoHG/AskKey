@@ -13,6 +13,7 @@ extension CommandDiscoveryHookConfiguration {
         switch format {
         case .claudeMerged:
             _ = try CommandHookJSON.parse(bytes)
+            try checkClaudeHooksEnabled(in: existing)
             return try claudeMatches(in: existing, definition: definition).count == definition.groups.count
         case .grokOwned:
             if jsonEqual(existing, definition.root) { return true }

@@ -63,6 +63,8 @@ package enum AgentOnboardingFailure: Error, Equatable, Sendable {
     case planChanged
     case discoverySetupFailed
     case discoverySetupCancelled
+    case hooksDisabled
+    case customDiscoveryHook
 }
 
 package enum AgentAuthenticationOutcome: Equatable, Sendable {
@@ -250,6 +252,7 @@ extension AgentOnboardingFailure {
             case .unsafeHooksFile, .unsafeBackupDirectory: return .unsafeConfig
             case .invalidHooksFile, .invalidExpectedHooks, .fileTooLarge: return .illegalConfig
             case .multipleExpectedHooks, .customHookMismatch, .ownedFileConflict: return .nameConflict
+            case .hooksDisabled: return .hooksDisabled
             case .concurrentModification: return .planChanged
             case .rollbackFailed: return .restoreFailed
             case .backupFailed, .writeFailed: return .verificationFailed

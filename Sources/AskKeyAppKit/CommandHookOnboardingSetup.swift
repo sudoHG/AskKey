@@ -327,6 +327,14 @@ enum CommandHookOnboardingSetup {
 }
 
 private extension CommandHookOnboardingSetup {
+    static func failure(for error: Error, client: AgentClient) -> AgentOnboardingFailure {
+        if client == .claudeCode,
+           (error as? CommandDiscoveryHookConfigurationError) == .customHookMismatch {
+            return .customDiscoveryHook
+        }
+        return .from(error)
+    }
+
     static func applyFailure(
         client: AgentClient,
         error: Error,
@@ -340,9 +348,9 @@ private extension CommandHookOnboardingSetup {
         return AgentApplyReport(
             outcome: outcome,
             changeStatus: changeStatus,
-            failure: .from(error),
+            failure: failure(for: error, client: client),
             targetSummary: client.rawValue,
-            discovery: discovery
+            discovery: (error as? CommandDiscoveryHookConfigurationError) == .hooksDisabled ? .disabled : discovery
         )
     }
 
@@ -359,8 +367,8 @@ private extension CommandHookOnboardingSetup {
             outcome: outcome,
             targetSummary: client.rawValue,
             plan: nil,
-            failure: .from(error),
-            discovery: discovery
+            failure: failure(for: error, client: client),
+            discovery: (error as? CommandDiscoveryHookConfigurationError) == .hooksDisabled ? .disabled : discovery
         )
     }
 }

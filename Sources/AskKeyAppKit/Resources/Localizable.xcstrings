@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Claude Code hooks are disabled. Re-enable hooks in Claude Code, then check again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Claude Code hooks are disabled. Re-enable hooks in Claude Code, then check again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Claude Code 的钩子已停用。请在 Claude Code 中重新启用钩子，然后再次检查。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Claude Code hooks are disabled. Re-enable hooks in Claude Code, then check again.!!]" } }
+      }
+    },
+    "An Ask Key command hook has been customized. Review the hook in your client settings, then check again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "An Ask Key command hook has been customized. Review the hook in your client settings, then check again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨的命令钩子已被修改。请检查客户端设置中的钩子，然后再次检查。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!An Ask Key command hook has been customized. Review the hook in your client settings, then check again.!!]" } }
+      }
+    },
     "Component metadata could not be upgraded for: %@. Credential management remains available. Fix these credentials, or delete them permanently from the Recycle Bin, then reopen Ask Key. Agent access stays off until the upgrade completes.": {
       "extractionState": "manual",
       "localizations": {

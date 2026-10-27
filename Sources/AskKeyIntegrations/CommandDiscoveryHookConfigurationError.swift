@@ -9,6 +9,7 @@ public enum CommandDiscoveryHookConfigurationError: Error, Equatable, Sendable, 
     case fileTooLarge
     case multipleExpectedHooks
     case customHookMismatch
+    case hooksDisabled
     case ownedFileConflict
     case concurrentModification
     case backupFailed
@@ -24,6 +25,7 @@ public enum CommandDiscoveryHookConfigurationError: Error, Equatable, Sendable, 
         case .fileTooLarge: return "The command-hook file is too large."
         case .multipleExpectedHooks: return "Multiple Ask Key command hooks were found."
         case .customHookMismatch: return "An Ask Key command hook has been customized."
+        case .hooksDisabled: return "Claude Code hooks are disabled. Re-enable hooks in Claude Code, then check again."
         case .ownedFileConflict: return "The Grok command-hook file contains unknown settings."
         case .concurrentModification: return "The command-hook file changed after review."
         case .backupFailed: return "The command-hook backup failed."
