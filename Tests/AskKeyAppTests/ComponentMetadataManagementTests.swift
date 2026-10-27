@@ -4,6 +4,23 @@ import XCTest
 
 @MainActor
 final class ComponentMetadataManagementTests: AskKeyAppTestCase {
+    func testUnavailableComponentsNeverClaimNamesCountsOrDelivery() {
+        let credential = ManagedTextCredential(id: "synthetic-unavailable", name: "Synthetic", value: nil,
+            usageInstructions: "", privateNotes: nil, groupName: nil, environmentVariable: nil,
+            permission: .ask, expiresAt: nil, payloadKind: .bundle, originalFilename: nil,
+            byteSize: nil, contentDigest: nil, fileBytes: nil,
+            components: [.init(name: "UNAVAILABLE_NAME", value: nil)], componentDetailsAvailable: false)
+        XCTAssertTrue(credential.components.isEmpty)
+        ApprovalCardFixtures.withLanguages { language in
+            let presentation = CredentialListPresentation(credential: credential)
+            let expected = language == "en" ? "Component details are unavailable" : "组件详情不可用" // i18n-literal: Assert unavailable details in Simplified Chinese.
+            XCTAssertEqual(presentation.secondaryLine, expected)
+            XCTAssertEqual(CredentialListPresentation.componentCountTitle(credential), expected)
+            XCTAssertEqual(presentation.monogram, "?")
+            XCTAssertFalse(presentation.secondaryLine.contains("UNAVAILABLE_NAME"))
+        }
+    }
+
     func testEmptyIntegrityAndStorageMessagesHaveNoEmptyCredentialListAndDeletionAdviceIsExplicit() {
         ApprovalCardFixtures.withLanguages { language in
             let integrity = UserFacingCopy.message(for: ComponentMetadataUpgradeError(reason: .integrity, credentialNames: []))

@@ -14910,6 +14910,14 @@
         }
       }
     },
+    "Component details are unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Component details are unavailable" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "组件详情不可用" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Component details are unavailable!!]" } }
+      }
+    },
     "The updated credential exceeds the 5 MiB size limit. The credential was not saved.": {
       "extractionState": "manual",
       "localizations": {

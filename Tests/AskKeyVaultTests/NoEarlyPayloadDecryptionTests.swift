@@ -181,14 +181,22 @@ final class NoEarlyPayloadDecryptionTests: AgentTextWriteTestSupport {
             var row = try XCTUnwrap(harness.store.fetchCredential(id: created.id))
             row.encryptedComponentMetadata = ciphertext
             try harness.store.updateCredential(row)
-            XCTAssertThrowsError(try harness.vault.listTextCredentials())
+            // Management retains the row for authenticated repair, with no
+            // component claims or payload fallback. Agent access stays closed.
+            row.encryptedPayload = Data("synthetic-unreadable-payload".utf8)
+            try harness.store.updateCredential(row)
+            let projection = try XCTUnwrap(harness.vault.listTextCredentials().first)
+            XCTAssertFalse(projection.componentDetailsAvailable)
+            XCTAssertTrue(projection.components.isEmpty)
+            XCTAssertNil(projection.environmentVariable)
+            XCTAssertNil(projection.value)
             for action in [AgentTextWriteAction.delete(name: created.name), .modifyBundle(name: created.name, usageInstructions: "New")] {
                 XCTAssertThrowsError(try harness.vault.requestAgentTextWrite(.init(operationID: UUID().uuidString, action: action))) {
                     XCTAssertEqual($0 as? CredentialRecordAuthenticationError, .invalidAuthentication)
                 }
             }
             try harness.vault.deleteTextCredential(id: created.id, using: .allow)
-            XCTAssertThrowsError(try harness.vault.listRecycledTextCredentials())
+            XCTAssertFalse(try XCTUnwrap(harness.vault.listRecycledTextCredentials().first).componentDetailsAvailable)
         }
     }
 
@@ -210,5 +218,27 @@ final class NoEarlyPayloadDecryptionTests: AgentTextWriteTestSupport {
         XCTAssertEqual(try harness.store.fetchCredential(id: created.id)?.agentWriteStateDigest(), try original.agentWriteStateDigest())
         XCTAssertNil(try harness.store.fetchAgentWriteOperation(operationID: request.operationID))
         XCTAssertEqual(try harness.vault.listCredentialGroups(), [])
+    }
+
+    func testUnavailableMetadataNeverFallsBackToPayloadOrLegacyMappingForAnyKind() throws {
+        let harness = try makeHarness { _ in true }
+        let credentials = try [bundle(harness),
+            harness.vault.createTextCredential(.init(name: "Text", value: "synthetic", environmentVariable: "TEXT"), using: .allow),
+            harness.vault.createFileCredential(.init(name: "File", snapshot: .init(originalFilename: "synthetic.pem",
+                bytes: Data("synthetic".utf8)), environmentVariable: "FILE_PATH"), using: .allow)]
+        for credential in credentials {
+            var row = try corruptPayload(credential, harness: harness)
+            row.encryptedComponentMetadata = nil
+            try harness.store.updateCredential(row)
+        }
+        let listed = try harness.vault.listTextCredentials()
+        XCTAssertEqual(listed.count, 3)
+        for credential in listed {
+            XCTAssertFalse(credential.componentDetailsAvailable)
+            XCTAssertTrue(credential.components.isEmpty)
+            XCTAssertNil(credential.environmentVariable)
+            XCTAssertNil(credential.value)
+            XCTAssertNil(credential.fileBytes)
+        }
     }
 }

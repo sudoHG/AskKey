@@ -12,13 +12,12 @@ struct CredentialListPresentation: Equatable {
     let statusRole: StatusLabel.Role
 
     init(credential: ManagedTextCredential, showsGroup: Bool = true) {
-        let componentNames = credential.components.map(\.name)
+        let componentNames = credential.componentDetailsAvailable ? credential.components.map(\.name) : []
         let template = CredentialTemplate.prototypeTemplate(componentNames: Set(componentNames))
-        monogram = template.prototypeTitle.first.map { String($0).uppercased() } ?? "?"
-        var facts = [
-            template.prototypeTitle,
-            appLocalizedFormat("%lld items", max(credential.components.count, 1)),
-        ]
+        monogram = credential.componentDetailsAvailable ? template.prototypeTitle.first.map { String($0).uppercased() } ?? "?" : "?"
+        var facts = credential.componentDetailsAvailable
+            ? [template.prototypeTitle, Self.componentCountTitle(credential)]
+            : [Self.componentCountTitle(credential)]
         let visibleNames = componentNames.filter { !$0.isEmpty }
         if !visibleNames.isEmpty {
             facts.append(visibleNames.joined(separator: appLocalized("Component list separator")))
@@ -29,6 +28,12 @@ struct CredentialListPresentation: Equatable {
         secondaryLine = facts.joined(separator: " · ")
         statusTitle = Self.statusTitle(credential.permission)
         statusRole = credential.permission == .allowed ? .accent : .neutral
+    }
+
+    static func componentCountTitle(_ credential: ManagedTextCredential) -> String {
+        credential.componentDetailsAvailable
+            ? appLocalizedFormat("%lld items", max(credential.components.count, 1))
+            : appLocalized("Component details are unavailable")
     }
 
     static func statusTitle(_ permission: CredentialPermission) -> String {

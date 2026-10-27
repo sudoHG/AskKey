@@ -7,6 +7,7 @@ extension CredentialManagementView {
     @ViewBuilder
     var credentialInspector: some View {
         if let credential = filteredCredentials.first(where: { $0.id == selectedCredentialID }) {
+            let details = vault.revealedCredential.flatMap { $0.id == credential.id ? $0 : nil } ?? credential
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     HStack(alignment: .top) {
@@ -14,7 +15,9 @@ extension CredentialManagementView {
                             Text(credential.name)
                                 .font(Theme.Fonts.title)
                                 .foregroundStyle(Theme.text)
-                            Text(appLocalizedFormat("%lld items are delivered together after one approval.", max(credential.components.count, 1)))
+                            Text(details.componentDetailsAvailable
+                                ? appLocalizedFormat("%lld items are delivered together after one approval.", max(details.components.count, 1))
+                                : appLocalized("Component details are unavailable"))
                                 .font(Theme.Fonts.secondary)
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -80,8 +83,8 @@ extension CredentialManagementView {
                     .shadow(color: Theme.cardShadow, radius: 3, x: 0, y: 1)
 
                     VStack(alignment: .leading, spacing: 0) {
-                        if credential.payloadKind == .bundle {
-                            ForEach(credential.components, id: \.name) { component in
+                        if details.componentDetailsAvailable, details.payloadKind == .bundle {
+                            ForEach(details.components, id: \.name) { component in
                                 HStack {
                                     Text(CredentialTemplate.fieldTitle(for: component.name))
                                         .font(Theme.Fonts.secondary.weight(.semibold))
@@ -102,7 +105,7 @@ extension CredentialManagementView {
                                 .padding(Theme.Spacing.md)
                                 .overlay(alignment: .top) { Divider() }
                             }
-                        } else {
+                        } else if details.componentDetailsAvailable {
                             HStack {
                                 Text(credential.payloadKind == .file ? appLocalized("File") : appLocalized("Value"))
                                     .font(Theme.Fonts.secondary.weight(.semibold))

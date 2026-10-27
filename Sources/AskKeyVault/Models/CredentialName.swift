@@ -133,6 +133,8 @@ public struct ManagedTextCredential: Equatable, Sendable, Identifiable {
     public let fileBytes: Data?
     public let components: [ManagedCredentialComponent]
     public let deletedAt: Date?
+    /// False when an unrevealed row has no usable component metadata.
+    public let componentDetailsAvailable: Bool
 
     public init(
         id: String,
@@ -150,7 +152,8 @@ public struct ManagedTextCredential: Equatable, Sendable, Identifiable {
         contentDigest: String?,
         fileBytes: Data?,
         components: [ManagedCredentialComponent],
-        deletedAt: Date? = nil
+        deletedAt: Date? = nil,
+        componentDetailsAvailable: Bool = true
     ) {
         self.id = id
         self.name = name
@@ -166,8 +169,9 @@ public struct ManagedTextCredential: Equatable, Sendable, Identifiable {
         self.byteSize = byteSize
         self.contentDigest = contentDigest
         self.fileBytes = fileBytes
-        self.components = components
+        self.components = componentDetailsAvailable ? components : []
         self.deletedAt = deletedAt
+        self.componentDetailsAvailable = componentDetailsAvailable
     }
 
     public var isUngrouped: Bool { groupName == nil }

@@ -141,8 +141,9 @@ extension Vault {
         if includeSecrets {
             metadata = nil
         } else {
-            try store.requireComponentMetadata()
-            metadata = try CredentialComponentMetadata.read(from: record, using: key)
+            // Failed historical upgrades must remain repairable in management.
+            // Missing details never trigger a fallback to opening the payload.
+            metadata = try? CredentialComponentMetadata.read(from: record, using: key)
         }
         if payloadKind == .bundle, let metadata {
             components = metadata.components.map {
@@ -151,7 +152,7 @@ extension Vault {
                 ManagedCredentialComponent(name: $0.name, kind: $0.payloadKind,
                     value: nil, delivery: $0.delivery, masked: true)
             }
-        } else if payloadKind == .bundle {
+        } else if payloadKind == .bundle, includeSecrets {
             let decoded = try JSONDecoder().decode(
                 [CredentialComponentInput].self,
                 from: VaultCrypto.decryptData(record.encryptedPayload, using: key)
@@ -167,10 +168,10 @@ extension Vault {
             }
         }
         let environmentVariable: String?
-        if let metadata {
-            environmentVariable = payloadKind == .bundle ? nil : metadata.components.first?.delivery.environmentVariable
-        } else {
+        if includeSecrets {
             environmentVariable = try record.encryptedEnvironmentVariable.map { try VaultCrypto.decrypt($0, using: key) }
+        } else {
+            environmentVariable = payloadKind == .bundle ? nil : metadata?.components.first?.delivery.environmentVariable
         }
         if includeSecrets {
             privateNotes = try VaultCrypto.decrypt(record.encryptedPrivateNotes, using: key)
@@ -203,7 +204,8 @@ extension Vault {
             contentDigest: digestHex,
             fileBytes: fileBytes,
             components: components,
-            deletedAt: try record.deletedAt.map { try parseExpiry($0) }
+            deletedAt: try record.deletedAt.map { try parseExpiry($0) },
+            componentDetailsAvailable: includeSecrets || metadata != nil
         )
     }
 
