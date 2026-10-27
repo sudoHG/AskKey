@@ -37,6 +37,31 @@ final class AgentSamplePromptTests: AskKeyAppTestCase {
                        "Synthetic API")
     }
 
+    func testSingleTextWithMappingHasSample() {
+        XCTAssertEqual(sample([credential(deliveries: [], kind: .text, mapping: "SYNTHETIC_TOKEN")]), "Synthetic API")
+    }
+
+    func testSingleTextWithoutMappingHasNoSample() {
+        XCTAssertNil(sample([credential(deliveries: [], kind: .text)]))
+    }
+
+    func testSingleFileWithMappingHasSample() {
+        XCTAssertEqual(sample([credential(deliveries: [], kind: .file, mapping: "SYNTHETIC_FILE")]), "Synthetic API")
+    }
+
+    func testSingleFileWithoutMappingHasNoSample() {
+        XCTAssertNil(sample([credential(deliveries: [], kind: .file)]))
+    }
+
+    func testSingleMetadataProjectionsUseComponentDeliveryWhenPopulated() {
+        for kind in [CredentialPayloadKind.text, .file] {
+            let delivery: CredentialComponentDelivery = kind == .file
+                ? .temporaryFile("SYNTHETIC_FILE") : .environmentVariable("SYNTHETIC_TOKEN")
+            XCTAssertEqual(sample([credential(deliveries: [delivery], kind: kind)]), "Synthetic API")
+            XCTAssertNil(sample([credential(deliveries: [.none], kind: kind)]))
+        }
+    }
+
     func testFirstDeliverableNameUsesNaturalSortAfterExcludingUnavailableCredentials() {
         let credentials = [
             credential(name: "API 10"), credential(name: "API 2"),
@@ -55,14 +80,16 @@ final class AgentSamplePromptTests: AskKeyAppTestCase {
     private func credential(
         name: String = "Synthetic API", permission: CredentialPermission = .ask,
         expiresAt: Date? = nil, deletedAt: Date? = nil,
-        deliveries: [CredentialComponentDelivery] = [.environmentVariable("SYNTHETIC_TOKEN")]
+        deliveries: [CredentialComponentDelivery] = [.environmentVariable("SYNTHETIC_TOKEN")],
+        kind: CredentialPayloadKind = .bundle, mapping: String? = nil
     ) -> ManagedTextCredential {
         ManagedTextCredential(
             id: name, name: name, value: nil, usageInstructions: "", privateNotes: nil,
-            groupName: nil, environmentVariable: nil, permission: permission, expiresAt: expiresAt,
-            payloadKind: .bundle, originalFilename: nil, byteSize: nil, contentDigest: nil, fileBytes: nil,
+            groupName: nil, environmentVariable: mapping, permission: permission, expiresAt: expiresAt,
+            payloadKind: kind, originalFilename: nil, byteSize: nil, contentDigest: nil, fileBytes: nil,
             components: deliveries.enumerated().map {
-                .init(name: "SYNTHETIC_\($0.offset)", value: nil, delivery: $0.element)
+                .init(name: "SYNTHETIC_\($0.offset)", kind: kind == .file ? .file : .text,
+                      value: nil, delivery: $0.element)
             }, deletedAt: deletedAt
         )
     }

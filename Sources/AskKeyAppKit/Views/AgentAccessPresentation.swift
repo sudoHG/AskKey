@@ -52,7 +52,7 @@ enum AgentAccessStep: Int, CaseIterable, Identifiable {
 }
 
 /// What the Agent access page shows for one client, derived from its
-/// onboarding session only.
+/// onboarding session and sample credential availability.
 struct AgentAccessPresentation: Equatable {
     let client: AgentClient
     let status: AgentAccessStatus
@@ -69,7 +69,7 @@ struct AgentAccessPresentation: Equatable {
     /// Offer the recovery notes for a change that could not be undone.
     let offersRecoveryNotes: Bool
 
-    init(client: AgentClient, session: AgentClientOnboardingSession) {
+    init(client: AgentClient, session: AgentClientOnboardingSession, hasSampleCredential: Bool = true) {
         self.client = client
         let name = client.rawValue
         let attempt = session.attempt
@@ -114,7 +114,9 @@ struct AgentAccessPresentation: Equatable {
                     "Install or open %@, then check again. Before changing anything, Ask Key shows you what will change.",
                     name
                 )
-            } else if let completion = AgentOnboardingCopy.completion(for: client, session: session) {
+            } else if let completion = AgentOnboardingCopy.completion(
+                for: client, session: session, hasSampleCredential: hasSampleCredential
+            ) {
                 headline = completion.title
                 detail = completion.detail
                 showsConnectedGuide = true
@@ -241,16 +243,24 @@ enum AgentOnboardingCopy {
 
     static func completion(
         for client: AgentClient,
-        session: AgentClientOnboardingSession
+        session: AgentClientOnboardingSession,
+        hasSampleCredential: Bool = true
     ) -> (title: String, detail: String)? {
         guard session.attempt.phase == .completed,
               session.attempt.failure == nil,
               let result = session.lastKnownResult,
               isConnected(client, result: result) else { return nil }
         let name = appLocalized(client.rawValue)
-        let detail = client == .claudeCode
-            ? appLocalizedFormat("Start a new %@ session to use it. Try this:", name)
-            : appLocalizedFormat("Start a new %@ task to use it. Try this:", name)
+        let detail: String
+        if hasSampleCredential {
+            detail = client == .claudeCode
+                ? appLocalizedFormat("Start a new %@ session to use it. Try this:", name)
+                : appLocalizedFormat("Start a new %@ task to use it. Try this:", name)
+        } else {
+            detail = client == .claudeCode
+                ? appLocalizedFormat("Start a new %@ session to use it.", name)
+                : appLocalizedFormat("Start a new %@ task to use it.", name)
+        }
         return (appLocalizedFormat("%@ is connected", name), detail)
     }
 
@@ -258,9 +268,14 @@ enum AgentOnboardingCopy {
     static func sampleCredentialName(in credentials: [ManagedTextCredential], now: Date = Date()) -> String? {
         credentials
             .filter { credential in
-                credential.deletedAt == nil && credential.permission != .hidden
+                // Older single-value projections carry their mapping outside
+                // components. Prefer component metadata when it is available.
+                let hasDelivery = credential.components.isEmpty && credential.payloadKind != .bundle
+                    ? credential.environmentVariable != nil
+                    : credential.components.contains { $0.delivery != .none }
+                return credential.deletedAt == nil && credential.permission != .hidden
                     && credential.expiresAt.map { $0 > now } != false
-                    && credential.components.contains { $0.delivery != .none }
+                    && hasDelivery
             }
             .map(\.name)
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }

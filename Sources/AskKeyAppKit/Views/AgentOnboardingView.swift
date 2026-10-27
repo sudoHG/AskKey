@@ -38,7 +38,10 @@ struct AgentOnboardingView: View {
 
     private func clientRow(_ client: AgentClient) -> some View {
         let session = onboarding.session(for: client)
-        let presentation = AgentAccessPresentation(client: client, session: session)
+        let presentation = AgentAccessPresentation(
+            client: client, session: session,
+            hasSampleCredential: AgentOnboardingCopy.sampleCredentialName(in: vault.credentials) != nil
+        )
         let expanded = onboarding.expandedClient == client
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Theme.Spacing.md) {

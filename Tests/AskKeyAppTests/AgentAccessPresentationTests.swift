@@ -69,6 +69,30 @@ final class AgentAccessPresentationTests: AskKeyAppTestCase {
         XCTAssertFalse(presentation.showsConnectedGuide)
     }
 
+    func testConnectedEmptyStateLeadInDoesNotIntroduceASampleInEitherLanguage() {
+        for language in ["en", "zh-Hans"] {
+            AppLanguage.current = language
+            for client in AgentClient.allCases {
+                let presentation = AgentAccessPresentation(
+                    client: client, session: session(phase: .completed, result: verified(.enabled)),
+                    hasSampleCredential: false
+                )
+                let expected: String
+                if language == "en" {
+                    expected = client == .claudeCode
+                        ? "Start a new \(client.rawValue) session to use it."
+                        : "Start a new \(client.rawValue) task to use it."
+                } else {
+                    expected = client == .claudeCode
+                        ? "新开一个 \(client.rawValue) 会话就能用。" // i18n-literal: Assert the Simplified Chinese catalog value.
+                        : "新开一个 \(client.rawValue) 任务就能用。" // i18n-literal: Assert the Simplified Chinese catalog value.
+                }
+                XCTAssertEqual(presentation.detail, expected)
+                XCTAssertTrue(presentation.showsConnectedGuide)
+            }
+        }
+    }
+
     func testMissingDiscoveryNeedsAttentionAndLeadsWithDiscoveryStatus() {
         let codex = AgentAccessPresentation(
             client: .codex,

@@ -15846,6 +15846,22 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!No credential available for Agents!!]" } }
       }
     },
+    "Start a new %@ session to use it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Start a new %@ session to use it." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "新开一个 %@ 会话就能用。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Start a new %@ session to use it.!!]" } }
+      }
+    },
+    "Start a new %@ task to use it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Start a new %@ task to use it." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "新开一个 %@ 任务就能用。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Start a new %@ task to use it.!!]" } }
+      }
+    },
     "Create a credential, or change an existing credential's permission or delivery.": {
       "extractionState": "manual",
       "localizations": {
