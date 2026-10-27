@@ -59,8 +59,7 @@ package enum ManagementAuthenticationResult {
 
     var messageKey: String? {
         switch self {
-        case .authenticated: nil
-        case .cancelled: "Authentication cancelled."
+        case .authenticated, .cancelled: nil
         case .failed: "System authentication failed."
         }
     }

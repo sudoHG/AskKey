@@ -55,10 +55,16 @@ final class ScreenshotE2ETests: E2EBaseCase {
         moveManagementAboveDock()
         click("unlock-management")
         let sheet = app.windows["settings"].sheets.firstMatch
+        if !failed {
+            XCTAssertFalse(sheet.waitForExistence(timeout: 2))
+            XCTAssertFalse(app.alerts.firstMatch.exists)
+            XCTAssertTrue(app.buttons["unlock-management"].isEnabled)
+            capture("210-\(language)-management-authentication-\(outcome)")
+            return
+        }
         XCTAssertTrue(sheet.waitForExistence(timeout: 8))
-        let english = failed ? "System authentication failed." : "Authentication cancelled."
-        let chinese = failed ? "\u{7cfb}\u{7edf}\u{9a8c}\u{8bc1}\u{5931}\u{8d25}\u{3002}"
-            : "\u{5df2}\u{53d6}\u{6d88}\u{9a8c}\u{8bc1}\u{3002}"
+        let english = "System authentication failed."
+        let chinese = "\u{7cfb}\u{7edf}\u{9a8c}\u{8bc1}\u{5931}\u{8d25}\u{3002}"
         waitForText(language == "en" ? english : chinese)
         XCTAssertTrue(sheet.buttons.firstMatch.isHittable)
         let attachment = XCTAttachment(screenshot: sheet.screenshot())

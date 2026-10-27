@@ -8,7 +8,7 @@ import XCTest
 
 @MainActor
 final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
-    func testCancellingChineseManagementAuthenticationShowsCancellation() async {
+    func testCancellingChineseManagementAuthenticationDoesNotShowAnError() async {
         var presentation: ManagementAuthenticationPresentation?
         let login = LoginItemProbe()
         let viewModel = makeViewModel(
@@ -30,9 +30,34 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
                 language: "zh-Hans"
             )
         )
-        XCTAssertEqual(viewModel.errorMessage, "已取消验证。")
+        XCTAssertNil(viewModel.errorMessage)
         XCTAssertTrue(viewModel.isLocked)
         XCTAssertFalse(viewModel.hasManagementSession)
+    }
+
+    func testManagementAndSettingsKeepCancellationSilentAndReportFailuresInBothLanguages() async {
+        for language in ["en", "zh-Hans"] {
+            for outcome in [ManagementAuthenticationOutcome.cancelled, .failed] {
+                let model = makeViewModel(
+                    preferences: AppPreferences(defaults: defaults), login: LoginItemProbe(),
+                    authenticateDeviceOwner: { _ in ManagementAuthenticationResult(outcome) }
+                )
+                model.languageMode = language
+                let expectedError = outcome == .failed
+                    ? (language == "en" ? "System authentication failed." : "系统验证失败。") : nil
+                await model.unlockForManagement()
+                XCTAssertEqual(model.errorMessage, expectedError)
+                XCTAssertTrue(model.isLocked)
+                XCTAssertFalse(model.hasManagementSession)
+
+                let authenticator = await model.confirmDeviceOwner(
+                    reason: ManagementAuthenticationAction.disableReadAuthentication.reasonKey
+                )
+                XCTAssertNil(authenticator)
+                XCTAssertEqual(model.errorMessage, expectedError)
+                XCTAssertFalse(model.hasManagementSession)
+            }
+        }
     }
 
     func testWindowAppearanceDoesNotInvokeManagementUnlock() throws {
@@ -69,7 +94,7 @@ final class ManagementAuthenticationTests: AppLanguageExperienceTestSupport {
                 case .cancelled:
                     XCTAssertEqual(result, .cancelled)
                     XCTAssertEqual(sessionStarts, 0)
-                    XCTAssertEqual(model.errorMessage, language == "en" ? "Authentication cancelled." : "已取消验证。")
+                    XCTAssertNil(model.errorMessage)
                 case .failed:
                     XCTAssertEqual(result, .failed)
                     XCTAssertEqual(sessionStarts, 0)

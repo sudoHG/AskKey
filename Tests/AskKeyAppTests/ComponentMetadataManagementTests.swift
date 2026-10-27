@@ -49,7 +49,7 @@ final class ComponentMetadataManagementTests: AskKeyAppTestCase {
             defer { defaults.removePersistentDomain(forName: suite) }
             let model = VaultViewModel(runtimeFileCleanupFailures: { false }, accessRecords: .empty,
                 eraseLocalLibrary: { _, _, _ in }, unlockVault: {}, beginManagementSession: { _ in },
-                authenticateDeviceOwner: { _ in .allow }, preferences: AppPreferences(defaults: defaults),
+                authenticateDeviceOwner: { _ in .authenticated(.allow) }, preferences: AppPreferences(defaults: defaults),
                 loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
                 agentAccessPolicyOperations: library.operations, credentialMutations: mutations)
             model.isLocked = false

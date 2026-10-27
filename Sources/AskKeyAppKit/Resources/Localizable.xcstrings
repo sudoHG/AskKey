@@ -387,14 +387,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Apply!!]" } }
       }
     },
-    "Authentication cancelled.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Authentication cancelled." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已取消验证。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Authentication cancelled.!!]" } }
-      }
-    },
     "Authentication failed. Nothing was handed over.": {
       "extractionState": "manual",
       "localizations": {

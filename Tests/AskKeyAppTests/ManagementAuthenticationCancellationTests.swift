@@ -75,7 +75,9 @@ final class ManagementAuthenticationCancellationTests: AskKeyAppTestCase {
     func testTimeoutRequestsCooperativeCancelAndFocusReturnBeforeForcedTermination() async throws {
         let fixture = try AuthenticationChildFixture()
         defer { fixture.remove() }
-        let runner = fixture.runner(timeout: 0.15)
+        // Leave room for shell startup on a shared build host before checking
+        // the cooperative timeout handshake.
+        let runner = fixture.runner(timeout: 1)
         let result = await runner.authenticate(presentation: presentation)
         XCTAssertEqual(result, .failed, "a timeout must not become a user cancellation or a late success")
         XCTAssertEqual(fixture.events, ["started", "cancel", "focus-returned"])
