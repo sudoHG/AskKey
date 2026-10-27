@@ -223,21 +223,41 @@ struct AgentOnboardingView: View {
     }
 
     private func samplePrompt(_ client: AgentClient) -> some View {
-        let prompt = AgentOnboardingCopy.samplePrompt(credentialName: sampleCredentialName)
-        let copied = copiedPromptClient == client
-        return HStack(spacing: Theme.Spacing.md) {
-            Text(prompt.attributed(argumentFonts: [Theme.Fonts.mono, Theme.Fonts.mono]))
-                .font(Theme.Fonts.body)
-                .foregroundStyle(Theme.text)
-                .textSelection(.enabled)
+        Group {
+            if let name = AgentOnboardingCopy.sampleCredentialName(in: vault.credentials) {
+                let prompt = AgentOnboardingCopy.samplePrompt(credentialName: name)
+                HStack(spacing: Theme.Spacing.md) {
+                    Text(prompt.attributed(argumentFonts: [Theme.Fonts.mono, Theme.Fonts.mono]))
+                        .font(Theme.Fonts.body)
+                        .foregroundStyle(Theme.text)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("onboarding-sample-prompt-\(client.proofID)")
+                    Spacer(minLength: Theme.Spacing.md)
+                    Button(copiedPromptClient == client ? appLocalized("Copied") : appLocalized("Copy")) {
+                        copySamplePrompt(prompt.plainText, for: client)
+                    }
+                    .buttonStyle(.secondaryAction)
+                    .accessibilityIdentifier("onboarding-copy-prompt-\(client.proofID)")
+                }
+            } else {
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    Text(AgentOnboardingCopy.samplePromptEmptyTitle)
+                        .font(Theme.Fonts.body.weight(.medium))
+                        .foregroundStyle(Theme.text)
+                    detailText(AgentOnboardingCopy.samplePromptEmptyDetail)
+                    Button(appLocalized("Create credential")) { vault.pendingAddSecret = true }
+                        .buttonStyle(.secondaryAction)
+                        .accessibilityIdentifier("onboarding-create-credential-\(client.proofID)")
+                        .onboardingActivateWithKeyboard { vault.pendingAddSecret = true }
+                        .registerAction("onboarding-create-credential-\(client.proofID)", action: {
+                            vault.pendingAddSecret = true
+                        })
+                }
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("onboarding-sample-prompt-\(client.proofID)")
-            Spacer(minLength: Theme.Spacing.md)
-            Button(copied ? appLocalized("Copied") : appLocalized("Copy")) {
-                copySamplePrompt(prompt.plainText, for: client)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("onboarding-sample-empty-\(client.proofID)")
             }
-            .buttonStyle(.secondaryAction)
-            .accessibilityIdentifier("onboarding-copy-prompt-\(client.proofID)")
         }
         .padding(.leading, Theme.Spacing.lg)
         .padding(.trailing, Theme.Spacing.sm)
@@ -370,18 +390,6 @@ struct AgentOnboardingView: View {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
         copiedPromptClient = client
-    }
-
-    /// A credential Agents can see, so the sample prompt works as written.
-    private var sampleCredentialName: String? {
-        vault.credentials
-            .filter { credential in
-                credential.deletedAt == nil && credential.permission != .hidden
-                    && credential.expiresAt.map { $0 > Date() } != false
-            }
-            .map(\.name)
-            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-            .first
     }
 
     private func displayName(_ client: AgentClient) -> String {

@@ -1,4 +1,5 @@
 import Foundation
+import AskKeyVault
 
 /// The one status a client row shows on the Agent access page.
 enum AgentAccessStatus: Equatable {
@@ -253,19 +254,34 @@ enum AgentOnboardingCopy {
         return (appLocalizedFormat("%@ is connected", name), detail)
     }
 
+    /// Only suggest credentials whose components can actually be delivered.
+    static func sampleCredentialName(in credentials: [ManagedTextCredential], now: Date = Date()) -> String? {
+        credentials
+            .filter { credential in
+                credential.deletedAt == nil && credential.permission != .hidden
+                    && credential.expiresAt.map { $0 > now } != false
+                    && credential.components.contains { $0.delivery != .none }
+            }
+            .map(\.name)
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+            .first
+    }
+
+    static var samplePromptEmptyTitle: String {
+        appLocalized("No credential available for Agents")
+    }
+
+    static var samplePromptEmptyDetail: String {
+        appLocalized("Create a credential, or change an existing credential's permission or delivery.")
+    }
+
     /// The sample prompt shown after a client connects. It works in any
     /// directory: the agent checks the delivered variables without printing
     /// them. The argument is the credential name, shown in monospace.
-    static func samplePrompt(credentialName: String?) -> EmphasizedSentence {
-        if let credentialName {
-            return EmphasizedSentence(
-                format: appLocalized("Use %@ from Ask Key to run a command that checks its variables are set, without printing their values"),
-                arguments: [credentialName]
-            )
-        }
-        return EmphasizedSentence(
-            format: appLocalized("Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values"),
-            arguments: []
+    static func samplePrompt(credentialName: String) -> EmphasizedSentence {
+        EmphasizedSentence(
+            format: appLocalized("Use %@ from Ask Key to run a command that checks its variables are set, without printing their values"),
+            arguments: [credentialName]
         )
     }
 

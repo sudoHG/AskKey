@@ -169,13 +169,16 @@ final class AgentAccessPresentationTests: AskKeyAppTestCase {
             AgentOnboardingCopy.samplePrompt(credentialName: "demo-api").plainText,
             "Use demo-api from Ask Key to run a command that checks its variables are set, without printing their values"
         )
-        XCTAssertEqual(
-            AgentOnboardingCopy.samplePrompt(credentialName: nil).plainText,
-            "Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values"
-        )
+        XCTAssertEqual(AgentOnboardingCopy.samplePromptEmptyTitle, "No credential available for Agents")
+        XCTAssertEqual(AgentOnboardingCopy.samplePromptEmptyDetail,
+                       "Create a credential, or change an existing credential's permission or delivery.")
         XCTAssertTrue(AgentOnboardingCopy.sshReminderNote.plainText.contains("never authorizes"))
 
         AppLanguage.current = "zh-Hans"
+        XCTAssertEqual(AgentOnboardingCopy.samplePromptEmptyTitle,
+                       "暂无可供 Agent 使用的凭证") // i18n-literal: Assert the Simplified Chinese catalog value.
+        XCTAssertEqual(AgentOnboardingCopy.samplePromptEmptyDetail,
+                       "创建凭证，或调整现有凭证的权限或交付方式。") // i18n-literal: Assert the Simplified Chinese catalog value.
         XCTAssertEqual(
             AgentOnboardingCopy.samplePrompt(credentialName: "demo-api").plainText,
             "用请旨里的 demo-api 跑一条命令，确认变量都已拿到，不要显示值" // i18n-literal: Assert the Simplified Chinese catalog value.

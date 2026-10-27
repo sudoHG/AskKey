@@ -15838,6 +15838,22 @@
         }
       }
     },
+    "No credential available for Agents": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No credential available for Agents" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "暂无可供 Agent 使用的凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!No credential available for Agents!!]" } }
+      }
+    },
+    "Create a credential, or change an existing credential's permission or delivery.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Create a credential, or change an existing credential's permission or delivery." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "创建凭证，或调整现有凭证的权限或交付方式。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Create a credential, or change an existing credential's permission or delivery.!!]" } }
+      }
+    },
     "Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values": {
       "extractionState": "extracted_with_value",
       "localizations": {
