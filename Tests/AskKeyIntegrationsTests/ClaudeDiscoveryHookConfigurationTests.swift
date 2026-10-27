@@ -197,8 +197,8 @@ final class ClaudeDiscoveryHookConfigurationTests: XCTestCase {
             var handler = try XCTUnwrap((group["hooks"] as? [[String: Any]])?.first)
             switch customization {
             case "extraHandlerKey": handler["async"] = true
-            case "command": handler["command"] = "/synthetic/other/askkey hook claude --custom"
-            case "selector": handler["command"] = "/synthetic/askkey hook unknown-client"
+            case "command": handler["command"] = "'\(fixture.helper.path)' hook claude --custom"
+            case "selector": handler["command"] = "'\(fixture.helper.path)' hook unknown-client"
             case "timeout": handler["timeout"] = 99
             case "matcher": group["matcher"] = "Bash"
             default: break
@@ -229,6 +229,96 @@ final class ClaudeDiscoveryHookConfigurationTests: XCTestCase {
         XCTAssertThrowsError(try fixture.configuration.preview()) { XCTAssertEqual($0 as? CommandDiscoveryHookConfigurationError, .multipleExpectedHooks) }
         XCTAssertThrowsError(try fixture.configuration.removeClaudeHooks())
         XCTAssertTrue(try fixture.backups().isEmpty)
+    }
+
+    func testUnrelatedSubstringCommandsSurviveInstallAndRemoval() throws {
+        let commands = [
+            "echo askkey", "echo 'ask key'", "echo 'hook claude'",
+            "/synthetic/askkey-tool hook claude", "/synthetic/other/askkey hook claude",
+            "echo '\(Fixture.helperPath)' hook claude", "not-askkey --message askkey",
+            "'\(Fixture.helperPath)-other' hook claude",
+        ]
+        let fixture = try Fixture()
+        let handlers = commands.map { ["type": "command", "command": $0] }
+        let original: [String: Any] = ["hooks": ["PreToolUse": [[
+            "matcher": "Bash|mcp__askkey__list_credentials", "hooks": handlers,
+        ]]]]
+        try fixture.write(original)
+        XCTAssertFalse(try fixture.configuration.hasExpectedHook())
+        try fixture.install()
+        XCTAssertTrue(try fixture.configuration.hasExpectedHook())
+        try fixture.configuration.removeClaudeHooks()
+        let remaining = try XCTUnwrap(fixture.object()["hooks"] as? [String: [[String: Any]]])
+        XCTAssertEqual(remaining["PreToolUse"]?[0]["hooks"] as? NSArray, handlers as NSArray)
+    }
+
+    func testLiteralQuotingAndSpacingAreEquivalentAndPreserved() throws {
+        let path = Fixture.helperPath
+        for command in ["  '\(path)'\t hook   claude  ", "\"\(path)\" 'hook' \"claude\"",
+                        path.replacingOccurrences(of: " ", with: "\\ ") + " hook claude"] {
+            let fixture = try Fixture()
+            try fixture.write(try fixture.definition(command: command))
+            let original = try fixture.bytes()
+            XCTAssertTrue(try fixture.configuration.hasExpectedHook(), command)
+            XCTAssertFalse(try fixture.configuration.preview().changed, command)
+            try fixture.install()
+            XCTAssertEqual(try fixture.bytes(), original)
+            XCTAssertTrue(try fixture.backups().isEmpty)
+            try fixture.configuration.removeClaudeHooks()
+            XCTAssertFalse(try fixture.configuration.hasExpectedHook())
+        }
+        let fixture = try Fixture(helperPath: "/synthetic/Owner's Ask Key.app/Contents/Helpers/askkey")
+        try fixture.install()
+        XCTAssertTrue(try fixture.configuration.hasExpectedHook())
+    }
+
+    func testChangedArgumentsAndShellSuffixesAreReportedWithoutWrites() throws {
+        for suffix in ["hook claude --custom", "hook cursor", "hook", "hook claude; echo synthetic",
+                       "hook claude && echo synthetic", "hook claude > synthetic", "hook \"$CLIENT\"",
+                       "hook claude\necho synthetic", "hook claude $(echo synthetic)"] {
+            let fixture = try Fixture()
+            try fixture.write(try fixture.definition(command: "'\(fixture.helper.path)' " + suffix))
+            let original = try fixture.bytes()
+            XCTAssertThrowsError(try fixture.configuration.preview()) {
+                XCTAssertEqual($0 as? CommandDiscoveryHookConfigurationError, .customHookMismatch, suffix)
+            }
+            XCTAssertThrowsError(try fixture.configuration.hasExpectedHook())
+            XCTAssertThrowsError(try fixture.configuration.removeClaudeHooks())
+            XCTAssertEqual(try fixture.bytes(), original)
+            XCTAssertTrue(try fixture.backups().isEmpty)
+        }
+    }
+
+    func testDisabledHooksNeverReportReadyOrOfferChanges() throws {
+        for installed in [false, true] {
+            let fixture = try Fixture()
+            var document = installed ? try fixture.definitionObject() : [:]
+            document["disableAllHooks"] = true
+            document["synthetic"] = ["keep": "unchanged"]
+            try fixture.write(document)
+            let original = try fixture.bytes()
+            XCTAssertThrowsError(try fixture.configuration.preview()) {
+                XCTAssertEqual($0 as? CommandDiscoveryHookConfigurationError, .hooksDisabled)
+            }
+            XCTAssertThrowsError(try fixture.configuration.hasExpectedHook()) {
+                XCTAssertEqual($0 as? CommandDiscoveryHookConfigurationError, .hooksDisabled)
+            }
+            XCTAssertEqual(try fixture.bytes(), original)
+            XCTAssertTrue(try fixture.backups().isEmpty)
+            try fixture.configuration.removeClaudeHooks()
+            XCTAssertEqual(try fixture.object()["disableAllHooks"] as? Bool, true)
+            XCTAssertEqual(try fixture.object()["synthetic"] as? NSDictionary, ["keep": "unchanged"] as NSDictionary)
+        }
+    }
+
+    func testOnlyBooleanTrueDisablesHooksAndOtherValuesArePreserved() throws {
+        for flag in [false, 1, "true", NSNull()] as [Any] {
+            let fixture = try Fixture()
+            try fixture.write(["disableAllHooks": flag])
+            try fixture.install()
+            XCTAssertTrue(try fixture.configuration.hasExpectedHook())
+            XCTAssertEqual(try fixture.object()["disableAllHooks"] as? NSObject, flag as? NSObject)
+        }
     }
 
     func testInvalidJSONAndHookShapesPreserveOriginalFile() throws {
@@ -318,9 +408,11 @@ final class ClaudeDiscoveryHookConfigurationTests: XCTestCase {
         let settings: URL
         let backupDirectory: URL
         let configuration: CommandDiscoveryHookConfiguration
-        let helper = URL(fileURLWithPath: "/synthetic/Ask Key.app/Contents/Helpers/askkey")
+        static let helperPath = "/synthetic/Ask Key.app/Contents/Helpers/askkey"
+        let helper: URL
         let ownedEvents = ["UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure"]
-        init(bytes: Data? = nil, mode: Int = 0o600) throws {
+        init(bytes: Data? = nil, mode: Int = 0o600, helperPath: String = Fixture.helperPath) throws {
+            helper = URL(fileURLWithPath: helperPath)
             root = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyClaudeSettings-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
             settings = root.appendingPathComponent("home/.claude/settings.json")
@@ -338,6 +430,19 @@ final class ClaudeDiscoveryHookConfigurationTests: XCTestCase {
         func bytes() throws -> Data { try Data(contentsOf: settings) }
         func object() throws -> [String: Any] { try XCTUnwrap(JSONSerialization.jsonObject(with: bytes()) as? [String: Any]) }
         func definitionObject() throws -> [String: Any] { try XCTUnwrap(JSONSerialization.jsonObject(with: CommandDiscoveryClient.claude.definition(helper: helper)) as? [String: Any]) }
+        func definition(command: String) throws -> [String: Any] {
+            var document = try definitionObject()
+            var hooks = try XCTUnwrap(document["hooks"] as? [String: [[String: Any]]])
+            for event in ownedEvents {
+                var group = hooks[event]![0]
+                var handler = (group["hooks"] as! [[String: Any]])[0]
+                handler["command"] = command
+                group["hooks"] = [handler]
+                hooks[event] = [group]
+            }
+            document["hooks"] = hooks
+            return document
+        }
         func write(_ object: [String: Any]) throws {
             try createParent()
             try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]).write(to: settings)

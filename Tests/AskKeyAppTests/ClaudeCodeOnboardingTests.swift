@@ -78,6 +78,46 @@ final class ClaudeCodeOnboardingTests: AskKeyAppTestCase {
         XCTAssertEqual(fixture.mutations, [])
     }
 
+    func testDisabledHooksNeedUserActionWithAndWithoutAnInstalledHookOrMCP() throws {
+        for installed in [false, true] {
+            for connected in [false, true] {
+                let fixture = try ClaudeOnboardingFixture()
+                if connected { try fixture.write("state", "matching") }
+                if installed {
+                    let context = try fixture.connector.commandDiscoveryContext(for: .claudeCode)
+                    try context.hook.apply(plan: context.hook.preview())
+                }
+                try fixture.disableHooks()
+                let original = try Data(contentsOf: fixture.hooks)
+                let checked = try fixture.connector.check(.claudeCode)
+                XCTAssertEqual(checked.outcome, connected ? .configuredUnverified : .notConfigured)
+                XCTAssertEqual(checked.discovery, .disabled)
+                XCTAssertEqual(checked.failure, .hooksDisabled)
+                XCTAssertNil(checked.plan)
+                XCTAssertEqual(fixture.mutations, [])
+                XCTAssertEqual(try Data(contentsOf: fixture.hooks), original)
+            }
+        }
+    }
+
+    func testDisablingHooksAfterReviewStopsApplyBeforeMCPWrite() throws {
+        let fixture = try ClaudeOnboardingFixture()
+        let plan = try XCTUnwrap(fixture.connector.check(.claudeCode).plan)
+        try fixture.disableHooks()
+        let original = try Data(contentsOf: fixture.hooks)
+        let result = try fixture.connector.apply(.claudeCode, plan: plan)
+        XCTAssertEqual(result.failure, .hooksDisabled)
+        XCTAssertEqual(result.discovery, .disabled)
+        XCTAssertEqual(result.changeStatus, .notWritten)
+        XCTAssertEqual(fixture.mutations, [])
+        XCTAssertEqual(try Data(contentsOf: fixture.hooks), original)
+    }
+
+    func testOtherCommandHookCustomizationKeepsItsExistingMapping() {
+        XCTAssertEqual(AgentOnboardingFailure.from(CommandDiscoveryHookConfigurationError.customHookMismatch), .nameConflict)
+        XCTAssertEqual(AgentOnboardingFailure.from(CommandDiscoveryHookConfigurationError.hooksDisabled), .hooksDisabled)
+    }
+
     func testFailedConnectionReportsAdaptersRollback() throws {
         for mode in ["disconnect-after-add", "rollback-fail"] {
             let fixture = try ClaudeOnboardingFixture()
@@ -218,6 +258,12 @@ private final class ClaudeOnboardingFixture {
     func installSettings(_ value: String) throws {
         try FileManager.default.createDirectory(at: hooks.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data(value.utf8).write(to: hooks)
+    }
+
+    func disableHooks() throws {
+        var document = (try? JSONSerialization.jsonObject(with: Data(contentsOf: hooks))) as? [String: Any] ?? [:]
+        document["disableAllHooks"] = true
+        try installSettings(String(decoding: JSONSerialization.data(withJSONObject: document), as: UTF8.self))
     }
 
     private func install(_ url: URL, script: String) throws {

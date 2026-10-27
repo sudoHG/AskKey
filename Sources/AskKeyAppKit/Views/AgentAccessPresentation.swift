@@ -295,6 +295,10 @@ enum AgentOnboardingCopy {
     ) -> String {
         let name = client.rawValue
         switch failure {
+        case .hooksDisabled:
+            return appLocalized("Claude Code hooks are disabled. Re-enable hooks in Claude Code, then check again.")
+        case .customDiscoveryHook:
+            return appLocalized("An Ask Key command hook has been customized. Review the hook in your client settings, then check again.")
         case .discoverySetupCancelled:
             return appLocalized("Credential discovery setup was cancelled. The verified MCP connection was kept. Check again before continuing.")
         case .discoverySetupFailed:

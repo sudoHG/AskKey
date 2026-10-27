@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 extension CommandDiscoveryHookConfiguration {
@@ -30,6 +31,9 @@ extension CommandDiscoveryHookConfiguration {
     }
 
     func claudeMatches(in document: [String: Any], definition: Definition) throws -> [ClaudeMatch] {
+        guard let expectedCommand = definition.commands.first,
+              let expected = claudeInvocation(expectedCommand), expected.arguments == ["hook", "claude"]
+        else { throw Error.invalidExpectedHooks }
         guard let value = document["hooks"] else { return [] }
         guard let hooks = value as? [String: Any] else { throw Error.invalidHooksFile }
         var matches: [ClaudeMatch] = []
@@ -39,12 +43,12 @@ extension CommandDiscoveryHookConfiguration {
                 guard let handlers = group["hooks"] as? [[String: Any]] else { throw Error.invalidHooksFile }
                 for (handlerIndex, handler) in handlers.enumerated() {
                     guard let command = handler["command"] as? String else { continue }
-                    let lower = command.lowercased()
-                    guard definition.commands.contains(command) || lower.contains("hook claude")
-                        || lower.contains("askkey") || lower.contains("ask key") else { continue }
+                    guard let invocation = claudeInvocation(command),
+                          invocation.executable == expected.executable else { continue }
                     guard let expectedGroup = definition.groups[event]?.first,
                           let expectedHandler = (expectedGroup["hooks"] as? [[String: Any]])?.first,
-                          jsonEqual(handler, expectedHandler),
+                          invocation.arguments == expected.arguments,
+                          jsonEqual(handler.filter { $0.key != "command" }, expectedHandler.filter { $0.key != "command" }),
                           jsonEqual(group.filter { $0.key != "hooks" }, expectedGroup.filter { $0.key != "hooks" })
                     else { throw Error.customHookMismatch }
                     matches.append(ClaudeMatch(event: event, group: groupIndex, handler: handlerIndex))
@@ -60,6 +64,7 @@ extension CommandDiscoveryHookConfiguration {
         let bytes = snapshot?.bytes ?? Data("{}".utf8)
         var document = try CommandHookJSON.parse(bytes)
         let existing = try object(bytes, error: .invalidHooksFile)
+        try checkClaudeHooksEnabled(in: existing)
         let matches = try claudeMatches(in: existing, definition: definition)
         if matches.count == definition.groups.count { return claudeNoChange(snapshot) }
         var hooks = document.member("hooks") ?? CommandHookJSON.emptyObject
@@ -70,6 +75,57 @@ extension CommandDiscoveryHookConfiguration {
         }
         try document.set("hooks", to: hooks)
         return try claudeChanged(snapshot, after: document.bytes, summary: "Add Ask Key's Claude Code discovery command hooks.")
+    }
+
+    func checkClaudeHooksEnabled(in document: [String: Any]) throws {
+        // JSON booleans bridge to NSNumber; a numeric 1 is not the boolean true.
+        if let disabled = document["disableAllHooks"] as? NSNumber,
+           CFGetTypeID(disabled) == CFBooleanGetTypeID(), disabled.boolValue {
+            throw Error.hooksDisabled
+        }
+    }
+
+    /// Decode literal shell words without running a shell or expanding values.
+    /// A recognized helper with a nonliteral suffix is a customized invocation.
+    private func claudeInvocation(_ command: String) -> (executable: String, arguments: [String]?)? {
+        let characters = Array(command)
+        var index = 0
+        func word() -> String? {
+            while index < characters.count, characters[index] == " " || characters[index] == "\t" { index += 1 }
+            var value = "", started = false
+            var quote: Character?
+            while index < characters.count {
+                let character = characters[index]
+                if quote == nil, " \t;|&<>()\n\r".contains(character) { break }
+                index += 1
+                started = true
+                if character == "'", quote != "\"" {
+                    quote = quote == nil ? "'" : nil
+                } else if character == "\"", quote != "'" {
+                    quote = quote == nil ? "\"" : nil
+                } else if character == "\\", quote != "'" {
+                    guard index < characters.count else { return nil }
+                    let next = characters[index]
+                    if quote == "\"", !"$`\"\\\n".contains(next) { value.append(character); continue }
+                    index += 1
+                    if next != "\n" { value.append(next) }
+                } else {
+                    if quote != "'", "$`".contains(character) { return nil }
+                    if quote == nil, "*?[~#".contains(character) { return nil }
+                    value.append(character)
+                }
+            }
+            return started && quote == nil ? value : nil
+        }
+        guard let executable = word(), !executable.isEmpty else { return nil }
+        var arguments: [String] = []
+        while index < characters.count {
+            while index < characters.count, characters[index] == " " || characters[index] == "\t" { index += 1 }
+            if index == characters.count { break }
+            guard let argument = word() else { return (executable, nil) }
+            arguments.append(argument)
+        }
+        return (executable, arguments)
     }
 
     /// Remove only exact owned handlers, including those beside other tools
