@@ -75,7 +75,7 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
                 XCTAssertEqual(values(.create)[2], [
                     "TOKEN · 使用时作为环境变量 RELEASE_CHECK_TOKEN 交给程序", // i18n-literal: Chinese create item.
                     "CERT · 使用时作为临时文件交给程序（路径在 RELEASE_CERT_FILE）", // i18n-literal: Chinese create item.
-                    "RECOVERY_CODE · 仅保存，不交给程序", // i18n-literal: Chinese create item.
+                    "RECOVERY_CODE · 仅保存，不交付", // i18n-literal: Chinese create item.
                 ].joined(separator: "\n"))
             }
             XCTAssertEqual(values(.create)[3], "Use only for the release smoke check. Keep values out of logs.")

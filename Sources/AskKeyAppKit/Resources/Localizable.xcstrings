@@ -5,7 +5,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "stored only, not delivered to programs" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "仅保存，不交给程序" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "仅保存，不交付" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!stored only, not delivered to programs!!]" } }
       }
     },
