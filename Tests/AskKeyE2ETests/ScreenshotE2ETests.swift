@@ -209,6 +209,8 @@ final class ScreenshotE2ETests: E2EBaseCase {
         let result = try waitForEvidence("approval-result.json")
         XCTAssertEqual(result["outcome"] as? String, "internal_error")
         XCTAssertEqual(result["unchanged"] as? Bool, true)
+        // Only this explicit user action brings management forward after approval.
+        app.activate()
         waitForText(message)
         capture(name)
     }

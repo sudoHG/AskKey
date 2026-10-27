@@ -235,9 +235,7 @@ extension AppDelegate {
                     }
                 } catch VaultError.agentWriteNameUnavailable {
                     Task { @MainActor [weak self] in
-                        guard let self else { return }
-                        self.openManagementWindow()
-                        self.vault.errorMessage = "This credential name is already in use. The credential was not saved."
+                        self?.presentAgentWriteNameUnavailable()
                     }
                     throw VaultError.agentWriteNameUnavailable
                 }
