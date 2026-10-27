@@ -12,9 +12,19 @@ final class ApprovalCardLayoutTests: AskKeyAppTestCase {
     private typealias Fixtures = ApprovalCardFixtures
 
     private func height(_ prompt: FrozenAgentApprovalPrompt) -> CGFloat {
-        let size = Fixtures.host(prompt).fittingSize
-        XCTAssertEqual(size.width, FrozenAgentApprovalPrompt.width)
-        return size.height
+        _ = NSApplication.shared
+        let panel = AppDelegate.makeFrozenApprovalPanel(prompt, visibleFrame: { _ in
+            NSRect(x: 0, y: 0, width: 1440, height: 900)
+        })
+        defer { panel.contentViewController = nil; panel.close() }
+        for _ in 0..<3 {
+            panel.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        let content = panel.contentView!
+        XCTAssertFalse(panel.isVisible)
+        XCTAssertEqual(content.bounds.width, FrozenAgentApprovalPrompt.width)
+        return content.bounds.height - content.safeAreaInsets.top - content.safeAreaInsets.bottom
     }
 
     private func details(_ prompt: FrozenAgentApprovalPrompt, expanded: Bool) -> FrozenAgentApprovalPrompt {

@@ -68,6 +68,13 @@ extension AppDelegate {
     func makeApprovalPresentationCoordinator() -> AgentApprovalPresentationCoordinator {
         AgentApprovalPresentationCoordinator(
             screenState: { Self.screenState() },
+            presentationBlocked: { NSApp.modalWindow != nil },
+            modalReminder: { [weak self] in
+                self?.postLockedApprovalReminder(
+                    title: appLocalized("Ask Key has pending requests"),
+                    body: appLocalized("Open Ask Key to review pending requests.")
+                )
+            },
             loadPending: { Vault.shared.approvalRequests.pendingRequests() },
             refreshExpiration: { Vault.shared.approvalRequests.refreshExpiration() },
             lockedReminder: { [weak self] title, body in
@@ -162,37 +169,25 @@ extension AppDelegate {
     ) -> AgentApprovalPanelActions {
         var finished = false
         var privacyTimer: Timer?
-        var resizeObserver: NSObjectProtocol?
+        var dismissPanel: () -> Void = {}
         let cancellation = ManagementAuthenticationCancellation {
             Self.screenState() != .unlocked || expiresAt.map { $0 <= Date() } == true ||
                 pending.map {
                     (try? Vault.shared.approvalRequests.status(requestID: $0.requestID, capability: $0.capability)) != .pending
                 } == true
         }
-        let contentSize = NSSize(width: FrozenAgentApprovalPrompt.width, height: 360)
-        let panel = AgentApprovalPanelFactory.make(contentSize: contentSize)
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
-        panel.isReleasedWhenClosed = false
-        panel.standardWindowButton(.closeButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
         let finish: (BrokerApprovalDecision?) -> Void = { value in
             guard !finished else { return }
             finished = true
             cancellation.cancel()
             privacyTimer?.invalidate()
             privacyTimer = nil
-            resizeObserver.map(NotificationCenter.default.removeObserver)
-            resizeObserver = nil
-            panel.orderOut(nil)
-            panel.contentViewController = nil
+            dismissPanel()
             let valid = Self.screenState() == .unlocked && expiresAt.map({ $0 > Date() }) != false
             completion(valid ? value : nil)
         }
-        let hosting = NSHostingController(
-            rootView: FrozenAgentApprovalPrompt(
+        let panel = Self.makeFrozenApprovalPanel(
+            FrozenAgentApprovalPrompt(
                 request: request,
                 trustedCredentialName: pending?.trustedCredentialName,
                 expiresAt: expiresAt,
@@ -266,17 +261,9 @@ extension AppDelegate {
                 finish: finish
             )
         )
-        // The panel follows the prompt's height, including the Details section.
-        hosting.sizingOptions = [.preferredContentSize]
-        panel.contentViewController = hosting
-        panel.setContentSize(hosting.view.fittingSize)
-        // Expanding Details makes the card taller; keep its buttons on screen.
-        resizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification, object: panel, queue: .main
-        ) { [weak panel] _ in
-            MainActor.assumeIsolated {
-                if let panel { Self.keepInsideVisibleFrame(panel) }
-            }
+        dismissPanel = { [weak panel] in
+            panel?.orderOut(nil)
+            panel?.contentViewController = nil
         }
         // Common modes keep the check running during menus, drags and modal pickers.
         privacyTimer = Timer(timeInterval: 0.25, repeats: true) { _ in
@@ -298,13 +285,29 @@ extension AppDelegate {
         )
     }
 
-    /// Moves the panel just enough to fit the screen's visible frame, keeping
-    /// its top visible when it is taller than the screen.
-    static func keepInsideVisibleFrame(_ panel: NSPanel) {
-        guard let visible = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
-        var origin = panel.frame.origin
-        origin.y = min(max(origin.y, visible.minY), visible.maxY - panel.frame.height)
-        if origin != panel.frame.origin { panel.setFrameOrigin(origin) }
+    /// Shared by live presentation and hidden layout tests. No window is ordered in here.
+    static func makeFrozenApprovalPanel(
+        _ prompt: FrozenAgentApprovalPrompt,
+        visibleFrame: @escaping @MainActor (NSPanel) -> NSRect? = { ($0.screen ?? NSScreen.main)?.visibleFrame }
+    ) -> NSPanel {
+        let panel = AgentApprovalPanelFactory.make(
+            contentSize: NSSize(width: FrozenAgentApprovalPrompt.width, height: 360))
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.isMovableByWindowBackground = true
+        panel.isReleasedWhenClosed = false
+        panel.standardWindowButton(.closeButton)?.isHidden = true
+        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        panel.standardWindowButton(.zoomButton)?.isHidden = true
+        if let visible = AgentApprovalPanelPlacement.targetVisibleFrame() {
+            panel.setFrameOrigin(AgentApprovalPanelPlacement.centeredOrigin(size: panel.frame.size, visibleFrame: visible))
+        }
+        let layout = AgentApprovalPanelLayout(panel: panel, visibleFrame: visibleFrame)
+        let hosting = NSHostingController(rootView: AgentApprovalPanelContent(prompt: prompt, layout: layout))
+        hosting.sizingOptions = [.preferredContentSize]
+        panel.contentViewController = hosting
+        layout.start()
+        return panel
     }
 
     nonisolated private static func screenState() -> AgentApprovalScreenState {

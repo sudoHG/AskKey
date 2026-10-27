@@ -83,23 +83,12 @@ final class BundleApprovalRenderTests: AskKeyAppTestCase {
         }
     }
 
-    /// The production factory and AppDelegate's hosting/chrome configuration;
-    /// omit only presentation, timers and request-decision side effects.
+    /// The same panel assembly used by live AppDelegate presentation.
     private static func panel(_ prompt: FrozenAgentApprovalPrompt) -> NSPanel {
-        let panel = AgentApprovalPanelFactory.make(
-            contentSize: NSSize(width: FrozenAgentApprovalPrompt.width, height: 360))
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
-        panel.isReleasedWhenClosed = false
-        panel.standardWindowButton(.closeButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
+        let panel = AppDelegate.makeFrozenApprovalPanel(prompt, visibleFrame: { _ in
+            NSRect(x: 0, y: 0, width: 1440, height: 900)
+        })
         panel.appearance = NSAppearance(named: .aqua)
-        let hosting = NSHostingController(rootView: prompt)
-        hosting.sizingOptions = [.preferredContentSize]
-        panel.contentViewController = hosting
-        panel.setContentSize(hosting.view.fittingSize)
         return panel
     }
 

@@ -5,6 +5,66 @@ import AskKeyBroker
 
 @MainActor
 final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
+    func testModalPickerDefersPresentationButImmediatelyPostsReminder() {
+        let harness = Harness()
+        harness.modal = true
+        harness.pending = [request("first")]
+        harness.coordinator.presentPendingApproval()
+        XCTAssertEqual(harness.pending.count, 1, "deferral leaves the published queue intact")
+        XCTAssertEqual(harness.modalReminders, 1, "notification does not wait for the picker")
+        XCTAssertFalse(harness.coordinator.isPresenting)
+        XCTAssertTrue(harness.presented.isEmpty)
+        harness.modal = false
+        drainModalRetry()
+        XCTAssertEqual(harness.presented, ["first"])
+        XCTAssertEqual(harness.refreshes, 1)
+    }
+
+    func testSettledAndExpiredRequestsAreDroppedAfterModalPickerEnds() {
+        for expired in [false, true] {
+            let harness = Harness()
+            harness.modal = true
+            harness.pending = [request("first")]
+            harness.coordinator.presentPendingApproval()
+            if expired { harness.now.addTimeInterval(301) } else { harness.pending = [] }
+            harness.modal = false
+            drainModalRetry()
+            XCTAssertTrue(harness.presented.isEmpty)
+            XCTAssertFalse(harness.coordinator.isPresenting)
+            XCTAssertTrue(harness.applied.isEmpty)
+        }
+    }
+
+    func testModalDeferralPreservesUserSelectionAcrossAutomaticQueueUpdates() {
+        let harness = Harness()
+        harness.modal = true
+        harness.pending = [request("first"), request("second")]
+        harness.coordinator.presentPendingApproval(operationID: "second", userInitiated: true)
+        harness.coordinator.presentPendingApproval()
+        XCTAssertTrue(harness.presented.isEmpty)
+        harness.modal = false
+        drainModalRetry()
+        XCTAssertEqual(harness.presented, ["second"])
+    }
+
+    func testModalRetryRechecksScreenPrivacyBeforePresenting() {
+        let harness = Harness()
+        harness.modal = true
+        harness.pending = [request("first")]
+        harness.coordinator.presentPendingApproval()
+        harness.screenState = .locked
+        harness.modal = false
+        let loads = harness.loads
+        drainModalRetry()
+        XCTAssertEqual(harness.loads, loads)
+        XCTAssertEqual(harness.reminders, 1)
+        XCTAssertTrue(harness.presented.isEmpty)
+    }
+
+    private func drainModalRetry() {
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+    }
+
     func testLockedManagementActionBringsOpenPanelForwardOnCurrentDisplay() {
         let harness = Harness()
         harness.pending = [request("first")]
@@ -217,8 +277,12 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
         var refreshes = 0
         var messages: [String] = []
         var applied: [String] = []
+        var modal = false
+        var modalReminders = 0
         lazy var coordinator = AgentApprovalPresentationCoordinator(
             screenState: { self.screenState },
+            presentationBlocked: { self.modal },
+            modalReminder: { self.modalReminders += 1 },
             loadPending: { self.loads += 1; return self.pending },
             clock: { self.now },
             refreshExpiration: {

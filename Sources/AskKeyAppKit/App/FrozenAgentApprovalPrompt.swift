@@ -8,8 +8,7 @@ import AskKeyBroker
 /// inside the capped card so the actions stay visible.
 struct FrozenAgentApprovalPrompt: View {
     static let width: CGFloat = 300
-    /// Keeps the whole card, footer included, above the Dock on the
-    /// 768-point CI screen, where the panel's top sits under the menu bar.
+    /// Preferred cap; the production panel supplies a smaller screen budget.
     static let maximumHeight: CGFloat = 640
     static let contentWidth = width - 2 * Theme.Spacing.lg
 
@@ -28,6 +27,7 @@ struct FrozenAgentApprovalPrompt: View {
     var detailsExpanded = false
     let finish: (BrokerApprovalDecision?) -> Void
     @State private var showsDetails: Bool?
+    @Environment(\.approvalMaximumHeight) private var availableHeight
 
     private var isRead: Bool { request.operation == .read }
     private var isOrganize: Bool { request.operation == .organize }
@@ -63,35 +63,40 @@ struct FrozenAgentApprovalPrompt: View {
         let presentation = presentation
         let content = presentation.content
         let expanded = showsDetails ?? detailsExpanded
-        ApprovalCardLayout(maximumHeight: Self.maximumHeight - Theme.Spacing.xl - Theme.Spacing.lg) {
-            appIcon
-            header(content)
-                .layoutValue(key: ApprovalCardFlexibleKey.self, value: 2)
-            if let warning = content.warning {
-                Text(verbatim: warning)
-                    .font(Theme.Fonts.secondary)
-                    .foregroundStyle(Theme.warning)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, Theme.Spacing.md)
+        ApprovalCardLayout(maximumHeight: availableHeight - Theme.Spacing.xl - Theme.Spacing.lg,
+                           minimumFlexibleHeight: 0) {
+            ApprovalScrollArea(space: "approval-body", alignment: .center,
+                identifier: expanded ? (isOrganize ? "approval-organization-operations" : "approval-details-rows") : "approval-header") {
+                VStack(spacing: 0) {
+                    appIcon
+                    header(content)
+                    if let warning = content.warning {
+                        Text(verbatim: warning)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.warning)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, Theme.Spacing.md)
+                    }
+                    if let message = authenticationMessageKey {
+                        Text(appLocalized(message))
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(Theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, Theme.Spacing.md)
+                            .accessibilityIdentifier(authenticationOutcome == .failed
+                                ? "approval-authentication-failed" : "approval-authentication-cancelled")
+                    }
+                    detailsToggle(expanded: expanded)
+                        .padding(.top, Theme.Spacing.md)
+                    if expanded {
+                        details(presentation.details)
+                            .padding(.top, Theme.Spacing.md)
+                    }
+                }
             }
-            if let message = authenticationMessageKey {
-                Text(appLocalized(message))
-                    .font(Theme.Fonts.secondary)
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, Theme.Spacing.md)
-                    .accessibilityIdentifier(authenticationOutcome == .failed
-                        ? "approval-authentication-failed" : "approval-authentication-cancelled")
-            }
-            detailsToggle(expanded: expanded)
-                .padding(.top, Theme.Spacing.md)
-            if expanded {
-                details(presentation.details)
-                    .padding(.top, Theme.Spacing.md)
-                    .layoutValue(key: ApprovalCardFlexibleKey.self, value: 1)
-            }
+            .layoutValue(key: ApprovalCardFlexibleKey.self, value: 1)
             actions(presentation.buttons)
                 .padding(.top, Theme.Spacing.lg)
             footer
@@ -126,37 +131,35 @@ struct FrozenAgentApprovalPrompt: View {
     /// Title and subtitle wrap freely; they scroll only when a name is too
     /// long for the card.
     private func header(_ content: ApprovalPromptContent) -> some View {
-        ApprovalScrollArea(space: "approval-header", alignment: .center) {
-            VStack(spacing: 0) {
-                Text(verbatim: content.title)
-                    .font(Theme.Fonts.body.bold())
+        VStack(spacing: 0) {
+            Text(verbatim: content.title)
+                .font(Theme.Fonts.body.bold())
+                .foregroundStyle(Theme.text)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, Theme.Spacing.md)
+                .accessibilityIdentifier("approval-title")
+            if let command = content.commandSummary {
+                (Text(appLocalized("to run")).font(Theme.Fonts.body)
+                    + Text(verbatim: " ")
+                    + Text(verbatim: command).font(Theme.Fonts.mono))
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(Text(verbatim: content.fullCommand ?? command))
+                    .padding(.top, Theme.Spacing.sm)
+                    .accessibilityIdentifier("approval-subtitle")
+            } else if let subtitle = content.subtitle {
+                // A subtitle that names a group never cuts the name.
+                Text(verbatim: subtitle)
+                    .font(Theme.Fonts.body)
                     .foregroundStyle(Theme.text)
                     .multilineTextAlignment(.center)
+                    .lineLimit(request.operation == .create ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, Theme.Spacing.md)
-                    .accessibilityIdentifier("approval-title")
-                if let command = content.commandSummary {
-                    (Text(appLocalized("to run")).font(Theme.Fonts.body)
-                        + Text(verbatim: " ")
-                        + Text(verbatim: command).font(Theme.Fonts.mono))
-                        .foregroundStyle(Theme.text)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .help(Text(verbatim: content.fullCommand ?? command))
-                        .padding(.top, Theme.Spacing.sm)
-                        .accessibilityIdentifier("approval-subtitle")
-                } else if let subtitle = content.subtitle {
-                    // A subtitle that names a group never cuts the name.
-                    Text(verbatim: subtitle)
-                        .font(Theme.Fonts.body)
-                        .foregroundStyle(Theme.text)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(request.operation == .create ? nil : 2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .help(Text(verbatim: subtitle))
-                        .padding(.top, Theme.Spacing.sm)
-                        .accessibilityIdentifier("approval-subtitle")
-                }
+                    .help(Text(verbatim: subtitle))
+                    .padding(.top, Theme.Spacing.sm)
+                    .accessibilityIdentifier("approval-subtitle")
             }
         }
     }
@@ -178,12 +181,9 @@ struct FrozenAgentApprovalPrompt: View {
         .accessibilityIdentifier("approval-details")
     }
 
-    /// Scrolls inside the card's cap; edges fade while lines are hidden.
+    /// Details share the scrolling body while the action row stays fixed.
     private func details(_ details: ApprovalDetailsContent) -> some View {
-        ApprovalScrollArea(space: "approval-details",
-                           identifier: isOrganize ? "approval-organization-operations" : "approval-details-rows") {
-            ApprovalDetailsView(content: details, revealMaterial: revealMaterial)
-        }
+        ApprovalDetailsView(content: details, revealMaterial: revealMaterial)
     }
 
     private func actions(_ buttons: [FrozenApprovalActions.Button]) -> some View {

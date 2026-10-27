@@ -5,6 +5,8 @@ import AskKeyBroker
 @MainActor
 final class AgentApprovalPresentationCoordinator {
     private let screenState: () -> AgentApprovalScreenState
+    private let presentationBlocked: () -> Bool
+    private let modalReminder: () -> Void
     private let loadPending: () -> [BrokerPendingApproval]
     private let clock: () -> Date
     private let refreshExpiration: () -> Void
@@ -17,10 +19,14 @@ final class AgentApprovalPresentationCoordinator {
     private var panel: AgentApprovalPanelActions?
     private var applyingDecision = false
     private var deferredRequestIDs: Set<String> = []
+    private var modalRetry: Timer?
+    private var resumePresentation: (() -> Void)?
     var isPresenting: Bool { presentationID != nil }
 
     init(
         screenState: @escaping () -> AgentApprovalScreenState,
+        presentationBlocked: @escaping () -> Bool = { false },
+        modalReminder: @escaping () -> Void = {},
         loadPending: @escaping () -> [BrokerPendingApproval],
         clock: @escaping () -> Date = Date.init,
         refreshExpiration: @escaping () -> Void,
@@ -30,6 +36,8 @@ final class AgentApprovalPresentationCoordinator {
         applyDecision: @escaping (BrokerPendingApproval, BrokerApprovalDecision) -> Void
     ) {
         self.screenState = screenState
+        self.presentationBlocked = presentationBlocked
+        self.modalReminder = modalReminder
         self.loadPending = loadPending
         self.clock = clock
         self.refreshExpiration = refreshExpiration
@@ -57,6 +65,32 @@ final class AgentApprovalPresentationCoordinator {
         }
         // Authentication/commit may still be running after the panel closes.
         guard !applyingDecision else { return }
+        if presentationBlocked(), !requests.isEmpty {
+            modalReminder()
+            if resumePresentation == nil || userInitiated || operationID != nil {
+                resumePresentation = { [weak self] in
+                    self?.presentPendingApproval(operationID: operationID,
+                        cancelledAuthenticationDecision: cancelledAuthenticationDecision,
+                        authenticationOutcome: authenticationOutcome, userInitiated: userInitiated)
+                }
+            }
+            if modalRetry == nil {
+                let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        guard let self, !self.presentationBlocked() else { return }
+                        self.modalRetry?.invalidate()
+                        self.modalRetry = nil
+                        let resume = self.resumePresentation
+                        self.resumePresentation = nil
+                        self.refreshExpiration()
+                        resume?()
+                    }
+                }
+                modalRetry = timer
+                RunLoop.main.add(timer, forMode: .common)
+            }
+            return
+        }
         deferredRequestIDs.formIntersection(Set(requests.map(\.requestID)))
         if let activeRequest {
             let stillPending = requests.contains { $0.requestID == activeRequest.requestID && $0.capability == activeRequest.capability }
@@ -121,4 +155,6 @@ final class AgentApprovalPresentationCoordinator {
         decisionFinished()
         previous?.dismiss()
     }
+
+    deinit { modalRetry?.invalidate() }
 }
