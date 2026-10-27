@@ -13,6 +13,7 @@ struct FrozenAgentTextWrite {
     var groupAssignment: String? = nil
     var beforeStateDigest: String? = nil
     var componentChanges: [FrozenAgentComponentChange] = []
+    var permitsLegacyTextReveal = false
 }
 
 enum FrozenAgentComponentChange {

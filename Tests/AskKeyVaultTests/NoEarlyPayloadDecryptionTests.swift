@@ -47,6 +47,16 @@ final class NoEarlyPayloadDecryptionTests: AgentTextWriteTestSupport {
             XCTAssertEqual(projection.components.map(\.name), credential.components.map(\.name))
             XCTAssertEqual(projection.components.map(\.kind), credential.components.map(\.kind))
             XCTAssertEqual(projection.components.map(\.delivery), credential.components.map(\.delivery))
+            XCTAssertTrue(projection.componentDetailsAvailable)
+            switch credential.payloadKind {
+            case .text:
+                XCTAssertEqual(projection.environmentVariable, "TEXT")
+                XCTAssertEqual(projection.components, [])
+            case .file:
+                XCTAssertEqual(projection.environmentVariable, "FILE_PATH")
+                XCTAssertEqual(projection.components, [])
+            case .bundle: break
+            }
             XCTAssertThrowsError(try harness.vault.managedCredential(from: row, key: harness.key, includeSecrets: true))
         }
         XCTAssertEqual(try harness.vault.listTextCredentials().count, 3)
@@ -226,19 +236,54 @@ final class NoEarlyPayloadDecryptionTests: AgentTextWriteTestSupport {
             harness.vault.createTextCredential(.init(name: "Text", value: "synthetic", environmentVariable: "TEXT"), using: .allow),
             harness.vault.createFileCredential(.init(name: "File", snapshot: .init(originalFilename: "synthetic.pem",
                 bytes: Data("synthetic".utf8)), environmentVariable: "FILE_PATH"), using: .allow)]
-        for credential in credentials {
-            var row = try corruptPayload(credential, harness: harness)
-            row.encryptedComponentMetadata = nil
-            try harness.store.updateCredential(row)
+        for metadata in [nil, Data("synthetic-unreadable-metadata".utf8)] as [Data?] {
+            for credential in credentials {
+                var row = try corruptPayload(credential, harness: harness)
+                row.encryptedComponentMetadata = metadata
+                try harness.store.updateCredential(row)
+            }
+            let listed = try harness.vault.listTextCredentials()
+            XCTAssertEqual(listed.count, 3)
+            for credential in listed {
+                XCTAssertFalse(credential.componentDetailsAvailable)
+                XCTAssertEqual(credential.components, [])
+                XCTAssertNil(credential.environmentVariable)
+                XCTAssertNil(credential.value)
+                XCTAssertNil(credential.fileBytes)
+            }
         }
-        let listed = try harness.vault.listTextCredentials()
-        XCTAssertEqual(listed.count, 3)
-        for credential in listed {
-            XCTAssertFalse(credential.componentDetailsAvailable)
-            XCTAssertTrue(credential.components.isEmpty)
-            XCTAssertNil(credential.environmentVariable)
-            XCTAssertNil(credential.value)
-            XCTAssertNil(credential.fileBytes)
+    }
+
+    func testLegacyRevealRejectsBundleActionsBeforeOpeningAnyPayload() throws {
+        let harness = try makeHarness { _ in true }
+        let bundle = try bundle(harness)
+        let text = try harness.vault.createTextCredential(.init(name: "Text", value: "synthetic-text"), using: .allow)
+        for (credential, component) in [(bundle, "TOKEN"), (text, "VALUE")] {
+            _ = try corruptPayload(credential, harness: harness)
+            for action in [
+                AgentTextWriteAction.modifyBundle(name: credential.name, usageInstructions: "New instructions"),
+                .modifyBundle(name: credential.name, changes: [.upsert(.init(name: component,
+                    value: .text("synthetic-new"), delivery: .none))])
+            ] {
+                let request = AgentTextWriteRequest(operationID: UUID().uuidString, action: action)
+                let ticket = try submitted(harness.vault.requestAgentTextWrite(request))
+                XCTAssertThrowsError(try harness.vault.revealAgentTextWrite(operationID: request.operationID,
+                    requestID: ticket.requestID, capability: ticket.capability, using: .allow)) {
+                    XCTAssertEqual($0 as? BrokerApprovalError, .invalidRequest)
+                }
+                XCTAssertEqual(try harness.vault.approvalRequests.status(requestID: ticket.requestID, capability: ticket.capability), .pending)
+            }
         }
+        let create = AgentTextWriteRequest(operationID: "new-bundle", action: .createBundle(name: "New Bundle",
+            components: [.init(name: "TOKEN", value: .text("synthetic-new"), delivery: .none)]))
+        let ticket = try submitted(harness.vault.requestAgentTextWrite(create))
+        XCTAssertThrowsError(try harness.vault.revealAgentTextWrite(operationID: create.operationID,
+            requestID: ticket.requestID, capability: ticket.capability, using: .allow)) {
+            XCTAssertEqual($0 as? BrokerApprovalError, .invalidRequest)
+        }
+        let legacy = AgentTextWriteRequest(operationID: "legacy-text", action: .modify(name: text.name, value: "synthetic-replacement"))
+        let legacyTicket = try submitted(harness.vault.requestAgentTextWrite(legacy))
+        XCTAssertEqual(try harness.vault.revealAgentTextWrite(operationID: legacy.operationID,
+            requestID: legacyTicket.requestID, capability: legacyTicket.capability, using: .allow), legacy.action)
     }
 }

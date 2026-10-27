@@ -21,6 +21,9 @@ extension Vault {
         guard state == .pending || state == .approved else {
             throw BrokerApprovalError.invalidDecision
         }
+        // This compatibility API only represents the original text actions.
+        // Bundle writes must use the component-filtered authenticated reveal.
+        guard frozen.permitsLegacyTextReveal else { throw BrokerApprovalError.invalidRequest }
         _ = try currentFrozenWriteRecord(frozen)
         let key = try requireKey()
         switch frozen.mutation {
@@ -34,11 +37,7 @@ extension Vault {
                 name: try VaultCrypto.decrypt(record.encryptedDisplayName, using: key),
                 value: try VaultCrypto.decrypt(record.encryptedPayload, using: key)
             )
-        case .delete(let credentialID, _, _):
-            guard let record = try store.fetchCredential(id: credentialID) else {
-                throw VaultError.credentialNotFound(credentialID)
-            }
-            return .delete(name: try VaultCrypto.decrypt(record.encryptedDisplayName, using: key))
+        case .delete: throw BrokerApprovalError.invalidRequest
         }
     }
 

@@ -20,9 +20,11 @@ extension Vault {
         var after: [BrokerCredentialComponentSummary] = []
         var proposed: [CredentialComponentInput] = []
         var componentChanges: [FrozenAgentComponentChange] = []
+        var permitsLegacyTextReveal = false
         switch request.action {
         case .organize: throw BrokerApprovalError.invalidRequest
         case let .create(name, value):
+            permitsLegacyTextReveal = true
             credentialID = UUID().uuidString
             let record = try preparedRecord(
                 from: .init(name: name, value: value, permission: .ask),
@@ -36,6 +38,7 @@ extension Vault {
             credentialExpiresAt = nil
             operation = .create
         case let .modify(name, value):
+            permitsLegacyTextReveal = true
             let existing = try availableTextCredential(
                 named: name, key: key,
                 callerHint: request.callerName, declaredPurpose: request.callerPurpose
@@ -155,7 +158,8 @@ extension Vault {
             summary: summary,
             groupAssignment: groupAssignment,
             beforeStateDigest: beforeStateDigest,
-            componentChanges: componentChanges
+            componentChanges: componentChanges,
+            permitsLegacyTextReveal: permitsLegacyTextReveal
         )
     }
 
