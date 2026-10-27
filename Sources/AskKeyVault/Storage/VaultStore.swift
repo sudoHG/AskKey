@@ -123,9 +123,9 @@ package final class VaultStore {
             }
         }
         // Pending migrations run only after the identity, schema and
-        // credential-authentication checks above: every migration for a new
-        // file, pending steps for an adopted/baseline/pre-metadata library,
-        // none for an already current library.
+        // credential-authentication checks above. Unkeyed creation stops at
+        // 0002; the key-bound 0003 migration is atomic with its backfill/marker.
+        // Already current libraries only verify completion.
         if let authenticationKey {
             try prepareComponentMetadata(using: authenticationKey)
         } else if opening != .current {

@@ -315,8 +315,8 @@ enum VaultBootstrap {
 
     /// Exact first-creation contents, eligible for discard without an App key
     /// even if promotion had happened. No pending value is ever resumed.
-    /// Creation ends at all AskKey identifiers with the legacy tables dropped (its seed always
-    /// qualifies); a library created by the baseline-only code before
+    /// Pre-promotion creation ends at 0002 with the legacy tables dropped (its
+    /// seed always qualifies); a library created by baseline-only code before
     /// askkey-0002 existed is at the baseline identifier with its seed.
     /// The expected value comes from the real migrator at the same
     /// identifiers. Any extra row or other schema disqualifies it.
