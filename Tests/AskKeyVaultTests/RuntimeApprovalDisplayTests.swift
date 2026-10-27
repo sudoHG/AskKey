@@ -1,4 +1,5 @@
 import CryptoKit
+import Darwin
 import Foundation
 import XCTest
 @testable import AskKeyBroker
@@ -51,6 +52,50 @@ final class RuntimeApprovalDisplayTests: XCTestCase {
             XCTAssertFalse(String(describing: display).contains("synthetic-private-filename"))
             XCTAssertFalse(String(describing: display).contains("synthetic-value"))
         }
+    }
+
+    func testExecutionUsesTheDisplayedApprovedDirectoryAndRejectsDirectoryChanges() throws {
+        let harness = try makeHarness()
+        _ = try createCredential(.text, in: harness)
+        guard let temporaryPath = realpath(FileManager.default.temporaryDirectory.path, nil) else {
+            throw CocoaError(.fileReadNoSuchFile)
+        }
+        defer { free(temporaryPath) }
+        let root = URL(fileURLWithPath: String(cString: temporaryPath), isDirectory: true)
+            .appendingPathComponent("AskKeyApprovedDirectory-\(UUID().uuidString)", isDirectory: true)
+        let directory = root.appendingPathComponent("approved project", isDirectory: true)
+        let other = root.appendingPathComponent("other project", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: false)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let original = request(operationID: "approved-directory", command: ["/bin/pwd", "-P"], directory: directory.path)
+        let changed = request(operationID: original.operationID, command: original.command, directory: other.path)
+        let runtime = BrokerTextRuntime(resolveCredentials: { request, cancellation in
+            try harness.vault.brokerTextCredentials(for: request, cancellation: cancellation)
+        })
+        guard case .approvalRequired(_, let tickets) = try runtime.run(original) else {
+            return XCTFail("expected an approval before execution")
+        }
+        let approval = try XCTUnwrap(harness.approvals.pendingRequests().first?.request)
+        let displayedDirectory = try XCTUnwrap(approval.display?.workingDirectory)
+        XCTAssertEqual(displayedDirectory, directory.path)
+        for approved in [false, true] {
+            if approved { try approve(tickets, in: harness) }
+            XCTAssertThrowsError(try runtime.run(changed)) {
+                XCTAssertEqual($0 as? BrokerApprovalError, .payloadMismatch)
+            }
+            XCTAssertThrowsError(try harness.vault.brokerTextCredentials(for: changed, cancellation: .init())) {
+                XCTAssertEqual($0 as? BrokerApprovalError, .payloadMismatch)
+            }
+        }
+        let output = Pipe()
+        let nullInput = try FileHandle(forReadingFrom: URL(fileURLWithPath: "/dev/null"))
+        let nullError = try FileHandle(forWritingTo: URL(fileURLWithPath: "/dev/null"))
+        XCTAssertEqual(try runtime.run(original, standardInputFD: nullInput.fileDescriptor,
+            standardOutputFD: output.fileHandleForWriting.fileDescriptor,
+            standardErrorFD: nullError.fileDescriptor), .exited(0))
+        try output.fileHandleForWriting.close()
+        XCTAssertEqual(String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self), displayedDirectory + "\n")
     }
 
     func testAbsentMappingIsEmptyRatherThanUnavailable() throws {

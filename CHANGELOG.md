@@ -2,6 +2,12 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
+## [Unreleased]
+
+### Changed
+
+- MCP `run` now requires an explicit absolute `cwd`, which is shown in approval and used for execution. Callers that omitted it must pass the directory they want the command to run in; missing or relative directories are rejected with a `next_step`. CLI `run` continues to use the terminal's current directory.
+
 ## [0.3.2] - 2026-10-21
 
 ### Security

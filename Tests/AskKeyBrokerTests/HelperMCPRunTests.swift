@@ -61,6 +61,7 @@ final class HelperMCPRunTests: HelperMCPTestCase {
                 "arguments": [
                     "credentials": ["NAS_SSH"],
                     "command": command,
+                    "cwd": directory.path,
                     "operation_id": operationID,
                 ],
             ],
@@ -172,8 +173,8 @@ final class HelperMCPRunTests: HelperMCPTestCase {
             #"{"jsonrpc":"2.0","method":"ping"}"#,
             #"{"jsonrpc":"2.0","id":"initialize","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"synthetic-mcp-client","version":"1"}}}"#,
             #"{"jsonrpc":"2.0","id":"tools","method":"tools/list","params":{}}"#,
-            #"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run","arguments":{"credentials":["REJECTED"],"command":["/usr/bin/true"]}}}"#,
-            #"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run","arguments":{"credentials":["TOKEN"],"command":["/bin/sh","-c","test \"$TOKEN\" = must-not-appear"]}}}"#,
+            #"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run","arguments":{"credentials":["REJECTED"],"command":["/usr/bin/true"],"cwd":"/"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run","arguments":{"credentials":["TOKEN"],"command":["/bin/sh","-c","test \"$TOKEN\" = must-not-appear"],"cwd":"/"}}}"#,
             #"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_credentials","arguments":{}}}"#,
             #"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"begin_file_write","arguments":{"operation_id":"write-operation","credential_id":"credential-id","target_id":"credential-id","operation":"modify","filename":"AuthKey.p8","byte_count":17}}}"#,
             #"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"append_file_write","arguments":{"upload_id":"upload-id","capability":"upload-capability","offset":0,"chunk_base64":"ZmlsZS13cml0ZS1zZWNyZXQ="}}}"#,
@@ -274,6 +275,7 @@ final class HelperMCPRunTests: HelperMCPTestCase {
                 "arguments": [
                     "credentials": ["TOKEN"],
                     "command": ["/usr/bin/true"],
+                    "cwd": directory.path,
                     "caller_name": "Codex",
                     "caller_purpose": "publish",
                 ],

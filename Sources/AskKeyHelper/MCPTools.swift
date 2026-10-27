@@ -199,6 +199,14 @@ func callMCPTool(
               let command = arguments["command"] as? [String], !command.isEmpty else {
             return mcpFailure(id: id, code: -32602, message: "credentials and command are required")
         }
+        guard let directory = arguments["cwd"] as? String,
+              directory.hasPrefix("/"), !directory.contains("\0") else {
+            return try mcpStatusError(
+                id: id,
+                status: "invalid_working_directory",
+                nextStep: "Pass cwd as the existing absolute working directory you want the command to run in. Keep it unchanged when resuming approval."
+            )
+        }
         let nullInput = try FileHandle(forReadingFrom: URL(fileURLWithPath: "/dev/null"))
         let nullOutput = try FileHandle(forWritingTo: URL(fileURLWithPath: "/dev/null"))
         let result = try client.run(
@@ -206,7 +214,7 @@ func callMCPTool(
                 operationID: arguments["operation_id"] as? String ?? UUID().uuidString,
                 command: command,
                 credentialNames: credentials,
-                workingDirectory: arguments["cwd"] as? String,
+                workingDirectory: directory,
                 inheritedEnvironment: BrokerTextRunRequest.filteredInheritedEnvironment(
                     ProcessInfo.processInfo.environment
                 ),

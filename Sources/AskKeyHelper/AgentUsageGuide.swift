@@ -38,6 +38,7 @@ enum AgentUsageGuide {
         If you need command output (for example NAS or SSH inspection results), choose the CLI BEFORE starting the operation. \
         Use your terminal execution tool with this absolute executable path (do not rely on PATH): \(helperPath). \
         Arguments: run --wait-for-approval --credential <catalog name> [--credential <another name>] --operation-id <unique stable id> --caller-name <agent name> --caller-purpose <user task> -- <executable> <args...>. \
+        The CLI runs in your terminal's current directory, which is shown in approval. \
         Quote paths and names when using a shell. CLI stdout/stderr come directly from the target; check exit status and inspect the output before claiming the task succeeded. \
         With --wait-for-approval, the CLI keeps the original command, cwd and environment in memory, writes a waiting notice to stderr, and continues in the SAME process once the user approves in Ask Key. \
         Keep that terminal process alive; if your terminal tool yields a session, poll that same session instead of launching another helper. Waiting stops after at most five minutes, on denied/cancelled/expired approval, or on unavailable/unknown state. \
@@ -48,6 +49,8 @@ enum AgentUsageGuide {
     }
 
     static let resume = """
+        MCP run requires cwd: pass the existing absolute directory you want the command to run in; it is shown in approval and bound to execution. \
+        Missing or relative cwd is rejected; the MCP server's directory is never used as a default. \
         For MCP run or CLI without --wait-for-approval, on approvalRequired the command has NOT run and will not run automatically when approved. \
         Keep the returned operationID as operation_id and retain all original arguments, cwd and environment. \
         Let the user approve in Ask Key; request_status can check each ticket using requestID as request_id and capability. \

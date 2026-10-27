@@ -86,6 +86,17 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
         }
     }
 
+    func testRunDirectoryRowKeepsTheFullApprovedPathInBothLanguages() {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("synthetic approved project").path
+        let display = BrokerApprovalOperationRequest.Display(commandLine: "/bin/pwd", workingDirectory: directory,
+            executableBasename: "pwd", environmentVariables: ["TOKEN"], temporaryFileVariables: [])
+        Fixtures.withLanguages { language in
+            let details = ApprovalDetailsContent(request: Fixtures.request(.read, display: display), credentialName: "Synthetic")
+            let label = language == "en" ? "Runs in" : "运行目录" // i18n-literal: Chinese directory label.
+            XCTAssertEqual(details.rows.first { $0.label == label }?.value, .code(directory))
+        }
+    }
+
     func testChangeRowsListOnlyWhatChanges() {
         Fixtures.withLanguages { language in
             let requester = language == "en" ? ["Requested by", "Purpose"] : ["请求方", "用途"] // i18n-literal: Chinese labels.
