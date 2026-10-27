@@ -12,7 +12,9 @@ final class ComponentMetadataCompletionMarkerTests: AgentTextWriteTestSupport {
         let harness = try makeHarness { _ in true }
         _ = try harness.vault.createTextCredential(.init(name: "Synthetic", value: "synthetic"), using: .allow)
         try installV1(in: harness.store, key: harness.key)
-        let records = try encoded(harness.store.fetchAllCredentialsIncludingRecycled())
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let records = try encoder.encode(harness.store.fetchAllCredentialsIncludingRecycled())
         let history = try migrationHistory(harness.store)
         try harness.store.close()
 
@@ -21,7 +23,7 @@ final class ComponentMetadataCompletionMarkerTests: AgentTextWriteTestSupport {
         let marker = try XCTUnwrap(opened.configValue(key: VaultStore.componentMetadataCompletionKey))
         XCTAssertEqual(marker, expectedMarker(key: harness.key))
         XCTAssertNil(try opened.configValue(key: VaultStore.componentMetadataLegacyCompletionKey))
-        XCTAssertEqual(try encoded(opened.db.read { try CredentialRecord.fetchAll($0) }), records)
+        XCTAssertEqual(try encoder.encode(opened.db.read { try CredentialRecord.fetchAll($0) }), records)
         XCTAssertEqual(try migrationHistory(opened), history)
         try opened.close()
         let repeated = try VaultStore(path: harness.databaseURL.path, authenticationKey: harness.key)
