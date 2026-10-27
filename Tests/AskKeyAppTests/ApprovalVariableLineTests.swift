@@ -46,4 +46,29 @@ final class ApprovalVariableLineTests: AskKeyAppTestCase {
         XCTAssertEqual(fragments.joined(), variable)
         XCTAssertTrue(fragments.dropLast().allSatisfy { $0.hasSuffix("_") }, "Never split an underscore-delimited word: \(fragments)")
     }
+
+    func testSixtyCharacterVariableFitsAndAllPasteboardExportsUseOriginalSelection() throws {
+        let variable = String(repeating: "A", count: 60)
+        let view = ApprovalVariableLine.TextView()
+        view.configure(ApprovalLine(format: "%@", code: [variable]))
+        let size = view.measuredSize(width: 100)
+        XCTAssertGreaterThan(size.height, 40)
+        let manager = try XCTUnwrap(view.layoutManager)
+        manager.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: manager.numberOfGlyphs)) { _, used, _, _, _ in
+            XCTAssertLessThanOrEqual(used.maxX, 100, "A long word must not overflow the text container")
+        }
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        view.setSelectedRange(NSRange(location: 0, length: (view.string as NSString).length))
+        XCTAssertTrue(view.writeSelection(to: pasteboard, types: view.writablePasteboardTypes))
+        XCTAssertTrue(pasteboard.types?.allSatisfy { $0 == .string || $0.rawValue == "NSStringPboardType" } == true)
+        XCTAssertNil(pasteboard.data(forType: .rtf))
+        XCTAssertEqual(pasteboard.string(forType: .string), variable)
+        // Exercise the individual-type hook used by drag and Services, too.
+        view.setSelectedRange(NSRange(location: 1, length: 30))
+        pasteboard.clearContents()
+        XCTAssertTrue(view.writeSelection(to: pasteboard, type: .string))
+        XCTAssertEqual(pasteboard.string(forType: .string), view.selectedPlainText)
+        XCTAssertFalse(view.writeSelection(to: pasteboard, type: .rtf))
+    }
 }

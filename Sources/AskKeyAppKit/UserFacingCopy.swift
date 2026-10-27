@@ -3,6 +3,15 @@ import AskKeyVault
 
 enum UserFacingCopy {
     static func message(for error: Error) -> String {
+        if let issue = error as? ComponentMetadataUpgradeError {
+            let names = issue.credentialNames.map { String(reflecting: $0) }.joined(separator: ", ")
+            switch issue.reason {
+            case .backfill:
+                return format("Component metadata could not be upgraded for: %@. Credential management remains available. Fix or delete these credentials, then reopen Ask Key. Agent access stays off until the upgrade completes.", names)
+            case .integrity:
+                return format("Component metadata integrity could not be verified. Affected credentials: %@. Credential management remains available. Review the affected credentials and restore a trusted library or contact support, then reopen Ask Key. Agent access stays off until integrity is restored.", names)
+            }
+        }
         if let failure = error as? AgentAccessPolicySaveFailure {
             return failure.messageKeys.map(localized).joined(separator: "\n")
         }

@@ -59,6 +59,15 @@ final class AgentAccessPolicyTests: XCTestCase {
         let existing = try VaultBootstrap.openCurrent(paths: library.paths, keyStore: library.keys)
         XCTAssertFalse(existing.created)
         try existing.store.close()
+        // Model the supported, empty 0002 file before key promotion, rather
+        // than stripping the key from an already authenticated 0003 library.
+        let incomplete = try DatabaseQueue(path: library.paths.currentDatabase.path)
+        try incomplete.write { db in
+            try db.execute(sql: "ALTER TABLE credentials DROP COLUMN encrypted_component_metadata")
+            try db.execute(sql: "DELETE FROM grdb_migrations WHERE identifier = ?", arguments: [CurrentLibrarySchema.componentMetadataIdentifier])
+            try db.execute(sql: "DELETE FROM config WHERE key = ?", arguments: [VaultStore.componentMetadataCompletionKey])
+        }
+        try incomplete.close()
         library.keys.pendingKey = library.keys.appKey
         library.keys.appKey = nil
         let recovered = try VaultBootstrap.openCurrent(paths: library.paths, keyStore: library.keys)

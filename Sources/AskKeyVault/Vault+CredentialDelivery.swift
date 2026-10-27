@@ -78,14 +78,11 @@ extension Vault {
         try cancellation.check()
         guard request.declarationsAreValid else { throw BrokerTextRuntimeError.invalidRequest }
         let key = try requireKey()
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        let encoded = try encoder.encode(request)
-        let payloadDigest = SHA256.hash(data: encoded).map { String(format: "%02x", $0) }.joined()
         let callerName = request.sanitizedCallerName
         let callerPurpose = request.sanitizedCallerPurpose
         let executableBasename = Self.runtimeExecutableBasename(request.command)
         var records: [CredentialRecord] = []
+        var boundMetadata: [String: CredentialComponentMetadata] = [:]
         var consumptions: [BrokerApprovalConsumption] = []
         var pending: [BrokerApprovalTicket] = []
 
@@ -120,6 +117,8 @@ extension Vault {
                 throw VaultError.credentialUnavailable
             }
             records.append(record)
+            let metadata = try? CredentialComponentMetadata.read(from: record, using: key)
+            boundMetadata[record.id] = metadata
             guard permission == .ask else { continue }
             let approvalRequest = BrokerApprovalOperationRequest(
                 operationID: SHA256.hash(data: Data("\(request.operationID):\(record.id)".utf8))
@@ -127,11 +126,12 @@ extension Vault {
                 credentialID: record.id,
                 targetID: record.id,
                 operation: .read,
-                payloadDigest: payloadDigest,
+                payloadDigest: try RuntimeReadApprovalBinding(request: request, credentialID: record.id,
+                    metadata: metadata).payloadDigest(),
                 credentialName: trustedName,
                 callerName: callerName,
                 callerPurpose: callerPurpose,
-                display: try runtimeApprovalDisplay(for: request, record: record, key: key)
+                display: runtimeApprovalDisplay(for: request, record: record, metadata: metadata)
             )
             let ticket = try approvalRequests.submit(
                 approvalRequest,
@@ -158,8 +158,7 @@ extension Vault {
         do {
             credentials = try records.flatMap { record -> [BrokerTextCredential] in
                 let components = try credentialComponents(from: record, key: key)
-                guard try CredentialComponentMetadata(components: components)
-                    == CredentialComponentMetadata.read(from: record, using: key) else {
+                guard CredentialComponentMetadata(components: components) == boundMetadata[record.id] else {
                     throw CredentialRecordAuthenticationError.invalidAuthentication
                 }
                 return try components.compactMap { component in
@@ -245,18 +244,24 @@ extension Vault {
     private func runtimeApprovalDisplay(
         for request: BrokerTextRunRequest,
         record: CredentialRecord,
-        key: SymmetricKey
-    ) throws -> BrokerApprovalOperationRequest.Display {
+        metadata: CredentialComponentMetadata?
+    ) -> BrokerApprovalOperationRequest.Display {
         var environmentVariables: [String]?
         var temporaryFileVariables: [String]?
         var components: [BrokerCatalogComponent]?
         // Unavailable metadata must not prevent submitting an approval that can
         // be denied. Catalog and post-approval delivery still fail closed.
-        if let metadata = try? CredentialComponentMetadata.read(from: record, using: key) {
+        if let metadata {
             if record.payloadKind == CredentialPayloadKind.bundle.rawValue {
                 components = metadata.components.filter { $0.delivery.environmentVariable != nil }.map {
-                    BrokerCatalogComponent(name: Self.escapedDisplayText($0.name),
-                        payloadKind: $0.payloadKind == .file ? .file : .text, delivery: $0.delivery)
+                    let delivery: CredentialComponentDelivery
+                    switch $0.delivery {
+                    case .environmentVariable(let variable): delivery = .environmentVariable(Self.escapedDisplayText(variable))
+                    case .temporaryFile(let variable): delivery = .temporaryFile(Self.escapedDisplayText(variable))
+                    case .none: delivery = .none
+                    }
+                    return BrokerCatalogComponent(name: Self.escapedDisplayText($0.name),
+                        payloadKind: $0.payloadKind == .file ? .file : .text, delivery: delivery)
                 }
             }
             environmentVariables = metadata.components.compactMap {

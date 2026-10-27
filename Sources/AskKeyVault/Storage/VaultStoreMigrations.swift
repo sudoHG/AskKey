@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import GRDB
 
 enum CurrentLibrarySchema {
@@ -35,7 +36,7 @@ enum CurrentLibrarySchema {
     /// `secret_values_unique_default_environment` and the SQLite autoindexes.
     static let legacyTables = ["secret_values", "secrets", "environments", "projects", "activity_log"]
 
-    static func migrator() -> DatabaseMigrator {
+    static func migrator(componentMetadataKey: SymmetricKey? = nil) -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration(baselineIdentifier) { db in
             try db.execute(sql: baselineSQL)
@@ -67,6 +68,8 @@ enum CurrentLibrarySchema {
         migrator.registerMigration(componentMetadataIdentifier, foreignKeyChecks: .immediate) { db in
             guard try opening(db) == .preMetadata else { throw VaultBootstrapError.invalidState }
             try addComponentMetadata(db)
+            guard let componentMetadataKey else { throw VaultBootstrapError.missingKey }
+            try VaultStore.backfillComponentMetadata(db, using: componentMetadataKey)
         }
         return migrator
     }
@@ -213,5 +216,7 @@ enum CurrentLibrarySchema {
 }
 
 extension VaultStore {
-    func migrate() throws { try CurrentLibrarySchema.migrator().migrate(db) }
+    func migrate(componentMetadataKey: SymmetricKey? = nil) throws {
+        try CurrentLibrarySchema.migrator(componentMetadataKey: componentMetadataKey).migrate(db)
+    }
 }

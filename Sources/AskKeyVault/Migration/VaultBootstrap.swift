@@ -151,9 +151,9 @@ enum VaultBootstrap {
 
     /// Builds the library at `credentials-v2.db.creating` and renames it into
     /// place only when complete, so the current path holds either nothing or a
-    /// complete library: `VaultStore` runs every migration on the new file, so
-    /// it is at all AskKey identifiers with the legacy tables dropped before
-    /// the rename. The generated key is promoted after the rename; without
+    /// complete 0002 library with the legacy tables dropped before the rename.
+    /// The generated key is promoted after the rename, then the atomic key-bound
+    /// 0003 migration runs before adoption. Without
     /// an App key, the next launch discards and recreates these empty contents.
     private static func createNewLibrary(
         paths: VaultBootstrapPaths, keyStore: AppKeyStore,
@@ -191,6 +191,7 @@ enum VaultBootstrap {
             store.bindCredentialAuthenticationKey(key)
             try tightenPermissions(paths: paths)
             try makeDurableAndPromote(paths: paths, keyStore: keyStore, key: key, synchronize: synchronize)
+            try store.prepareComponentMetadata(using: key)
             return (store, key)
         } catch {
             try? store.close()
@@ -324,7 +325,9 @@ enum VaultBootstrap {
         switch try CurrentLibrarySchema.opening(db) {
         case .baseline: target = CurrentLibrarySchema.baselineIdentifier
         case .preMetadata: target = CurrentLibrarySchema.dropLegacyTablesIdentifier
-        case .current: target = CurrentLibrarySchema.componentMetadataIdentifier
+        // A completed 0003 library has an authenticated marker; without its
+        // key it cannot prove first-creation contents and must not be discarded.
+        case .current: throw VaultBootstrapError.missingKey
         case .legacyV15: throw VaultBootstrapError.missingKey
         }
         let expected = try DatabaseQueue()

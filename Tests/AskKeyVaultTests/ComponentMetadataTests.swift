@@ -100,9 +100,64 @@ final class ComponentMetadataTests: AgentTextWriteTestSupport {
             }
             try harness.store.updateCredential(record)
             XCTAssertThrowsError(try vault.brokerTextCredentials(for: request, cancellation: .init())) {
-                XCTAssertEqual($0 as? CredentialRecordAuthenticationError, .invalidAuthentication, change)
+                XCTAssertEqual($0 as? BrokerApprovalError, .payloadMismatch, change)
             }
             XCTAssertTrue(materializations.values.isEmpty, "No file may be materialized before all component metadata matches")
+        }
+    }
+
+    func testReadApprovalRejectsRollbackToOlderAuthenticatedMappingForEveryPayloadKind() throws {
+        for kind in [CredentialPayloadKind.text, .file, .bundle] {
+            let harness = try makeHarness { _ in true }
+            try createMaterials(in: harness)
+            var old = try XCTUnwrap(harness.store.fetchAllCredentials().first { $0.payloadKind == kind.rawValue })
+            old.permission = CredentialPermission.ask.rawValue
+            try harness.store.updateCredential(old)
+            old = try XCTUnwrap(harness.store.fetchCredential(id: old.id))
+            switch kind {
+            case .text:
+                _ = try harness.vault.updateTextCredential(id: old.id,
+                    .init(name: "Text", value: "synthetic-new", environmentVariable: "NEW_TOKEN", permission: .ask), using: .allow)
+            case .file:
+                _ = try harness.vault.updateFileCredential(id: old.id,
+                    .init(name: "File", environmentVariable: "NEW_FILE", permission: .ask), using: .allow)
+            case .bundle:
+                _ = try harness.vault.updateBundleCredential(id: old.id,
+                    .init(name: "Bundle", components: [.init(name: "New", value: .text("synthetic-new"))], permission: .ask), using: .allow)
+            }
+            let name = try VaultCrypto.decrypt(old.encryptedDisplayName, using: harness.key)
+            let request = BrokerTextRunRequest(operationID: UUID().uuidString, command: ["/usr/bin/true"], credentialNames: [name])
+            guard case .approvalRequired(let tickets) = try harness.vault.brokerTextCredentials(for: request, cancellation: .init()) else {
+                return XCTFail("Expected read approval")
+            }
+            let ticket = try XCTUnwrap(tickets.first)
+            _ = try harness.vault.approvalRequests.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .once)
+            // Replay the whole signed historical row without re-sealing it.
+            try harness.store.db.write { try old.update($0) }
+            try CredentialRecordAuthentication.verify(try XCTUnwrap(harness.store.fetchCredential(id: old.id)), using: harness.key)
+            XCTAssertThrowsError(try harness.vault.brokerTextCredentials(for: request, cancellation: .init())) {
+                XCTAssertEqual($0 as? BrokerApprovalError, .payloadMismatch, kind.rawValue)
+            }
+        }
+    }
+
+    func testInvalidControlTerminatedDeliveryNamesNeverReachBundleDisplay() throws {
+        for suffix in ["\n", "\r\n"] {
+            let harness = try makeHarness { _ in true }
+            let created = try harness.vault.createBundleCredential(.init(name: "Bundle", components: components), using: .allow)
+            var record = try XCTUnwrap(harness.store.fetchCredential(id: created.id))
+            let invalid = [CredentialComponentInput(name: "Token", value: .text("synthetic"), delivery: .environmentVariable("TOKEN" + suffix))]
+            record.encryptedComponentMetadata = try CredentialComponentMetadata(components: invalid).encrypted(using: harness.key)
+            try harness.store.updateCredential(record)
+            guard case .approvalRequired(let tickets) = try harness.vault.brokerTextCredentials(for: runRequest(), cancellation: .init()) else {
+                return XCTFail("Deny must stay available")
+            }
+            let display = try XCTUnwrap(harness.vault.approvalRequests.pendingRequests().first?.request.display)
+            XCTAssertNil(display.components)
+            XCTAssertNil(display.environmentVariables)
+            XCTAssertFalse(String(describing: display).contains("TOKEN" + suffix))
+            let ticket = try XCTUnwrap(tickets.first)
+            XCTAssertNoThrow(try harness.vault.approvalRequests.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .deny))
         }
     }
 

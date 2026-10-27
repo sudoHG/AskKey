@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Component metadata could not be upgraded for: %@. Credential management remains available. Fix or delete these credentials, then reopen Ask Key. Agent access stays off until the upgrade completes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Component metadata could not be upgraded for: %@. Credential management remains available. Fix or delete these credentials, then reopen Ask Key. Agent access stays off until the upgrade completes." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "以下凭证的组件元数据升级失败：%@。凭证管理仍可使用。请修复或删除这些凭证后重新打开请旨；升级完成前，Agent 访问保持关闭。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Component metadata could not be upgraded for: %@. Credential management remains available. Fix or delete these credentials, then reopen Ask Key. Agent access stays off until the upgrade completes.!!]" } }
+      }
+    },
+    "Component metadata integrity could not be verified. Affected credentials: %@. Credential management remains available. Review the affected credentials and restore a trusted library or contact support, then reopen Ask Key. Agent access stays off until integrity is restored.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Component metadata integrity could not be verified. Affected credentials: %@. Credential management remains available. Review the affected credentials and restore a trusted library or contact support, then reopen Ask Key. Agent access stays off until integrity is restored." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法验证组件元数据的完整性。受影响的凭证：%@。凭证管理仍可使用。请检查这些凭证并恢复可信的凭证库或联系支持，然后重新打开请旨；完整性恢复前，Agent 访问保持关闭。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Component metadata integrity could not be verified. Affected credentials: %@. Credential management remains available. Review the affected credentials and restore a trusted library or contact support, then reopen Ask Key. Agent access stays off until integrity is restored.!!]" } }
+      }
+    },
     "Ask Key could not confirm that this copy can still serve this credential library, so Agent access is paused here. Quit any other running copy of Ask Key, then retry Agent access.": {
       "extractionState": "manual",
       "localizations": {

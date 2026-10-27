@@ -47,9 +47,9 @@ extension CurrentLibraryAdoptionTests {
                 defer { try? database.close() }
                 try database.read { db in
                     XCTAssertEqual(try String.fetchAll(db, sql: "SELECT identifier FROM grdb_migrations ORDER BY rowid"),
-                                   Self.currentIdentifiers)
+                                   CurrentLibrarySchema.preMetadataIdentifiers)
                     XCTAssertEqual(try CurrentLibrarySchema.legacyTables.filter { try db.tableExists($0) }, [])
-                    XCTAssertEqual(try CurrentLibrarySchema.opening(db), .current)
+                    XCTAssertEqual(try CurrentLibrarySchema.opening(db), .preMetadata)
                     XCTAssertNoThrow(try VaultBootstrap.requireUnfinishedFirstCreation(db))
                 }
             }

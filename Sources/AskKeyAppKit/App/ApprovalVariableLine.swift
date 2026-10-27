@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Break delivery variables after underscores while preserving the original
-/// selected/copied and accessibility text, including partial selections.
+/// Prefer underscore breaks, with a fallback for long words. All text exports
+/// and accessibility keep the original text, including partial selections.
 struct ApprovalVariableLine: NSViewRepresentable {
     let line: ApprovalLine
 
@@ -50,20 +50,25 @@ struct ApprovalVariableLine: NSViewRepresentable {
             for segment in line.segments {
                 var displayed = ""
                 var previous: Character?
+                var wordLength = 0
                 func insert(_ character: Character) {
                     displayed.append(character)
                     originalOffsets.append(originalOffset)
                 }
                 for character in segment.text {
-                    // A word joiner prevents fallback character wrapping inside
-                    // a variable token; a zero-width space allows an underscore break.
-                    if segment.code, let previous, previous != "_" { insert("\u{2060}") }
+                    if segment.code, let previous, previous != "_" {
+                        if wordLength == 12 {
+                            insert("\u{200b}")
+                            wordLength = 0
+                        } else { insert("\u{2060}") }
+                    }
                     displayed.append(character)
                     for _ in String(character).utf16 {
                         originalOffset += 1
                         originalOffsets.append(originalOffset)
                     }
                     if segment.code, character == "_" { insert("\u{200b}") }
+                    wordLength = character == "_" ? 0 : wordLength + 1
                     previous = character
                 }
                 attributed.append(NSAttributedString(string: displayed, attributes: [
@@ -92,10 +97,16 @@ struct ApprovalVariableLine: NSViewRepresentable {
         }
 
         override func copy(_ sender: Any?) {
-            let text = selectedPlainText
-            guard !text.isEmpty else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
+            _ = writeSelection(to: .general, types: writablePasteboardTypes)
+        }
+
+        override var writablePasteboardTypes: [NSPasteboard.PasteboardType] { [.string] }
+
+        // NSTextView uses this for Copy, dragging and Services. Never export
+        // rich text containing the inserted layout controls.
+        override func writeSelection(to pboard: NSPasteboard, type: NSPasteboard.PasteboardType) -> Bool {
+            guard type == .string, !selectedPlainText.isEmpty else { return false }
+            return pboard.setString(selectedPlainText, forType: .string)
         }
 
         override func accessibilityValue() -> String? { originalText }

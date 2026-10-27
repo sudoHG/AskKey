@@ -151,6 +151,7 @@ extension Vault {
         guard contentDigest == (try digestData(frozen.digest)) else {
             throw VaultError.invalidFileCredential(.digestMismatch)
         }
+        let snapshot = try FileImport.FrozenFile(originalFilename: frozen.originalFilename, bytes: frozen.bytes)
         let deliveryManager = try fileDeliveryManager.get()
         var wasPaused = try agentAccessGate.beginExclusiveAgentChange()
         var changed = false
@@ -181,8 +182,7 @@ extension Vault {
         case .create:
             guard frozen.previousDigest == nil else { throw VaultError.credentialChanged }
             let prepared = try preparedFileRecord(from: .init(name: frozen.targetID,
-                snapshot: FileImport.FrozenFile(originalFilename: frozen.originalFilename,
-                    bytes: frozen.bytes, byteSize: frozen.byteCount, contentDigest: contentDigest),
+                snapshot: snapshot,
                 permission: .ask), id: frozen.credentialID, key: key, existing: nil)
             mutation = .create(prepared)
             expectedFileDigest = nil

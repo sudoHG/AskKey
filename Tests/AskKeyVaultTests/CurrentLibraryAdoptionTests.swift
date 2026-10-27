@@ -177,11 +177,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         let pending = try XCTUnwrap(keys.pendingKey)
         XCTAssertNotEqual(pending, appKey)
         try addHistoricalSiblings(paths)
-        let before = try directoryBytes(paths.directory)
-        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
-        XCTAssertEqual(VaultCrypto.keyToData(opened.key), appKey)
-        try opened.store.close()
-        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        try assertEmptyAppKeyUpgradePreservesFiles(paths: paths, keys: keys, appKey: appKey)
         XCTAssertEqual(keys.appKey, appKey)
         XCTAssertEqual(keys.pendingKey, pending)
         XCTAssertEqual(keys.mutations, 0, "the different pending key is neither used nor deleted")
@@ -192,11 +188,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
         let pending = try XCTUnwrap(keys.pendingKey)
         keys.appKey = pending
         keys.pendingLoadFailure = AppKeyStoreError.securityFailure(errSecInteractionNotAllowed)
-        let before = try directoryBytes(paths.directory)
-        let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
-        XCTAssertEqual(VaultCrypto.keyToData(opened.key), pending)
-        try opened.store.close()
-        XCTAssertEqual(try directoryBytes(paths.directory), before)
+        try assertEmptyAppKeyUpgradePreservesFiles(paths: paths, keys: keys, appKey: pending)
         XCTAssertEqual(keys.appKey, pending)
         XCTAssertEqual(keys.pendingKey, pending)
         XCTAssertEqual(keys.mutations, 0, "an unreadable pending key is never deleted")
@@ -490,12 +482,13 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
             return try database.read { db in
                 let tables = try String.fetchAll(db, sql: "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name != 'grdb_migrations' ORDER BY name")
                 return try Dictionary(uniqueKeysWithValues: tables.map { table in
-                    // The schema-only upgrade adds a nullable field without changing
-                    // any old column. Backfill is verified separately after Vault adoption.
+                    // Compare every field except the metadata/tag pair and
+                    // completion marker; migration tests verify those changes.
                     let columns = try db.columns(in: table).map(\.name)
-                        .filter { table != "credentials" || $0 != "encrypted_component_metadata" }
+                        .filter { table != "credentials" || !["encrypted_component_metadata", "authentication_tag"].contains($0) }
                         .map(\.quotedDatabaseIdentifier).joined(separator: ", ")
-                    return (table, try Row.fetchAll(db, sql: "SELECT \(columns) FROM \"\(table)\" ORDER BY rowid"))
+                    let predicate = table == "config" ? " WHERE key != 'component_metadata_completion_v1'" : ""
+                    return (table, try Row.fetchAll(db, sql: "SELECT \(columns) FROM \"\(table)\"\(predicate) ORDER BY rowid"))
                 })
             }
         }
@@ -529,7 +522,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
                     continue
                 }
                 XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \"\(table)\""),
-                               table == "grdb_migrations" ? Self.currentIdentifiers.count : count, table)
+                               table == "grdb_migrations" ? Self.currentIdentifiers.count : table == "config" ? count + 1 : count, table)
             }
             let writes = try Row.fetchAll(db, sql: "SELECT * FROM agent_write_operations ORDER BY operation_id").map { row in
                 V15Write(operationID: row["operation_id"], credentialID: row["credential_id"],
@@ -539,6 +532,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
             }
             XCTAssertEqual(writes, manifest.writeOperations)
         }
+        try verifyCompletedComponentMetadata(store: store, key: key, vault: vault)
         for credential in active {
             let item = try vault.revealTextCredential(id: credential.id, using: .allow)
             XCTAssertTrue(item.privateNotes?.hasPrefix("SYNTHETIC-") == true)

@@ -16,7 +16,7 @@ final class BundleApprovalRenderTests: AskKeyAppTestCase {
         NSApp.applicationIconImage = try XCTUnwrap(NSImage(contentsOf: root.appendingPathComponent("assets/AppIcon.icon/Assets/AppIcon.png")))
         defer { NSApp.applicationIconImage = previousIcon }
         try ApprovalCardFixtures.withLanguages { language in
-            for variant in ["mapped", "undelivered", "long-list"] {
+            for variant in ["mapped", "undelivered", "long-list", "long-word"] {
                 let library = try AgentAccessPolicyTestLibrary(
                     approvalRequests: BrokerApprovalStateMachine(authenticate: { _ in true }))
                 defer { try? library.close() }
@@ -102,6 +102,7 @@ final class BundleApprovalRenderTests: AskKeyAppTestCase {
         ]
         components.append(.init(name: "Certificate", value: .file(filename: "synthetic.pem", bytes: Data("synthetic-value".utf8)),
                                 delivery: .temporaryFile("RELEASE_CERT_FILE")))
+        if variant == "long-word" { components[0].delivery = .environmentVariable(String(repeating: "A", count: 60)) }
         if variant == "undelivered" {
             components.append(.init(name: "LOCAL_RECOVERY_CODE", value: .text("synthetic-value"), delivery: .none))
         }

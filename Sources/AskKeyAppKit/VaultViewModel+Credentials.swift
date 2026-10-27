@@ -84,6 +84,7 @@ extension VaultViewModel {
             if snapshot.accessRecordWriteFailure {
                 errorMessage = "Ask Key could not save an access record. Credential operations continue, and this warning will remain until recording succeeds."
             }
+            if let issue = credentialMutations.componentMetadataIssue() { presentError(issue) }
             return true
         } catch {
             credentials = []

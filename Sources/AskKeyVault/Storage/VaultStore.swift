@@ -9,6 +9,8 @@ package final class VaultStore {
     private let path: String
     private let authenticationLock = NSLock()
     private var credentialAuthenticationKey: SymmetricKey?
+    var componentMetadataIssue: ComponentMetadataUpgradeError?
+    var hasComponentMetadataColumn = true
 
     func bindCredentialAuthenticationKey(_ key: SymmetricKey?) {
         authenticationLock.lock()
@@ -24,7 +26,12 @@ package final class VaultStore {
     }
 
     func credentialForPersistence(_ record: CredentialRecord) throws -> CredentialRecord {
-        try CredentialRecordAuthentication.seal(record, using: requireCredentialAuthenticationKey())
+        var record = record
+        if !hasComponentMetadataColumn {
+            record.encryptedComponentMetadata = nil
+            record.includesComponentMetadataColumn = false
+        }
+        return try CredentialRecordAuthentication.seal(record, using: requireCredentialAuthenticationKey())
     }
 
     func authenticatedCredential(_ record: CredentialRecord) throws -> CredentialRecord {
@@ -119,7 +126,14 @@ package final class VaultStore {
         // credential-authentication checks above: every migration for a new
         // file, pending steps for an adopted/baseline/pre-metadata library,
         // none for an already current library.
-        if opening != .current { try migrate() }
+        if let authenticationKey {
+            try prepareComponentMetadata(using: authenticationKey)
+        } else if opening != .current {
+            // First creation stays at 0002 until its generated key is promoted.
+            // The key-bound 0003 migration always includes its completion marker.
+            try CurrentLibrarySchema.migrator().migrate(db, upTo: CurrentLibrarySchema.dropLegacyTablesIdentifier)
+        }
+        hasComponentMetadataColumn = try db.read { try CurrentLibrarySchema.opening($0) == .current }
     }
 
     init(readOnlyPath path: String) throws {
