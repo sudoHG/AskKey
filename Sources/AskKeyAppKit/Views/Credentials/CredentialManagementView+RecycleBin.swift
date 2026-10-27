@@ -36,7 +36,7 @@ extension CredentialManagementView {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(credential.name).font(Theme.Fonts.body.weight(.semibold))
                             HStack(spacing: 6) {
-                                credentialTag(appLocalizedFormat("%lld items", max(credential.components.count, 1)))
+                                credentialTag(CredentialListPresentation.componentCountTitle(credential))
                                 credentialTag(RecycleBinPresentation.remainingDaysCopy(
                                     deletedAt: credential.deletedAt,
                                     now: Date()

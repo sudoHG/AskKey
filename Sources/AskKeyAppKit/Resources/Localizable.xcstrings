@@ -14934,6 +14934,22 @@
         }
       }
     },
+    "Component details are unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Component details are unavailable" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "组件详情不可用" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Component details are unavailable!!]" } }
+      }
+    },
+    "The updated credential exceeds the 5 MiB size limit. The credential was not saved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The updated credential exceeds the 5 MiB size limit. The credential was not saved." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "更新后的凭证超过 5 MiB 大小限制，凭证未保存。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The updated credential exceeds the 5 MiB size limit. The credential was not saved.!!]" } }
+      }
+    },
     "This credential name is already in use. The credential was not saved.": {
       "extractionState": "manual",
       "localizations": {
