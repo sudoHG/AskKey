@@ -7,10 +7,11 @@ import AskKeyBroker
 @MainActor
 enum ApprovalCardFixtures {
     enum Card: String, CaseIterable {
-        case readDefault, readDetails, readFile, readCancelled, readWithoutTimed, readLongCommand, readBundle
+        case readDefault, readDetails, readFile, readCancelled, readWithoutTimed, readLongCommand, readBundle, readNamedBundle
         case create, createOneItem, createTwoItems, createUngrouped
         case modifyMetadata, modifyInstructionsAndGroup, modifyValue, modifySomeValues, modifyAdded, modifyRemoved, modifyMixed
-        case delete, organize, organizeExistingAndMerge, organizeTwelveSteps
+        case modifyChineseInstructions
+        case delete, organize, organizeExistingAndMerge, organizeTwelveSteps, organizeManyMoves
     }
 
     static func request(_ operation: BrokerApprovalOperation, name: String? = "Staging API",
@@ -156,6 +157,12 @@ enum ApprovalCardFixtures {
         case .readBundle:
             return .init(request: request(.read, display: display(environment: nil, files: nil)), expiresAt: expiry,
                          timedAllowanceEnabled: true, finish: { _ in })
+        case .readNamedBundle:
+            let mapping = BrokerApprovalOperationRequest.Display(commandLine: "./deploy.sh", workingDirectory: "~/web",
+                executableBasename: "deploy.sh", environmentVariables: ["RELEASE_TOKEN"], temporaryFileVariables: ["CERT_FILE"],
+                components: [.init(name: "API Token", payloadKind: .text, delivery: .environmentVariable("RELEASE_TOKEN")),
+                             .init(name: "Certificate", payloadKind: .file, delivery: .temporaryFile("CERT_FILE"))])
+            return .init(request: request(.read, display: mapping), expiresAt: expiry, timedAllowanceEnabled: true, finish: { _ in })
         case .create:
             return write(.create, createSummary)
         case .createOneItem:
@@ -178,6 +185,13 @@ enum ApprovalCardFixtures {
             return write(.modify, removedSummary)
         case .modifyMixed:
             return write(.modify, mixedSummary)
+        case .modifyChineseInstructions:
+            let summary = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
+                before: [token], after: [token], beforeDigest: "same", afterDigest: "same",
+                beforeUsageInstructions: "仅用于发布检查，不要写入日志。", // i18n-literal: Synthetic instruction diff.
+                afterUsageInstructions: "仅用于夜间发布检查，禁止写入日志。", // i18n-literal: Synthetic instruction diff.
+                beforeGroup: "Release Tools", afterGroup: "Release Tools")
+            return write(.modify, summary)
         case .delete:
             return write(.delete, deleteSummary)
         case .organize:
@@ -186,6 +200,10 @@ enum ApprovalCardFixtures {
             return organize(existingAndMerge)
         case .organizeTwelveSteps:
             return organize(twelveSteps)
+        case .organizeManyMoves:
+            return organize(BrokerOrganizationSummary(operations: (1...12).map {
+                .move(credential: "Service \($0)", from: "Staging", to: "Production")
+            }))
         }
     }
 

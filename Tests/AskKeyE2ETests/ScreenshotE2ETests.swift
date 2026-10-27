@@ -231,7 +231,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(app.buttons["approval-deny"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.buttons["approval-allow-once"].label, "Apply")
         waitForText("“E2E Agent” wants to organize your groups")
-        waitForText("6 steps, one of which merges groups, affecting 3 hidden credentials")
+        waitForText("6 steps · 1 merge")
         XCTAssertFalse(app.buttons["approval-reveal-frozen-material"].exists)
         XCTAssertFalse(app.buttons["approval-allow-timed"].exists)
         capture("16-approval-organization", approval: true)
@@ -245,11 +245,11 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(operations.exists)
         operations.scroll(byDeltaX: 0, deltaY: -600)
         waitForText("Create the group “Existing Private Services”", containing: true)
-        waitForText("This group already exists, so nothing is created or changed. It has 1 credential (1 hidden from agents).",
+        waitForText("This group already exists, so nothing is created or changed. 1 credential, hidden from agents.",
                     containing: true)
-        waitForText("E2E Agent asked to rename “Merge Source” to “Existing Merge Services”; “Existing Merge Services” already exists and is hidden from it, so the groups merge.",
+        waitForText("Merge the group “Merge Source” into “Existing Merge Services”",
                     containing: true)
-        waitForText("“Merge Source” disappears and “Existing Merge Services” will have 4 credentials (3 hidden from agents). A merge can't be undone automatically.",
+        waitForText("“E2E Agent” requested a rename; “Existing Merge Services” already exists and is hidden from “E2E Agent”. “Merge Source” disappears and “Existing Merge Services” will have 4 credentials (3 hidden from agents). A merge can't be undone automatically.",
                     containing: true)
         XCTAssertTrue(app.buttons["approval-allow-once"].isHittable)
         XCTAssertTrue(app.buttons["approval-deny"].isHittable)

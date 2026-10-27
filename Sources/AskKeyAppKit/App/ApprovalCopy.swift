@@ -24,7 +24,16 @@ enum ApprovalCopy {
         case .temporaryFile(let variable):
             return ApprovalLine(format: appLocalized("given to programs as a temporary file (path in %@)"), code: [variable])
         case .none:
-            return ApprovalLine(appLocalized("kept in Ask Key only, never given to agents"))
+            return ApprovalLine(appLocalized("stored only, not delivered to programs"))
+        }
+    }
+
+    /// Keep the catalog's Chinese terms together without changing stored copy.
+    @MainActor static func wrapping(_ text: String) -> String {
+        guard AppLanguage.store.resolved == "zh-Hans" else { return text }
+        return ["Credential", "Group", "Instructions"].reduce(text) { result, key in
+            let term = appLocalized(key)
+            return result.replacingOccurrences(of: term, with: term.map(String.init).joined(separator: "\u{2060}"))
         }
     }
 

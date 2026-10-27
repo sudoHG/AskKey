@@ -32,6 +32,7 @@ struct FrozenWriteSummaryContent: Equatable {
     let valueOnlyChange: Bool
     /// A modify that overwrites or removes values that can't be recovered.
     let isDestructive: Bool
+    let recoveryWarning: String?
 
     var valueComponents: [Component] { components.filter(\.carriesValue) }
     /// Modify: the items that change, in order; unchanged ones are left out.
@@ -61,6 +62,7 @@ struct FrozenWriteSummaryContent: Equatable {
         valueOnlyChange = componentsChanged && !instructionsChanged && !groupChanged
             && components.allSatisfy { $0.tag == .unchanged || $0.tag == .replaced }
         isDestructive = modify && components.contains { $0.tag == .replaced || $0.tag == .removed }
+        recoveryWarning = modify && !valueOnlyChange ? Self.recoveryWarning(components) : nil
         switch summary.operation {
         case .create:
             subtitle = summary.afterGroup.map { group in
@@ -74,7 +76,7 @@ struct FrozenWriteSummaryContent: Equatable {
                 : appLocalized("The old values can't be recovered")
         case .modify:
             subtitle = Self.changeSubtitle(components, instructions: instructionsChanged,
-                instructionsTextRemoved: instructionsDiff?.removedPhrases.isEmpty == false, group: groupChanged)
+                group: groupChanged)
         case .read, .delete, .organize:
             subtitle = nil
         }
@@ -111,11 +113,9 @@ struct FrozenWriteSummaryContent: Equatable {
         return rows
     }
 
-    /// What a change does, in the order replace, change, add, remove, then
-    /// which values are lost: "Replaces 1 value, changes the group; the old
-    /// value can't be recovered".
+    /// The short change summary; recovery and full instruction edits live in Details.
     private static func changeSubtitle(_ components: [Component], instructions: Bool,
-                                       instructionsTextRemoved: Bool, group: Bool) -> String {
+                                       group: Bool) -> String {
         func count(_ tag: ApprovalTag) -> Int { components.filter { $0.tag == tag }.count }
         let replaced = count(.replaced), changed = count(.changed), added = count(.new), removed = count(.removed)
         var clauses: [String] = []
@@ -130,9 +130,7 @@ struct FrozenWriteSummaryContent: Equatable {
         if instructions { changes.append(appLocalized("the instructions")) }
         if group { changes.append(appLocalized("the group")) }
         if !changes.isEmpty {
-            let clause = appLocalizedFormat("changes %@", ApprovalCopy.list(changes))
-            clauses.append(instructionsTextRemoved
-                ? appLocalizedFormat("%@ (some instruction text is deleted)", clause) : clause)
+            clauses.append(appLocalizedFormat("changes %@", ApprovalCopy.list(changes)))
         }
         if added > 0 {
             clauses.append(added == 1 ? appLocalized("adds 1 item") : appLocalizedFormat("adds %lld items", added))
@@ -141,16 +139,19 @@ struct FrozenWriteSummaryContent: Equatable {
             clauses.append(removed == 1 ? appLocalized("removes 1 item") : appLocalizedFormat("removes %lld items", removed))
         }
         guard !clauses.isEmpty else { return appLocalized("Nothing changes") }
-        let text = clauses.joined(separator: appLocalized("Clause separator"))
-        let lost: String
+        return ApprovalCopy.capitalized(clauses.joined(separator: appLocalized("Clause separator")))
+    }
+
+    private static func recoveryWarning(_ components: [Component]) -> String? {
+        let replaced = components.filter { $0.tag == .replaced }.count
+        let removed = components.filter { $0.tag == .removed }.count
         switch (replaced, removed) {
-        case (0, 0): lost = text
-        case (1, 0): lost = appLocalizedFormat("%@; the old value can't be recovered", text)
-        case (_, 0): lost = appLocalizedFormat("%@; the old values can't be recovered", text)
-        case (0, 1): lost = appLocalizedFormat("%@; the removed value can't be recovered", text)
-        case (0, _): lost = appLocalizedFormat("%@; the removed values can't be recovered", text)
-        default: lost = appLocalizedFormat("%@; the old and removed values can't be recovered", text)
+        case (0, 0): return nil
+        case (1, 0): return appLocalized("The old value can't be recovered")
+        case (_, 0): return appLocalized("The old values can't be recovered")
+        case (0, 1): return appLocalized("The removed value can't be recovered")
+        case (0, _): return appLocalized("The removed values can't be recovered")
+        default: return appLocalized("The old and removed values can't be recovered")
         }
-        return ApprovalCopy.capitalized(lost)
     }
 }

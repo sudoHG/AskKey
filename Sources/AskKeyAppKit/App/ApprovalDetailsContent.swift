@@ -16,8 +16,8 @@ struct ApprovalDetailsContent: Equatable {
         case text(String)
         case code(String)
         case lines([Line])
-        /// Removed words struck through, added words highlighted, then the
-        /// removed phrases.
+        /// Full before/after text with removed words struck through and
+        /// additions underlined.
         case diff(ApprovalTextDiff)
         /// New values, masked until viewed with another authentication.
         case revealableValue
@@ -26,6 +26,7 @@ struct ApprovalDetailsContent: Equatable {
     struct Row: Equatable {
         let label: String
         let value: Value
+        var note: String? = nil
     }
 
     let rows: [Row]
@@ -54,13 +55,17 @@ struct ApprovalDetailsContent: Equatable {
             }
         case .create, .modify, .delete:
             if let write {
-                rows += Self.writeRows(write)
+                rows += Self.writeRows(write, requester: ApprovalCopy.requester(request))
             } else if request.operation != .delete {
                 rows.append(Row(label: appLocalized("Value"), value: .revealableValue))
             }
         case .organize:
+            if let impact = organization?.impact {
+                rows.append(Row(label: appLocalized("Impact"), value: .text(impact)))
+            }
             rows += (organization?.rows ?? []).map { step in
-                Row(label: appLocalizedFormat("Step %lld", step.number),
+                Row(label: step.lastNumber.map { appLocalizedFormat("Steps %1$lld–%2$lld", step.number, $0) }
+                        ?? appLocalizedFormat("Step %lld", step.number),
                     value: .lines([Line(tag: step.tag, text: ApprovalLine(step.title), note: step.detail)]))
             }
         }
@@ -95,7 +100,7 @@ struct ApprovalDetailsContent: Equatable {
         return Line(text: ApprovalLine(format: format, plain: [name], code: [variable]), wrapsVariables: true)
     }
 
-    private static func writeRows(_ write: FrozenWriteSummaryContent) -> [Row] {
+    private static func writeRows(_ write: FrozenWriteSummaryContent, requester: String) -> [Row] {
         var rows: [Row] = []
         switch write.operation {
         case .create:
@@ -128,7 +133,12 @@ struct ApprovalDetailsContent: Equatable {
             break
         }
         if !write.valueComponents.isEmpty {
-            rows.append(Row(label: appLocalized("Value"), value: .revealableValue))
+            let names = ApprovalCopy.list(write.valueComponents.map { ApprovalCopy.quoted($0.name) })
+            rows.append(Row(label: appLocalized("Value"), value: .revealableValue,
+                note: appLocalizedFormat("Already known to %1$@: %2$@.", requester, names)))
+        }
+        if let warning = write.recoveryWarning {
+            rows.append(Row(label: appLocalized("Recovery"), value: .text(warning)))
         }
         return rows
     }
@@ -137,7 +147,7 @@ struct ApprovalDetailsContent: Equatable {
     /// for the longest label.
     static func labelWidth() -> CGFloat {
         let labels = ["Requested by", "Purpose", "Command", "Runs in", "Hands over", "Contents", "Instructions",
-                      "Changes", "Group", "Value"].map { appLocalized($0) }
+                      "Changes", "Group", "Value", "Recovery", "Impact"].map { appLocalized($0) }
             + [appLocalizedFormat("%lld minutes", 999), appLocalizedFormat("Step %lld", 64)]
         let font = NSFont.systemFont(ofSize: 12)
         return ceil(labels.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0) + 1

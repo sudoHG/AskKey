@@ -51,7 +51,7 @@ struct ApprovalLineText: View {
             result += label + AttributedString(" ")
         }
         for segment in line.segments {
-            var part = AttributedString(segment.text)
+            var part = AttributedString(segment.code ? segment.text : ApprovalCopy.wrapping(segment.text))
             if segment.code { part.font = Theme.Fonts.mono }
             result += part
         }

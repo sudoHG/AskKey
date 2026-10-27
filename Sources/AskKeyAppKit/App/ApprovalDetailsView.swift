@@ -21,7 +21,14 @@ struct ApprovalDetailsView: View {
                     Text(verbatim: row.label)
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: labelWidth, alignment: .leading)
-                    value(row.value)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        if let note = row.note {
+                            Text(verbatim: ApprovalCopy.wrapping(note))
+                                .foregroundStyle(Theme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        value(row.value)
+                    }
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -35,7 +42,7 @@ struct ApprovalDetailsView: View {
     private func value(_ value: ApprovalDetailsContent.Value) -> some View {
         switch value {
         case .text(let text):
-            Text(verbatim: text).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            Text(verbatim: ApprovalCopy.wrapping(text)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         case .code(let code):
             Text(verbatim: code).font(Theme.Fonts.mono).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         case .lines(let lines):
@@ -51,7 +58,7 @@ struct ApprovalDetailsView: View {
                             ApprovalLineText(line: line.text, tag: line.tag)
                         }
                         if let note = line.note {
-                            Text(verbatim: note)
+                            Text(verbatim: ApprovalCopy.wrapping(note))
                                 .foregroundStyle(Theme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -61,13 +68,12 @@ struct ApprovalDetailsView: View {
             .textSelection(.enabled)
         case .diff(let diff):
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                Text(Self.attributed(diff.merged)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                if !diff.removedPhrases.isEmpty {
-                    Text(verbatim: appLocalizedFormat("Removed phrases: %@",
-                        diff.removedPhrases.map(ApprovalCopy.quoted).joined(separator: appLocalized("List separator"))))
-                        .foregroundStyle(Theme.warning)
+                ForEach([false, true], id: \.self) { after in
+                    Text(appLocalized(after ? "After" : "Before"))
+                        .foregroundStyle(Theme.textSecondary)
+                    Text(Self.attributed(after ? diff.after : diff.before))
+                        .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("approval-instructions-removed")
                 }
             }
         case .revealableValue:
@@ -75,8 +81,8 @@ struct ApprovalDetailsView: View {
         }
     }
 
-    /// Removed words in red with a line through them, added words in green.
-    private static func attributed(_ runs: [ApprovalTextDiff.Run]) -> AttributedString {
+    /// Full before/after sentences retain context; marks also work without color.
+    static func attributed(_ runs: [ApprovalTextDiff.Run]) -> AttributedString {
         runs.reduce(into: AttributedString()) { result, run in
             var part = AttributedString(run.text)
             switch run.kind {
@@ -86,6 +92,8 @@ struct ApprovalDetailsView: View {
                 part.strikethroughStyle = .single
             case .added:
                 part.foregroundColor = ApprovalTag.new.color
+                part.underlineStyle = .single
+                part.font = Theme.Fonts.secondary.weight(.semibold)
             }
             result += part
         }

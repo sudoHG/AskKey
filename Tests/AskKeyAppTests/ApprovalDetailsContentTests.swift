@@ -68,14 +68,14 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
                 XCTAssertEqual(values(.create)[2], [
                     "TOKEN · given to programs as environment variable RELEASE_CHECK_TOKEN",
                     "CERT · given to programs as a temporary file (path in RELEASE_CERT_FILE)",
-                    "RECOVERY_CODE · kept in Ask Key only, never given to agents",
+                    "RECOVERY_CODE · stored only, not delivered to programs",
                 ].joined(separator: "\n"))
             } else {
                 XCTAssertEqual(labels(.create), ["请求方", "用途", "内容", "说明", "值"]) // i18n-literal: Chinese create labels.
                 XCTAssertEqual(values(.create)[2], [
                     "TOKEN · 使用时作为环境变量 RELEASE_CHECK_TOKEN 交给程序", // i18n-literal: Chinese create item.
                     "CERT · 使用时作为临时文件交给程序（路径在 RELEASE_CERT_FILE）", // i18n-literal: Chinese create item.
-                    "RECOVERY_CODE · 只存在请旨里，不交给任何 Agent", // i18n-literal: Chinese create item.
+                    "RECOVERY_CODE · 仅保存，不交给程序", // i18n-literal: Chinese create item.
                 ].joined(separator: "\n"))
             }
             XCTAssertEqual(values(.create)[3], "Use only for the release smoke check. Keep values out of logs.")
@@ -104,6 +104,7 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             let instructions = language == "en" ? "Instructions" : "说明" // i18n-literal: Chinese label.
             let group = language == "en" ? "Group" : "分组" // i18n-literal: Chinese label.
             let value = language == "en" ? "Value" : "值" // i18n-literal: Chinese label.
+            let recovery = appLocalized("Recovery")
             XCTAssertEqual(labels(.modifyMetadata), requester + [instructions])
             XCTAssertEqual(values(.modifyMetadata)[2], "diff: checks", "the diff names what was deleted")
             XCTAssertEqual(labels(.modifyInstructionsAndGroup), requester + [instructions, group])
@@ -111,8 +112,8 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             XCTAssertEqual(labels(.modifyValue), requester + [changes, value])
             XCTAssertEqual(labels(.modifySomeValues), requester + [changes, value])
             XCTAssertEqual(labels(.modifyAdded), requester + [changes, value])
-            XCTAssertEqual(labels(.modifyRemoved), requester + [changes])
-            XCTAssertEqual(labels(.modifyMixed), requester + [changes, group, value])
+            XCTAssertEqual(labels(.modifyRemoved), requester + [changes, recovery])
+            XCTAssertEqual(labels(.modifyMixed), requester + [changes, group, value, recovery])
             XCTAssertEqual([values(.modifySomeValues)[2], values(.modifyAdded)[2], values(.modifyRemoved)[2]], language == "en"
                 ? ["Replaced TOKEN", "New CERT", "Removed USER"] : ["替换 TOKEN", "新增 CERT", "移除 USER"]) // i18n-literal: Chinese change rows.
             let newGroup = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
@@ -133,14 +134,14 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
                 ? ["Requested by", "Purpose", "Contents"] : ["请求方", "用途", "内容"]) // i18n-literal: Chinese delete labels.
             XCTAssertEqual(values(.delete)[2], "TOKEN\nUSER")
             XCTAssertEqual(labels(.organize), language == "en"
-                ? ["Requested by", "Purpose", "Step 1", "Step 2", "Step 3", "Step 4"]
-                : ["请求方", "用途", "第 1 步", "第 2 步", "第 3 步", "第 4 步"]) // i18n-literal: Chinese organize labels.
-            XCTAssertEqual(values(.organize)[2], language == "en"
+                ? ["Requested by", "Purpose", "Impact", "Step 1", "Step 2", "Step 3", "Step 4"]
+                : ["请求方", "用途", "影响", "第 1 步", "第 2 步", "第 3 步", "第 4 步"]) // i18n-literal: Chinese organize labels.
+            XCTAssertEqual(values(.organize)[3], language == "en"
                 ? "Create the group “Staging Services”" : "新建分组“Staging Services”") // i18n-literal: Chinese organize step.
-            XCTAssertEqual(values(.organizeExistingAndMerge)[2], language == "en"
-                ? "No change Create the group “Existing Private Services”\nThis group already exists, so nothing is created or changed. It has 1 credential (1 hidden from agents)."
-                : "无变化 新建分组“Existing Private Services”\n这个分组已经存在，不会新建或改动任何内容。组里有 1 个凭证（其中 1 个对 Agent 隐藏）。") // i18n-literal: Chinese organize step.
-            XCTAssertEqual(labels(.organizeTwelveSteps).count, 14)
+            XCTAssertEqual(values(.organizeExistingAndMerge)[3], language == "en"
+                ? "No change Create the group “Existing Private Services”\nThis group already exists, so nothing is created or changed. 1 credential, hidden from agents."
+                : "无变化 新建分组“Existing Private Services”\n这个分组已经存在，不会新建或改动任何内容。1 个凭证，对 Agent 隐藏。") // i18n-literal: Chinese organize step.
+            XCTAssertEqual(labels(.organizeTwelveSteps).count, 15)
         }
     }
 
