@@ -196,6 +196,8 @@ public struct BrokerRequestHandler: Sendable {
             return .failure(.requestNotFound)
         } catch BrokerProviderError.resourceExhausted {
             return .failure(.resourceExhausted)
+        } catch BrokerProviderError.credentialNameConflict {
+            return .failure(.credentialNameConflict)
         } catch BrokerCancellationError.cancelled {
             return .failure(.deadlineExceeded)
         } catch {

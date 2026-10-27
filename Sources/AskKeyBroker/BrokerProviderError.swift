@@ -6,4 +6,5 @@ public enum BrokerProviderError: Error, Equatable {
     case invalidRequest
     case requestNotFound
     case resourceExhausted
+    case credentialNameConflict
 }
