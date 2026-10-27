@@ -163,7 +163,7 @@ final class ManagementWorkspaceNavigationTests: AskKeyAppTestCase {
             eraseLocalLibrary: { _, _, _ in },
             unlockVault: {},
             beginManagementSession: { _ in },
-            authenticateDeviceOwner: { _ in authenticate() },
+            authenticateDeviceOwner: { _ in authenticate().map(ManagementAuthenticationResult.authenticated) ?? .cancelled },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             managementSessionIdleLimit: managementSessionIdleLimit,

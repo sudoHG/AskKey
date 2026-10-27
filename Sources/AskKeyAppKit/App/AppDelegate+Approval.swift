@@ -11,9 +11,12 @@ extension AppDelegate {
             let reason = purpose == .readApproval
                 ? ManagementAuthenticationAction.approveRead.reasonKey
                 : ManagementAuthenticationAction.approveWrite.reasonKey
-            return ManagementAuthenticationRunner.shared.authenticateBlocking(
-                presentation: ManagementAuthenticationPresentation.current(reason: reason)
+            let attempt = ApprovalAuthenticationAttempt.current
+            let outcome = ManagementAuthenticationRunner.shared.outcomeBlocking(
+                presentation: ManagementAuthenticationPresentation.current(reason: reason),
+                cancellation: attempt?.cancellation ?? .init()
             )
+            return attempt?.record(outcome) ?? (outcome == .authenticated)
         }
         Vault.shared.approvalRequests.configureObservers(
             notify: { _ in },
@@ -51,11 +54,13 @@ extension AppDelegate {
     private func presentPendingApproval(
         operationID: String? = nil,
         cancelledAuthenticationDecision: BrokerApprovalDecision? = nil,
+        authenticationOutcome: ManagementAuthenticationOutcome? = nil,
         userInitiated: Bool = false
     ) {
         approvalPresentation.presentPendingApproval(
             operationID: operationID,
             cancelledAuthenticationDecision: cancelledAuthenticationDecision,
+            authenticationOutcome: authenticationOutcome,
             userInitiated: userInitiated
         )
     }
@@ -69,7 +74,7 @@ extension AppDelegate {
                 self?.postLockedApprovalReminder(title: title, body: body)
             },
             feedback: { [weak self] message in self?.vault.errorMessage = message },
-            present: { [weak self] pending, cancelledDecision, completion in
+            present: { [weak self] pending, cancelledDecision, outcome, completion in
                 guard let self else { return AgentApprovalPanelActions(bringForward: {}, dismiss: {}) }
                 self.resetLockedApprovalReminder()
                 return self.runFrozenApprovalPanel(
@@ -77,6 +82,7 @@ extension AppDelegate {
                     expiresAt: pending.expiresAt,
                     pending: pending,
                     cancelledAuthenticationDecision: cancelledDecision,
+                    authenticationOutcome: outcome,
                     completion: completion
                 )
             },
@@ -88,15 +94,21 @@ extension AppDelegate {
 
     private func applyApprovalDecision(pending: BrokerPendingApproval, decision: BrokerApprovalDecision) {
         let fileWrites = self.fileWriteCoordinator
+        let attempt = ApprovalAuthenticationAttempt(
+            pending: pending, requests: Vault.shared.approvalRequests,
+            screenUnlocked: { Self.screenState() == .unlocked }
+        )
         let applyDecision: @Sendable () -> Void = { [weak self, fileWrites] in
             var didFail = false
-            var authenticationCancelled = false
+            var authenticationOutcome: ManagementAuthenticationOutcome?
             do {
-                _ = try Vault.shared.decideAgentApproval(
-                    requestID: pending.requestID,
-                    capability: pending.capability,
-                    decision: decision
-                )
+                _ = try ApprovalAuthenticationAttempt.$current.withValue(attempt) {
+                    try Vault.shared.decideAgentApproval(
+                        requestID: pending.requestID,
+                        capability: pending.capability,
+                        decision: decision
+                    )
+                }
                 if decision != .deny,
                    let fileWrites,
                    let summary = try? fileWrites.summary(requestID: pending.requestID) {
@@ -108,19 +120,20 @@ extension AppDelegate {
                 }
             } catch BrokerApprovalError.authenticationFailed {
                 // The request stays pending and nothing was delivered or changed.
-                authenticationCancelled = true
+                authenticationOutcome = attempt.outcome
             } catch {
                 didFail = true
             }
             let failed = didFail
-            let cancelled = authenticationCancelled
+            let outcome = authenticationOutcome
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.approvalPresentation.decisionFinished()
-                if cancelled {
+                if let outcome {
                     self.presentPendingApproval(
                         operationID: pending.request.operationID,
-                        cancelledAuthenticationDecision: decision
+                        cancelledAuthenticationDecision: outcome == .cancelled ? decision : nil,
+                        authenticationOutcome: outcome
                     )
                 } else if failed {
                     self.vault.errorMessage = "Ask Key could not apply this decision. Open Pending requests to retry or reject it."
@@ -144,11 +157,18 @@ extension AppDelegate {
         expiresAt: Date?,
         pending: BrokerPendingApproval? = nil,
         cancelledAuthenticationDecision: BrokerApprovalDecision? = nil,
+        authenticationOutcome: ManagementAuthenticationOutcome? = nil,
         completion: @escaping @MainActor (BrokerApprovalDecision?) -> Void = { _ in }
     ) -> AgentApprovalPanelActions {
         var finished = false
         var privacyTimer: Timer?
         var resizeObserver: NSObjectProtocol?
+        let cancellation = ManagementAuthenticationCancellation {
+            Self.screenState() != .unlocked || expiresAt.map { $0 <= Date() } == true ||
+                pending.map {
+                    (try? Vault.shared.approvalRequests.status(requestID: $0.requestID, capability: $0.capability)) != .pending
+                } == true
+        }
         let contentSize = NSSize(width: FrozenAgentApprovalPrompt.width, height: 360)
         let panel = AgentApprovalPanelFactory.make(contentSize: contentSize)
         panel.titleVisibility = .hidden
@@ -161,6 +181,7 @@ extension AppDelegate {
         let finish: (BrokerApprovalDecision?) -> Void = { value in
             guard !finished else { return }
             finished = true
+            cancellation.cancel()
             privacyTimer?.invalidate()
             privacyTimer = nil
             resizeObserver.map(NotificationCenter.default.removeObserver)
@@ -195,16 +216,20 @@ extension AppDelegate {
                         let fileWrites = self.fileWriteCoordinator
                         let material = try await Task.detached(priority: .userInitiated) {
                             if let fileWrites, (try? fileWrites.summary(requestID: frozenPending.requestID)) != nil {
-                                let file = try fileWrites.reveal(requestID: frozenPending.requestID)
+                                let attempt = ApprovalAuthenticationAttempt(requestEnded: { cancellation.isCancelled })
+                                let file = try ApprovalAuthenticationAttempt.$current.withValue(attempt) {
+                                    try fileWrites.reveal(requestID: frozenPending.requestID)
+                                }
                                 return FrozenApprovalMaterial(
                                     title: file.originalFilename + " · " + String(file.byteCount) + " B",
                                     content: String(data: file.bytes, encoding: .utf8) ?? file.bytes.base64EncodedString(),
                                     encoding: String(data: file.bytes, encoding: .utf8) == nil ? "Base64" : "UTF-8"
                                 )
                             }
-                            guard ManagementAuthenticationRunner.shared.authenticateBlocking(
-                                presentation: .current(reason: ManagementAuthenticationAction.revealFrozenFile.reasonKey)
-                            ) else { throw BrokerFileWriteError.authenticationFailed }
+                            guard ManagementAuthenticationRunner.shared.outcomeBlocking(
+                                presentation: .current(reason: ManagementAuthenticationAction.revealFrozenFile.reasonKey),
+                                cancellation: cancellation
+                            ) == .authenticated else { throw BrokerFileWriteError.authenticationFailed }
                             let material = try Vault.shared.revealFrozenCredentialWrite(
                                 operationID: frozenPending.request.operationID,
                                 requestID: frozenPending.requestID,
@@ -237,6 +262,7 @@ extension AppDelegate {
                     }
                 },
                 cancelledAuthenticationDecision: cancelledAuthenticationDecision,
+                authenticationOutcome: authenticationOutcome,
                 finish: finish
             )
         )

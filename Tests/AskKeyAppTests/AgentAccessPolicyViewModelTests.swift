@@ -494,7 +494,7 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
             authenticateLocalErase: { _ in .allow },
             unlockVault: { try library.vault.unlock() },
             beginManagementSession: { try library.vault.beginManagementSession(using: $0) },
-            authenticateDeviceOwner: { _ in authenticate() },
+            authenticateDeviceOwner: { _ in authenticate().map(ManagementAuthenticationResult.authenticated) ?? .cancelled },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
             agentAccessPolicyOperations: library.operations,

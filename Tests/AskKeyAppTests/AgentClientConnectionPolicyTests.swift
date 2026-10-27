@@ -37,7 +37,7 @@ final class AgentClientConnectionPolicyTests: AgentClientConnectorTestSupport {
             runtimeFileCleanupFailures: { false },
             authenticateDeviceOwner: { _ in
                 authenticationRequests += 1
-                return .allow
+                return .authenticated(.allow)
             }
         )
         viewModel.isLocked = false

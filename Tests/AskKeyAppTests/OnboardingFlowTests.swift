@@ -18,7 +18,7 @@ final class OnboardingFlowTests: AppLanguageExperienceTestSupport {
             unlockVault: { unlockAttempts += 1 },
             authenticateDeviceOwner: { _ in
                 authenticationAttempts += 1
-                return .allow
+                return .authenticated(.allow)
             }
         )
 
@@ -52,7 +52,7 @@ final class OnboardingFlowTests: AppLanguageExperienceTestSupport {
             login: login,
             authenticateDeviceOwner: { presentation in
                 authenticationReasons.append(presentation.reason)
-                return nil
+                return .cancelled
             }
         )
         viewModel.languageMode = "zh-Hans"
@@ -80,7 +80,7 @@ final class OnboardingFlowTests: AppLanguageExperienceTestSupport {
             storedCredentialCount: { count },
             authenticateDeviceOwner: { _ in
                 authenticationAttempts += 1
-                return .allow
+                return .authenticated(.allow)
             }
         )
         XCTAssertEqual(viewModel.settingsEntryState, .empty)

@@ -180,6 +180,19 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
         XCTAssertEqual(errno, EPIPE)
     }
 
+    func testPayloadReaderLeavesTheCancellationChannelOpenAfterNewline() {
+        let expected = ManagementAuthenticationPresentation(
+            reasonKey: CredentialManagementCopy.manageReason, language: "en"
+        )
+        var framed = ManagementAuthenticationSubprocess.payloadData(presentation: expected)
+        framed.append(0x0a)
+        var chunks = [framed, Data("cancel\n".utf8)]
+        XCTAssertEqual(ManagementAuthenticationSubprocess.readPresentation(
+            language: "en", readChunk: { chunks.removeFirst() }
+        ), expected)
+        XCTAssertEqual(chunks, [Data("cancel\n".utf8)])
+    }
+
     func testOversizedPayloadIsRejectedBeforeProcessLaunch() {
         let presentation = ManagementAuthenticationPresentation(
             reasonKey: "Unlock the AskKey vault for %@",

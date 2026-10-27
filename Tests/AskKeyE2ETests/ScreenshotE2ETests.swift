@@ -3,6 +3,65 @@ import XCTest
 
 /// Optional visual evidence, run separately from the required desktop gate.
 final class ScreenshotE2ETests: E2EBaseCase {
+    func testEnglishApprovalAuthenticationFailure() throws {
+        try captureApprovalAuthentication(language: "en", failed: true)
+    }
+
+    func testChineseApprovalAuthenticationFailure() throws {
+        try captureApprovalAuthentication(language: "zh-Hans", failed: true)
+    }
+
+    func testChineseApprovalAuthenticationCancellation() throws {
+        try captureApprovalAuthentication(language: "zh-Hans", failed: false)
+    }
+
+    func testEnglishManagementAuthenticationCancellation() throws {
+        try captureManagementAuthentication(language: "en", failed: false)
+    }
+
+    func testChineseManagementAuthenticationCancellation() throws {
+        try captureManagementAuthentication(language: "zh-Hans", failed: false)
+    }
+
+    func testEnglishManagementAuthenticationFailure() throws {
+        try captureManagementAuthentication(language: "en", failed: true)
+    }
+
+    func testChineseManagementAuthenticationFailure() throws {
+        try captureManagementAuthentication(language: "zh-Hans", failed: true)
+    }
+
+    private func captureApprovalAuthentication(language: String, failed: Bool) throws {
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "approval-screenshots"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
+        app.launch()
+        _ = try waitForEvidence("approval-pending.json")
+        try sendFixtureCommand(failed ? "fail-authentication" : "cancel-authentication")
+        click("approval-allow-once")
+        let outcome = failed ? "failed" : "cancelled"
+        XCTAssertTrue(app.descendants(matching: .any)["approval-authentication-\(outcome)"]
+            .waitForExistence(timeout: 8))
+        try assertTargetExecutionCount(0)
+        capture("210-\(language)-approval-authentication-\(outcome)", approval: true)
+        click("approval-deny")
+        _ = try waitForEvidence("approval-result.json")
+    }
+
+    private func captureManagementAuthentication(language: String, failed: Bool) throws {
+        let outcome = failed ? "failed" : "cancelled"
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-authentication-\(outcome)"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
+        app.launch()
+        moveManagementAboveDock()
+        click("unlock-management")
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 8))
+        let english = failed ? "System authentication failed." : "Authentication cancelled."
+        let chinese = failed ? "\u{7cfb}\u{7edf}\u{9a8c}\u{8bc1}\u{5931}\u{8d25}\u{3002}"
+            : "\u{5df2}\u{53d6}\u{6d88}\u{9a8c}\u{8bc1}\u{3002}"
+        waitForText(language == "en" ? english : chinese)
+        capture("210-\(language)-management-authentication-\(outcome)")
+    }
+
     func testWelcomeAndManagementScreens() throws {
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-welcome"
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = "en"

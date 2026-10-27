@@ -51,7 +51,8 @@ class AppLanguageExperienceTestSupport: AskKeyAppTestCase {
         beginManagementSession: @escaping (ManagementAuthenticator) throws -> Void = { _ in },
         beginOnboardingManagementSession: @escaping () throws -> Void = {},
         storedCredentialCount: @escaping () throws -> Int = { 0 },
-        authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticator?)? = nil,
+        authenticateDeviceOwner: (@MainActor (ManagementAuthenticationPresentation) async -> ManagementAuthenticationResult)? = nil,
+        authenticationRunner: ManagementAuthenticationRunner = .shared,
         agentAccessPolicyOperations: AgentAccessPolicyOperations? = nil
     ) -> VaultViewModel {
         VaultViewModel(
@@ -62,6 +63,7 @@ class AppLanguageExperienceTestSupport: AskKeyAppTestCase {
             beginManagementSession: beginManagementSession,
             beginOnboardingManagementSession: beginOnboardingManagementSession,
             authenticateDeviceOwner: authenticateDeviceOwner,
+            authenticationRunner: authenticationRunner,
             preferences: preferences,
             loginItem: login.controller(),
             agentAccessPolicyOperations: agentAccessPolicyOperations ?? AgentAccessPolicyTestState().operations,

@@ -24,6 +24,7 @@ struct FrozenAgentApprovalPrompt: View {
     /// The approval whose system authentication was cancelled. The card keeps
     /// the same buttons in the same order and says that nothing was handed over.
     var cancelledAuthenticationDecision: BrokerApprovalDecision? = nil
+    var authenticationOutcome: ManagementAuthenticationOutcome? = nil
     var detailsExpanded = false
     let finish: (BrokerApprovalDecision?) -> Void
     @State private var showsDetails: Bool?
@@ -74,14 +75,15 @@ struct FrozenAgentApprovalPrompt: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, Theme.Spacing.md)
             }
-            if cancelledAuthenticationDecision != nil {
-                Text(appLocalized("Authentication cancelled. Nothing was handed over."))
+            if let message = authenticationMessageKey {
+                Text(appLocalized(message))
                     .font(Theme.Fonts.secondary)
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, Theme.Spacing.md)
-                    .accessibilityIdentifier("approval-authentication-cancelled")
+                    .accessibilityIdentifier(authenticationOutcome == .failed
+                        ? "approval-authentication-failed" : "approval-authentication-cancelled")
             }
             detailsToggle(expanded: expanded)
                 .padding(.top, Theme.Spacing.md)
@@ -110,6 +112,15 @@ struct FrozenAgentApprovalPrompt: View {
             .interpolation(.high)
             .frame(width: 64, height: 64)
             .accessibilityHidden(true)
+    }
+
+    var authenticationMessageKey: String? {
+        switch authenticationOutcome {
+        case .failed: "Authentication failed. Nothing was handed over."
+        case .cancelled: "Authentication cancelled. Nothing was handed over."
+        default: cancelledAuthenticationDecision != nil
+            ? "Authentication cancelled. Nothing was handed over." : nil
+        }
     }
 
     /// Title and subtitle wrap freely; they scroll only when a name is too

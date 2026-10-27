@@ -427,26 +427,32 @@ extension VaultViewModel {
     }
 
     func confirmDeviceOwner(reason: String) async -> ManagementAuthenticator? {
-        guard !Task.isCancelled else { return nil }
+        let result = await deviceOwnerAuthentication(reason: reason)
+        errorMessage = result.messageKey.map { appLocalized($0) }
+        if case .authenticated(let authenticator) = result { return authenticator }
+        return nil
+    }
+
+    func deviceOwnerAuthentication(reason: String) async -> ManagementAuthenticationResult {
+        guard !Task.isCancelled else { return .cancelled }
         let generation = managementAuthorizationGeneration
+        let id = UUID()
+        let cancellation = ManagementAuthenticationCancellation()
+        managementAuthentications[id] = cancellation
+        defer { managementAuthentications[id] = nil }
         let presentation = ManagementAuthenticationPresentation.current(reason: reason)
         if let authenticateDeviceOwner {
             let result = await authenticateDeviceOwner(presentation)
-            guard generation == managementAuthorizationGeneration, !Task.isCancelled else { return nil }
+            guard generation == managementAuthorizationGeneration,
+                  !cancellation.isCancelled, !Task.isCancelled else { return .cancelled }
             return result
         }
-        let outcome = await ManagementAuthenticationRunner.shared.authenticate(
-            presentation: presentation
+        let outcome = await authenticationRunner.authenticate(
+            presentation: presentation,
+            cancellation: cancellation
         )
-        guard generation == managementAuthorizationGeneration, !Task.isCancelled else { return nil }
-        switch outcome {
-        case .authenticated:
-            return .allow
-        case .cancelled:
-            return nil
-        case .failed:
-            errorMessage = appLocalized("System authentication failed.")
-            return nil
-        }
+        guard generation == managementAuthorizationGeneration,
+              !cancellation.isCancelled, !Task.isCancelled else { return .cancelled }
+        return ManagementAuthenticationResult(outcome)
     }
 }

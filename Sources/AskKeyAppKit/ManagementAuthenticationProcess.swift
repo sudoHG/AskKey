@@ -79,7 +79,7 @@ package struct ManagementAuthenticationPresentation: Equatable, Sendable {
     }
 }
 
-enum ManagementAuthenticationOutcome: String, Codable, Equatable, Sendable {
+package enum ManagementAuthenticationOutcome: String, Codable, Equatable, Sendable {
     case authenticated
     case cancelled
     case failed
@@ -102,7 +102,7 @@ struct ManagementAuthenticationDescription: Codable, Equatable, Sendable {
     let normalRuntimeInitialized: Bool
 }
 
-private struct ManagementAuthenticationResponse: Codable {
+struct ManagementAuthenticationResponse: Codable {
     let outcome: ManagementAuthenticationOutcome
 }
 
@@ -113,6 +113,7 @@ private struct ManagementAuthenticationPayload: Codable {
 
 enum ManagementAuthenticationSubprocess {
     static let policy = LAPolicy.deviceOwnerAuthentication
+    @MainActor private static var finished = false
 
     private static let authenticateFlag = "--askkey-authenticate"
     private static let describeFlag = "--askkey-authenticate-describe"
@@ -197,6 +198,18 @@ enum ManagementAuthenticationSubprocess {
         // prompt has focus and the sensor is ready without an extra click; the
         // parent also yields activation to this process when it is active.
         NSApp.activate(ignoringOtherApps: true)
+        let completion = ManagementAuthenticationChildCompletion(invalidate: { context.invalidate() }) { outcome in
+            writeAndTerminate(ManagementAuthenticationResponse(outcome: outcome))
+        }
+        // The payload ends with a newline; stdin then becomes a cancellation
+        // channel. EOF also cancels if the parent exits unexpectedly.
+        FileHandle.standardInput.readabilityHandler = { input in
+            _ = input.availableData
+            input.readabilityHandler = nil
+            DispatchQueue.main.async {
+                completion.finish(.cancelled)
+            }
+        }
         context.evaluatePolicy(
             policy,
             localizedReason: presentation.reason
@@ -210,7 +223,7 @@ enum ManagementAuthenticationSubprocess {
                 outcome = .failed
             }
             DispatchQueue.main.async {
-                writeAndTerminate(ManagementAuthenticationResponse(outcome: outcome))
+                completion.finish(outcome)
             }
         }
         return true
@@ -237,7 +250,7 @@ enum ManagementAuthenticationSubprocess {
     static func readPresentation(
         language: String,
         readChunk: () throws -> Data? = {
-            try FileHandle.standardInput.read(upToCount: maximumPayloadBytes + 1)
+            try FileHandle.standardInput.read(upToCount: 1)
         }
     ) -> ManagementAuthenticationPresentation? {
         var data = Data()
@@ -248,6 +261,7 @@ enum ManagementAuthenticationSubprocess {
                 data.append(chunk)
                 chunk.resetBytes(in: chunk.startIndex..<chunk.endIndex)
                 guard data.count <= maximumPayloadBytes else { return nil }
+                if data.last == 0x0a { break }
             }
         } catch {
             return nil
@@ -286,6 +300,9 @@ enum ManagementAuthenticationSubprocess {
 
     @MainActor
     private static func writeAndTerminate<T: Encodable>(_ value: T) {
+        guard !finished else { return }
+        finished = true
+        FileHandle.standardInput.readabilityHandler = nil
         if let data = try? JSONEncoder().encode(value) {
             try? FileHandle.standardOutput.write(contentsOf: data)
         }
@@ -295,208 +312,4 @@ enum ManagementAuthenticationSubprocess {
         }
         NSApp.terminate(nil)
     }
-}
-
-final class ManagementAuthenticationRunner: @unchecked Sendable {
-    static let shared = ManagementAuthenticationRunner()
-
-    /// True while a Touch ID prompt process is running. The app ignores the
-    /// focus changes it causes, so the Dock icon does not flicker.
-    static var isPromptShowing: Bool { promptCount.value > 0 }
-    private static let promptCount = PromptCounter()
-
-    private let queue = DispatchQueue(label: "com.sudohg.askkey.authentication")
-    private let executableURL: URL?
-    private let timeout: TimeInterval
-    private let terminationGrace: TimeInterval
-    private let focus: ManagementAuthenticationFocus
-
-    init(
-        executableURL: URL? = nil,
-        timeout: TimeInterval = 5 * 60,
-        terminationGrace: TimeInterval = 0.2,
-        focus: ManagementAuthenticationFocus = .application
-    ) {
-        self.executableURL = executableURL
-        self.focus = focus
-        self.timeout = timeout > 0 ? timeout : 5 * 60
-        self.terminationGrace = terminationGrace >= 0 ? terminationGrace : 0.2
-    }
-
-    func authenticate(
-        presentation: ManagementAuthenticationPresentation
-    ) async -> ManagementAuthenticationOutcome {
-        await withCheckedContinuation { continuation in
-            queue.async {
-                continuation.resume(returning: self.run(presentation: presentation))
-            }
-        }
-    }
-
-    func authenticateBlocking(
-        presentation: ManagementAuthenticationPresentation
-    ) -> Bool {
-        guard !Thread.isMainThread else { return false }
-        return queue.sync { run(presentation: presentation) == .authenticated }
-    }
-
-    private func run(
-        presentation: ManagementAuthenticationPresentation
-    ) -> ManagementAuthenticationOutcome {
-        guard let executable = executableURL ?? Bundle.main.executableURL else { return .failed }
-        guard ManagementAuthenticationSubprocess.payloadIsWithinLimit(
-            presentation: presentation
-        ) else { return .failed }
-        let process = Process()
-        let wasActive = ActivationFlag()
-        Self.promptCount.increment()
-        // Return focus to the app only when the prompt took it from the app,
-        // not when an approval was answered from another app. The Touch ID
-        // sheet belongs to the system (coreautha); see ManagementAuthenticationFocus.
-        let focus = self.focus
-        defer {
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    Self.promptCount.decrement()
-                    NotificationCenter.default.post(name: .managementAuthenticationPromptDidEnd, object: nil)
-                    guard wasActive.isSet else { return }
-                    focus.activate()
-                    // The system may hand focus to the next app only after the
-                    // sheet finishes closing; ask again if that happened.
-                    for delay in focus.retryDelays {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                            MainActor.assumeIsolated {
-                                if !focus.isActive() { focus.activate() }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        process.executableURL = executable
-        process.arguments = ManagementAuthenticationSubprocess.arguments(
-            language: presentation.language,
-            describeOnly: false
-        )
-        let input = Pipe()
-        let output = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-        guard Self.suppressSIGPIPE(
-            fileDescriptor: input.fileHandleForWriting.fileDescriptor
-        ) else { return .failed }
-        var payloadData = ManagementAuthenticationSubprocess.payloadData(
-            presentation: presentation
-        )
-        defer { payloadData.resetBytes(in: payloadData.startIndex..<payloadData.endIndex) }
-        do {
-            try process.run()
-            let pid = process.processIdentifier
-            // Record focus and yield it before the prompt process receives its
-            // payload, so it cannot activate first. Bounded in case the main
-            // thread is busy.
-            let handedOver = DispatchSemaphore(value: 0)
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    defer { handedOver.signal() }
-                    guard focus.isActive() else { return }
-                    wasActive.set()
-                    focus.yield(pid)
-                }
-            }
-            _ = handedOver.wait(timeout: .now() + 2)
-            try input.fileHandleForWriting.write(contentsOf: payloadData)
-            try input.fileHandleForWriting.close()
-        } catch {
-            try? input.fileHandleForWriting.close()
-            stop(process)
-            return .failed
-        }
-        waitWhileRunning(process, until: Date().addingTimeInterval(timeout))
-        if process.isRunning {
-            stop(process)
-            return .failed
-        }
-        process.waitUntilExit()
-        guard process.terminationStatus == 0,
-              let response = try? JSONDecoder().decode(
-                ManagementAuthenticationResponse.self,
-                from: output.fileHandleForReading.readDataToEndOfFile()
-              ) else {
-            return .failed
-        }
-        return response.outcome
-    }
-
-    private func waitWhileRunning(_ process: Process, until deadline: Date) {
-        while process.isRunning, Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.01)
-        }
-    }
-
-    private func stop(_ process: Process) {
-        guard process.isRunning else { return }
-        process.terminate()
-        waitWhileRunning(process, until: Date().addingTimeInterval(terminationGrace))
-        if process.isRunning {
-            kill(process.processIdentifier, SIGKILL)
-            waitWhileRunning(process, until: Date().addingTimeInterval(terminationGrace))
-        }
-    }
-
-    static func suppressSIGPIPE(fileDescriptor: Int32) -> Bool {
-        fcntl(fileDescriptor, F_SETNOSIGPIPE, 1) == 0
-    }
-}
-
-/// Records, from the main thread, whether the app was active when the
-/// authentication prompt started.
-private final class ActivationFlag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value = false
-
-    var isSet: Bool { lock.withLock { value } }
-
-    func set() { lock.withLock { value = true } }
-}
-
-/// How the runner hands focus to the Touch ID prompt and takes it back.
-/// Injected so tests can check these decisions without a real application.
-struct ManagementAuthenticationFocus: Sendable {
-    var isActive: @MainActor @Sendable () -> Bool
-    var yield: @MainActor @Sendable (pid_t) -> Void
-    /// Must ignore other apps: when the system sheet closes, macOS has already
-    /// activated the next app and refuses a cooperative request.
-    var activate: @MainActor @Sendable () -> Void
-    var retryDelays: [TimeInterval]
-
-    // NSApp is nil when the runner is exercised without an application.
-    static let application = ManagementAuthenticationFocus(
-        isActive: { (NSApp as NSApplication?)?.isActive ?? false },
-        yield: { pid in
-            guard let app = NSApp as NSApplication?,
-                  let prompt = NSRunningApplication(processIdentifier: pid) else { return }
-            app.yieldActivation(to: prompt)
-        },
-        activate: { (NSApp as NSApplication?)?.activate(ignoringOtherApps: true) },
-        retryDelays: [0.25, 0.75]
-    )
-}
-
-/// Counts running Touch ID prompts; incremented on the worker queue and
-/// decremented on the main queue, so overlapping prompts never clear each other.
-private final class PromptCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var count = 0
-
-    var value: Int { lock.withLock { count } }
-
-    func increment() { lock.withLock { count += 1 } }
-
-    func decrement() { lock.withLock { count = max(0, count - 1) } }
-}
-
-extension Notification.Name {
-    static let managementAuthenticationPromptDidEnd = Notification.Name("ManagementAuthenticationPromptDidEnd")
 }

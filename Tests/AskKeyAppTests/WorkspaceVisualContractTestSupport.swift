@@ -92,7 +92,7 @@ class WorkspaceVisualContractTestSupport: AskKeyAppTestCase {
             runtimeFileCleanupFailures: { false },
             accessRecords: .empty,
             eraseLocalLibrary: { _, _, _ in },
-            authenticateDeviceOwner: { _ in .allow },
+            authenticateDeviceOwner: { _ in .authenticated(.allow) },
             preferences: AppPreferences(defaults: defaults),
             loginItem: LoginItemController(isEnabled: { true }, setEnabled: { _ in }),
             agentAccessPolicyOperations: agentAccessPolicyOperations ?? AgentAccessPolicyTestState().operations,
