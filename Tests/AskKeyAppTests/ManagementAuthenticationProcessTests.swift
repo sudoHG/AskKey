@@ -193,6 +193,25 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
         XCTAssertEqual(chunks, [Data("cancel\n".utf8)])
     }
 
+    func testNewlineFramingPreservesTheMaximumPayloadBoundary() {
+        let empty = ManagementAuthenticationPresentation(
+            reasonKey: ManagementAuthenticationAction.legacyUnlock.reasonKey,
+            reasonArguments: [""], language: "en"
+        )
+        let overhead = ManagementAuthenticationSubprocess.payloadData(presentation: empty).count
+        for excess in [0, 1] {
+            let expected = ManagementAuthenticationPresentation(
+                reasonKey: empty.reasonKey,
+                reasonArguments: [String(repeating: "x", count: 16 * 1024 - overhead + excess)], language: "en"
+            )
+            var framed = ManagementAuthenticationSubprocess.payloadData(presentation: expected)
+            XCTAssertEqual(framed.count, 16 * 1024 + excess)
+            framed.append(0x0a)
+            let decoded = ManagementAuthenticationSubprocess.readPresentation(language: "en", readChunk: { framed })
+            XCTAssertEqual(decoded, excess == 0 ? expected : nil)
+        }
+    }
+
     func testOversizedPayloadIsRejectedBeforeProcessLaunch() {
         let presentation = ManagementAuthenticationPresentation(
             reasonKey: "Unlock the AskKey vault for %@",

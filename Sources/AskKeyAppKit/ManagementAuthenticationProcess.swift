@@ -260,8 +260,10 @@ enum ManagementAuthenticationSubprocess {
                 if chunk.isEmpty { break }
                 data.append(chunk)
                 chunk.resetBytes(in: chunk.startIndex..<chunk.endIndex)
+                let framed = data.last == 0x0a
+                if framed { data.removeLast() }
                 guard data.count <= maximumPayloadBytes else { return nil }
-                if data.last == 0x0a { break }
+                if framed { break }
             }
         } catch {
             return nil
