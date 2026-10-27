@@ -76,7 +76,7 @@ final class ClaudeCodeWriteTimeoutTests: AskKeyAppTestCase {
                 AgentOnboardingCopy.message(for: .claudeCode, failure: .claudeWriteTimedOut($0), change: AgentChangeStatus($0))
             }
             XCTAssertEqual(Set(messages).count, 3)
-            let nextStep = language == "en" ? "check again" : "\u{518D}\u{6B21}\u{68C0}\u{67E5}"
+            let nextStep = language == "en" ? "check again" : "\u{91CD}\u{65B0}\u{68C0}\u{67E5}"
             for message in messages {
                 XCTAssertTrue(message.contains("Claude Code"))
                 XCTAssertTrue(message.lowercased().contains(nextStep))
