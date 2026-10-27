@@ -55,6 +55,7 @@ package final class VaultViewModel {
     var credentialAccessRecords: [CredentialAccessEvent] = []
     package var hasManagementSession = false
     var isAgentAccessPaused = false
+    var componentMetadataFailure: ComponentMetadataUpgradeError?
     private(set) var agentAccessPolicy = AgentAccessPolicy.defaults
     private(set) var agentAccessPolicyNeedsRecovery = false
     private(set) var agentAccessPolicyReadFailure: AgentAccessPolicyReadFailure?
@@ -143,6 +144,10 @@ package final class VaultViewModel {
     }
 
     var agentAccessPolicyNotice: String? {
+        if let componentMetadataFailure {
+            return hasManagementSession ? UserFacingCopy.message(for: componentMetadataFailure)
+                : appLocalized("Unavailable: component metadata needs attention. Review the library before retrying Agent access.")
+        }
         var messages: [String] = []
         if let failure = agentAccessPolicyReadFailure {
             messages.append(appLocalized(failure.messageKey))
@@ -431,6 +436,7 @@ package final class VaultViewModel {
     // MARK: - Data loading
 
     func refreshAgentAccessPauseState() {
+        componentMetadataFailure = credentialMutations.componentMetadataIssue()
         do {
             // Erase can remove the policy snapshot before its journal clears.
             if let isPaused = agentAccessPolicyOperations.isPaused {

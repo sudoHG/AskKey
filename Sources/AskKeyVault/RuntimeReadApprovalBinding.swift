@@ -16,7 +16,8 @@ struct RuntimeReadApprovalBinding: Encodable {
         encoder.outputFormatting = [.sortedKeys]
         // Unavailable metadata still permits an approval to be denied, but can
         // never pass the post-approval projection check.
-        metadataDigest = try metadata.map { Self.digest(try encoder.encode($0)) } ?? "unavailable"
+        metadataDigest = try metadata.map { Self.digest(try encoder.encode($0)) }
+            ?? Self.digest(Data("AskKey unavailable component metadata v1".utf8))
     }
 
     func payloadDigest() throws -> String {

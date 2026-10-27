@@ -320,19 +320,19 @@ enum VaultBootstrap {
     /// askkey-0002 existed is at the baseline identifier with its seed.
     /// The expected value comes from the real migrator at the same
     /// identifiers. Any extra row or other schema disqualifies it.
+    /// Empty 0003 contents may additionally contain only the structurally
+    /// well-formed completion marker; its lost key cannot authenticate it.
     static func requireUnfinishedFirstCreation(_ db: Database) throws {
         let target: String
         switch try CurrentLibrarySchema.opening(db) {
         case .baseline: target = CurrentLibrarySchema.baselineIdentifier
         case .preMetadata: target = CurrentLibrarySchema.dropLegacyTablesIdentifier
-        // A completed 0003 library has an authenticated marker; without its
-        // key it cannot prove first-creation contents and must not be discarded.
-        case .current: throw VaultBootstrapError.missingKey
+        case .current: target = CurrentLibrarySchema.componentMetadataIdentifier
         case .legacyV15: throw VaultBootstrapError.missingKey
         }
         let expected = try DatabaseQueue()
         defer { try? expected.close() }
-        try CurrentLibrarySchema.migrator().migrate(expected, upTo: target)
+        try CurrentLibrarySchema.migrator(componentMetadataKey: VaultCrypto.generateKey()).migrate(expected, upTo: target)
         guard try CurrentLibrarySchema.normalizedSchema(db) == expected.read(CurrentLibrarySchema.normalizedSchema),
               try FirstCreationContents(db) == expected.read(FirstCreationContents.init) else {
             throw VaultBootstrapError.missingKey
@@ -384,7 +384,14 @@ enum VaultBootstrap {
             }
             var values: [String: DatabaseValue] = [:]
             for row in try Row.fetchAll(db, sql: "SELECT key, value FROM config") {
-                values[row["key"]] = Self.abstracted(row["value"], seed: projectID)
+                let key: String = row["key"]
+                if key == VaultStore.componentMetadataCompletionKey {
+                    let marker: String = row["value"]
+                    guard VaultStore.isWellFormedComponentMetadataCompletionMarker(marker) else {
+                        throw VaultBootstrapError.missingKey
+                    }
+                    values[key] = "\u{0}component-metadata-completion".databaseValue
+                } else { values[key] = Self.abstracted(row["value"], seed: projectID) }
             }
             config = values
         }

@@ -4,6 +4,37 @@ import XCTest
 
 @MainActor
 final class ComponentMetadataManagementTests: AskKeyAppTestCase {
+    func testEmptyIntegrityAndStorageMessagesHaveNoEmptyCredentialListAndDeletionAdviceIsExplicit() {
+        ApprovalCardFixtures.withLanguages { language in
+            let integrity = UserFacingCopy.message(for: ComponentMetadataUpgradeError(reason: .integrity, credentialNames: []))
+            XCTAssertFalse(integrity.contains("Affected credentials:"))
+            XCTAssertFalse(integrity.contains("%@"))
+            let backfill = UserFacingCopy.message(for: ComponentMetadataUpgradeError(reason: .backfill, credentialNames: ["Synthetic API"]))
+            let storage = UserFacingCopy.message(for: ComponentMetadataUpgradeError(reason: .storage, credentialNames: []))
+            if language == "en" {
+                XCTAssertTrue(backfill.contains("permanently from the Recycle Bin"))
+                XCTAssertTrue(storage.contains("Check available disk space"))
+                XCTAssertTrue(storage.contains("Do not delete credentials"))
+            } else {
+                XCTAssertTrue(backfill.contains("回收站中永久删除")) // i18n-literal: Match the product Recycle Bin label.
+                XCTAssertTrue(storage.contains("不要通过删除凭证")) // i18n-literal: Storage failures never blame credentials.
+            }
+        }
+    }
+
+    func testMetadataFailureBlocksResumeBeforeAuthenticationOrPolicyMutation() async throws {
+        let issue = ComponentMetadataUpgradeError(reason: .backfill, credentialNames: ["Synthetic API"])
+        let model = try NoticeLayoutFixtures.Model(language: "en", state: .management, recovery: false, broker: false, metadataIssue: issue)
+        defer { model.close() }
+        await model.vault.resumeAgentAccess()
+        XCTAssertEqual(model.vault.componentMetadataFailure, issue)
+        XCTAssertFalse(model.vault.agentAccessPolicyNeedsRecovery)
+        XCTAssertEqual(model.vault.errorMessage, UserFacingCopy.message(for: issue))
+        model.vault.hasManagementSession = false
+        XCTAssertFalse(model.vault.agentAccessPolicyNotice?.contains("Synthetic API") ?? true,
+            "Locked metadata notices never expose credential display names")
+    }
+
     func testManagementRetainsRowsAndShowsActionableLocalizedMetadataFailureWithoutPolicyRecovery() throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }

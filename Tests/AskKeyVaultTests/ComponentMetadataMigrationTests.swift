@@ -160,7 +160,7 @@ final class ComponentMetadataMigrationTests: AgentTextWriteTestSupport {
         XCTAssertFalse(issue.localizedDescription.contains("synthetic-private-value"))
         XCTAssertFalse(issue.localizedDescription.contains("PRIVATE_MAPPING"))
         XCTAssertFalse(try vault.agentAccessPolicyState().needsRecovery)
-        XCTAssertThrowsError(try vault.brokerCredentialCatalog()) { XCTAssertTrue($0 is ComponentMetadataUpgradeError) }
+        XCTAssertThrowsError(try vault.brokerCredentialCatalog()) { XCTAssertEqual($0 as? BrokerProviderError, .agentAccessPaused) }
         try store.db.read(Self.v032HistoryGate)
         try vault.beginManagementSession(using: .allow)
         XCTAssertEqual(try vault.listTextCredentials().count, 1)
@@ -244,7 +244,7 @@ final class ComponentMetadataMigrationTests: AgentTextWriteTestSupport {
             XCTAssertFalse(vault.isLocked)
             try vault.beginManagementSession(using: .allow)
             XCTAssertNoThrow(try vault.listTextCredentials())
-            XCTAssertThrowsError(try vault.brokerCredentialCatalog()) { XCTAssertTrue($0 is ComponentMetadataUpgradeError) }
+            XCTAssertThrowsError(try vault.brokerCredentialCatalog()) { XCTAssertEqual($0 as? BrokerProviderError, .agentAccessPaused) }
         }
     }
 
@@ -257,7 +257,7 @@ final class ComponentMetadataMigrationTests: AgentTextWriteTestSupport {
         XCTAssertEqual(try harness.databaseBytes(), before)
     }
 
-    func testCompletedEmptyLibraryWithoutItsKeyCannotBeDiscardedAsFirstCreation() throws {
+    func testCompletedEmptyLibraryWithOnlyAWellFormedMarkerCanBeRecreatedWithoutItsKey() throws {
         let harness = try makeHarness { _ in true }
         let paths = VaultBootstrapPaths(directory: harness.databaseURL.deletingLastPathComponent().appendingPathComponent("bootstrap"))
         let keys = MemoryAppKeyStore()
@@ -266,14 +266,100 @@ final class ComponentMetadataMigrationTests: AgentTextWriteTestSupport {
         try opened.store.close()
         let before = try Data(contentsOf: paths.currentDatabase)
         keys.pendingKey = keys.appKey
+        let originalKey = keys.appKey
         keys.appKey = nil
-        let mutations = keys.mutations
-        XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)) {
-            XCTAssertEqual($0 as? VaultBootstrapError, .missingKey)
+        let recreated = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+        defer { try? recreated.store.close() }
+        XCTAssertTrue(recreated.created)
+        XCTAssertNotEqual(keys.appKey, originalKey)
+        XCTAssertNil(keys.pendingKey)
+        XCTAssertNotEqual(try Data(contentsOf: paths.currentDatabase), before)
+        XCTAssertNil(recreated.store.componentMetadataIssue)
+    }
+
+    func testStorageFailureIsNotAProjectionProblemAndLeavesManagementUsable() throws {
+        let harness = try makeHarness { _ in true }
+        _ = try createLegacyMaterials(in: harness)
+        let url = try legacyLibrary(legacyRecords(harness), harness: harness)
+        let store = try VaultStore(path: url.path)
+        defer { try? store.close() }
+        try store.db.write { db in
+            try db.execute(sql: """
+                CREATE TEMP TRIGGER fail_storage BEFORE UPDATE ON credentials
+                BEGIN SELECT RAISE(ABORT, 'synthetic storage failure'); END
+                """)
         }
-        XCTAssertEqual(try Data(contentsOf: paths.currentDatabase), before)
-        XCTAssertEqual(keys.mutations, mutations)
-        XCTAssertNotNil(keys.pendingKey)
+        let vault = Vault(store: store, key: harness.key)
+        XCTAssertEqual(vault.componentMetadataIssue?.reason, .storage)
+        XCTAssertEqual(vault.componentMetadataIssue?.credentialNames, [])
+        XCTAssertTrue(vault.componentMetadataIssue?.localizedDescription.contains("Do not delete credentials") == true)
+        XCTAssertFalse(vault.isLocked)
+        try vault.beginManagementSession(using: .allow)
+        XCTAssertEqual(try vault.listTextCredentials().count, 3)
+        try store.db.read(Self.v032HistoryGate)
+        XCTAssertThrowsError(try vault.brokerCredentialCatalog()) { XCTAssertEqual($0 as? BrokerProviderError, .agentAccessPaused) }
+    }
+
+    func testSQLiteFullDuringMetadataWriteHasStorageCauseAndRollsBackMigration() throws {
+        let harness = try makeHarness { _ in true }
+        let input = (0..<64).map { index in
+            CredentialComponentInput(name: "Part \(index)", value: .text("synthetic"),
+                delivery: .environmentVariable("V\(index)_" + String(repeating: "A", count: 3500)))
+        }
+        _ = try harness.vault.createBundleCredential(.init(name: "Large mappings", components: input), using: .allow)
+        let url = try legacyLibrary(legacyRecords(harness), harness: harness)
+        let store = try VaultStore(path: url.path)
+        defer { try? store.close() }
+        try store.db.writeWithoutTransaction { db in
+            let pages = try XCTUnwrap(Int.fetchOne(db, sql: "PRAGMA page_count"))
+            try db.execute(sql: "PRAGMA max_page_count = \(pages)")
+        }
+        XCTAssertThrowsError(try store.migrate(componentMetadataKey: harness.key)) {
+            XCTAssertEqual(($0 as? DatabaseError)?.resultCode.rawValue, SQLITE_FULL)
+        }
+        try store.prepareComponentMetadata(using: harness.key)
+        XCTAssertEqual(store.componentMetadataIssue?.reason, .storage)
+        try store.db.read { db in
+            XCTAssertEqual(try CurrentLibrarySchema.opening(db), .preMetadata)
+            XCTAssertNil(try ConfigRecord.fetchOne(db, key: VaultStore.componentMetadataCompletionKey))
+        }
+    }
+
+    func testPreexistingCompletionMarkerIn0002IsAnIntegrityError() throws {
+        for marker in ["synthetic-invalid", try VaultCrypto.encrypt("AskKey component metadata complete v1", using: VaultCrypto.generateKey()).base64EncodedString()] {
+            let harness = try makeHarness { _ in true }
+            _ = try createLegacyMaterials(in: harness)
+            let url = try legacyLibrary(legacyRecords(harness), harness: harness)
+            let store = try VaultStore(path: url.path)
+            defer { try? store.close() }
+            try store.setConfigValue(key: VaultStore.componentMetadataCompletionKey, value: marker)
+            try store.prepareComponentMetadata(using: harness.key)
+            XCTAssertEqual(store.componentMetadataIssue?.reason, .integrity)
+            XCTAssertEqual(try store.configValue(key: VaultStore.componentMetadataCompletionKey), marker)
+            try store.db.read(Self.v032HistoryGate)
+        }
+    }
+
+    func testMalformedMarkerOrExtraContentStillPreventsUnkeyedDiscard() throws {
+        for variant in ["malformed", "extra-config", "credential"] {
+            let harness = try makeHarness { _ in true }
+            let paths = VaultBootstrapPaths(directory: harness.databaseURL.deletingLastPathComponent().appendingPathComponent("bootstrap"))
+            let keys = MemoryAppKeyStore()
+            let opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys)
+            if variant == "malformed" { try opened.store.setConfigValue(key: VaultStore.componentMetadataCompletionKey, value: "invalid") }
+            if variant == "extra-config" { try opened.store.setConfigValue(key: "unknown", value: "synthetic") }
+            if variant == "credential" {
+                let vault = Vault(store: opened.store, key: opened.key)
+                try vault.beginManagementSession(using: .allow)
+                _ = try vault.createTextCredential(.init(name: "Keep", value: "synthetic"), using: .allow)
+            }
+            try opened.store.close()
+            keys.pendingKey = keys.appKey
+            keys.appKey = nil
+            let before = try Data(contentsOf: paths.currentDatabase)
+            XCTAssertThrowsError(try VaultBootstrap.openCurrent(paths: paths, keyStore: keys))
+            XCTAssertEqual(try Data(contentsOf: paths.currentDatabase), before)
+        }
     }
 
     private static func v032HistoryGate(_ db: Database) throws {

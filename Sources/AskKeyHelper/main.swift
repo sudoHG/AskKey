@@ -109,7 +109,7 @@ do {
 } catch {
     FileHandle.standardError.write(Data((error.localizedDescription + "\n").utf8))
     if case BrokerSocketError.brokerFailure(.agentAccessPaused) = error {
-        FileHandle.standardError.write(Data("Ask the user to choose Resume Agent Access in Ask Key.\n".utf8))
+        FileHandle.standardError.write(Data((AgentUsageGuide.pausedAccessRecovery + "\n").utf8))
     }
     exit(EXIT_FAILURE)
 }

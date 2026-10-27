@@ -43,13 +43,13 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
                     "./deploy.sh --env staging", "~/web", "Staging API → environment variable STAGING_API_TOKEN", scope])
                 XCTAssertEqual(values(.readFile)[4], "Staging API → temporary file STAGING_CERT_FILE")
                 XCTAssertEqual(values(.readBundle)[4],
-                    "The items of “Staging API” that are set to be given to programs (names are shown after you approve)")
+                    "The delivery mapping is unavailable. This run will be refused. Choose Deny.")
             } else {
                 XCTAssertEqual(labels(.readDefault), ["请求方", "用途", "命令", "运行目录", "交出", "30 分钟"]) // i18n-literal: Chinese read labels.
                 XCTAssertEqual(values(.readDefault), ["Claude Code（未核实）", "Deploy the staging site（未核实）", // i18n-literal: Chinese read values.
                     "./deploy.sh --env staging", "~/web", "Staging API → 环境变量 STAGING_API_TOKEN", scope]) // i18n-literal: Chinese read values.
                 XCTAssertEqual(values(.readFile)[4], "Staging API → 临时文件 STAGING_CERT_FILE") // i18n-literal: Chinese file row.
-                XCTAssertEqual(values(.readBundle)[4], "“Staging API”里设为交给程序的所有项（具体名称批准后才能看到）") // i18n-literal: Chinese bundle row.
+                XCTAssertEqual(values(.readBundle)[4], "交付映射不可用。本次运行将被拒绝，请选择“拒绝”。") // i18n-literal: Chinese unavailable mapping warning.
             }
             XCTAssertEqual(rows(.readDefault)[2].value, .code("./deploy.sh --env staging"), "the command is monospaced")
             XCTAssertEqual(rows(.readDefault)[3].value, .code("~/web"))

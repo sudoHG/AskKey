@@ -16,14 +16,19 @@ final class BundleApprovalRenderTests: AskKeyAppTestCase {
         NSApp.applicationIconImage = try XCTUnwrap(NSImage(contentsOf: root.appendingPathComponent("assets/AppIcon.icon/Assets/AppIcon.png")))
         defer { NSApp.applicationIconImage = previousIcon }
         try ApprovalCardFixtures.withLanguages { language in
-            for variant in ["mapped", "undelivered", "long-list", "long-word"] {
+            for variant in ["mapped", "undelivered", "long-list", "long-word", "unavailable"] {
                 let library = try AgentAccessPolicyTestLibrary(
                     approvalRequests: BrokerApprovalStateMachine(authenticate: { _ in true }))
                 defer { try? library.close() }
                 try library.vault.beginManagementSession(using: .allow)
                 let components = Self.components(variant)
-                _ = try library.vault.createBundleCredential(
+                let created = try library.vault.createBundleCredential(
                     .init(name: "Release Tools", components: components), using: .allow)
+                if variant == "unavailable" {
+                    var record = try XCTUnwrap(library.vault.store.fetchCredential(id: created.id))
+                    record.encryptedComponentMetadata = nil
+                    try library.vault.store.updateCredential(record)
+                }
                 let run = BrokerTextRunRequest(operationID: "synthetic-\(language)-\(variant)",
                     command: ["./deploy.sh", "--environment", "staging"], credentialNames: ["Release Tools"],
                     workingDirectory: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("staging").path,
@@ -33,16 +38,23 @@ final class BundleApprovalRenderTests: AskKeyAppTestCase {
                 }
                 let request = try XCTUnwrap(library.vault.approvalRequests.pendingRequests().first?.request)
                 let display = try XCTUnwrap(request.display)
-                XCTAssertEqual(display.environmentVariables?.count, variant == "long-list" ? 24 : 3)
-                XCTAssertEqual(display.temporaryFileVariables, ["RELEASE_CERT_FILE"])
+                if variant == "unavailable" {
+                    XCTAssertNil(display.environmentVariables)
+                    XCTAssertNil(display.temporaryFileVariables)
+                    XCTAssertNil(display.components)
+                } else {
+                    XCTAssertEqual(display.environmentVariables?.count, variant == "long-list" ? 24 : 3)
+                    XCTAssertEqual(display.temporaryFileVariables, ["RELEASE_CERT_FILE"])
+                    XCTAssertEqual(display.components?.map(\.name), components.filter { $0.delivery != .none }.map(\.name))
+                }
                 XCTAssertFalse(String(describing: display).contains("LOCAL_RECOVERY_CODE"))
                 XCTAssertFalse(String(describing: display).contains("synthetic-value"))
-                XCTAssertEqual(display.components?.map(\.name), components.filter { $0.delivery != .none }.map(\.name))
                 for expanded in [false, true] {
                     let prompt = FrozenAgentApprovalPrompt(request: request, trustedCredentialName: "Release Tools",
                         expiresAt: Date(timeIntervalSinceNow: 300), timedAllowanceEnabled: true,
                         detailsExpanded: expanded, finish: { _ in XCTFail("Rendering must never decide") })
                     let panel = Self.panel(prompt)
+                    XCTAssertEqual(prompt.presentation.content.warning != nil, variant == "unavailable")
                     defer { panel.contentViewController = nil; panel.close() }
                     let content = try XCTUnwrap(panel.contentView)
                     for _ in 0..<8 {

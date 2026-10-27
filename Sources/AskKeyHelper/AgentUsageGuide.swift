@@ -4,6 +4,7 @@ import AskKeyBroker
 /// Shared wording for clients that surface only tool descriptions, and clients
 /// that also surface initialize instructions. No credential material belongs here.
 enum AgentUsageGuide {
+    static let pausedAccessRecovery = "Ask the user to open Ask Key and review Agent access. Resume if paused; resolve any component metadata issue shown in the library, then reopen Ask Key before retrying."
     static let organizationWrites = """
         Organize credentials and groups with 1–64 ordered operations under one frozen approval and one system authentication. \
         Operations: move {credential: exact visible name, group: visible group name or null}, create_group: name, \

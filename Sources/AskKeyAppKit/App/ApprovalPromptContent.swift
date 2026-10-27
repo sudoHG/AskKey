@@ -12,6 +12,7 @@ struct ApprovalPromptContent: Equatable {
     /// Read cards: the one-line command, already middle-truncated by the display summary.
     let commandSummary: String?
     let fullCommand: String?
+    let warning: String?
 
     init(request: BrokerApprovalOperationRequest, credentialName: String,
          write: FrozenWriteSummaryContent? = nil, organization: FrozenOrganizationSummaryContent? = nil) {
@@ -33,6 +34,8 @@ struct ApprovalPromptContent: Equatable {
         let display = request.operation == .read ? request.display : nil
         commandSummary = display?.commandSummary
         fullCommand = display?.commandLine
+        warning = display.map { $0.environmentVariables == nil || $0.temporaryFileVariables == nil } == true
+            ? appLocalized("The delivery mapping is unavailable. This run will be refused. Choose Deny.") : nil
     }
 
     /// Shared with the pending list so both say the same sentence.

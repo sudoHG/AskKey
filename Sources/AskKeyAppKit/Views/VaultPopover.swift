@@ -44,15 +44,21 @@ struct VaultPopover: View {
                 if vault.errorMessage == nil { closePopover() }
             }
             Divider().padding(.horizontal, 10)
-            menuEntry(
-                appLocalized(vault.isAgentAccessPaused ? "Resume Agent Access" : "Pause Agent Access"),
-                systemImage: vault.isAgentAccessPaused ? "play.fill" : "pause.fill"
-            ) {
-                Task {
-                    if vault.isAgentAccessPaused {
-                        await vault.resumeAgentAccess()
-                    } else {
-                        await vault.pauseAgentAccess()
+            if vault.componentMetadataFailure != nil {
+                menuEntry(appLocalized("Review credential metadata"), systemImage: "exclamationmark.triangle") {
+                    openManageWindow()
+                }
+            } else {
+                menuEntry(
+                    appLocalized(vault.isAgentAccessPaused ? "Resume Agent Access" : "Pause Agent Access"),
+                    systemImage: vault.isAgentAccessPaused ? "play.fill" : "pause.fill"
+                ) {
+                    Task {
+                        if vault.isAgentAccessPaused {
+                            await vault.resumeAgentAccess()
+                        } else {
+                            await vault.pauseAgentAccess()
+                        }
                     }
                 }
             }

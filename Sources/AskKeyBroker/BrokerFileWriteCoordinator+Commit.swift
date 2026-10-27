@@ -55,6 +55,7 @@ extension BrokerFileWriteCoordinator {
                 throw BrokerFileWriteError.targetChanged
             }
             let file = try frozenFile(match.value)
+            guard Self.validFilename(file.originalFilename) else { throw BrokerFileWriteError.invalidRequest }
             do {
                 // ponytail: file writes are rare and capped; one lock keeps commit,
                 // approval consumption, and replay exclusion linearizable.
@@ -71,6 +72,8 @@ extension BrokerFileWriteCoordinator {
                     performing: { try consume(file) }
                 )
             } catch let error as BrokerApprovalError {
+                throw error
+            } catch let error as BrokerProviderError {
                 throw error
             } catch {
                 throw BrokerFileWriteError.outcomeUnknown

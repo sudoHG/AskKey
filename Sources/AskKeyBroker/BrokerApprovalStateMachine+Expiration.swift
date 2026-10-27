@@ -20,6 +20,7 @@ extension BrokerApprovalStateMachine {
 
     func expireTimedAllowancesLocked(now: Date) {
         timedAllowances = timedAllowances.filter { $0.value > now }
+        timedAllowanceProjectionDigests = timedAllowanceProjectionDigests.filter { timedAllowances[$0.key] != nil }
     }
 
     func expireScheduledRequests() {

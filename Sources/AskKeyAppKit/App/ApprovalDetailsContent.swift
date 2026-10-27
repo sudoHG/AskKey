@@ -72,9 +72,7 @@ struct ApprovalDetailsContent: Equatable {
     /// separately encrypted metadata, without opening component values.
     private static func handsOver(_ display: BrokerApprovalOperationRequest.Display, credentialName: String) -> [Line] {
         guard let environment = display.environmentVariables, let files = display.temporaryFileVariables else {
-            return [Line(text: ApprovalLine(appLocalizedFormat(
-                "The items of %@ that are set to be given to programs (names are shown after you approve)",
-                ApprovalCopy.quoted(credentialName))))]
+            return [Line(text: ApprovalLine(appLocalized("The delivery mapping is unavailable. This run will be refused. Choose Deny.")))]
         }
         let lines: [Line]
         if let components = display.components {

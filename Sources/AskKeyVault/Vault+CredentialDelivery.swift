@@ -120,18 +120,19 @@ extension Vault {
             let metadata = try? CredentialComponentMetadata.read(from: record, using: key)
             boundMetadata[record.id] = metadata
             guard permission == .ask else { continue }
+            let binding = try RuntimeReadApprovalBinding(request: request, credentialID: record.id, metadata: metadata)
             let approvalRequest = BrokerApprovalOperationRequest(
                 operationID: SHA256.hash(data: Data("\(request.operationID):\(record.id)".utf8))
                     .map { String(format: "%02x", $0) }.joined(),
                 credentialID: record.id,
                 targetID: record.id,
                 operation: .read,
-                payloadDigest: try RuntimeReadApprovalBinding(request: request, credentialID: record.id,
-                    metadata: metadata).payloadDigest(),
+                payloadDigest: try binding.payloadDigest(),
                 credentialName: trustedName,
                 callerName: callerName,
                 callerPurpose: callerPurpose,
-                display: runtimeApprovalDisplay(for: request, record: record, metadata: metadata)
+                display: runtimeApprovalDisplay(for: request, record: record, metadata: metadata),
+                readProjectionDigest: binding.metadataDigest
             )
             let ticket = try approvalRequests.submit(
                 approvalRequest,
