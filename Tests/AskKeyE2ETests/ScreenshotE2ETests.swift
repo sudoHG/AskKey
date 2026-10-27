@@ -239,18 +239,16 @@ final class ScreenshotE2ETests: E2EBaseCase {
         waitForText("Create the group “Staging Services”", containing: true)
         waitForText("Move the credential “Staging API” from “Old Services” to “Staging Services”", containing: true)
         waitForText("Rename the group “Old Services” to “Renamed Services”", containing: true)
-        waitForText("It has 3 credentials (2 hidden from agents).", containing: true)
-        waitForText("Its 3 credentials (2 hidden from agents) move to “Ungrouped” and aren’t deleted.", containing: true)
+        waitForWrappedApprovalText("It has 3 credentials (2 hidden from agents).")
+        waitForWrappedApprovalText("Its 3 credentials (2 hidden from agents) move to “Ungrouped” and aren’t deleted.")
         let operations = app.scrollViews["approval-organization-operations"]
         XCTAssertTrue(operations.exists)
         operations.scroll(byDeltaX: 0, deltaY: -600)
         waitForText("Create the group “Existing Private Services”", containing: true)
-        waitForText("Already exists; nothing changes. It has 1 credential (hidden from agents).",
-                    containing: true)
+        waitForWrappedApprovalText("Already exists; nothing changes. It has 1 credential (hidden from agents).")
         waitForText("“Merge Source” into “Existing Merge Services”",
                     containing: true)
-        waitForText("E2E Agent requested a rename, but can’t see the existing group. The merged group will have 4 credentials (3 hidden from agents). This can’t be undone.",
-                    containing: true)
+        waitForWrappedApprovalText("E2E Agent requested a rename, but can’t see the existing group. The merged group will have 4 credentials (3 hidden from agents). This can’t be undone.")
         XCTAssertTrue(app.buttons["approval-allow-once"].isHittable)
         XCTAssertTrue(app.buttons["approval-deny"].isHittable)
         capture("17-approval-organization-existing-targets", approval: true)
@@ -329,6 +327,19 @@ final class ScreenshotE2ETests: E2EBaseCase {
     private func waitForText(_ text: String, containing: Bool = false) {
         let predicate = NSPredicate(format: containing
             ? "label CONTAINS %@ OR value CONTAINS %@" : "label == %@ OR value == %@", text, text)
+        XCTAssertTrue(app.descendants(matching: .any).matching(predicate).firstMatch
+            .waitForExistence(timeout: 8), "Missing content: \(text)")
+    }
+
+    private func waitForWrappedApprovalText(_ text: String) {
+        // Selectable SwiftUI text exposes its displayed value in AX, including
+        // the layout-only word joiners and nonbreaking spaces. Keep every
+        // expected character while allowing only those wrapping substitutions.
+        let characters = text.map { character in
+            character == " " ? "[ \u{00A0}]" : NSRegularExpression.escapedPattern(for: String(character))
+        }
+        let pattern = "(?s).*" + characters.joined(separator: "\u{2060}*") + ".*"
+        let predicate = NSPredicate(format: "label MATCHES %@ OR value MATCHES %@", pattern, pattern)
         XCTAssertTrue(app.descendants(matching: .any).matching(predicate).firstMatch
             .waitForExistence(timeout: 8), "Missing content: \(text)")
     }
