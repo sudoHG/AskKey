@@ -63,13 +63,21 @@ struct FrozenAgentApprovalPrompt: View {
         let presentation = presentation
         let content = presentation.content
         let expanded = showsDetails ?? detailsExpanded
-        ApprovalCardLayout(maximumHeight: availableHeight - Theme.Spacing.xl - Theme.Spacing.lg,
-                           minimumFlexibleHeight: 0) {
+        ApprovalCardLayout(maximumHeight: availableHeight - Theme.Spacing.lg) {
+            GeometryReader { geometry in
+                if geometry.size.height >= 64 + Theme.Spacing.xl {
+                    appIcon
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, Theme.Spacing.xl)
+                }
+            }
+            .frame(idealHeight: 64 + Theme.Spacing.xl)
+            .layoutValue(key: ApprovalCardCollapsibleKey.self, value: true)
+            header(content)
+                .layoutValue(key: ApprovalCardFlexibleKey.self, value: 2)
             ApprovalScrollArea(space: "approval-body", alignment: .center,
                 identifier: expanded ? (isOrganize ? "approval-organization-operations" : "approval-details-rows") : "approval-header") {
                 VStack(spacing: 0) {
-                    appIcon
-                    header(content)
                     if let warning = content.warning {
                         Text(verbatim: warning)
                             .font(Theme.Fonts.secondary)
@@ -97,13 +105,13 @@ struct FrozenAgentApprovalPrompt: View {
                 }
             }
             .layoutValue(key: ApprovalCardFlexibleKey.self, value: 1)
+            .layoutValue(key: ApprovalCardMinimumHeightKey.self, value: 0)
             actions(presentation.buttons)
                 .padding(.top, Theme.Spacing.lg)
             footer
                 .padding(.top, Theme.Spacing.md)
         }
         .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.top, Theme.Spacing.xl)
         .padding(.bottom, Theme.Spacing.lg)
         .frame(width: Self.width)
         .fixedSize(horizontal: false, vertical: true)
@@ -131,35 +139,43 @@ struct FrozenAgentApprovalPrompt: View {
     /// Title and subtitle wrap freely; they scroll only when a name is too
     /// long for the card.
     private func header(_ content: ApprovalPromptContent) -> some View {
-        VStack(spacing: 0) {
-            Text(verbatim: content.title)
-                .font(Theme.Fonts.body.bold())
-                .foregroundStyle(Theme.text)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, Theme.Spacing.md)
-                .accessibilityIdentifier("approval-title")
-            if let command = content.commandSummary {
-                (Text(appLocalized("to run")).font(Theme.Fonts.body)
-                    + Text(verbatim: " ")
-                    + Text(verbatim: command).font(Theme.Fonts.mono))
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(Text(verbatim: content.fullCommand ?? command))
-                    .padding(.top, Theme.Spacing.sm)
-                    .accessibilityIdentifier("approval-subtitle")
-            } else if let subtitle = content.subtitle {
-                // A subtitle that names a group never cuts the name.
-                Text(verbatim: subtitle)
-                    .font(Theme.Fonts.body)
+        ApprovalCardLayout(maximumHeight: .greatestFiniteMagnitude, minimumFlexibleHeight: 24) {
+            ApprovalScrollArea(space: "approval-title-scroll", alignment: .center) {
+                Text(verbatim: content.title)
+                    .font(Theme.Fonts.body.bold())
                     .foregroundStyle(Theme.text)
                     .multilineTextAlignment(.center)
-                    .lineLimit(request.operation == .create ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
-                    .help(Text(verbatim: subtitle))
-                    .padding(.top, Theme.Spacing.sm)
-                    .accessibilityIdentifier("approval-subtitle")
+                    .padding(.top, Theme.Spacing.md)
+                    .accessibilityIdentifier("approval-title")
+            }
+            .layoutValue(key: ApprovalCardFlexibleKey.self, value: 1)
+            if content.commandSummary != nil || content.subtitle != nil {
+                ApprovalScrollArea(space: "approval-subtitle-scroll", alignment: .center) {
+                    if let command = content.commandSummary {
+                        (Text(appLocalized("to run")).font(Theme.Fonts.body)
+                            + Text(verbatim: " ")
+                            + Text(verbatim: command).font(Theme.Fonts.mono))
+                            .foregroundStyle(Theme.text)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(Text(verbatim: content.fullCommand ?? command))
+                            .padding(.top, Theme.Spacing.sm)
+                            .accessibilityIdentifier("approval-subtitle")
+                    } else if let subtitle = content.subtitle {
+                        // A subtitle that names a group never cuts the name.
+                        Text(verbatim: subtitle)
+                            .font(Theme.Fonts.body)
+                            .foregroundStyle(Theme.text)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(request.operation == .create ? nil : 2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .help(Text(verbatim: subtitle))
+                            .padding(.top, Theme.Spacing.sm)
+                            .accessibilityIdentifier("approval-subtitle")
+                    }
+                }
+                .layoutValue(key: ApprovalCardFlexibleKey.self, value: 2)
             }
         }
     }

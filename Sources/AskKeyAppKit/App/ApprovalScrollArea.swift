@@ -89,20 +89,25 @@ struct ApprovalCardLayout: Layout {
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? FrozenAgentApprovalPrompt.contentWidth
-        return CGSize(width: width, height: heights(width: width, subviews: subviews).reduce(0, +))
+        return CGSize(width: width, height: heights(width: width, maximum: proposal.height, subviews: subviews).reduce(0, +))
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var y = bounds.minY
-        for (subview, height) in zip(subviews, heights(width: bounds.width, subviews: subviews)) {
+        for (subview, height) in zip(subviews, heights(width: bounds.width, maximum: bounds.height, subviews: subviews)) {
             subview.place(at: CGPoint(x: bounds.midX, y: y), anchor: .top,
                 proposal: ProposedViewSize(width: bounds.width, height: height))
             y += height
         }
     }
 
-    private func heights(width: CGFloat, subviews: Subviews) -> [CGFloat] {
+    private func heights(width: CGFloat, maximum: CGFloat?, subviews: Subviews) -> [CGFloat] {
+        let maximumHeight = min(self.maximumHeight, maximum ?? self.maximumHeight)
         var heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
+        // The icon and its top spacing disappear before any text is squeezed.
+        for index in subviews.indices where subviews[index][ApprovalCardCollapsibleKey.self] {
+            if heights.reduce(0, +) > maximumHeight { heights[index] = 0 }
+        }
         let flexible = subviews.indices
             .compactMap { index in subviews[index][ApprovalCardFlexibleKey.self].map { (index, $0) } }
             .sorted { $0.1 < $1.1 }
@@ -110,7 +115,8 @@ struct ApprovalCardLayout: Layout {
         for index in flexible {
             let excess = heights.reduce(0, +) - maximumHeight
             guard excess > 0 else { break }
-            heights[index] = max(min(heights[index], minimumFlexibleHeight), heights[index] - excess)
+            let minimum = subviews[index][ApprovalCardMinimumHeightKey.self] ?? minimumFlexibleHeight
+            heights[index] = max(min(heights[index], minimum), heights[index] - excess)
         }
         return heights
     }
@@ -119,4 +125,12 @@ struct ApprovalCardLayout: Layout {
 /// Marks a scrolling part of the card and the order in which it shrinks.
 struct ApprovalCardFlexibleKey: LayoutValueKey {
     static let defaultValue: Int? = nil
+}
+
+struct ApprovalCardCollapsibleKey: LayoutValueKey {
+    static let defaultValue = false
+}
+
+struct ApprovalCardMinimumHeightKey: LayoutValueKey {
+    static let defaultValue: CGFloat? = nil
 }

@@ -7,6 +7,57 @@ import AskKeyBroker
 /// Hidden panels use the same factory, hosting and observers as live presentation.
 @MainActor
 final class AgentApprovalScreenLayoutTests: AskKeyAppTestCase {
+    private var visiblePanels: [NSPanel] = []
+
+    override func tearDown() {
+        for panel in visiblePanels {
+            panel.orderOut(nil)
+            panel.contentViewController = nil
+            panel.close()
+        }
+        visiblePanels = []
+        super.tearDown()
+    }
+
+    func testVisibleTitleSubtitleAndActionsStayInsideShortPanelsOnCI() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["GITHUB_ACTIONS"] == "true", environment["CI"] == "true" else {
+            throw XCTSkip("Visible approval geometry runs only in the GitHub Actions test process")
+        }
+        _ = NSApplication.shared
+        let screen = try XCTUnwrap(NSScreen.main).visibleFrame
+        try ApprovalCardFixtures.withLanguages { language in
+            for height: CGFloat in [300, 420] {
+                for expanded in [false, true] {
+                    var prompt = ApprovalCardFixtures.prompt(.readDefault)
+                    prompt.detailsExpanded = expanded
+                    let visible = NSRect(x: screen.minX + 20, y: screen.minY + 20,
+                                         width: screen.width - 40, height: height)
+                    let panel = AppDelegate.makeFrozenApprovalPanel(prompt, visibleFrame: { _ in visible })
+                    visiblePanels.append(panel)
+                    panel.makeKeyAndOrderFront(nil)
+                    layout(panel)
+                    XCTAssertTrue(panel.isVisible)
+                    let nodes = accessibilityElements(try XCTUnwrap(panel.contentView))
+                    var frames: [String: CGRect] = [:]
+                    for identifier in ["approval-title", "approval-subtitle", "approval-allow-once",
+                                       "approval-allow-timed", "approval-deny"] {
+                        let node = try XCTUnwrap(nodes.first { $0.accessibilityIdentifier() == identifier },
+                            "\(language), \(height), Details=\(expanded): missing \(identifier)")
+                        let frame = node.accessibilityFrame()
+                        XCTAssertGreaterThan(frame.height, 0, identifier)
+                        XCTAssertTrue(panel.frame.insetBy(dx: -1, dy: -1).contains(frame), identifier)
+                        XCTAssertTrue(visible.insetBy(dx: -1, dy: -1).contains(frame), identifier)
+                        frames[identifier] = frame
+                    }
+                    XCTAssertGreaterThan(try XCTUnwrap(frames["approval-subtitle"]).minY,
+                                         try XCTUnwrap(frames["approval-allow-once"]).maxY)
+                    panel.orderOut(nil)
+                }
+            }
+        }
+    }
+
     func testShortScreensKeepActionsVisibleWithVeryLongContentInBothLanguages() throws {
         _ = NSApplication.shared
         try ApprovalCardFixtures.withLanguages { language in
@@ -72,5 +123,10 @@ final class AgentApprovalScreenLayoutTests: AskKeyAppTestCase {
             panel.contentView?.layoutSubtreeIfNeeded()
             RunLoop.main.run(until: Date().addingTimeInterval(0.01))
         }
+    }
+
+    private func accessibilityElements(_ root: Any) -> [any NSAccessibilityProtocol] {
+        guard let element = root as? any NSAccessibilityProtocol else { return [] }
+        return [element] + (element.accessibilityChildren() ?? []).flatMap(accessibilityElements)
     }
 }
