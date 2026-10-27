@@ -141,9 +141,9 @@ final class ManagementAuthenticationCancellationTests: AskKeyAppTestCase {
         waiting.expectedFulfillmentCount = 2
         waiting.assertForOverFulfill = false
         let cancellation = ManagementAuthenticationCancellation(requestEnded: { waiting.fulfill(); return false })
-        let presentation = presentation
+        let queuedPresentation = presentation
         let queued = Task.detached {
-            runner.outcomeBlocking(presentation: presentation, cancellation: cancellation)
+            runner.outcomeBlocking(presentation: queuedPresentation, cancellation: cancellation)
         }
         await fulfillment(of: [waiting], timeout: 1)
         cancellation.cancel()
