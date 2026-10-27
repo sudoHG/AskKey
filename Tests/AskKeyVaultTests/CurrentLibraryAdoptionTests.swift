@@ -487,7 +487,7 @@ final class CurrentLibraryAdoptionTests: XCTestCase {
                     let columns = try db.columns(in: table).map(\.name)
                         .filter { table != "credentials" || !["encrypted_component_metadata", "authentication_tag"].contains($0) }
                         .map(\.quotedDatabaseIdentifier).joined(separator: ", ")
-                    let predicate = table == "config" ? " WHERE key != 'component_metadata_completion_v1'" : ""
+                    let predicate = table == "config" ? " WHERE key != '\(VaultStore.componentMetadataCompletionKey)'" : ""
                     return (table, try Row.fetchAll(db, sql: "SELECT \(columns) FROM \"\(table)\"\(predicate) ORDER BY rowid"))
                 })
             }
