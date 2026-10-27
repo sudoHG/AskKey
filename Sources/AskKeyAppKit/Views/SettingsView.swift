@@ -4,8 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(VaultViewModel.self) private var vault
     @State private var onboardingRoute: CredentialWorkspaceRoute?
-    @State private var workspaceSection: CredentialWorkspaceSection = .all
-    @State private var workspaceRoute: CredentialWorkspaceRoute = .library
+    @State var navigation = ManagementNavigation()
 
     var body: some View {
         let _ = AppLanguage.store.resolved
@@ -13,7 +12,17 @@ struct SettingsView: View {
         .tint(Theme.accent)
         .environment(\.locale, vault.appLocale)
         .preferredColorScheme(vault.colorScheme)
-        .onAppear { updateWindowTitle() }
+        .onAppear {
+            updateWindowTitle()
+            navigation.applyPendingNotification(to: vault)
+        }
+        .onChange(of: navigation.notificationRevision) { _, _ in
+            onboardingRoute = nil
+            navigation.applyPendingNotification(to: vault)
+        }
+        .onChange(of: vault.settingsEntryState) { _, _ in
+            navigation.applyPendingNotification(to: vault)
+        }
         .onChange(of: vault.languageMode) { _, _ in updateWindowTitle() }
         .alert(appLocalized("Error"), isPresented: Binding(
             get: { vault.errorMessage != nil },
@@ -38,9 +47,10 @@ struct SettingsView: View {
             prototypeShell { lockedView }
         case .management:
             CredentialManagementView(
-                selectedSection: $workspaceSection,
-                route: $workspaceRoute
+                selectedSection: $navigation.section,
+                route: $navigation.route
             )
+            .id(navigation.notificationRevision)
             .environment(vault)
         }
     }
@@ -89,8 +99,8 @@ struct SettingsView: View {
                 onConnectAgent: {
                     // Agent access sits behind the management lock; unlocking
                     // lands on it, and a cancelled prompt leaves the locked page.
-                    workspaceSection = .agentAccess
-                    workspaceRoute = .agentAccess
+                    navigation.section = .agentAccess
+                    navigation.route = .agentAccess
                     vault.unlock()
                 }
             )
@@ -110,8 +120,8 @@ struct SettingsView: View {
 
     private var prototypeSidebar: some View {
         CredentialWorkspaceSidebar(
-            selectedSection: $workspaceSection,
-            route: $workspaceRoute,
+            selectedSection: $navigation.section,
+            route: $navigation.route,
             allowsCredentialChanges: false
         )
     }

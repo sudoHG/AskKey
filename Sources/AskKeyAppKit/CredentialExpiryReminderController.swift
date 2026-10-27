@@ -208,6 +208,7 @@ enum UserNotificationExpiryReminderDelivery {
         let content = UNMutableNotificationContent()
         content.title = ExpiryReminderNotificationCopy.title()
         content.body = ExpiryReminderNotificationCopy.body()
+        content.userInfo = NotificationRoute.credential(delivery.id).userInfo
         let trigger: UNNotificationTrigger?
         switch delivery.kind {
         case .immediate:
