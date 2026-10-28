@@ -15,9 +15,9 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 
 - MCP `run` now requires an explicit absolute `cwd`, which is shown in approval and used for execution. Callers that omitted it must pass the directory they want the command to run in; missing or relative directories are rejected with a `next_step`. CLI `run` continues to use the terminal's current directory.
 - Component names, kinds and delivery mappings are stored as separately encrypted metadata. Catalogs, management lists and unrevealed approvals use this metadata without decrypting stored values; values are opened for explicit authenticated reveal, approved edits or authorized delivery.
+- Approval card subtitles state when stored values can't be recovered and how many Hidden credentials a change affects; consecutive identical moves are summarized in one line.
 - Approval cards keep their title and action buttons visible on short screens, scroll long Details and warnings, and refit when the display changes. While a file picker is open, requests update the pending count and reminder immediately; the approval prompt waits until the picker closes.
 - The Dock icon stays visible during management dialogs, file pickers and alerts. If an approval or write-failure notification cannot be delivered, a Dock reminder remains without taking focus.
-- Development and test builds use the selected Xcode's Release SDK marker while continuing to support macOS 14.
 
 ### Fixed
 
