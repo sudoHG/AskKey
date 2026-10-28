@@ -26,7 +26,8 @@ struct ApprovalDetailsView: View {
                         .frame(width: labelWidth, alignment: .leading)
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         if let note = row.note {
-                            ApprovalLineText(line: note)
+                            ApprovalVariableLine(line: note, codeWrapping: .identifier, textStyle: .detailsSecondary)
+                                .alignmentGuide(.firstTextBaseline) { _ in ceil(NSFont.systemFont(ofSize: 12).ascender) }
                                 .foregroundStyle(Theme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -45,8 +46,8 @@ struct ApprovalDetailsView: View {
     private func value(_ value: ApprovalDetailsContent.Value) -> some View {
         switch value {
         case .text(let text):
-            Text(verbatim: ApprovalCopy.wrapping(text)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel(Text(verbatim: text))
+            ApprovalVariableLine(line: ApprovalLine(text), textStyle: .details)
+                .alignmentGuide(.firstTextBaseline) { _ in ceil(NSFont.systemFont(ofSize: 12).ascender) }
         case .code(let code):
             ApprovalVariableLine(line: ApprovalLine(format: "%@", code: [code]), codeWrapping: .command)
                 .alignmentGuide(.firstTextBaseline) { _ in NSFont.systemFont(ofSize: 12).ascender }
@@ -60,18 +61,15 @@ struct ApprovalDetailsView: View {
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel(Text(verbatim: line.text.plainText))
                         } else {
-                            ApprovalLineText(line: line.text, tag: line.tag)
+                            ApprovalVariableLine(line: line.text, codeWrapping: .identifier, textStyle: .details, tag: line.tag)
+                                .alignmentGuide(.firstTextBaseline) { _ in ceil(NSFont.systemFont(ofSize: 12).ascender) }
                         }
                         if let note = line.note {
-                            Text(verbatim: ApprovalCopy.wrapping(note))
-                                .accessibilityLabel(Text(verbatim: note))
-                                .foregroundStyle(Theme.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                            ApprovalVariableLine(line: ApprovalLine(note), textStyle: .detailsSecondary)
                         }
                     }
                 }
             }
-            .textSelection(.enabled)
         case .diff(let diff):
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 ForEach([false, true], id: \.self) { after in

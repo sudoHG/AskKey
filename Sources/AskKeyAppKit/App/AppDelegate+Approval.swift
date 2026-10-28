@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import SwiftUI
+import Observation
 @preconcurrency import UserNotifications
 import AskKeyBroker
 import AskKeyVault
@@ -339,8 +340,40 @@ extension AppDelegate {
 
     private func presentAgentWriteFailure(_ message: String) {
         vault.errorMessage = message
+        let attempt = UUID()
+        _ = managementDockPolicy.handle(.agentWriteFailureStarted(attempt))
+        observeAgentWriteFailureAcknowledgement(attempt)
         postApprovalNotification(identifier: "askkey-agent-write-failure", title: vault.brandName,
-            body: displayedUserMessage(message)) { _ in }
+            body: displayedUserMessage(message)) { [weak self] result in
+                guard let self else { return }
+                _ = self.managementDockPolicy.handle(.agentWriteFailureDeliveryFinished(attempt, result))
+                self.scheduleManagementDockPolicyApplication()
+            }
+    }
+
+    private func observeAgentWriteFailureAcknowledgement(_ attempt: UUID) {
+        guard managementDockPolicy.agentWriteFailureReminder == attempt else { return }
+        withObservationTracking {
+            _ = vault.errorMessage
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, self.managementDockPolicy.agentWriteFailureReminder == attempt else { return }
+                if self.vault.errorMessage == nil, self.managementDockPolicy.isManagementWindowForeground {
+                    self.resetAgentWriteFailureReminder()
+                } else if self.vault.errorMessage != nil {
+                    self.observeAgentWriteFailureAcknowledgement(attempt)
+                }
+            }
+        }
+    }
+
+    func resetAgentWriteFailureReminder() {
+        _ = managementDockPolicy.handle(.agentWriteFailureAcknowledged)
+        if !lockedApprovalReminderPosted, lockedApprovalReminderAttempt == nil,
+           !managementDockPolicy.lockedApprovalReminderFallbackVisible {
+            NSApp.dockTile.badgeLabel = nil
+        }
+        scheduleManagementDockPolicyApplication()
     }
 
     private func postApprovalNotification(
@@ -386,7 +419,7 @@ extension AppDelegate {
     private func resetLockedApprovalReminder() {
         lockedApprovalReminderAttempt = nil
         lockedApprovalReminderPosted = false
-        NSApp.dockTile.badgeLabel = nil
         setLockedApprovalReminderFallbackVisible(false)
+        if managementDockPolicy.agentWriteFailureReminder == nil { NSApp.dockTile.badgeLabel = nil }
     }
 }

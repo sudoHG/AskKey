@@ -459,14 +459,6 @@
         }
       }
     },
-    "Component metadata could not be upgraded for: %@. Credential management remains available. Fix or delete these credentials, then reopen Ask Key. Agent access stays off until the upgrade completes.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Component metadata could not be upgraded for: %@. Credential management remains available. Fix or delete these credentials, then reopen Ask Key. Agent access stays off until the upgrade completes." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "以下凭证的组件元数据升级失败：%@。凭证管理仍可使用。请修复或删除这些凭证后重新打开请旨；升级完成前，Agent 访问保持关闭。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Component metadata could not be upgraded for: %@. Credential management remains available. Fix or delete these credentials, then reopen Ask Key. Agent access stays off until the upgrade completes.!!]" } }
-      }
-    },
     "Component metadata integrity could not be verified. Affected credentials: %@. Credential management remains available. Review the affected credentials and restore a trusted library or contact support, then reopen Ask Key. Agent access stays off until integrity is restored.": {
       "extractionState": "manual",
       "localizations": {
@@ -563,14 +555,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ and %2$@!!]" } }
       }
     },
-    "%1$@ asked to rename %2$@ to %3$@; %3$@ already exists and is hidden from it, so the groups merge.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%1$@ asked to rename %2$@ to %3$@; %3$@ already exists and is hidden from it, so the groups merge." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ 请求的是把%2$@改名为%3$@；%3$@已存在且对它隐藏，所以实际会合并。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ asked to rename %2$@ to %3$@; %3$@ already exists and is hidden from it, so the groups merge.!!]" } }
-      }
-    },
     "%1$@ → environment variable %2$@": {
       "extractionState": "manual",
       "localizations": {
@@ -587,22 +571,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ → temporary file %2$@!!]" } }
       }
     },
-    "%1$@, %2$lld of which merge groups": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%1$@, %2$lld of which merge groups" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@，其中 %2$lld 步会合并分组" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@, %2$lld of which merge groups!!]" } }
-      }
-    },
-    "%1$@, affecting %2$lld hidden credentials": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%1$@, affecting %2$lld hidden credentials" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@，会动到 %2$lld 个隐藏的凭证" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@, affecting %2$lld hidden credentials!!]" } }
-      }
-    },
     "%@ (new group)": {
       "extractionState": "manual",
       "localizations": {
@@ -611,76 +579,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@ (new group)!!]" } }
       }
     },
-    "%@ (some instruction text is deleted)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@ (some instruction text is deleted)" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@（删掉了部分说明）" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@ (some instruction text is deleted)!!]" } }
-      }
-    },
     "%@ (not verified)": {
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "%@ (not verified)" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@（未核实）" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@ (not verified)!!]" } }
-      }
-    },
-    "%@, affecting 1 hidden credential": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@, affecting 1 hidden credential" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，会动到 1 个隐藏的凭证" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@, affecting 1 hidden credential!!]" } }
-      }
-    },
-    "%@, one of which merges groups": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@, one of which merges groups" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，其中一步会合并分组" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@, one of which merges groups!!]" } }
-      }
-    },
-    "%@; the old and removed values can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@; the old and removed values can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，旧值和移除的值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; the old and removed values can't be recovered!!]" } }
-      }
-    },
-    "%@; the old value can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@; the old value can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，旧值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; the old value can't be recovered!!]" } }
-      }
-    },
-    "%@; the old values can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@; the old values can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，旧值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; the old values can't be recovered!!]" } }
-      }
-    },
-    "%@; the removed value can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@; the removed value can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，移除的值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; the removed value can't be recovered!!]" } }
-      }
-    },
-    "%@; the removed values can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@; the removed values can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@，移除的值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%@; the removed values can't be recovered!!]" } }
       }
     },
     "%lld steps": {
@@ -771,14 +675,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Esc to decide later!!]" } }
       }
     },
-    "For %lld minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "For %lld minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 分钟内，你这个 Mac 账户下的任何 Agent 或命令读取这个凭证都不再询问；修改或删除它仍要你批准。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!For %lld minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.!!]" } }
-      }
-    },
     "Hands over": {
       "extractionState": "manual",
       "localizations": {
@@ -835,14 +731,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Purpose!!]" } }
       }
     },
-    "Removed phrases: %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Removed: %@" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "删掉了：%@" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Removed: %@!!]" } }
-      }
-    },
     "Replace": {
       "extractionState": "manual",
       "localizations": {
@@ -857,62 +745,6 @@
         "en": { "stringUnit": { "state": "translated", "value": "Step %lld" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "第 %lld 步" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Step %lld!!]" } }
-      }
-    },
-    "The items of %@ that are set to be given to programs (names are shown after you approve)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "The items of %@ that are set to be given to programs (names are shown after you approve)" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@里设为交给程序的所有项（具体名称批准后才能看到）" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The items of %@ that are set to be given to programs (names are shown after you approve)!!]" } }
-      }
-    },
-    "The old value can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "The old value can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "旧值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The old value can't be recovered!!]" } }
-      }
-    },
-    "The old values can't be recovered": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "The old values can't be recovered" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "旧值将无法找回" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The old values can't be recovered!!]" } }
-      }
-    },
-    "When it's renamed, the group has %@.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "When it's renamed, the group has %@." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "改名时组里有 %@。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!When it's renamed, the group has %@.!!]" } }
-      }
-    },
-    "When it's renamed, the group is empty.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "When it's renamed, the group is empty." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "改名时组里没有凭证。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!When it's renamed, the group is empty.!!]" } }
-      }
-    },
-    "%1$@ (%2$lld hidden from agents)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%1$@ (%2$lld hidden from agents)" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@（其中 %2$lld 个对 Agent 隐藏）" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ (%2$lld hidden from agents)!!]" } }
-      }
-    },
-    "%1$@ disappears and %2$@ will have %3$@.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%1$@ disappears and %2$@ will have %3$@." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "合并后%1$@消失，%2$@共有 %3$@。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ disappears and %2$@ will have %3$@.!!]" } }
       }
     },
     "A merge can't be undone automatically.": {
@@ -969,14 +801,6 @@
         "en": { "stringUnit": { "state": "translated", "value": "It has %@." } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "组里有 %@。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!It has %@.!!]" } }
-      }
-    },
-    "Its %1$@ won't be deleted and will become %2$@.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Its %1$@ won't be deleted and will become %2$@." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "组里 %1$@不会被删除，会变成%2$@。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Its %1$@ won't be deleted and will become %2$@.!!]" } }
       }
     },
     "Merge": {
@@ -1075,14 +899,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The group is empty.!!]" } }
       }
     },
-    "This group already exists, so nothing is created or changed.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "This group already exists, so nothing is created or changed." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这个分组已经存在，不会新建或改动任何内容。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This group already exists, so nothing is created or changed.!!]" } }
-      }
-    },
     "adds %lld items": {
       "extractionState": "manual",
       "localizations": {
@@ -1137,14 +953,6 @@
         "en": { "stringUnit": { "state": "translated", "value": "given to programs as environment variable %@" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "使用时作为环境变量 %@ 交给程序" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!given to programs as environment variable %@!!]" } }
-      }
-    },
-    "kept in Ask Key only, never given to agents": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "kept in Ask Key only, never given to agents" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "只存在请旨里，不交给任何 Agent" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!kept in Ask Key only, never given to agents!!]" } }
       }
     },
     "%lld credential": {
@@ -15122,14 +14930,6 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!“%1$@” wants to use “%2$@” to run %3$@!!]" } }
       }
     },
-    "“%@” wants to organize your groups": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "“%@” wants to organize your groups" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "“%@”想整理分组" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!“%@” wants to organize your groups!!]" } }
-      }
-    },
     "← Back": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -16196,29 +15996,6 @@
         "en": { "stringUnit": { "state": "translated", "value": "Create a credential, or change an existing credential's permission or delivery." } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "创建凭证，或调整现有凭证的权限或交付方式。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Create a credential, or change an existing credential's permission or delivery.!!]" } }
-      }
-    },
-    "Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从请旨里挑一份凭证，跑一条命令确认变量都已拿到，不要显示值"
-          }
-        },
-        "qps-ploc": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[!!Pick a credential in Ask Key and run a command that checks its variables are set, without printing their values!!]"
-          }
-        }
       }
     },
     "Install or open %@, then check again. Before changing anything, Ask Key shows you what will change.": {

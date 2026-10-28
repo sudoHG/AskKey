@@ -1,7 +1,7 @@
 import AppKit
 
 /// Management and its dialogs share one foreground session. A failed generic
-/// approval reminder can also keep its Dock badge visible without taking focus.
+/// approval or write-failure reminder can keep its Dock badge visible without taking focus.
 struct ManagementDockPolicy {
     enum Event: Equatable {
         case launch(isActive: Bool)
@@ -16,6 +16,9 @@ struct ManagementDockPolicy {
         )
         case managementWindowOpenedByUser
         case lockedApprovalReminderFallbackChanged(Bool)
+        case agentWriteFailureStarted(UUID)
+        case agentWriteFailureDeliveryFinished(UUID, LockedApprovalReminderDeliveryResult)
+        case agentWriteFailureAcknowledged
     }
 
     private(set) var applicationActive = false
@@ -24,6 +27,8 @@ struct ManagementDockPolicy {
     private(set) var managementWindowKey = false
     private(set) var managementOwnedDialog = false
     private(set) var lockedApprovalReminderFallbackVisible = false
+    private(set) var agentWriteFailureReminder: UUID?
+    private(set) var agentWriteFailureFallbackVisible = false
     private(set) var activationPolicy: NSApplication.ActivationPolicy = .accessory
 
     var isManagementWindowForeground: Bool {
@@ -66,12 +71,25 @@ struct ManagementDockPolicy {
             managementWindowVisible = true
             managementWindowMiniaturized = false
             managementWindowKey = true
+            agentWriteFailureReminder = nil
+            agentWriteFailureFallbackVisible = false
         case .lockedApprovalReminderFallbackChanged(let visible):
             lockedApprovalReminderFallbackVisible = visible
+        case .agentWriteFailureStarted(let attempt):
+            agentWriteFailureReminder = attempt
+        case .agentWriteFailureDeliveryFinished(let attempt, let result):
+            guard agentWriteFailureReminder == attempt else { return nil }
+            if !LockedApprovalReminderDeliveryPolicy.marksNotificationPosted(for: result) {
+                agentWriteFailureFallbackVisible = true
+            }
+        case .agentWriteFailureAcknowledged:
+            agentWriteFailureReminder = nil
+            agentWriteFailureFallbackVisible = false
         }
 
         let next: NSApplication.ActivationPolicy =
-            isManagementWindowForeground || lockedApprovalReminderFallbackVisible ? .regular : .accessory
+            isManagementWindowForeground || lockedApprovalReminderFallbackVisible || agentWriteFailureFallbackVisible
+                ? .regular : .accessory
         guard next != activationPolicy else { return nil }
         activationPolicy = next
         return next

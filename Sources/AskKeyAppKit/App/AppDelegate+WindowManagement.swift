@@ -39,6 +39,7 @@ extension AppDelegate {
         ensureManagementWindow()
         managementWindow?.deminiaturize(nil)
         managementWindow?.makeKeyAndOrderFront(nil)
+        resetAgentWriteFailureReminder()
         handleManagementDockEvent(.managementWindowOpenedByUser)
         syncManagementWindowDockState()
     }
