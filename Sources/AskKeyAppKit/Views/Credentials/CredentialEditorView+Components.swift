@@ -281,5 +281,9 @@ private struct CredentialEditorDeliveryOptions: View {
             }
         }
         .font(Theme.Fonts.caption)
+        .onChange(of: hasInvalidMapping, initial: true) { _, invalid in
+            // Keep the field open as it becomes valid so editing can continue.
+            if invalid { expanded = true }
+        }
     }
 }
