@@ -49,7 +49,7 @@ extension AppDelegate {
             return
         }
         let window = ManagementWindowConfiguration.makeWindow(
-            rootView: SettingsView()
+            rootView: SettingsView(navigation: managementNavigation)
                 .environment(vault)
                 .environment(\.locale, vault.appLocale)
         )
@@ -94,8 +94,21 @@ extension AppDelegate {
             visible: window.isVisible,
             miniaturized: window.isMiniaturized,
             key: window.isKeyWindow,
-            applicationActive: NSApp.isActive
+            applicationActive: NSApp.isActive,
+            ownedDialog: ManagementDockPolicy.hasManagementDialog(
+                window: window,
+                keyWindow: NSApp.keyWindow,
+                mainWindow: NSApp.mainWindow,
+                modalWindow: NSApp.modalWindow
+            )
         ))
+    }
+
+    func setLockedApprovalReminderFallbackVisible(_ visible: Bool) {
+        // Retain this reason even while authentication temporarily defers AppKit
+        // policy changes. Reconciliation after the prompt applies the new state.
+        _ = managementDockPolicy.handle(.lockedApprovalReminderFallbackChanged(visible))
+        scheduleManagementDockPolicyApplication()
     }
 
     func scheduleManagementDockPolicyApplication() {
@@ -143,6 +156,10 @@ extension AppDelegate {
         let windowNotifications: [NSNotification.Name] = [
             NSWindow.didBecomeKeyNotification,
             NSWindow.didResignKeyNotification,
+            NSWindow.didBecomeMainNotification,
+            NSWindow.didResignMainNotification,
+            NSWindow.willBeginSheetNotification,
+            NSWindow.didEndSheetNotification,
             NSWindow.didMiniaturizeNotification,
             NSWindow.didDeminiaturizeNotification,
             NSWindow.willCloseNotification,
@@ -152,8 +169,8 @@ extension AppDelegate {
                 [weak self] note in
                 guard let window = note.object as? NSWindow else { return }
                 MainActor.assumeIsolated {
-                    guard let self, self.isManagementWindow(window) else { return }
-                    if notification == NSWindow.willCloseNotification {
+                    guard let self else { return }
+                    if self.isManagementWindow(window), notification == NSWindow.willCloseNotification {
                         self.managementSessionLifecycle.handle(
                             .windowClosed(identifier: window.identifier?.rawValue)
                         )
@@ -163,9 +180,11 @@ extension AppDelegate {
                             key: false,
                             applicationActive: NSApp.isActive
                         ))
-                    } else {
-                        self.syncManagementWindowDockState()
                     }
+                    // Sheet/key relationships and modalWindow settle after the
+                    // notification. Reconcile all app windows, including dialogs
+                    // without the management window's identifier.
+                    self.scheduleManagementDockStateRefresh()
                 }
             }
         }

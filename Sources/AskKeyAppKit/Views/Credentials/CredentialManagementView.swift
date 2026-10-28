@@ -14,21 +14,33 @@ struct CredentialManagementView: View {
     private let previewAccessRecordClearConfirmation: Bool
 
     @Environment(VaultViewModel.self) var vault
-    @State var searchText = ""
+    @State var interaction: ManagementInteractionState
     @Binding var selectedSection: CredentialWorkspaceSection
     @State var selectedCredentialID: String?
     @Binding var route: CredentialWorkspaceRoute
-    @State var deletingCredential: ManagedTextCredential?
-    @State var permanentlyDeletingCredentialID: String?
-    @State var deletingGroupName: String?
-    @State private var showingNewGroup = false
-    @State private var newGroupName = ""
+    var searchText: String {
+        get { interaction.searchText }
+        nonmutating set { interaction.searchText = newValue }
+    }
+    var deletingCredential: ManagedTextCredential? {
+        get { interaction.deletingCredential }
+        nonmutating set { interaction.deletingCredential = newValue }
+    }
+    var permanentlyDeletingCredentialID: String? {
+        get { interaction.permanentlyDeletingCredentialID }
+        nonmutating set { interaction.permanentlyDeletingCredentialID = newValue }
+    }
+    var deletingGroupName: String? {
+        get { interaction.deletingGroupName }
+        nonmutating set { interaction.deletingGroupName = newValue }
+    }
     @State var allowanceRefresh = 0
     @FocusState var searchFocused: Bool
 
     init(
         selectedSection: Binding<CredentialWorkspaceSection>,
-        route: Binding<CredentialWorkspaceRoute>
+        route: Binding<CredentialWorkspaceRoute>,
+        interaction: ManagementInteractionState? = nil
     ) {
         previewMode = false
         previewPendingRequests = []
@@ -41,7 +53,7 @@ struct CredentialManagementView: View {
         _selectedSection = selectedSection
         _route = route
         _selectedCredentialID = State(initialValue: nil)
-        _deletingGroupName = State(initialValue: nil)
+        _interaction = State(initialValue: interaction ?? ManagementInteractionState())
     }
 
     init(
@@ -69,7 +81,9 @@ struct CredentialManagementView: View {
         _selectedSection = .constant(initialSection)
         _route = .constant(initialRoute)
         _selectedCredentialID = State(initialValue: selectedCredentialID)
-        _deletingGroupName = State(initialValue: previewGroupDeleteConfirmation)
+        let interaction = ManagementInteractionState()
+        interaction.deletingGroupName = previewGroupDeleteConfirmation
+        _interaction = State(initialValue: interaction)
     }
 
     var body: some View {
@@ -79,7 +93,7 @@ struct CredentialManagementView: View {
                 route: $route,
                 allowsCredentialChanges: true,
                 clearCredentialSelection: { selectedCredentialID = nil },
-                createGroup: { showingNewGroup = true },
+                createGroup: { interaction.showingNewGroup = true },
                 deleteGroup: { deletingGroupName = $0 }
             )
                 .frame(width: WorkspaceVisualContract.sidebarWidth)
@@ -103,14 +117,14 @@ struct CredentialManagementView: View {
         .onChange(of: selectedSection) { _, _ in
             searchText = CredentialSearchPresentation.queryAfterChangingSection(searchText)
         }
-        .alert(appLocalized("New group"), isPresented: $showingNewGroup) {
-            TextField(appLocalized("Group name"), text: $newGroupName)
+        .alert(appLocalized("New group"), isPresented: $interaction.showingNewGroup) {
+            TextField(appLocalized("Group name"), text: $interaction.newGroupName)
             Button(appLocalized("Create")) {
-                let name = newGroupName.trimmingCharacters(in: .whitespacesAndNewlines)
+                let name = interaction.newGroupName.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !name.isEmpty { vault.createCredentialGroup(name) }
-                newGroupName = ""
+                interaction.newGroupName = ""
             }
-            Button(appLocalized("Cancel"), role: .cancel) { newGroupName = "" }
+            Button(appLocalized("Cancel"), role: .cancel) { interaction.newGroupName = "" }
         }
     }
 
