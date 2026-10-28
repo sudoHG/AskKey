@@ -121,6 +121,9 @@ func mcpStatusError(
     if brokerCode == BrokerErrorCode.credentialNameConflict.rawValue {
         payload["next_step"] = "A credential with this name already exists. Use list_credentials to find it, then choose a different name or use modify_credential to update it."
     }
+    if brokerCode == BrokerErrorCode.resourceExhausted.rawValue {
+        payload["next_step"] = AgentUsageGuide.resourceExhaustedRecovery
+    }
     let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
     return mcpToolError(id: id, message: String(decoding: data, as: UTF8.self))
 }

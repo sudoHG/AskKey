@@ -9,7 +9,7 @@ enum HelperError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .usage:
-            return "Usage: askkey health | version | status | mcp | open | run --credential <name> [--credential <name> ...] [--wait-for-approval] [--operation-id <id>] [--caller-name <name>] [--caller-purpose <purpose>] -- <command> [args...]"
+            return "Usage: askkey health | version | status | mcp | open | run --credential <name> [--credential <name> ...] [--wait-for-approval] [--operation-id <id>] [--caller-name <name>] [--caller-purpose <purpose>] -- <command> [args...]\nrun uses the terminal's current directory, which is shown in approval."
         case .approvalRequired:
             return "Ask Key approval is required. Retry with the same --operation-id after approval."
         }

@@ -13501,6 +13501,14 @@
         }
       }
     },
+    "This name ends with an extra line break or space. Delete it to save.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This name ends with an extra line break or space. Delete it to save." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "变量名末尾有多余的换行或空格，删掉后即可保存。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This name ends with an extra line break or space. Delete it to save.!!]" } }
+      }
+    },
     "This project contains environments and secrets. Deleting anyway removes the project, its environments, and all stored secrets.": {
       "extractionState": "extracted_with_value",
       "localizations": {

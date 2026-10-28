@@ -4,6 +4,16 @@ import AskKeyBroker
 /// Shared wording for clients that surface only tool descriptions, and clients
 /// that also surface initialize instructions. No credential material belongs here.
 enum AgentUsageGuide {
+    static let resourceExhaustedRecovery = """
+        The request exceeded a size or capacity limit. If the updated credential would exceed 5 MiB, \
+        the change was not saved; send a smaller change, accounting for untouched stored values. \
+        Otherwise, wait for pending requests to finish before trying again. Do not blindly retry the same write.
+        """
+    static let writeSizeLimit = """
+        The complete credential, including untouched stored component values, must fit within 5 MiB. \
+        This is checked again at commit; an oversized change is not saved and returns resource_exhausted. \
+        Send a smaller change instead of retrying the same oversized write.
+        """
     static let pausedAccessRecovery = "Ask the user to open Ask Key and review Agent access. Resume if paused; resolve any component metadata issue shown in the library, then reopen Ask Key before retrying."
     static let organizationWrites = """
         Organize credentials and groups with 1–64 ordered operations under one frozen approval and one system authentication. \
@@ -68,7 +78,7 @@ enum AgentUsageGuide {
         Allow permission and timed allowances never authorize these writes. Metadata-only modification is supported; omitted metadata is preserved.
         """
 
-    static var instructions: String { [discovery, delivery, metadataWrites, organizationWrites, resume, cli].joined(separator: "\n\n") }
+    static var instructions: String { [discovery, delivery, metadataWrites, writeSizeLimit, organizationWrites, resume, cli].joined(separator: "\n\n") }
     static var catalogDescription: String { [discovery, delivery, cli].joined(separator: "\n\n") }
     static var runDescription: String {
         "Use existing Ask Key credentials for an authorized non-PTY command. Call list_credentials first. "
