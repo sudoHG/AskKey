@@ -363,6 +363,7 @@ extension AppDelegate {
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
+            content.userInfo = NotificationRoute.pendingRequests.userInfo
             let request = UNNotificationRequest(
                 identifier: identifier,
                 content: content,

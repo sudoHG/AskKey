@@ -49,7 +49,7 @@ extension AppDelegate {
             return
         }
         let window = ManagementWindowConfiguration.makeWindow(
-            rootView: SettingsView()
+            rootView: SettingsView(navigation: managementNavigation)
                 .environment(vault)
                 .environment(\.locale, vault.appLocale)
         )
