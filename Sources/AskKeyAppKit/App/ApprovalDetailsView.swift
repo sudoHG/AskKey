@@ -27,7 +27,7 @@ struct ApprovalDetailsView: View {
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         if let note = row.note {
                             ApprovalVariableLine(line: note, codeWrapping: .identifier, textStyle: .detailsSecondary)
-                                .alignmentGuide(.firstTextBaseline) { _ in NSFont.systemFont(ofSize: 12).ascender }
+                                .alignmentGuide(.firstTextBaseline) { _ in ceil(NSFont.systemFont(ofSize: 12).ascender) }
                                 .foregroundStyle(Theme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -47,7 +47,7 @@ struct ApprovalDetailsView: View {
         switch value {
         case .text(let text):
             ApprovalVariableLine(line: ApprovalLine(text), textStyle: .details)
-                .alignmentGuide(.firstTextBaseline) { _ in NSFont.systemFont(ofSize: 12).ascender }
+                .alignmentGuide(.firstTextBaseline) { _ in ceil(NSFont.systemFont(ofSize: 12).ascender) }
         case .code(let code):
             ApprovalVariableLine(line: ApprovalLine(format: "%@", code: [code]), codeWrapping: .command)
                 .alignmentGuide(.firstTextBaseline) { _ in NSFont.systemFont(ofSize: 12).ascender }
@@ -62,7 +62,7 @@ struct ApprovalDetailsView: View {
                                 .accessibilityLabel(Text(verbatim: line.text.plainText))
                         } else {
                             ApprovalVariableLine(line: line.text, codeWrapping: .identifier, textStyle: .details, tag: line.tag)
-                                .alignmentGuide(.firstTextBaseline) { _ in NSFont.systemFont(ofSize: 12).ascender }
+                                .alignmentGuide(.firstTextBaseline) { _ in ceil(NSFont.systemFont(ofSize: 12).ascender) }
                         }
                         if let note = line.note {
                             ApprovalVariableLine(line: ApprovalLine(note), textStyle: .detailsSecondary)

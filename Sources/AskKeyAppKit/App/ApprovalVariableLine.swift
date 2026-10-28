@@ -58,6 +58,8 @@ struct ApprovalVariableLine: NSViewRepresentable {
             let paragraph = NSMutableParagraphStyle()
             paragraph.lineBreakMode = .byWordWrapping
             paragraph.hyphenationFactor = 0
+            // Details follow the same label line-break rules as SwiftUI Text.
+            if textStyle != .variable { paragraph.lineBreakStrategy = .standard }
             let color = NSColor(textStyle == .detailsSecondary ? Theme.textSecondary : Theme.text)
             if let tag {
                 attributed.append(NSAttributedString(string: String(prefix.dropLast()), attributes: [

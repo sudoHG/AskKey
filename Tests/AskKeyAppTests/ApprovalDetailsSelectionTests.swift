@@ -5,6 +5,19 @@ import XCTest
 
 @MainActor
 final class ApprovalDetailsSelectionTests: AskKeyAppTestCase {
+    func testDetailsPurposeKeepsTheUnverifiedQualifierTogetherAtTheCardWidth() throws {
+        let view = ApprovalVariableLine.TextView()
+        view.configure(ApprovalLine("Deploy the staging site (not verified)"), textStyle: .details)
+        _ = view.measuredSize(width: 177)
+        let manager = try XCTUnwrap(view.layoutManager)
+        var lines: [String] = []
+        manager.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: manager.numberOfGlyphs)) { _, _, _, glyphs, _ in
+            let range = manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+            lines.append((view.string as NSString).substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        XCTAssertEqual(lines, ["Deploy the staging site", "(not verified)"])
+    }
+
     func testTextValueCopyExportsOriginalCharactersInBothLanguages() {
         ApprovalCardFixtures.withLanguages { _ in
             let original = "Deploy “Staging API” 🙂 e\u{301} (not verified)"
