@@ -2,6 +2,15 @@ import XCTest
 @testable import AskKeyBroker
 
 final class HelperCommandContractTests: XCTestCase {
+    func testRunHelpExplainsTheTerminalWorkingDirectory() throws {
+        let result = try runHelper(arguments: ["run", "--help"])
+        XCTAssertNotEqual(result.status, 0)
+        XCTAssertTrue(result.stdout.isEmpty)
+        let help = String(decoding: result.stderr, as: UTF8.self)
+        XCTAssertTrue(help.contains("Usage:"))
+        XCTAssertTrue(help.contains("run uses the terminal's current directory, which is shown in approval."))
+    }
+
     func testRemovedDirectCommandsFailClosedWithUsage() throws {
         for command in [
             ["catalog"],

@@ -48,6 +48,12 @@ struct CredentialComponentDeliveryEditor: View {
                 TextField(appLocalized("Delivery Environment Variable"), text: variableName)
                     .textFieldStyle(.roundedBorder)
             }
+            if let error = CredentialEditorComponentValidation.deliveryError(component) {
+                Text(error)
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }.padding(.vertical, Theme.Spacing.xs)
     }
 }

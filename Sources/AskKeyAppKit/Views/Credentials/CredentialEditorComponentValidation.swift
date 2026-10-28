@@ -6,7 +6,25 @@ import AskKeyVault
 enum CredentialEditorComponentValidation {
     static func canSave(_ components: [CredentialComponentDraft]) -> Bool {
         let retained = components.filter { !isOmittable($0) }
-        return !retained.isEmpty && retained.allSatisfy(isComplete)
+        return !retained.isEmpty && retained.allSatisfy {
+            isComplete($0) && deliveryError($0) == nil
+        }
+    }
+
+    static func deliveryError(_ component: CredentialComponentDraft) -> String? {
+        let name = component.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if component.delivery == nil && name.isEmpty { return nil }
+        let delivery = component.delivery ?? (component.kind == .file
+            ? .temporaryFile(name) : .environmentVariable(name))
+        do {
+            // Validate only the mapping with the same rules used on save.
+            _ = try CredentialBundleValidator.validatedComponents([
+                .init(name: "Component", value: .text(""), delivery: delivery)
+            ])
+            return nil
+        } catch {
+            return appLocalized(error.localizedDescription)
+        }
     }
 
     static func inputs(_ components: [CredentialComponentDraft]) -> [CredentialComponentInput]? {
