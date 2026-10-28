@@ -135,9 +135,13 @@ What Ask Key does not guarantee:
 
 ## Upgrade
 
-Quit the running Ask Key app before replacing it. Download and verify the new DMG as described in [Install](#install), replace `/Applications/Ask Key.app` with the app from the new DMG, then open Ask Key from Applications. Your credentials and their permissions are kept.
+Before updating to 0.4.0, quit Ask Key and back up the library folder at `~/Library/Application Support/AskKey`. Download and verify the new DMG as described in [Install](#install), replace `/Applications/Ask Key.app` with the app from the new DMG, then open Ask Key from Applications.
 
-When upgrading from 0.3.1 to 0.3.2, Agent access is paused once until you choose **Resume Agent Access** and complete system authentication. This restores the default Agent access preferences: read approvals require system authentication, and timed allowances are enabled for 30 minutes. Your previous Agent access preferences are reset; you can change them again in **Settings**.
+On first launch, 0.4.0 migrates the library once, including Hidden credentials and those in the Recycle Bin. Your credentials and their permissions are kept; valid 0.3.2 Agent access settings are preserved without a Resume step. **A migrated library cannot be opened by 0.3.2, and there is no reverse migration.** Ask Key has no built-in backup or recovery; keep the originals of your credentials elsewhere as well.
+
+If a credential cannot be migrated, management stays available and names it after unlock. Fix it in the editor or permanently delete it from the Recycle Bin, then reopen Ask Key. Agent access stays off until the migration completes.
+
+MCP clients must now pass an absolute `cwd` to `run`, including when resuming an approval. CLI `run` continues to use the terminal's current directory.
 
 Watch [GitHub Releases](https://github.com/sudoHG/AskKey/releases) for new versions; there is no automatic update.
 

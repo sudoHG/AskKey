@@ -4,9 +4,42 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-28
+
+### Added
+
+- Read approval Details lists component names and delivery mappings. Write Details distinguishes replaced, unchanged and storage-only items, shows complete before/after instructions with changes marked, and explains group merges and effects on Hidden credentials.
+- Clicking an approval reminder opens Pending requests; clicking an expiry reminder opens the matching credential after management unlocks. Notification clicks preserve unsaved edits, confirmations and searches, bringing management forward without navigating away.
+
 ### Changed
 
 - MCP `run` now requires an explicit absolute `cwd`, which is shown in approval and used for execution. Callers that omitted it must pass the directory they want the command to run in; missing or relative directories are rejected with a `next_step`. CLI `run` continues to use the terminal's current directory.
+- Component names, kinds and delivery mappings are stored as separately encrypted metadata. Catalogs, management lists and unrevealed approvals use this metadata without decrypting stored values; values are opened for explicit authenticated reveal, approved edits or authorized delivery.
+- Approval cards keep their title and action buttons visible on short screens, scroll long Details and warnings, and refit when the display changes. While a file picker is open, requests update the pending count and reminder immediately; the approval prompt waits until the picker closes.
+- The Dock icon stays visible during management dialogs, file pickers and alerts. If an approval or write-failure notification cannot be delivered, a Dock reminder remains without taking focus.
+- Development and test builds use the selected Xcode's Release SDK marker while continuing to support macOS 14.
+
+### Fixed
+
+- Cancelling Touch ID ends only that request's authentication. Approvals distinguish cancellation from failure, and later requests can authenticate normally; management, settings and setup cancellations close quietly.
+- Agent writes using a name already visible in the catalog return `credential_name_conflict` with recovery guidance. Names unavailable to the agent go through approval before any commit failure, without disclosing Hidden names.
+- The Agent access sample prompt chooses an active, visible, unexpired credential that can be delivered to a program; when none is available, it offers to create one.
+- Claude Code setup detects globally disabled hooks and recognizes only Ask Key's own hook commands. After an MCP configuration write times out, it checks what was saved and requires a fresh connection check instead of retrying an uncertain write.
+- Approval text selection, Copy, drag, Services, Share and accessibility preserve the original text, including characters used in names and values, despite display-only wrapping and escaping. Long names and Chinese phrases wrap more clearly.
+- Historical credential mappings that block metadata migration can be repaired in the editor, including invisible trailing whitespace. Delivery Options stays open during correction. Oversized approved edits explain the complete credential's 5 MiB limit and keep the previous contents unchanged; capacity errors have separate guidance.
+
+### Security
+
+- The component-metadata completion marker uses HMAC-SHA256 under an HKDF-derived key in a separate authentication domain. Invalid or missing completion state pauses Agent access while keeping management available; this does not detect restoring a whole older library.
+- Read approvals and timed allowances are bound to component metadata, which is checked against decrypted components before delivery. Write approvals bind the authenticated stored row before committing the approved edit.
+
+### Upgrade notes
+
+- Before updating, quit Ask Key and back up the library folder at `~/Library/Application Support/AskKey`. Keep the originals of your credentials elsewhere too; Ask Key has no built-in backup or recovery.
+- On first launch, the library migrates once, including Hidden and recycled credentials. Credentials and permissions are kept, and valid 0.3.2 Agent access settings are preserved without a Resume step.
+- A migrated library cannot be opened by 0.3.2; there is no reverse migration.
+- If a credential cannot be migrated, management stays available and names it after unlock. Fix it in the editor or permanently delete it from the Recycle Bin, then reopen Ask Key. Agent access stays off until the migration completes.
+- MCP clients must pass an absolute `cwd` to `run`, including when resuming an approval. CLI `run` still uses the terminal's current directory.
 
 ## [0.3.2] - 2026-10-21
 
