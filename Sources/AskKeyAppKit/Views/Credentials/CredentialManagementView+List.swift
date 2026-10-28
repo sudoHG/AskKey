@@ -122,7 +122,7 @@ extension CredentialManagementView {
             Image(systemName: "magnifyingglass")
                 .font(Theme.Fonts.secondary)
                 .foregroundStyle(Theme.textTertiary)
-            TextField(appLocalized("Search credentials…"), text: $searchText)
+            TextField(appLocalized("Search credentials…"), text: $interaction.searchText)
                 .textFieldStyle(.plain)
                 .font(Theme.Fonts.body)
                 .focused($searchFocused)
