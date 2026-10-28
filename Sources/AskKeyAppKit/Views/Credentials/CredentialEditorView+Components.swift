@@ -51,14 +51,7 @@ extension CredentialEditorView {
                     .accessibilityLabel(appLocalized("Add file"))
                 }
             }
-            DisclosureGroup(appLocalized("Delivery Options")) {
-                ForEach($components) { $component in
-                    if !component.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        CredentialComponentDeliveryEditor(component: $component)
-                    }
-                }
-            }
-            .font(Theme.Fonts.caption)
+            CredentialEditorDeliveryOptions(components: $components)
         }
     }
 
@@ -266,4 +259,31 @@ extension CredentialEditorView {
         .accessibilityLabel(isRevealed ? appLocalized("Hide Content") : appLocalized("Show Content"))
     }
 
+}
+
+private struct CredentialEditorDeliveryOptions: View {
+    @Binding var components: [CredentialComponentDraft]
+    @State private var expanded = false
+
+    private var hasInvalidMapping: Bool {
+        components.contains { CredentialEditorComponentValidation.deliveryError($0) != nil }
+    }
+
+    var body: some View {
+        DisclosureGroup(appLocalized("Delivery Options"), isExpanded: Binding(
+            get: { expanded || hasInvalidMapping },
+            set: { expanded = $0 }
+        )) {
+            ForEach($components) { $component in
+                if !component.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    CredentialComponentDeliveryEditor(component: $component)
+                }
+            }
+        }
+        .font(Theme.Fonts.caption)
+        .onChange(of: hasInvalidMapping, initial: true) { _, invalid in
+            // Keep the field open as it becomes valid so editing can continue.
+            if invalid { expanded = true }
+        }
+    }
 }

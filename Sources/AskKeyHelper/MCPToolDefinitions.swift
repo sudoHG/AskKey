@@ -197,7 +197,7 @@ private func componentMCPToolDefinitions() -> [[String: Any]] {
     var append = upload
     append["offset"] = ["type": "integer"]
     append["chunk_base64"] = ["type": "string"]
-    var modifyDefinition = definition("modify_credential", "Atomically change components, usage instructions and/or group; omitted fields are preserved. Repeat exact operation_id and payload with request_id/capability to commit.", modify, ["name", "operation_id"])
+    var modifyDefinition = definition("modify_credential", "Atomically change components, usage instructions and/or group; omitted fields are preserved. Repeat exact operation_id and payload with request_id/capability to commit. " + AgentUsageGuide.writeSizeLimit, modify, ["name", "operation_id"])
     var modifySchema = modifyDefinition["inputSchema"] as! [String: Any]
     modifySchema["anyOf"] = [["required": ["changes"]], ["required": ["usage_instructions"]], ["required": ["group"]]]
     modifyDefinition["inputSchema"] = modifySchema
