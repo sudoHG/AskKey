@@ -68,4 +68,4 @@ Credential writes require approval even with Allow permission. `credential_name_
 
 `agent_access_paused` can also mean stored component metadata needs repair. Ask the user to open Ask Key and resolve the library's component metadata issue, then reopen Ask Key before retrying. This differs from a policy pause, which the user can resolve with Resume; Resume alone does not repair component metadata.
 
-Use synthetic configurations and process fixtures for integration tests. Access to real client accounts, production credentials, or the installed application requires the maintainer's separate authorization under [AGENTS.md](../AGENTS.md). Releases are disabled; current connection checks do not establish signing, notarization, or release acceptance.
+Use synthetic configurations and process fixtures for integration tests. Access to real client accounts, production credentials, or the installed application requires the maintainer's separate authorization under [AGENTS.md](../AGENTS.md). Releases follow [ADR 0006](adr/0006-release-process.md), with local signing, notarization and explicit maintainer approval; connection checks alone do not establish release acceptance.
