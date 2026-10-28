@@ -22,7 +22,11 @@ extension CurrentLibraryAdoptionTests {
     func verifyCompletedComponentMetadata(store: VaultStore, key: SymmetricKey, vault: Vault) throws {
         XCTAssertNil(store.componentMetadataIssue)
         let marker = try XCTUnwrap(store.configValue(key: VaultStore.componentMetadataCompletionKey))
-        XCTAssertEqual(try VaultCrypto.decrypt(XCTUnwrap(Data(base64Encoded: marker)), using: key), "AskKey component metadata complete v1")
+        let markerKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: key, salt: Data(),
+            info: Data("AskKey component metadata completion authentication v2".utf8), outputByteCount: 32)
+        XCTAssertTrue(HMAC<SHA256>.isValidAuthenticationCode(try XCTUnwrap(Data(base64Encoded: marker)),
+            authenticating: Data("AskKey component metadata complete v2\0".utf8), using: markerKey))
+        XCTAssertNil(try store.configValue(key: VaultStore.componentMetadataLegacyCompletionKey))
         for record in try store.fetchAllCredentialsIncludingRecycled() {
             XCTAssertEqual(try CredentialComponentMetadata.read(from: record, using: key),
                 try CredentialComponentMetadata(components: vault.credentialComponents(from: record, key: key)))

@@ -98,7 +98,7 @@ final class WelcomeStepsTests: AppLanguageExperienceTestSupport {
         )
         let wiring = try XCTUnwrap(settings.range(of: "onConnectAgent: {"))
         let body = String(settings[wiring.upperBound...].prefix(400))
-        XCTAssertTrue(body.contains("workspaceRoute = .agentAccess"))
+        XCTAssertTrue(body.contains("navigation.route = .agentAccess"))
         XCTAssertTrue(body.contains("vault.unlock()"))
     }
 

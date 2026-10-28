@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     lazy var hotkeyManager = GlobalHotkeyManager()
     var windowEventMonitor: Any?
     var managementWindow: NSWindow?
+    let managementNavigation = ManagementNavigation()
     var windowConfigurationObservers: [NSObjectProtocol] = []
     var managementWindowLifecycleObservers: [NSObjectProtocol] = []
     var statusItemMenuMonitor: Any?
