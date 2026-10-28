@@ -385,12 +385,14 @@ enum VaultBootstrap {
             var values: [String: DatabaseValue] = [:]
             for row in try Row.fetchAll(db, sql: "SELECT key, value FROM config") {
                 let key: String = row["key"]
-                if key == VaultStore.componentMetadataCompletionKey {
+                if key == VaultStore.componentMetadataCompletionKey || key == VaultStore.componentMetadataLegacyCompletionKey {
                     let marker: String = row["value"]
-                    guard VaultStore.isWellFormedComponentMetadataCompletionMarker(marker) else {
+                    let legacy = key == VaultStore.componentMetadataLegacyCompletionKey
+                    guard VaultStore.isWellFormedComponentMetadataCompletionMarker(marker, legacy: legacy),
+                          values[VaultStore.componentMetadataCompletionKey] == nil else {
                         throw VaultBootstrapError.missingKey
                     }
-                    values[key] = "\u{0}component-metadata-completion".databaseValue
+                    values[VaultStore.componentMetadataCompletionKey] = "\u{0}component-metadata-completion".databaseValue
                 } else { values[key] = Self.abstracted(row["value"], seed: projectID) }
             }
             config = values
