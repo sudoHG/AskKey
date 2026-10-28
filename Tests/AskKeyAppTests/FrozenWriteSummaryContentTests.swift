@@ -160,9 +160,7 @@ final class FrozenWriteSummaryContentTests: AskKeyAppTestCase {
         let chinese = ApprovalTextDiff(before: "只用于发布检查，不要写进日志。", after: "只用于夜间发布检查。") // i18n-literal: Synthetic Chinese instructions.
         XCTAssertEqual(chinese.after.filter { $0.kind == .added }.map(\.text), ["夜间"]) // i18n-literal: Synthetic Chinese diff.
         XCTAssertEqual(chinese.removedPhrases, ["不要写进日志"]) // i18n-literal: Synthetic Chinese diff.
-        Fixtures.withLanguages { language in
-            XCTAssertEqual(appLocalizedFormat("Removed phrases: %@", ApprovalCopy.quoted("Keep values out of logs.")), language == "en"
-                ? "Removed: “Keep values out of logs.”" : "删掉了：“Keep values out of logs.”") // i18n-literal: Assert the Simplified Chinese removed line.
+        Fixtures.withLanguages { _ in
             let modify = content(Fixtures.metadataSummary)
             XCTAssertEqual(modify.instructionsDiff?.removedPhrases, ["checks"])
             XCTAssertEqual(modify.instructionsDiff?.after.filter { $0.kind == .added }.map(\.text), ["only ", "the nightly ", "check"])

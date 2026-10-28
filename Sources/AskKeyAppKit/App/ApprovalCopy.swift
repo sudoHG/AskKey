@@ -30,6 +30,10 @@ enum ApprovalCopy {
 
     /// Keep names and short phrases together without changing semantic copy.
     @MainActor static func wrapping(_ text: String) -> String {
+        exportableWrapping(text).display
+    }
+
+    @MainActor static func exportableWrapping(_ text: String) -> WrappedText {
         let pattern = [
             "“[^”]*”(?:的(?:新)?值|的\\s+\\S+)?", // i18n-literal: Chinese value suffixes are layout tokens.
             "(?:组里有\\s*|合并后共\\s*)?[（(]?\\d+\\s*个(?:对\\s*Agent\\s*隐藏|隐藏的凭证|凭证)[）)]?", // i18n-literal: Counted phrases stay together.
@@ -38,17 +42,54 @@ enum ApprovalCopy {
             "环境变量|交给程序|不交付|被拒绝|移到|无法撤销|看不到|修改或删除仍需你批准", // i18n-literal: Chinese phrases are layout tokens.
         ].joined(separator: "|")
         let quoted = try? NSRegularExpression(pattern: pattern)
-        var result = text
+        var result = WrappedText(text)
         for match in (quoted?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []).reversed() {
-            if let range = Range(match.range, in: result) { result.replaceSubrange(range, with: unbroken(String(result[range]))) }
+            result.keepUnbroken(match.range)
         }
         let keys = AppLanguage.resolve(mode: AppLanguage.current) == "zh-Hans"
             ? ["%@ (not verified)", "hidden from agents", "Ungrouped", "Credential", "Group", "Instructions"]
             : []
         return keys.reduce(result) { result, key in
             let term = key == "%@ (not verified)" ? appLocalizedFormat(key, "") : appLocalized(key)
-            return result.replacingOccurrences(of: term, with: unbroken(term))
+            var result = result
+            let matches = result.display.ranges(of: term)
+            for range in matches.reversed() { result.keepUnbroken(range) }
+            return result
         }
+    }
+
+    /// UTF-16 boundary map: generated layout characters never enter exports,
+    /// while identical characters supplied by the requester are preserved.
+    struct WrappedText {
+        private(set) var display: String
+        private(set) var offsets: [Int]
+
+        init(_ text: String) {
+            display = text
+            offsets = Array(0...text.utf16.count)
+        }
+
+        mutating func keepUnbroken(_ range: NSRange) {
+            guard let stringRange = Range(range, in: display) else { return }
+            let text = String(display[stringRange])
+            var replacement = ""
+            var boundaries = [offsets[range.location]]
+            var position = range.location
+            for (index, character) in text.enumerated() {
+                if index > 0 {
+                    replacement += "\u{2060}"
+                    boundaries.append(offsets[position])
+                }
+                replacement += character == " " ? "\u{00a0}" : String(character)
+                for _ in String(character).utf16 {
+                    position += 1
+                    boundaries.append(offsets[position])
+                }
+            }
+            display.replaceSubrange(stringRange, with: replacement)
+            offsets.replaceSubrange(range.location...NSMaxRange(range), with: boundaries)
+        }
+
     }
 
     static func unbroken(_ text: String) -> String {
@@ -84,6 +125,19 @@ enum ApprovalCopy {
     static func matchKey(_ name: String) -> String {
         name.precomposedStringWithCanonicalMapping
             .folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    }
+}
+
+private extension String {
+    func ranges(of term: String) -> [NSRange] {
+        guard !term.isEmpty else { return [] }
+        var ranges: [NSRange] = []
+        var start = startIndex
+        while start < endIndex, let range = range(of: term, range: start..<endIndex) {
+            ranges.append(NSRange(range, in: self))
+            start = range.upperBound
+        }
+        return ranges
     }
 }
 

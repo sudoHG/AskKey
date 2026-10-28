@@ -208,4 +208,76 @@ final class ManagementDockPolicyTests: AskKeyAppTestCase {
         XCTAssertNil(policy.handle(.lockedApprovalReminderFallbackChanged(!posted)))
         XCTAssertEqual(policy.activationPolicy, .accessory)
     }
+
+    func testWriteFailureNeedsTheDockOnlyWhenNotificationDeliveryFails() {
+        for result in [LockedApprovalReminderDeliveryResult.authorizationUnavailable, .deliveryFailed, .delivered] {
+            var policy = ManagementDockPolicy()
+            let attempt = UUID()
+            XCTAssertNil(policy.handle(.agentWriteFailureStarted(attempt)))
+            XCTAssertEqual(policy.handle(.agentWriteFailureDeliveryFinished(attempt, result)), result == .delivered ? nil : .regular)
+            XCTAssertEqual(policy.agentWriteFailureFallbackVisible, result != .delivered)
+            XCTAssertFalse(policy.isManagementWindowForeground, "A reminder never marks management active or visible")
+            XCTAssertFalse(policy.applicationActive)
+            XCTAssertFalse(policy.managementWindowVisible)
+        }
+    }
+
+    func testWriteFailureSurvivesApprovalCleanupAndBackgroundEventsUntilAcknowledged() {
+        var policy = ManagementDockPolicy()
+        let attempt = UUID()
+        _ = policy.handle(.agentWriteFailureStarted(attempt))
+        _ = policy.handle(.agentWriteFailureDeliveryFinished(attempt, .deliveryFailed))
+        XCTAssertNil(policy.handle(.applicationDidBecomeActive))
+        XCTAssertNil(policy.handle(.applicationDidResignActive))
+        XCTAssertNil(policy.handle(.managementWindowState(visible: false, miniaturized: false, key: false, applicationActive: false)))
+        _ = policy.handle(.lockedApprovalReminderFallbackChanged(true))
+        XCTAssertNil(policy.handle(.lockedApprovalReminderFallbackChanged(false)))
+        XCTAssertEqual(policy.activationPolicy, .regular)
+        XCTAssertEqual(policy.handle(.agentWriteFailureAcknowledged), .accessory)
+        XCTAssertNil(policy.agentWriteFailureReminder)
+        XCTAssertFalse(policy.agentWriteFailureFallbackVisible)
+        XCTAssertNil(policy.handle(.agentWriteFailureDeliveryFinished(attempt, .deliveryFailed)))
+        XCTAssertEqual(policy.activationPolicy, .accessory, "A late callback cannot resurrect an acknowledged failure")
+    }
+
+    func testOpeningManagementClearsWriteFailureAndInvalidatesItsPendingCallback() {
+        for completeFirst in [false, true] {
+            var policy = ManagementDockPolicy()
+            let attempt = UUID()
+            _ = policy.handle(.agentWriteFailureStarted(attempt))
+            if completeFirst { _ = policy.handle(.agentWriteFailureDeliveryFinished(attempt, .authorizationUnavailable)) }
+            _ = policy.handle(.managementWindowOpenedByUser)
+            XCTAssertFalse(policy.agentWriteFailureFallbackVisible)
+            XCTAssertNil(policy.agentWriteFailureReminder)
+            XCTAssertNil(policy.handle(.agentWriteFailureDeliveryFinished(attempt, .authorizationUnavailable)))
+            XCTAssertEqual(policy.handle(.applicationDidResignActive), .accessory)
+        }
+    }
+
+    func testWriteFailureCleanupPreservesIndependentLockedReminderAndForegroundManagement() {
+        for foreground in [false, true] {
+            var policy = ManagementDockPolicy()
+            let attempt = UUID()
+            _ = policy.handle(.agentWriteFailureStarted(attempt))
+            _ = policy.handle(.agentWriteFailureDeliveryFinished(attempt, .deliveryFailed))
+            if foreground { _ = policy.handle(.managementWindowOpenedByUser) }
+            else { _ = policy.handle(.lockedApprovalReminderFallbackChanged(true)) }
+            XCTAssertNil(policy.handle(.agentWriteFailureAcknowledged))
+            XCTAssertEqual(policy.activationPolicy, .regular)
+            XCTAssertFalse(policy.agentWriteFailureFallbackVisible)
+        }
+    }
+
+    func testSupersededWriteFailureCallbackIsIgnoredButExistingFallbackStaysUntilAcknowledgement() {
+        var policy = ManagementDockPolicy()
+        let first = UUID(), second = UUID()
+        _ = policy.handle(.agentWriteFailureStarted(first))
+        _ = policy.handle(.agentWriteFailureStarted(second))
+        XCTAssertNil(policy.handle(.agentWriteFailureDeliveryFinished(first, .deliveryFailed)))
+        XCTAssertFalse(policy.agentWriteFailureFallbackVisible)
+        XCTAssertEqual(policy.handle(.agentWriteFailureDeliveryFinished(second, .deliveryFailed)), .regular)
+        _ = policy.handle(.agentWriteFailureStarted(UUID()))
+        XCTAssertTrue(policy.agentWriteFailureFallbackVisible)
+        XCTAssertEqual(policy.handle(.agentWriteFailureAcknowledged), .accessory)
+    }
 }

@@ -5,12 +5,17 @@ import SwiftUI
 /// exports and accessibility keep the original, including partial selections.
 struct ApprovalVariableLine: NSViewRepresentable {
     enum CodeWrapping: Equatable { case variable, identifier, command }
+    enum TextStyle: Equatable { case variable, details, detailsSecondary }
     let line: ApprovalLine
     var codeWrapping = CodeWrapping.variable
+    var textStyle = TextStyle.variable
+    var tag: ApprovalTag?
 
     func makeNSView(context: Context) -> TextView { TextView() }
 
-    func updateNSView(_ view: TextView, context: Context) { view.configure(line, codeWrapping: codeWrapping) }
+    func updateNSView(_ view: TextView, context: Context) {
+        view.configure(line, codeWrapping: codeWrapping, textStyle: textStyle, tag: tag)
+    }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: TextView, context: Context) -> CGSize? {
         nsView.measuredSize(width: proposal.width ?? FrozenAgentApprovalPrompt.contentWidth)
@@ -43,15 +48,36 @@ struct ApprovalVariableLine: NSViewRepresentable {
 
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-        func configure(_ line: ApprovalLine, codeWrapping: CodeWrapping = .variable) {
-            originalText = line.plainText
-            originalOffsets = [0]
-            var originalOffset = 0
+        func configure(_ line: ApprovalLine, codeWrapping: CodeWrapping = .variable,
+                       textStyle: TextStyle = .variable, tag: ApprovalTag? = nil) {
+            let prefix = tag.map { "\u{2009}" + $0.title + "\u{2009} " } ?? ""
+            originalText = prefix + line.plainText
+            originalOffsets = Array(0...prefix.utf16.count)
+            var originalOffset = prefix.utf16.count
             let attributed = NSMutableAttributedString(string: "")
             let paragraph = NSMutableParagraphStyle()
             paragraph.lineBreakMode = .byWordWrapping
             paragraph.hyphenationFactor = 0
+            let color = NSColor(textStyle == .detailsSecondary ? Theme.textSecondary : Theme.text)
+            if let tag {
+                attributed.append(NSAttributedString(string: String(prefix.dropLast()), attributes: [
+                    .font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor(tag.color),
+                    .backgroundColor: NSColor(Theme.neutralSubtle), .paragraphStyle: paragraph,
+                ]))
+                attributed.append(NSAttributedString(string: " ", attributes: [
+                    .font: NSFont.systemFont(ofSize: 12), .foregroundColor: color, .paragraphStyle: paragraph,
+                ]))
+            }
             for segment in line.segments {
+                if textStyle != .variable, !segment.code {
+                    let wrapped = ApprovalCopy.exportableWrapping(segment.text)
+                    originalOffsets += wrapped.offsets.dropFirst().map { $0 + originalOffset }
+                    originalOffset += segment.text.utf16.count
+                    attributed.append(NSAttributedString(string: wrapped.display, attributes: [
+                        .font: NSFont.systemFont(ofSize: 12), .foregroundColor: color, .paragraphStyle: paragraph,
+                    ]))
+                    continue
+                }
                 var displayed = ""
                 var previous: Character?
                 var wordLength = 0
@@ -79,7 +105,7 @@ struct ApprovalVariableLine: NSViewRepresentable {
                 }
                 attributed.append(NSAttributedString(string: displayed, attributes: [
                     .font: segment.code ? NSFont.monospacedSystemFont(ofSize: 12, weight: .regular) : NSFont.systemFont(ofSize: 12),
-                    .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph,
+                    .foregroundColor: textStyle == .variable ? NSColor.labelColor : color, .paragraphStyle: paragraph,
                 ]))
             }
             displayOffsets = Array(repeating: 0, count: originalOffset + 1)

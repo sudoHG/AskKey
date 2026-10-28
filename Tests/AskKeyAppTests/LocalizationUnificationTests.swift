@@ -186,7 +186,6 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
                     "Sentence separator": " ",
                     "Clause separator": ", ",
                     "Create credential button": "Create",
-                    "Removed phrases: %@": "Removed: %@",
                     "Approval list conjunction": "%1$@ and %2$@",
                     "Approval delivery mapping warning": "The delivery mapping is unavailable. This run will be refused. Choose Deny.",
                     "Approval timed scope": "For %lld minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.",
