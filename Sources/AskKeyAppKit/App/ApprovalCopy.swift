@@ -24,8 +24,35 @@ enum ApprovalCopy {
         case .temporaryFile(let variable):
             return ApprovalLine(format: appLocalized("given to programs as a temporary file (path in %@)"), code: [variable])
         case .none:
-            return ApprovalLine(appLocalized("kept in Ask Key only, never given to agents"))
+            return ApprovalLine(appLocalized("stored only, not delivered to programs"))
         }
+    }
+
+    /// Keep names and short phrases together without changing semantic copy.
+    @MainActor static func wrapping(_ text: String) -> String {
+        let pattern = [
+            "“[^”]*”(?:的(?:新)?值|的\\s+\\S+)?", // i18n-literal: Chinese value suffixes are layout tokens.
+            "(?:组里有\\s*|合并后共\\s*)?[（(]?\\d+\\s*个(?:对\\s*Agent\\s*隐藏|隐藏的凭证|凭证)[）)]?", // i18n-literal: Counted phrases stay together.
+            "\\(?\\d+\\s+(?:hidden(?:\\s+from\\s+agents)?|credentials?)\\)?",
+            "会动到\\s*\\d+\\s*个隐藏的凭证|\\s*的(?:新)?值", // i18n-literal: Chinese phrases are layout tokens.
+            "环境变量|交给程序|不交付|被拒绝|移到|无法撤销|看不到|修改或删除仍需你批准", // i18n-literal: Chinese phrases are layout tokens.
+        ].joined(separator: "|")
+        let quoted = try? NSRegularExpression(pattern: pattern)
+        var result = text
+        for match in (quoted?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []).reversed() {
+            if let range = Range(match.range, in: result) { result.replaceSubrange(range, with: unbroken(String(result[range]))) }
+        }
+        let keys = AppLanguage.resolve(mode: AppLanguage.current) == "zh-Hans"
+            ? ["%@ (not verified)", "hidden from agents", "Ungrouped", "Credential", "Group", "Instructions"]
+            : []
+        return keys.reduce(result) { result, key in
+            let term = key == "%@ (not verified)" ? appLocalizedFormat(key, "") : appLocalized(key)
+            return result.replacingOccurrences(of: term, with: unbroken(term))
+        }
+    }
+
+    static func unbroken(_ text: String) -> String {
+        text.replacingOccurrences(of: " ", with: "\u{00A0}").map(String.init).joined(separator: "\u{2060}")
     }
 
     /// "3 credentials (2 hidden from agents)"; the clause is omitted at zero.
@@ -33,7 +60,8 @@ enum ApprovalCopy {
         let members = count == 1
             ? appLocalizedFormat("%lld credential", count)
             : appLocalizedFormat("%lld credentials", count)
-        return hidden > 0 ? appLocalizedFormat("%1$@ (%2$lld hidden from agents)", members, hidden) : members
+        if count == 1, hidden == 1 { return appLocalized("Approval single hidden member") }
+        return hidden > 0 ? appLocalizedFormat("%1$@ with %2$lld hidden from agents", members, hidden) : members
     }
 
     static func sentences(_ parts: [String]) -> String {
@@ -80,6 +108,23 @@ struct ApprovalLine: Equatable {
         segments = EmphasizedSentence(format: format, arguments: arguments).runs.map { run in
             Segment(text: run.text, code: run.argument.map { $0 >= plain.count } ?? false)
         }
+    }
+
+    init(format: String, arguments: [ApprovalLine]) {
+        segments = EmphasizedSentence(format: format, arguments: arguments.map(\.plainText)).runs.flatMap { run in
+            run.argument.map { arguments[$0].segments } ?? [Segment(text: run.text, code: false)]
+        }
+    }
+
+    static func codeList(_ names: [String]) -> ApprovalLine {
+        guard let last = names.last else { return ApprovalLine("") }
+        let tail = ApprovalLine(format: "%@", code: [last])
+        guard names.count > 1 else { return tail }
+        let head = names.dropLast().map { ApprovalLine(format: "%@", code: [$0]) }.enumerated()
+            .reduce(ApprovalLine("")) { result, entry in
+                result + (entry.offset == 0 ? ApprovalLine("") : ApprovalLine(appLocalized("List separator"))) + entry.element
+            }
+        return ApprovalLine(format: appLocalized("Approval list conjunction"), arguments: [head, tail])
     }
 
     private init(segments: [Segment]) { self.segments = segments }

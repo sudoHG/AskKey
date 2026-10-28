@@ -70,11 +70,11 @@ struct FrozenWriteSummaryContent: Equatable {
             }
         case .modify where valueOnlyChange:
             subtitle = components.filter { $0.tag == .replaced }.count == 1
-                ? appLocalized("The old value can't be recovered")
-                : appLocalized("The old values can't be recovered")
+                ? appLocalized("Approval old value loss")
+                : appLocalized("Approval old values loss")
         case .modify:
-            subtitle = Self.changeSubtitle(components, instructions: instructionsChanged,
-                instructionsTextRemoved: instructionsDiff?.removedPhrases.isEmpty == false, group: groupChanged)
+            let changes = Self.changeSubtitle(components, instructions: instructionsChanged, group: groupChanged)
+            subtitle = Self.withConsequences(changes, components: components)
         case .read, .delete, .organize:
             subtitle = nil
         }
@@ -111,11 +111,9 @@ struct FrozenWriteSummaryContent: Equatable {
         return rows
     }
 
-    /// What a change does, in the order replace, change, add, remove, then
-    /// which values are lost: "Replaces 1 value, changes the group; the old
-    /// value can't be recovered".
+    /// Changes first; value loss always ends the subtitle.
     private static func changeSubtitle(_ components: [Component], instructions: Bool,
-                                       instructionsTextRemoved: Bool, group: Bool) -> String {
+                                       group: Bool) -> String {
         func count(_ tag: ApprovalTag) -> Int { components.filter { $0.tag == tag }.count }
         let replaced = count(.replaced), changed = count(.changed), added = count(.new), removed = count(.removed)
         var clauses: [String] = []
@@ -130,9 +128,7 @@ struct FrozenWriteSummaryContent: Equatable {
         if instructions { changes.append(appLocalized("the instructions")) }
         if group { changes.append(appLocalized("the group")) }
         if !changes.isEmpty {
-            let clause = appLocalizedFormat("changes %@", ApprovalCopy.list(changes))
-            clauses.append(instructionsTextRemoved
-                ? appLocalizedFormat("%@ (some instruction text is deleted)", clause) : clause)
+            clauses.append(appLocalizedFormat("changes %@", ApprovalCopy.list(changes)))
         }
         if added > 0 {
             clauses.append(added == 1 ? appLocalized("adds 1 item") : appLocalizedFormat("adds %lld items", added))
@@ -141,16 +137,19 @@ struct FrozenWriteSummaryContent: Equatable {
             clauses.append(removed == 1 ? appLocalized("removes 1 item") : appLocalizedFormat("removes %lld items", removed))
         }
         guard !clauses.isEmpty else { return appLocalized("Nothing changes") }
-        let text = clauses.joined(separator: appLocalized("Clause separator"))
-        let lost: String
+        return ApprovalCopy.capitalized(clauses.joined(separator: appLocalized("Clause separator")))
+    }
+
+    private static func withConsequences(_ changes: String, components: [Component]) -> String {
+        let replaced = components.filter { $0.tag == .replaced }.count
+        let removed = components.filter { $0.tag == .removed }.count
         switch (replaced, removed) {
-        case (0, 0): lost = text
-        case (1, 0): lost = appLocalizedFormat("%@; the old value can't be recovered", text)
-        case (_, 0): lost = appLocalizedFormat("%@; the old values can't be recovered", text)
-        case (0, 1): lost = appLocalizedFormat("%@; the removed value can't be recovered", text)
-        case (0, _): lost = appLocalizedFormat("%@; the removed values can't be recovered", text)
-        default: lost = appLocalizedFormat("%@; the old and removed values can't be recovered", text)
+        case (0, 0): return changes
+        case (1, 0): return appLocalizedFormat("Approval old value loss summary", changes)
+        case (_, 0): return appLocalizedFormat("Approval old values loss summary", changes)
+        case (0, 1): return appLocalizedFormat("Approval removed value loss summary", changes)
+        case (0, _): return appLocalizedFormat("Approval removed values loss summary", changes)
+        default: return appLocalizedFormat("Approval old and removed values loss summary", changes)
         }
-        return ApprovalCopy.capitalized(lost)
     }
 }

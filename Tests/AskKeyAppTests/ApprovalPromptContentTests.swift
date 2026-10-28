@@ -27,29 +27,29 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
         .createUngrouped: .init(title: "“Claude Code” wants to create the credential “Deploy Host”", subtitle: nil,
                                 buttons: ["Create", "Deny"]),
         .modifyValue: .init(title: "“Claude Code” wants to replace the value of “Release Check”",
-                            subtitle: "The old value can't be recovered", buttons: ["Replace", "Deny"]),
+                            subtitle: "The old value can’t be recovered", buttons: ["Replace", "Deny"]),
         .modifySomeValues: .init(title: "“Claude Code” wants to replace TOKEN in “Release Check”",
-                                 subtitle: "The old value can't be recovered", buttons: ["Replace", "Deny"]),
+                                 subtitle: "The old value can’t be recovered", buttons: ["Replace", "Deny"]),
         .modifyMetadata: .init(title: "“Claude Code” wants to change “Release Check”",
-                               subtitle: "Changes the instructions (some instruction text is deleted)", buttons: ["Change", "Deny"]),
+                               subtitle: "Changes the instructions", buttons: ["Change", "Deny"]),
         .modifyInstructionsAndGroup: .init(title: "“Claude Code” wants to change “Release Check”",
                                            subtitle: "Changes the instructions and the group", buttons: ["Change", "Deny"]),
         .modifyAdded: .init(title: "“Claude Code” wants to change “Release Check”", subtitle: "Adds 1 item",
                             buttons: ["Change", "Deny"]),
         .modifyRemoved: .init(title: "“Claude Code” wants to change “Release Check”",
-                              subtitle: "Removes 1 item; the removed value can't be recovered", buttons: ["Change", "Deny"]),
+                              subtitle: "Removes 1 item; it can’t be recovered", buttons: ["Change", "Deny"]),
         .modifyMixed: .init(title: "“Claude Code” wants to change “Release Check”",
-                            subtitle: "Replaces 1 value, changes the group; the old value can't be recovered",
+                            subtitle: "Replaces 1 value, changes the group; the old value can’t be recovered",
                             buttons: ["Change", "Deny"]),
         .delete: .init(title: "“Claude Code” wants to delete “Release Check”",
                        subtitle: "Moves to the Recycle Bin; restorable for 30 days", buttons: ["Delete", "Deny"]),
-        .organize: .init(title: "“Claude Code” wants to organize your groups",
-                         subtitle: "4 steps, affecting 2 hidden credentials", buttons: ["Apply", "Deny"]),
-        .organizeExistingAndMerge: .init(title: "“Claude Code” wants to organize your groups",
-                                         subtitle: "2 steps, one of which merges groups, affecting 1 hidden credential",
+        .organize: .init(title: "“Claude Code” wants to organize groups",
+                         subtitle: "4 steps; affects 2 hidden credentials", buttons: ["Apply", "Deny"]),
+        .organizeExistingAndMerge: .init(title: "“Claude Code” wants to organize groups",
+                                         subtitle: "2 steps, 1 merge; affects 1 hidden credential",
                                          buttons: ["Apply", "Deny"]),
-        .organizeTwelveSteps: .init(title: "“Claude Code” wants to organize your groups",
-                                    subtitle: "12 steps, affecting 3 hidden credentials", buttons: ["Apply", "Deny"]),
+        .organizeTwelveSteps: .init(title: "“Claude Code” wants to organize groups",
+                                    subtitle: "12 steps; affects 3 hidden credentials", buttons: ["Apply", "Deny"]),
     ]
 
     // i18n-literal: Simplified Chinese card copy from the #177 table.
@@ -64,26 +64,26 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
                                buttons: ["新建", "拒绝"]), // i18n-literal: Chinese create buttons.
         .createUngrouped: .init(title: "“Claude Code”想新建凭证“Deploy Host”", subtitle: nil, // i18n-literal: Chinese create card.
                                 buttons: ["新建", "拒绝"]), // i18n-literal: Chinese create buttons.
-        .modifyValue: .init(title: "“Claude Code”想替换“Release Check”的值", subtitle: "旧值将无法找回", // i18n-literal: Chinese value card.
+        .modifyValue: .init(title: "“Claude Code”想替换“Release Check”的值", subtitle: "旧值无法找回", // i18n-literal: Chinese value card.
                             buttons: ["替换", "拒绝"]), // i18n-literal: Chinese value buttons.
-        .modifySomeValues: .init(title: "“Claude Code”想替换“Release Check”的 TOKEN", subtitle: "旧值将无法找回", // i18n-literal: Chinese value card.
+        .modifySomeValues: .init(title: "“Claude Code”想替换“Release Check”的 TOKEN", subtitle: "旧值无法找回", // i18n-literal: Chinese value card.
                                  buttons: ["替换", "拒绝"]), // i18n-literal: Chinese value buttons.
-        .modifyMetadata: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "更改使用说明（删掉了部分说明）", // i18n-literal: Chinese change card.
+        .modifyMetadata: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "更改使用说明", // i18n-literal: Chinese change card.
                                buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
         .modifyInstructionsAndGroup: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "更改使用说明和分组", // i18n-literal: Chinese change card.
                                            buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
         .modifyAdded: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "新增 1 项", // i18n-literal: Chinese change card.
                             buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
-        .modifyRemoved: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "移除 1 项，移除的值将无法找回", // i18n-literal: Chinese change card.
+        .modifyRemoved: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "移除 1 项，移除的值无法找回", // i18n-literal: Chinese change card.
                               buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
-        .modifyMixed: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "替换 1 项的值，更改分组，旧值将无法找回", // i18n-literal: Chinese change card.
+        .modifyMixed: .init(title: "“Claude Code”想修改“Release Check”", subtitle: "替换 1 项的值，更改分组，旧值无法找回", // i18n-literal: Chinese change card.
                             buttons: ["修改", "拒绝"]), // i18n-literal: Chinese change buttons.
         .delete: .init(title: "“Claude Code”想删除“Release Check”", subtitle: "移到回收站，30 天内可恢复", // i18n-literal: Chinese delete card.
                        buttons: ["删除", "拒绝"]), // i18n-literal: Chinese delete buttons.
         .organize: .init(title: "“Claude Code”想整理分组", subtitle: "共 4 步，会动到 2 个隐藏的凭证", // i18n-literal: Chinese organize card.
                          buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.
         .organizeExistingAndMerge: .init(title: "“Claude Code”想整理分组", // i18n-literal: Chinese organize card.
-                                         subtitle: "共 2 步，其中一步会合并分组，会动到 1 个隐藏的凭证", // i18n-literal: Chinese organize card.
+                                         subtitle: "共 2 步，含 1 次合并，会动到 1 个隐藏的凭证", // i18n-literal: Chinese organize card.
                                          buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.
         .organizeTwelveSteps: .init(title: "“Claude Code”想整理分组", subtitle: "共 12 步，会动到 3 个隐藏的凭证", // i18n-literal: Chinese organize card.
                                     buttons: ["执行", "拒绝"]), // i18n-literal: Chinese organize buttons.
@@ -174,7 +174,7 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
                 "“Claude Code” wants to create the credential “Staging API”",
                 "“Claude Code” wants to change “Staging API”",
                 "“Claude Code” wants to delete “Staging API”",
-                "“Claude Code” wants to organize your groups",
+                "“Claude Code” wants to organize groups",
             ] : [
                 "“Claude Code”想使用“Staging API”运行 ./deploy.sh --env staging", // i18n-literal: Chinese pending sentence.
                 "“Claude Code”想使用“Staging API”", // i18n-literal: Chinese pending sentence.

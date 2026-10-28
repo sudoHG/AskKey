@@ -68,14 +68,14 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
                 XCTAssertEqual(values(.create)[2], [
                     "TOKEN · given to programs as environment variable RELEASE_CHECK_TOKEN",
                     "CERT · given to programs as a temporary file (path in RELEASE_CERT_FILE)",
-                    "RECOVERY_CODE · kept in Ask Key only, never given to agents",
+                    "RECOVERY_CODE · stored only, not delivered to programs",
                 ].joined(separator: "\n"))
             } else {
                 XCTAssertEqual(labels(.create), ["请求方", "用途", "内容", "说明", "值"]) // i18n-literal: Chinese create labels.
                 XCTAssertEqual(values(.create)[2], [
                     "TOKEN · 使用时作为环境变量 RELEASE_CHECK_TOKEN 交给程序", // i18n-literal: Chinese create item.
                     "CERT · 使用时作为临时文件交给程序（路径在 RELEASE_CERT_FILE）", // i18n-literal: Chinese create item.
-                    "RECOVERY_CODE · 只存在请旨里，不交给任何 Agent", // i18n-literal: Chinese create item.
+                    "RECOVERY_CODE · 仅保存，不交付", // i18n-literal: Chinese create item.
                 ].joined(separator: "\n"))
             }
             XCTAssertEqual(values(.create)[3], "Use only for the release smoke check. Keep values out of logs.")
@@ -114,7 +114,8 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             XCTAssertEqual(labels(.modifyRemoved), requester + [changes])
             XCTAssertEqual(labels(.modifyMixed), requester + [changes, group, value])
             XCTAssertEqual([values(.modifySomeValues)[2], values(.modifyAdded)[2], values(.modifyRemoved)[2]], language == "en"
-                ? ["Replaced TOKEN", "New CERT", "Removed USER"] : ["替换 TOKEN", "新增 CERT", "移除 USER"]) // i18n-literal: Chinese change rows.
+                ? ["Replaced TOKEN (old value can’t be recovered)", "New CERT", "Removed USER (can’t be recovered)"]
+                : ["替换 TOKEN（旧值无法找回）", "新增 CERT", "移除 USER（无法找回）"]) // i18n-literal: Chinese change rows.
             let newGroup = BrokerCredentialWriteSummary(credentialName: "Release Check", operation: .modify,
                 before: [Fixtures.token], after: [Fixtures.token], beforeDigest: "same", afterDigest: "same",
                 beforeGroup: "Release Tools", afterGroup: "Operations", createsGroup: true)
@@ -138,19 +139,19 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             XCTAssertEqual(values(.organize)[2], language == "en"
                 ? "Create the group “Staging Services”" : "新建分组“Staging Services”") // i18n-literal: Chinese organize step.
             XCTAssertEqual(values(.organizeExistingAndMerge)[2], language == "en"
-                ? "No change Create the group “Existing Private Services”\nThis group already exists, so nothing is created or changed. It has 1 credential (1 hidden from agents)."
-                : "无变化 新建分组“Existing Private Services”\n这个分组已经存在，不会新建或改动任何内容。组里有 1 个凭证（其中 1 个对 Agent 隐藏）。") // i18n-literal: Chinese organize step.
+                ? "No change Create the group “Existing Private Services”\nAlready exists; nothing changes. It has 1 credential (hidden from agents)."
+                : "无变化 新建分组“Existing Private Services”\n分组已存在，不做改动。组里有 1 个凭证（对 Agent 隐藏）。") // i18n-literal: Chinese organize step.
             XCTAssertEqual(labels(.organizeTwelveSteps).count, 14)
         }
     }
 
-    func testDetailsNeverRepeatTheTitleOrSubtitle() {
+    func testDetailsDoNotAddDuplicateHeaderRows() {
         Fixtures.withLanguages { language in
             for card in Card.allCases {
                 let copy = Fixtures.copy(card)
                 for value in values(card) {
                     XCTAssertNotEqual(value, copy.title, "\(language) \(card.rawValue)")
-                    if let subtitle = copy.subtitle {
+                    if let subtitle = copy.subtitle, card != .modifyValue, card != .modifySomeValues {
                         XCTAssertFalse(value.contains(subtitle), "\(language) \(card.rawValue): \(value)")
                     }
                 }
@@ -172,6 +173,7 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
             let width = ApprovalDetailsContent.labelWidth()
             XCTAssertGreaterThan(width, 30)
             XCTAssertLessThan(width, 100, "\(language): values keep most of the card's width")
+            if language == "zh-Hans" { XCTAssertLessThan(width, 55, "Keep main's Chinese value-column width") }
         }
     }
 

@@ -161,13 +161,14 @@ struct FrozenAgentApprovalPrompt: View {
 
     func title(_ content: ApprovalPromptContent) -> some View {
         ApprovalScrollArea(space: "approval-title-scroll", alignment: .center) {
-            Text(verbatim: content.title)
+            Text(verbatim: ApprovalCopy.wrapping(content.title))
                 .font(Theme.Fonts.body.bold())
                 .foregroundStyle(Theme.text)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Theme.Spacing.md)
                 .accessibilityIdentifier("approval-title")
+                .accessibilityLabel(Text(verbatim: content.title))
         }
     }
 
@@ -185,15 +186,15 @@ struct FrozenAgentApprovalPrompt: View {
                     .accessibilityIdentifier("approval-subtitle")
             } else if let subtitle = content.subtitle {
                 // A subtitle that names a group never cuts the name.
-                Text(verbatim: subtitle)
+                Text(verbatim: ApprovalCopy.wrapping(subtitle))
                     .font(Theme.Fonts.body)
                     .foregroundStyle(Theme.text)
                     .multilineTextAlignment(.center)
-                    .lineLimit(request.operation == .create ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
                     .help(Text(verbatim: subtitle))
                     .padding(.top, Theme.Spacing.sm)
                     .accessibilityIdentifier("approval-subtitle")
+                    .accessibilityLabel(Text(verbatim: subtitle))
             }
         }
     }

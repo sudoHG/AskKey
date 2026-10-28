@@ -187,11 +187,33 @@ final class LocalizationUnificationTests: AskKeyAppTestCase {
                     "Clause separator": ", ",
                     "Create credential button": "Create",
                     "Removed phrases: %@": "Removed: %@",
+                    "Approval list conjunction": "%1$@ and %2$@",
+                    "Approval delivery mapping warning": "The delivery mapping is unavailable. This run will be refused. Choose Deny.",
+                    "Approval timed scope": "For %lld minutes, any agent or command in your Mac account can read this credential without asking. Changing or deleting it still needs your approval.",
+                    "Approval group deletion singular": "Its %1$@%3$@ moves to %2$@ and isn’t deleted.",
+                    "Approval group deletion plural": "Its %1$@%3$@ move to %2$@ and aren’t deleted.",
+                    "Approval single hidden member": "1 credential (hidden from agents)",
+                    "%1$@ with %2$lld hidden from agents": "%1$@ (%2$lld hidden from agents)",
+                    "Approval old value loss": "The old value can’t be recovered",
+                    "Approval old values loss": "The old values can’t be recovered",
+                    "Approval old value loss summary": "%@; the old value can’t be recovered",
+                    "Approval old values loss summary": "%@; the old values can’t be recovered",
+                    "Approval removed value loss summary": "%@; it can’t be recovered",
+                    "Approval removed values loss summary": "%@; they can’t be recovered",
+                    "Approval old and removed values loss summary": "%@; old and removed values can’t be recovered",
+                    "Approval hidden count suffix": " (%@)",
+                    "%@ · affects 1 hidden credential": "%@; affects 1 hidden credential",
+                    "%1$@ · affects %2$lld hidden credentials": "%1$@; affects %2$lld hidden credentials",
+                    "Move %1$lld credentials to %2$@": "Moves %1$lld credentials to %2$@",
+                    "Merge the group %1$@ into %2$@": "%1$@ into %2$@",
+                    "%@ · 1 merge": "%@, 1 merge",
+                    "%1$@ · %2$lld merges": "%1$@, %2$lld merges",
                 ]
                 XCTAssertEqual(english, allowedAliases[key], "English value must match the key or a declared alias: \(key)")
             }
             XCTAssertNotNil(entry["zh-Hans"], "missing Chinese translation for \(key)")
-            let englishPlaceholders = placeholderTokens(key)
+            // A declared alias names the key; its English value is the format.
+            let englishPlaceholders = placeholderTokens(english ?? key)
             if let chinese = entry["zh-Hans"] {
                 XCTAssertEqual(
                     placeholderTokens(chinese),

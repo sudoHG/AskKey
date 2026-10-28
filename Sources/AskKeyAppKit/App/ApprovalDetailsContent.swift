@@ -1,8 +1,8 @@
 import AppKit
 import AskKeyBroker
 
-/// The rows under Details: a label and a value each, in a fixed order per
-/// card. Nothing here repeats the card's title or subtitle.
+/// Label/value rows in a fixed order. Changed items carry their consequence
+/// inline; Details adds no duplicate title or subtitle row.
 struct ApprovalDetailsContent: Equatable {
     struct Line: Equatable {
         var tag: ApprovalTag? = nil
@@ -16,8 +16,8 @@ struct ApprovalDetailsContent: Equatable {
         case text(String)
         case code(String)
         case lines([Line])
-        /// Removed words struck through, added words highlighted, then the
-        /// removed phrases.
+        /// Full before/after text with removed words struck through and
+        /// additions underlined.
         case diff(ApprovalTextDiff)
         /// New values, masked until viewed with another authentication.
         case revealableValue
@@ -26,6 +26,7 @@ struct ApprovalDetailsContent: Equatable {
     struct Row: Equatable {
         let label: String
         let value: Value
+        var note: ApprovalLine? = nil
     }
 
     let rows: [Row]
@@ -54,13 +55,14 @@ struct ApprovalDetailsContent: Equatable {
             }
         case .create, .modify, .delete:
             if let write {
-                rows += Self.writeRows(write)
+                rows += Self.writeRows(write, requester: ApprovalCopy.requester(request))
             } else if request.operation != .delete {
                 rows.append(Row(label: appLocalized("Value"), value: .revealableValue))
             }
         case .organize:
             rows += (organization?.rows ?? []).map { step in
-                Row(label: appLocalizedFormat("Step %lld", step.number),
+                Row(label: step.lastNumber.map { appLocalizedFormat("Steps %1$lld–%2$lld", step.number, $0) }
+                        ?? appLocalizedFormat("Step %lld", step.number),
                     value: .lines([Line(tag: step.tag, text: ApprovalLine(step.title), note: step.detail)]))
             }
         }
@@ -95,7 +97,7 @@ struct ApprovalDetailsContent: Equatable {
         return Line(text: ApprovalLine(format: format, plain: [name], code: [variable]), wrapsVariables: true)
     }
 
-    private static func writeRows(_ write: FrozenWriteSummaryContent) -> [Row] {
+    private static func writeRows(_ write: FrozenWriteSummaryContent, requester: String) -> [Row] {
         var rows: [Row] = []
         switch write.operation {
         case .create:
@@ -110,7 +112,12 @@ struct ApprovalDetailsContent: Equatable {
             let changed = write.changedComponents
             if !changed.isEmpty {
                 rows.append(Row(label: appLocalized("Changes"), value: .lines(changed.map {
-                    Line(tag: $0.tag, text: ApprovalLine(format: "%@", code: [$0.name]))
+                    let consequence = switch $0.tag {
+                    case .replaced: appLocalized(" (old value can’t be recovered)")
+                    case .removed: appLocalized(" (can’t be recovered)")
+                    default: ""
+                    }
+                    return Line(tag: $0.tag, text: ApprovalLine(format: "%@", code: [$0.name]) + ApprovalLine(consequence))
                 })))
             }
             if let diff = write.instructionsDiff {
@@ -128,7 +135,13 @@ struct ApprovalDetailsContent: Equatable {
             break
         }
         if !write.valueComponents.isEmpty {
-            rows.append(Row(label: appLocalized("Value"), value: .revealableValue))
+            let names = ApprovalLine.codeList(write.valueComponents.map(\.name))
+            let replacement = write.valueComponents.contains { $0.tag == .replaced }
+            let format = write.valueComponents.count == 1
+                ? (replacement ? "%1$@ knows the new %2$@ value." : "%1$@ knows the value of %2$@.")
+                : (replacement ? "%1$@ knows the new values of %2$@." : "%1$@ knows the values of %2$@.")
+            rows.append(Row(label: appLocalized("Value"), value: .revealableValue,
+                note: ApprovalLine(format: appLocalized(format), arguments: [ApprovalLine(requester), names])))
         }
         return rows
     }

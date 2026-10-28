@@ -1,14 +1,16 @@
 import AppKit
 import SwiftUI
 
-/// Prefer underscore breaks, with a fallback for long words. All text exports
-/// and accessibility keep the original text, including partial selections.
+/// Variables prefer underscore breaks; commands wrap between words. All text
+/// exports and accessibility keep the original, including partial selections.
 struct ApprovalVariableLine: NSViewRepresentable {
+    enum CodeWrapping: Equatable { case variable, identifier, command }
     let line: ApprovalLine
+    var codeWrapping = CodeWrapping.variable
 
     func makeNSView(context: Context) -> TextView { TextView() }
 
-    func updateNSView(_ view: TextView, context: Context) { view.configure(line) }
+    func updateNSView(_ view: TextView, context: Context) { view.configure(line, codeWrapping: codeWrapping) }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: TextView, context: Context) -> CGSize? {
         nsView.measuredSize(width: proposal.width ?? FrozenAgentApprovalPrompt.contentWidth)
@@ -41,7 +43,7 @@ struct ApprovalVariableLine: NSViewRepresentable {
 
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-        func configure(_ line: ApprovalLine) {
+        func configure(_ line: ApprovalLine, codeWrapping: CodeWrapping = .variable) {
             originalText = line.plainText
             originalOffsets = [0]
             var originalOffset = 0
@@ -58,8 +60,9 @@ struct ApprovalVariableLine: NSViewRepresentable {
                     originalOffsets.append(originalOffset)
                 }
                 for character in segment.text {
-                    if segment.code, let previous, previous != "_" {
-                        if wordLength == 12 {
+                    let breakAtSpace = codeWrapping != .variable && (character.isWhitespace || previous?.isWhitespace == true)
+                    if segment.code, let previous, !breakAtSpace, codeWrapping != .variable || previous != "_" {
+                        if wordLength == (codeWrapping == .variable ? 12 : 24) {
                             insert("\u{200b}")
                             wordLength = 0
                         } else { insert("\u{2060}") }
@@ -69,8 +72,9 @@ struct ApprovalVariableLine: NSViewRepresentable {
                         originalOffset += 1
                         originalOffsets.append(originalOffset)
                     }
-                    if segment.code, character == "_" { insert("\u{200b}") }
-                    wordLength = character == "_" ? 0 : wordLength + 1
+                    let underscoreBreak = codeWrapping == .variable && character == "_"
+                    if segment.code, underscoreBreak { insert("\u{200b}") }
+                    wordLength = underscoreBreak || (codeWrapping != .variable && character.isWhitespace) ? 0 : wordLength + 1
                     previous = character
                 }
                 attributed.append(NSAttributedString(string: displayed, attributes: [

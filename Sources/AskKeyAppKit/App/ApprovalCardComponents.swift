@@ -39,6 +39,7 @@ struct ApprovalLineText: View {
         Text(attributed)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel(Text(verbatim: (tag.map { $0.title + " " } ?? "") + line.plainText))
     }
 
     private var attributed: AttributedString {
@@ -51,7 +52,7 @@ struct ApprovalLineText: View {
             result += label + AttributedString(" ")
         }
         for segment in line.segments {
-            var part = AttributedString(segment.text)
+            var part = AttributedString(segment.code ? segment.text : ApprovalCopy.wrapping(segment.text))
             if segment.code { part.font = Theme.Fonts.mono }
             result += part
         }
