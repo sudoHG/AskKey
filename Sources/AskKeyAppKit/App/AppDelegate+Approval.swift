@@ -358,9 +358,9 @@ extension AppDelegate {
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, self.managementDockPolicy.agentWriteFailureReminder == attempt else { return }
-                if self.vault.errorMessage == nil {
+                if self.vault.errorMessage == nil, self.managementDockPolicy.isManagementWindowForeground {
                     self.resetAgentWriteFailureReminder()
-                } else {
+                } else if self.vault.errorMessage != nil {
                     self.observeAgentWriteFailureAcknowledgement(attempt)
                 }
             }
