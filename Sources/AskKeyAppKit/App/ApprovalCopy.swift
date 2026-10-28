@@ -80,7 +80,7 @@ enum ApprovalCopy {
                     replacement += "\u{2060}"
                     boundaries.append(offsets[position])
                 }
-                replacement += character == " " ? "\u{00a0}" : String(character)
+                replacement += String(character).replacingOccurrences(of: " ", with: "\u{00a0}")
                 for _ in String(character).utf16 {
                     position += 1
                     boundaries.append(offsets[position])

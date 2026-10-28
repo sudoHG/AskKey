@@ -69,12 +69,13 @@ struct ApprovalVariableLine: NSViewRepresentable {
                 ]))
             }
             for segment in line.segments {
-                if textStyle != .variable, !segment.code {
-                    let wrapped = ApprovalCopy.exportableWrapping(segment.text)
+                if textStyle != .variable {
+                    let wrapped = segment.code ? ApprovalCopy.WrappedText(segment.text) : ApprovalCopy.exportableWrapping(segment.text)
                     originalOffsets += wrapped.offsets.dropFirst().map { $0 + originalOffset }
                     originalOffset += segment.text.utf16.count
                     attributed.append(NSAttributedString(string: wrapped.display, attributes: [
-                        .font: NSFont.systemFont(ofSize: 12), .foregroundColor: color, .paragraphStyle: paragraph,
+                        .font: segment.code ? NSFont.monospacedSystemFont(ofSize: 12, weight: .regular) : NSFont.systemFont(ofSize: 12),
+                        .foregroundColor: color, .paragraphStyle: paragraph,
                     ]))
                     continue
                 }
