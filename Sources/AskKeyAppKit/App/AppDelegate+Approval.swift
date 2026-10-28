@@ -320,9 +320,10 @@ extension AppDelegate {
         let attempt = UUID()
         lockedApprovalReminderAttempt = attempt
         postApprovalNotification(identifier: "askkey-locked-approval-reminder", title: title, body: body) { [weak self] result in
-            guard self?.lockedApprovalReminderAttempt == attempt else { return }
-            self?.lockedApprovalReminderAttempt = nil
-            self?.lockedApprovalReminderPosted = LockedApprovalReminderDeliveryPolicy.marksNotificationPosted(for: result)
+            guard let self, self.lockedApprovalReminderAttempt == attempt else { return }
+            self.lockedApprovalReminderAttempt = nil
+            self.lockedApprovalReminderPosted = LockedApprovalReminderDeliveryPolicy.marksNotificationPosted(for: result)
+            self.setLockedApprovalReminderFallbackVisible(!self.lockedApprovalReminderPosted)
         }
     }
 
@@ -386,5 +387,6 @@ extension AppDelegate {
         lockedApprovalReminderAttempt = nil
         lockedApprovalReminderPosted = false
         NSApp.dockTile.badgeLabel = nil
+        setLockedApprovalReminderFallbackVisible(false)
     }
 }
