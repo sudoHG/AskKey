@@ -32,7 +32,7 @@ final class HistoricalEditorMappingTests: AskKeyAppTestCase {
         for language in ["en", "zh-Hans"] {
             AppLanguage.current = language
             XCTAssertEqual(CredentialEditorComponentValidation.deliveryError(drafts[0]),
-                appLocalized(VaultError.invalidSecretName("FOO\n").localizedDescription))
+                appLocalized("This name ends with an extra line break or space. Delete it to save."))
         }
         XCTAssertFalse(CredentialEditorComponentValidation.canSave(drafts))
         XCTAssertNil(CredentialEditorComponentValidation.inputs(drafts))
@@ -42,7 +42,8 @@ final class HistoricalEditorMappingTests: AskKeyAppTestCase {
         XCTAssertThrowsError(try vault.updateBundleCredential(id: fixture.id, invalid, using: .allow))
         XCTAssertEqual(try vault.revealTextCredential(id: fixture.id, using: .allow), original)
 
-        drafts[0].delivery = .environmentVariable("FOO")
+        let fieldValue = try XCTUnwrap(drafts[0].delivery?.environmentVariable)
+        drafts[0].delivery = .environmentVariable(String(fieldValue.dropLast()))
         XCTAssertNil(CredentialEditorComponentValidation.deliveryError(drafts[0]))
         XCTAssertTrue(CredentialEditorComponentValidation.canSave(drafts))
         let inputs = try XCTUnwrap(CredentialEditorComponentValidation.inputs(drafts))
@@ -68,6 +69,50 @@ final class HistoricalEditorMappingTests: AskKeyAppTestCase {
         XCTAssertThrowsError(try CredentialEditorComponentLoader.load([
             .init(name: "Token", value: nil)
         ]))
+    }
+
+    func testDeletingTrailingLineBreakOrSpaceMakesTheDraftValidInBothLanguages() throws {
+        let previousLanguage = AppLanguage.current
+        defer { AppLanguage.current = previousLanguage }
+        let messageKey = "This name ends with an extra line break or space. Delete it to save."
+        for language in ["en", "zh-Hans"] {
+            AppLanguage.current = language
+            let message = appLocalized(messageKey)
+            if language == "zh-Hans" { XCTAssertNotEqual(message, messageKey) }
+            for mapping in ["FOO\n", "FOO "] {
+                for delivery in [CredentialComponentDelivery.environmentVariable(mapping), .temporaryFile(mapping)] {
+                    var draft = try XCTUnwrap(CredentialEditorComponentLoader.load([
+                        .init(name: "Token", value: .text("synthetic-token"), delivery: delivery)
+                    ]).first)
+                    XCTAssertEqual(CredentialEditorComponentValidation.deliveryError(draft), message)
+                    XCTAssertFalse(CredentialEditorComponentValidation.canSave([draft]))
+                    XCTAssertEqual(draft.delivery, delivery)
+                    let fieldValue = try XCTUnwrap(draft.delivery?.environmentVariable)
+                    let edited = String(fieldValue.dropLast())
+                    if case .temporaryFile = delivery { draft.delivery = .temporaryFile(edited) }
+                    else { draft.delivery = .environmentVariable(edited) }
+                    XCTAssertNil(CredentialEditorComponentValidation.deliveryError(draft))
+                    XCTAssertTrue(CredentialEditorComponentValidation.canSave([draft]))
+                    XCTAssertEqual(CredentialEditorComponentValidation.inputs([draft])?.first?.value, .text("synthetic-token"))
+                }
+            }
+        }
+    }
+
+    func testOtherInvalidMappingsKeepTheGenericErrorInBothLanguages() throws {
+        let previousLanguage = AppLanguage.current
+        defer { AppLanguage.current = previousLanguage }
+        for language in ["en", "zh-Hans"] {
+            AppLanguage.current = language
+            for mapping in ["9FOO", "FOO BAR", "FOO-BAR\n", " "] {
+                let draft = try XCTUnwrap(CredentialEditorComponentLoader.load([
+                    .init(name: "Token", value: .text("synthetic-token"), delivery: .environmentVariable(mapping))
+                ]).first)
+                XCTAssertEqual(CredentialEditorComponentValidation.deliveryError(draft),
+                    appLocalized(VaultError.invalidSecretName(mapping).localizedDescription))
+                XCTAssertFalse(CredentialEditorComponentValidation.canSave([draft]))
+            }
+        }
     }
 
     func testTemplateInferencePreservesHistoricalTextInAFileNamedSlot() throws {

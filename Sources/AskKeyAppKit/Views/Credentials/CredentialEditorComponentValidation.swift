@@ -23,6 +23,15 @@ enum CredentialEditorComponentValidation {
             ])
             return nil
         } catch {
+            if let variable = delivery.environmentVariable {
+                let trimmed = variable.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed != variable,
+                   (try? CredentialBundleValidator.validatedComponents([
+                       .init(name: "Component", value: .text(""), delivery: .environmentVariable(trimmed))
+                   ])) != nil {
+                    return appLocalized("This name ends with an extra line break or space. Delete it to save.")
+                }
+            }
             return appLocalized(error.localizedDescription)
         }
     }
