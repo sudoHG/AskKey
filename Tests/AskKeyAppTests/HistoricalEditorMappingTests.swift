@@ -70,6 +70,24 @@ final class HistoricalEditorMappingTests: AskKeyAppTestCase {
         ]))
     }
 
+    func testTemplateInferencePreservesHistoricalTextInAFileNamedSlot() throws {
+        let components: [ManagedCredentialComponent] = [
+            .init(name: "SSH_HOST", value: .text("synthetic.example")),
+            .init(name: "SSH_PRIVATE_KEY", value: .text("synthetic-private-key"),
+                delivery: .environmentVariable("FOO\n"), masked: false)
+        ]
+        let template = CredentialTemplate.prototypeTemplate(componentNames: Set(components.map(\.name)))
+        XCTAssertEqual(template, .ssh)
+        var drafts = try CredentialEditorComponentLoader.load(components, template: template)
+        XCTAssertEqual(drafts[1].kind, .text)
+        XCTAssertEqual(drafts[1].text, "synthetic-private-key")
+        XCTAssertFalse(drafts[1].masked)
+        XCTAssertFalse(CredentialEditorComponentValidation.canSave(drafts))
+        drafts[1].delivery = .environmentVariable("FOO")
+        XCTAssertTrue(CredentialEditorComponentValidation.canSave(drafts))
+        XCTAssertEqual(CredentialEditorComponentValidation.inputs(drafts)?.last?.value, .text("synthetic-private-key"))
+    }
+
     func testDefaultMappingsValidateTheTrimmedSavedNameAndIgnoreBlankRows() {
         let complete = CredentialComponentDraft(name: " TOKEN ", text: "synthetic")
         XCTAssertNil(CredentialEditorComponentValidation.deliveryError(CredentialComponentDraft()))

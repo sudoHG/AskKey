@@ -14,13 +14,13 @@ enum CredentialEditorComponentLoader {
             guard let value = component.value else { throw VaultError.credentialUnavailable }
             var draft = template.components.first(where: { $0.name == component.name })
                 ?? CredentialComponentDraft(name: component.name)
+            draft.kind = value.payloadKind
             draft.delivery = component.delivery
             draft.masked = component.masked
             switch value {
             case .text(let text):
                 draft.text = text
             case .file(let filename, let bytes):
-                draft.kind = .file
                 draft.file = try FileImport.FrozenFile(originalFilename: filename, bytes: bytes)
             }
             return draft
