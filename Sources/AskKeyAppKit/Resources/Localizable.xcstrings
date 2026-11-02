@@ -6463,7 +6463,7 @@
       "extractionState": "extracted_with_value",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "End all timed allowances when the screen locks or the Mac sleeps. Allow permissions are unchanged." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "锁屏或 Mac 睡眠时结束所有限时允许，不影响设为「允许」的凭证。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "锁屏或 Mac 睡眠时结束所有限时允许，不影响设为“允许”的凭证。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!End all timed allowances when the screen locks or the Mac sleeps. Allow permissions are unchanged.!!]" } }
       }
     },
