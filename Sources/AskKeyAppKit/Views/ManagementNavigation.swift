@@ -31,7 +31,17 @@ final class ManagementNavigation {
     }
 
     func applyPendingNotification(to vault: VaultViewModel) {
-        guard let pendingNotification, !vault.isLocked, vault.hasManagementSession else { return }
+        guard let pendingNotification else { return }
+        if pendingNotification == .pendingRequests, vault.settingsEntryState == .locked {
+            // Match the locked page's direct approval action without unlocking management.
+            self.pendingNotification = nil
+            guard canLeaveCurrentPage(entryState: vault.settingsEntryState) else { return }
+            if vault.pendingApprovalCount > 0 {
+                NotificationCenter.default.post(name: .presentNextAgentApproval, object: nil)
+            }
+            return
+        }
+        guard !vault.isLocked, vault.hasManagementSession else { return }
         self.pendingNotification = nil
         guard canLeaveCurrentPage(entryState: vault.settingsEntryState) else { return }
         section = .all
