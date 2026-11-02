@@ -28,7 +28,7 @@ final class GroupTimedAllowanceContentTests: AskKeyAppTestCase {
                 return lines.map { $0.text.plainText }
             }
             XCTAssertEqual(names, [Self.snapshot.members.map(\.name)])
-            XCTAssertEqual(group.details.rows.last?.label, language == "en" ? "Group deadline" : "授权期限") // i18n-literal: Chinese deadline label.
+            XCTAssertEqual(group.details.rows.last?.label, language == "en" ? "Group deadline" : "到期时间") // i18n-literal: Chinese deadline label.
             guard case .text(let deadline) = group.details.rows.last?.value else { return XCTFail("Missing shared deadline") }
             XCTAssertTrue(deadline.contains(language == "en" ? "whichever comes first" : "以较早者为准")) // i18n-literal: Chinese expiry explanation.
         }
