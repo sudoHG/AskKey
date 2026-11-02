@@ -3,11 +3,14 @@ import XCTest
 
 final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
     func testRealSleepOffsetBoundsDoNotReportSleepBetweenAwakeSamples() {
-        let first = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
-        let second = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
-        XCTAssertLessThanOrEqual(first.lower, first.upper)
-        XCTAssertLessThanOrEqual(second.lower, second.upper)
-        XCTAssertLessThanOrEqual(second.lower, first.upper)
+        var previous = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
+        XCTAssertLessThanOrEqual(previous.lower, previous.upper)
+        for _ in 0..<10_000 {
+            let current = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
+            XCTAssertLessThanOrEqual(current.lower, current.upper)
+            XCTAssertLessThanOrEqual(current.lower, previous.upper)
+            previous = current
+        }
     }
 
     func testEnablingWithCachedActiveButLiveLockedRevokesAllowanceAndAdvancesGeneration() throws {

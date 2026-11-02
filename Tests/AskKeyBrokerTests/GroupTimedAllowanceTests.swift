@@ -169,6 +169,14 @@ final class GroupTimedAllowanceTests: ApprovalStateMachineTestCase {
             let machine = makeMachine()
             _ = try grant(machine)
             let reads = try ["a", "b"].map { try machine.submit(read($0), now: start) }
+            let leases = try ["pause", "disable"].contains(action)
+                ? ["a", "b"].map { try runtimeLease(machine, credentialID: $0) } : []
+            defer { leases.forEach { $0.finish() } }
+            let cleanups = try leases.enumerated().map { index, lease in
+                let cleaned = expectation(description: "\(action) cleans member \(index)")
+                try lease.registerCleanup { cleaned.fulfill() }
+                return cleaned
+            }
             switch action {
             case "a", "b": XCTAssertTrue(machine.revokeTimedAllowance(credentialID: action))
             case "all": machine.revokeAllTimedAllowances()
@@ -184,6 +192,10 @@ final class GroupTimedAllowanceTests: ApprovalStateMachineTestCase {
             for ticket in reads {
                 XCTAssertNotEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .approved, action)
             }
+            for lease in leases {
+                XCTAssertThrowsError(try lease.performAuthorizedSpawn { XCTFail("\(action) must prevent group launch") })
+            }
+            if !cleanups.isEmpty { wait(for: cleanups, timeout: 1) }
         }
     }
 
