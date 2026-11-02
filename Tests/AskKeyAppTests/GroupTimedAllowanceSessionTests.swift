@@ -104,6 +104,38 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
         }
     }
 
+    func testLockCancelsWholePreparedRunContainingTimedAndOnceOnlyCredentials() throws {
+        let fixture = try Fixture(enabled: true)
+        defer { try? fixture.library.close() }
+        let group = try fixture.grantGroup()
+        let timedRead = fixture.read(try XCTUnwrap(group.members.first))
+        let timed = try fixture.approvals.submit(timedRead, trustedCredentialDeadline: .none)
+        let onceRead = fixture.read("once")
+        let once = try fixture.approvals.submit(onceRead, trustedCredentialDeadline: .none)
+        _ = try fixture.approvals.decide(requestID: once.requestID, capability: once.capability, decision: .once)
+        let mixed = try XCTUnwrap(fixture.approvals.consumeForRuntime([
+            .init(requestID: timed.requestID, capability: timed.capability, operationRequest: timedRead),
+            .init(requestID: once.requestID, capability: once.capability, operationRequest: onceRead)
+        ]))
+        defer { mixed.finish() }
+        let cleaned = expectation(description: "lock cleans the entire mixed run")
+        try mixed.registerCleanup { cleaned.fulfill() }
+        let separateRead = fixture.read("once")
+        let separate = try fixture.approvals.submit(separateRead, trustedCredentialDeadline: .none)
+        _ = try fixture.approvals.decide(requestID: separate.requestID, capability: separate.capability, decision: .once)
+        let onceOnly = try XCTUnwrap(fixture.approvals.consumeForRuntime([
+            .init(requestID: separate.requestID, capability: separate.capability, operationRequest: separateRead)
+        ]))
+        defer { onceOnly.finish() }
+
+        try fixture.fire(.lock)
+
+        XCTAssertThrowsError(try mixed.performAuthorizedSpawn { XCTFail("A mixed run must be cancelled as a whole") })
+        wait(for: [cleaned], timeout: 1)
+        XCTAssertNoThrow(try onceOnly.performAuthorizedSpawn {})
+        XCTAssertTrue(fixture.approvals.activeTimedAllowances().isEmpty)
+    }
+
     func testGroupGrantsRespectLockedSleepingAndSwitchedOutSessionsOnlyWhenEnabled() throws {
         for enabled in [false, true] {
             for event in Event.sessionEvents {

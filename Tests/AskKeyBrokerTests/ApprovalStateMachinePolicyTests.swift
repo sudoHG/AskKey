@@ -3,12 +3,16 @@ import XCTest
 
 final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
     func testRealSleepOffsetBoundsDoNotReportSleepBetweenAwakeSamples() {
-        var previous = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
-        XCTAssertLessThanOrEqual(previous.lower, previous.upper)
+        let first = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
+        var previous = first
+        XCTAssertLessThanOrEqual(first.lower, first.upper)
+        // With a zero sleep offset the lower bound clamps to zero, making this
+        // check weak on hosts that have not slept; still exercise every sample.
         for _ in 0..<10_000 {
             let current = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
             XCTAssertLessThanOrEqual(current.lower, current.upper)
             XCTAssertLessThanOrEqual(current.lower, previous.upper)
+            XCTAssertLessThanOrEqual(current.lower, first.upper)
             previous = current
         }
     }
