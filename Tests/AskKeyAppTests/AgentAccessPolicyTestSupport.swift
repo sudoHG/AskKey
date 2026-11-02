@@ -33,6 +33,10 @@ final class AgentAccessPolicyTestLibrary {
                 try self.vault.updateTimedAllowance(enabled: enabled, minutes: minutes)
                 return try self.vault.agentAccessPolicyState()
             },
+            setEndTimedAllowancesOnLock: { enabled, authenticator in
+                try self.vault.updateEndTimedAllowancesOnLock(enabled, using: authenticator)
+                return try self.vault.agentAccessPolicyState()
+            },
             isPaused: { try self.vault.isAgentAccessPaused() },
             validateOwnership: { try self.vault.validateAgentAccessPolicyOwnership() }
         )
@@ -51,6 +55,7 @@ final class AppPolicyMemoryStore: AppKeyStore {
     var policy: Data?
     var saveFailure: Error?
     var loadFailure: Error?
+    var policyReads = 0
     func savePendingKey(_ data: Data) throws { pendingKey = data }
     func loadPendingKey() throws -> Data {
         guard let pendingKey else { throw AppKeyStoreError.missingPendingKey }
@@ -68,6 +73,7 @@ final class AppPolicyMemoryStore: AppKeyStore {
     func deletePendingKey() throws { pendingKey = nil }
     func deleteAppKey() throws { appKey = nil }
     func loadAgentAccessPolicy() throws -> Data? {
+        policyReads += 1
         if let loadFailure { throw loadFailure }
         return policy
     }
@@ -112,6 +118,12 @@ final class AgentAccessPolicyTestState {
                 policy.timedAllowanceEnabled = enabled
                 policy.timedAllowanceMinutes = minutes
                 try policy.validate()
+                self.state = .init(policy: policy, needsRecovery: false)
+                return self.state
+            },
+            setEndTimedAllowancesOnLock: { enabled, _ in
+                var policy = self.state.policy
+                policy.endTimedAllowancesOnLock = enabled
                 self.state = .init(policy: policy, needsRecovery: false)
                 return self.state
             }

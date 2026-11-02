@@ -8,6 +8,17 @@ import AskKeyVault
 
 extension AppDelegate {
     func setupApprovalQueue() {
+        Vault.shared.approvalRequests.configureTimedAllowanceScreenState {
+            AgentApprovalScreenSession.current() == .unlocked
+        }
+        timedAllowanceSessionObserver = TimedAllowanceSessionObserver(
+            screenNotifications: DistributedNotificationCenter.default,
+            workspaceNotifications: NSWorkspace.shared.notificationCenter,
+            screenState: { AgentApprovalScreenSession.current() },
+            updateSession: { active, ending, suspended, sleeping in
+                Vault.shared.updateTimedAllowanceSession(active: active, ending: ending, suspended: suspended, sleeping: sleeping)
+            }
+        )
         Vault.shared.approvalRequests.configureAuthentication { purpose in
             let reason = purpose == .readApproval
                 ? ManagementAuthenticationAction.approveRead.reasonKey

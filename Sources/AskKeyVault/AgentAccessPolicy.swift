@@ -7,6 +7,7 @@ package struct AgentAccessPolicy: Codable, Equatable, Sendable {
     package var readApprovalAuthentication: Bool
     package var timedAllowanceEnabled: Bool
     package var timedAllowanceMinutes: Int
+    package var endTimedAllowancesOnLock = false
 
     package static let defaults = AgentAccessPolicy(
         paused: false, readApprovalAuthentication: true,
@@ -29,7 +30,46 @@ package struct AgentAccessPolicy: Codable, Equatable, Sendable {
         Self(paused: paused || other.paused,
              readApprovalAuthentication: readApprovalAuthentication || other.readApprovalAuthentication,
              timedAllowanceEnabled: timedAllowanceEnabled && other.timedAllowanceEnabled,
-             timedAllowanceMinutes: min(timedAllowanceMinutes, other.timedAllowanceMinutes))
+             timedAllowanceMinutes: min(timedAllowanceMinutes, other.timedAllowanceMinutes),
+             endTimedAllowancesOnLock: endTimedAllowancesOnLock || other.endTimedAllowancesOnLock)
+    }
+
+    /// Used for final-spawn comparison and persisted-policy tightening checks.
+    /// Session revocation handles this preference separately, so changing it
+    /// neither invalidates unrelated prepared deliveries nor quiesces requests.
+    var deliveryRules: Self {
+        var policy = self
+        policy.endTimedAllowancesOnLock = false
+        return policy
+    }
+}
+
+extension AgentAccessPolicy {
+    private enum CodingKeys: String, CodingKey {
+        case formatVersion, paused, readApprovalAuthentication
+        case timedAllowanceEnabled, timedAllowanceMinutes, endTimedAllowancesOnLock
+    }
+
+    package init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        formatVersion = try values.decode(Int.self, forKey: .formatVersion)
+        paused = try values.decode(Bool.self, forKey: .paused)
+        readApprovalAuthentication = try values.decode(Bool.self, forKey: .readApprovalAuthentication)
+        timedAllowanceEnabled = try values.decode(Bool.self, forKey: .timedAllowanceEnabled)
+        timedAllowanceMinutes = try values.decode(Int.self, forKey: .timedAllowanceMinutes)
+        endTimedAllowancesOnLock = values.contains(.endTimedAllowancesOnLock)
+            ? try values.decode(Bool.self, forKey: .endTimedAllowancesOnLock) : false
+    }
+
+    package func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(formatVersion, forKey: .formatVersion)
+        try values.encode(paused, forKey: .paused)
+        try values.encode(readApprovalAuthentication, forKey: .readApprovalAuthentication)
+        try values.encode(timedAllowanceEnabled, forKey: .timedAllowanceEnabled)
+        try values.encode(timedAllowanceMinutes, forKey: .timedAllowanceMinutes)
+        // Preserve the authenticated bytes of policies saved before this field existed.
+        if endTimedAllowancesOnLock { try values.encode(true, forKey: .endTimedAllowancesOnLock) }
     }
 }
 

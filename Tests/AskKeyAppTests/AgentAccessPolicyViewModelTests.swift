@@ -23,6 +23,62 @@ final class AgentAccessPolicyViewModelTests: AskKeyAppTestCase {
         super.tearDown()
     }
 
+    func testLockAllowanceSettingAuthenticatesBothDirectionsAndPersistsOutsideDefaults() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        var authentications = 0
+        let model = makeModel(library, authenticate: { authentications += 1; return .allow })
+        model.refreshAgentAccessPauseState()
+        XCTAssertFalse(model.endTimedAllowancesOnLock)
+        for enabled in [true, false] {
+            await model.setEndTimedAllowancesOnLock(enabled)
+            XCTAssertEqual(model.endTimedAllowancesOnLock, enabled)
+            XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.endTimedAllowancesOnLock, enabled)
+            XCTAssertNil(defaults.object(forKey: "endTimedAllowancesOnLock"))
+        }
+        XCTAssertEqual(authentications, 2)
+        for language in ["en", "zh-Hans"] {
+            let reason = ManagementAuthenticationAction.changeTimedAllowanceEnd.reasonKey
+            XCTAssertTrue(ManagementAuthenticationSubprocess.accepts(reasonKey: reason, argumentCount: 0))
+            let localized = ManagementAuthenticationPresentation(reasonKey: reason, language: language).reason
+            XCTAssertEqual(localized, AppLanguage.localized(reason, language: language))
+            if language != "en" { XCTAssertNotEqual(localized, reason) }
+        }
+    }
+
+    func testCancelledOrDeniedLockSettingChangePreservesSavedPolicy() async throws {
+        for authenticator in [nil, ManagementAuthenticator.deny] {
+            let library = try AgentAccessPolicyTestLibrary()
+            defer { try? library.close() }
+            let model = makeModel(library, authenticate: { authenticator })
+            model.refreshAgentAccessPauseState()
+            for enabled in [true, false] {
+                try library.vault.updateEndTimedAllowancesOnLock(!enabled, using: .allow)
+                model.refreshAgentAccessPauseState()
+                let saved = library.keys.policy
+                await model.setEndTimedAllowancesOnLock(enabled)
+                XCTAssertEqual(model.endTimedAllowancesOnLock, !enabled)
+                XCTAssertEqual(library.keys.policy, saved)
+                if authenticator == nil { XCTAssertNil(model.errorMessage) }
+                else { XCTAssertNotNil(model.errorMessage) }
+            }
+        }
+    }
+
+    func testLockSettingPreflightRejectsNonOwnerBeforeAuthentication() async throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        var authentications = 0
+        let model = makeModel(library, authenticate: { authentications += 1; return .allow })
+        let saved = library.keys.policy
+        try library.vault.setAgentAccessPolicyOwnership(false)
+        await model.setEndTimedAllowancesOnLock(true)
+        XCTAssertEqual(authentications, 0)
+        XCTAssertEqual(library.keys.policy, saved)
+        XCTAssertFalse(model.endTimedAllowancesOnLock)
+        XCTAssertNotNil(model.errorMessage)
+    }
+
     func testRevokedOwnerPauseShowsUnsavedStateAndResumeRefusesBeforeFurtherAuthentication() async throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }

@@ -48,12 +48,13 @@ extension Vault {
         if needsRecovery { changeAgentAccessPolicyLatches { $0.recovery = true } }
         let latches = agentAccessPolicyLatches()
         let previous = try? savedAgentAccessPolicyState()
-        let tightened = previous.map { $0.policy.restricted(by: policy) != $0.policy } ?? false
+        let tightened = previous.map { $0.policy.restricted(by: policy).deliveryRules != $0.policy.deliveryRules } ?? false
         if policy.paused || readUnavailable || (adoptingPersisted && tightened) { quiesceAgentAccess() }
         approvalRequests.configureAgentAccessPolicy(
             readAuthenticationEnabled: policy.readApprovalAuthentication,
             timedAllowanceEnabled: policy.timedAllowanceEnabled,
-            timedAllowanceDuration: TimeInterval(policy.timedAllowanceMinutes * 60)
+            timedAllowanceDuration: TimeInterval(policy.timedAllowanceMinutes * 60),
+            endTimedAllowancesOnLock: policy.endTimedAllowancesOnLock
         )
         let state = AgentAccessPolicyState(policy: policy, needsRecovery: needsRecovery || latches.recovery,
                                           pauseNotPersisted: latches.pause && !latches.pausePersisted,
@@ -81,6 +82,9 @@ extension Vault {
         if loaded.needsRecovery { changeAgentAccessPolicyLatches { $0.recovery = true } }
         let latches = agentAccessPolicyLatches()
         var policy = latches.recovery ? .failClosed : loaded.policy
+        if latches.recovery, let memory = try? savedAgentAccessPolicyState() {
+            policy = policy.restricted(by: memory.policy)
+        }
         if latches.saveFailure?.operation == .settings, let memory = try? savedAgentAccessPolicyState() {
             policy = policy.restricted(by: memory.policy)
         }
@@ -208,6 +212,7 @@ extension Vault {
         adoptPersistedAgentAccessPolicy(state)
         guard !state.readUnavailable else { throw state.readFailure ?? .unavailable }
         var policy = state.needsRecovery ? .defaults : state.policy
+        policy.endTimedAllowancesOnLock = state.policy.endTimedAllowancesOnLock
         policy.paused = false
         do {
             try saveAgentAccessPolicy(policy, key: key)
@@ -238,6 +243,39 @@ extension Vault {
         try changeAgentAccessPolicy {
             $0.timedAllowanceEnabled = enabled
             $0.timedAllowanceMinutes = minutes
+        }
+    }
+
+    package func updateEndTimedAllowancesOnLock(
+        _ enabled: Bool, using authenticator: ManagementAuthenticator? = nil
+    ) throws {
+        try validateAgentAccessPolicyOwnership()
+        guard let authenticator else { throw VaultError.managementAuthenticationRequired }
+        try authorizeManagement(authenticator, reason: "Change when timed allowances end")
+        try changeAgentAccessPolicy { $0.endTimedAllowancesOnLock = enabled }
+    }
+
+    package func updateTimedAllowanceSession(active: Bool, ending: Bool = true, suspended: Bool = false,
+                                            sleeping: Bool? = nil) {
+        if active && sleeping != true {
+            approvalRequests.updateTimedAllowanceSession(active: true, endOnLock: false, suspended: suspended, sleeping: sleeping)
+            return
+        }
+        // Revoke immediately from either local flag, without Keychain work.
+        // A failed read cannot undo a previously verified opt-in.
+        let memory = try? savedAgentAccessPolicyState().policy
+        if approvalRequests.updateTimedAllowanceSession(active: active,
+            endOnLock: memory?.endTimedAllowancesOnLock == true, suspended: suspended, sleeping: sleeping) {
+            return
+        }
+        guard ending else { return }
+        // Only an inactive event with both local flags off needs a policy read:
+        // a remote process may have opted in since our last authorization.
+        // Resume events never read Keychain; a verified off value never advances
+        // the session generation. This preserves pre-adoption remote opt-in.
+        let persisted = try? loadAgentAccessPolicy(key: requireKey(), keyStore: policyKeyStore(), created: false).policy
+        if persisted?.endTimedAllowancesOnLock == true {
+            approvalRequests.updateTimedAllowanceSession(active: active, endOnLock: true, suspended: suspended, sleeping: sleeping)
         }
     }
 

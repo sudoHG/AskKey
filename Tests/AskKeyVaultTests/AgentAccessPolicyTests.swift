@@ -115,6 +115,7 @@ final class AgentAccessPolicyTests: XCTestCase {
         for (field, value) in [
             ("paused", true as Any), ("readApprovalAuthentication", false),
             ("timedAllowanceEnabled", false), ("timedAllowanceMinutes", 120),
+            ("endTimedAllowancesOnLock", true),
         ] {
             let library = try makeLibrary(withCredential: true)
             var valueEnvelope = try envelope(library)

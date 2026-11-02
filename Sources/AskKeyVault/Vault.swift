@@ -449,7 +449,9 @@ public final class Vault {
             stateLock.unlock()
             opened = try VaultBootstrap.openCurrent(paths: paths, keyStore: keys, allowsCreation: !hasOpenLibrary)
         } catch {
-            applyAgentAccessPolicy(.failClosed, needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
+            let previous = (try? savedAgentAccessPolicyState().policy) ?? .failClosed
+            applyAgentAccessPolicy(AgentAccessPolicy.failClosed.restricted(by: previous),
+                                   needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
                                    keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
             endManagementSession()
@@ -494,7 +496,9 @@ public final class Vault {
             if !state.needsRecovery { removeLegacyAgentAccessRows(from: opened.store) }
             paused = state.isPaused || opened.store.componentMetadataIssue != nil
         } catch {
-            applyAgentAccessPolicy(.failClosed, needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
+            let previous = (try? savedAgentAccessPolicyState().policy) ?? .failClosed
+            applyAgentAccessPolicy(AgentAccessPolicy.failClosed.restricted(by: previous),
+                                   needsRecovery: !((error as? AgentAccessPolicyError)?.isOwnershipFailure ?? false),
                                    keychainConflict: (error as? AppKeyStoreError)?.conflictingItemKind)
             key = nil
             endManagementSession()

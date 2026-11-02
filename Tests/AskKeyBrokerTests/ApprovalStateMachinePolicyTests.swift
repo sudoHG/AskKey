@@ -2,6 +2,48 @@ import XCTest
 @testable import AskKeyBroker
 
 final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
+    func testRealSleepOffsetBoundsDoNotReportSleepBetweenAwakeSamples() {
+        let first = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
+        let second = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
+        XCTAssertLessThanOrEqual(first.lower, first.upper)
+        XCTAssertLessThanOrEqual(second.lower, second.upper)
+        XCTAssertLessThanOrEqual(second.lower, first.upper)
+    }
+
+    func testEnablingWithCachedActiveButLiveLockedRevokesAllowanceAndAdvancesGeneration() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        machine.configureTimedAllowanceScreenState { false }
+        let ticket = try machine.submit(request(operationID: "stale-active-policy"))
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
+        XCTAssertTrue(machine.timedAllowanceSessionActive)
+        let generation = machine.timedAllowanceSessionGeneration
+        machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+            timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+        XCTAssertNotEqual(machine.timedAllowanceSessionGeneration, generation)
+        XCTAssertTrue(machine.timedAllowances.isEmpty, "Policy apply itself must revoke before another mutation")
+        XCTAssertEqual(machine.entriesByOperationID["stale-active-policy"]?.state, .cancelled)
+        XCTAssertNil(machine.timedAllowanceDeadline(credentialID: "credential-1"))
+        XCTAssertEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
+    }
+
+    func testPolicyApplyPreservesAllowanceWhenCachedInactiveButLiveScreenIsUnlocked() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        machine.configureTimedAllowanceScreenState { true }
+        let ticket = try machine.submit(request(operationID: "stale-inactive-policy"))
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
+        let deadline = try XCTUnwrap(machine.timedAllowanceDeadline(credentialID: "credential-1"))
+        machine.updateTimedAllowanceSession(active: false, endOnLock: false)
+        let generation = machine.timedAllowanceSessionGeneration
+        for _ in 0..<2 {
+            machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+                timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+            XCTAssertFalse(machine.timedAllowanceSessionActive)
+            XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
+            XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "credential-1"), deadline)
+            XCTAssertEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .approved)
+        }
+    }
+
     func testTimedAllowanceStartsDisabledUntilPolicyIsApplied() throws {
         let machine = BrokerApprovalStateMachine(authenticate: { _ in true })
         let ticket = try machine.submit(request(operationID: "restrictive-default"), trustedCredentialDeadline: .none)

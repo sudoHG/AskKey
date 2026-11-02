@@ -145,6 +145,8 @@ package final class VaultViewModel {
         set { setTimedAllowance(enabled: newValue, minutes: defaultTimedAllowanceMinutes) }
     }
 
+    var endTimedAllowancesOnLock: Bool { agentAccessPolicy.endTimedAllowancesOnLock }
+
     var agentAccessPolicyNotice: String? {
         if let componentMetadataFailure {
             return hasManagementSession ? UserFacingCopy.message(for: componentMetadataFailure)
@@ -505,6 +507,19 @@ package final class VaultViewModel {
     func setTimedAllowance(enabled: Bool, minutes: Int) {
         do {
             applyAgentAccessPolicyState(try agentAccessPolicyOperations.setTimedAllowance(enabled, minutes))
+        } catch {
+            refreshAgentAccessPauseState()
+            presentError(error)
+        }
+    }
+
+    func setEndTimedAllowancesOnLock(_ enabled: Bool) async {
+        guard preflightAgentAccessPolicyChange(),
+              let authenticator = await confirmDeviceOwner(
+                reason: ManagementAuthenticationAction.changeTimedAllowanceEnd.reasonKey
+              ) else { return }
+        do {
+            applyAgentAccessPolicyState(try agentAccessPolicyOperations.setEndTimedAllowancesOnLock(enabled, authenticator))
         } catch {
             refreshAgentAccessPauseState()
             presentError(error)

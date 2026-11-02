@@ -4,6 +4,10 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 
 ## [Unreleased]
 
+### Upgrade notes
+
+- After enabling the option to end timed allowances on screen lock or sleep, downgrading to an older build makes Agent access settings fail verification and requires authenticated recovery in that build.
+
 ## [0.4.0] - 2026-10-28
 
 ### Added
