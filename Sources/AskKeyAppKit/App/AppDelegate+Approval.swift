@@ -198,6 +198,7 @@ extension AppDelegate {
             let valid = Self.screenState() == .unlocked && expiresAt.map({ $0 > Date() }) != false
             completion(valid ? value : nil)
         }
+        let groupAllowance = GroupTimedAllowancePresentation(snapshot: pending?.groupAllowanceSnapshot)
         let panel = Self.makeFrozenApprovalPanel(
             FrozenAgentApprovalPrompt(
                 request: request,
@@ -205,6 +206,7 @@ extension AppDelegate {
                 expiresAt: expiresAt,
                 timedAllowanceEnabled: vault.timedAllowanceEnabled,
                 timedAllowanceMinutes: vault.defaultTimedAllowanceMinutes,
+                groupAllowance: groupAllowance,
                 writeSummary: pending.flatMap {
                     try? Vault.shared.frozenAgentWriteSummary(
                         operationID: $0.request.operationID,
@@ -280,6 +282,11 @@ extension AppDelegate {
         // Common modes keep the check running during menus, drags and modal pickers.
         privacyTimer = Timer(timeInterval: 0.25, repeats: true) { _ in
             MainActor.assumeIsolated {
+                if let pending {
+                    groupAllowance.snapshot = Vault.shared.approvalRequests.pendingRequests().first {
+                        $0.requestID == pending.requestID && $0.capability == pending.capability
+                    }?.groupAllowanceSnapshot
+                }
                 let requestEnded = pending.map {
                     (try? Vault.shared.approvalRequests.status(requestID: $0.requestID, capability: $0.capability)) != .pending
                 } ?? false

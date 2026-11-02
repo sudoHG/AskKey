@@ -9,8 +9,12 @@ extension BrokerApprovalStateMachine {
 
     func expireUnconsumedLocked(now: Date) {
         for operationID in entriesByOperationID.keys {
-            guard var entry = entriesByOperationID[operationID],
-                  entry.state == .pending || entry.state == .approved,
+            guard var entry = entriesByOperationID[operationID] else { continue }
+            if entry.state == .pending, let expiry = entry.groupAllowanceSnapshot?.earliestExpiry, expiry <= now {
+                entry.groupAllowanceSnapshot = nil
+                entriesByOperationID[operationID] = entry
+            }
+            guard entry.state == .pending || entry.state == .approved,
                   !entry.committing,
                   now >= entry.expiresAt else { continue }
             entry.state = .expired
@@ -19,8 +23,7 @@ extension BrokerApprovalStateMachine {
     }
 
     func expireTimedAllowancesLocked(now: Date) {
-        timedAllowances = timedAllowances.filter { $0.value > now }
-        timedAllowanceProjectionDigests = timedAllowanceProjectionDigests.filter { timedAllowances[$0.key] != nil }
+        timedAllowances = timedAllowances.filter { $0.value.expiresAt > now }
     }
 
     func expireScheduledRequests() {
@@ -46,7 +49,7 @@ extension BrokerApprovalStateMachine {
             .filter { !$0.committing && ($0.state == .pending || $0.state == .approved) }
             .map(\.expiresAt)
         let runtimeExpirations = runtimeAuthorizations.values.filter(\.valid).map(\.expiresAt)
-        let nextExpiration = (requestExpirations + runtimeExpirations + Array(timedAllowances.values)).min()
+        let nextExpiration = (requestExpirations + runtimeExpirations + timedAllowances.values.map(\.expiresAt)).min()
         guard let nextExpiration else {
             hasScheduledExpiration = false
             expirationTimer.schedule(deadline: .distantFuture)

@@ -15,7 +15,8 @@ enum FrozenApprovalActions {
 
     /// A destructive approving action is drawn in red and is never the default.
     static func buttons(operation: BrokerApprovalOperation, timedAllowanceEnabled: Bool, minutes: Int = 30,
-                        valueOnlyChange: Bool = false, destructive: Bool = false) -> [Button] {
+                        valueOnlyChange: Bool = false, destructive: Bool = false,
+                        groupSnapshot: BrokerGroupAllowanceSnapshot? = nil) -> [Button] {
         let title: String
         switch operation {
         case .read: title = appLocalized("Allow Once")
@@ -30,6 +31,13 @@ enum FrozenApprovalActions {
             buttons.append(Button(title: appLocalizedFormat("Allow for %lld Minutes", minutes), role: .secondary,
                                   decision: .timedAllow(duration: TimeInterval(minutes * 60)), identifier: "approval-allow-timed",
                                   help: timedScope(minutes: minutes)))
+            if let snapshot = groupSnapshot, !snapshot.members.isEmpty {
+                let count = AppLanguage.localizedCount("%lld credentials", oneKey: "%lld credential",
+                    count: snapshot.members.count, language: AppLanguage.current)
+                buttons.append(Button(title: appLocalizedFormat("Allow Group for %1$lld Minutes (%2$@)", minutes, count), role: .secondary,
+                    decision: .timedAllowGroup(duration: TimeInterval(minutes * 60)), identifier: "approval-allow-group-timed",
+                    help: groupTimedScope(minutes: minutes)))
+            }
         }
         buttons.append(Button(title: appLocalized("Deny"), role: .secondary, decision: .deny, identifier: "approval-deny"))
         return buttons
@@ -38,6 +46,10 @@ enum FrozenApprovalActions {
     /// What the timed allowance covers, shown in Details and on hover.
     static func timedScope(minutes: Int) -> String {
         appLocalizedFormat("Approval timed scope", minutes)
+    }
+
+    static func groupTimedScope(minutes: Int) -> String {
+        appLocalizedFormat("For up to %lld minutes, any agent or command in your Mac account can read only the listed credentials without asking. Later additions are excluded. Changing or deleting credentials still needs approval. Revoke ends the whole group allowance.", minutes)
     }
 
     static func titles(operation: BrokerApprovalOperation, timedAllowanceEnabled: Bool, minutes: Int = 30,

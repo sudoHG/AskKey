@@ -20,7 +20,7 @@ final class ReadProjectionAllowanceTests: ApprovalStateMachineTestCase {
             case "pause": machine.pauseAndCancelAll()
             default: machine.mutate { machine.expireTimedAllowancesLocked(now: start.addingTimeInterval(61)) }
             }
-            XCTAssertTrue(machine.timedAllowanceProjectionDigests.isEmpty, action)
+            XCTAssertTrue(machine.activeTimedAllowances().isEmpty, action)
         }
     }
 

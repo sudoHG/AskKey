@@ -16,6 +16,7 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
     struct Entry {
         let trustedCredentialName: String?
         let request: BrokerApprovalOperationRequest
+        var groupAllowanceSnapshot: BrokerGroupAllowanceSnapshot?
         let requestID: String
         let capability: String
         var expiresAt: Date
@@ -56,8 +57,7 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
     var timedAllowanceSessionGeneration = UUID()
     var entriesByOperationID: [String: Entry] = [:]
     var operationOrder: [String] = []
-    var timedAllowances: [String: Date] = [:]
-    var timedAllowanceProjectionDigests: [String: String] = [:]
+    var timedAllowances: [UUID: BrokerTimedAllowance] = [:]
     // Active leases are independent of the bounded, evictable ticket history.
     var runtimeAuthorizations: [UUID: RuntimeAuthorization] = [:]
     var reportedPendingCount = 0

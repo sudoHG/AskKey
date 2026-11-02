@@ -17,6 +17,7 @@ struct FrozenAgentApprovalPrompt: View {
     var expiresAt: Date? = nil
     let timedAllowanceEnabled: Bool
     var timedAllowanceMinutes: Int = 30
+    var groupAllowance: GroupTimedAllowancePresentation? = nil
     var writeSummary: BrokerCredentialWriteSummary? = nil
     var organizationSummary: BrokerOrganizationSummary? = nil
     var revealMaterial: (@MainActor () async throws -> FrozenApprovalMaterial)? = nil
@@ -51,10 +52,11 @@ struct FrozenAgentApprovalPrompt: View {
             write: write, organization: organization)
         let details = ApprovalDetailsContent(request: request, credentialName: credentialName, write: write,
             organization: organization, timedAllowanceEnabled: timedAllowanceEnabled,
-            timedAllowanceMinutes: timedAllowanceMinutes)
+            timedAllowanceMinutes: timedAllowanceMinutes, groupSnapshot: groupAllowance?.snapshot)
         let buttons = FrozenApprovalActions.buttons(operation: request.operation, timedAllowanceEnabled: timedAllowanceEnabled,
             minutes: timedAllowanceMinutes, valueOnlyChange: write?.valueOnlyChange ?? false,
-            destructive: write?.isDestructive ?? organization?.isDestructive ?? false)
+            destructive: write?.isDestructive ?? organization?.isDestructive ?? false,
+            groupSnapshot: groupAllowance?.snapshot)
         return Presentation(write: write, organization: organization, content: content, details: details, buttons: buttons)
     }
 

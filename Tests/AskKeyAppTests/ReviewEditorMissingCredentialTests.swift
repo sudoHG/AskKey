@@ -309,6 +309,7 @@ private final class CredentialStore {
             revealText: { id, _ in throw VaultError.credentialNotFound(id) },
             timedAllowanceDeadline: { _ in nil },
             revokeTimedAllowance: { _ in false },
+            revokeTimedAllowanceByID: { _ in false },
             storedCredentialCount: { [unowned self] in self.credentials.count },
             accessRecords: .empty
         )

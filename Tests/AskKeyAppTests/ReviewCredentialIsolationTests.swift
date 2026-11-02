@@ -332,6 +332,7 @@ private final class MemoryCredentialBox {
                 self.record("revokeTimedAllowance:\(id)")
                 return self.deadlines.removeValue(forKey: id) != nil
             },
+            revokeTimedAllowanceByID: { _ in false },
             storedCredentialCount: { [unowned self] in
                 self.credentials.count + self.recycled.count
             },

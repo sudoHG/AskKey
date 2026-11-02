@@ -4,12 +4,14 @@ extension BrokerApprovalStateMachine {
     public func submit(
         _ request: BrokerApprovalOperationRequest,
         trustedCredentialDeadline: BrokerCredentialDeadline,
-        trustedCredentialName: String? = nil
+        trustedCredentialName: String? = nil,
+        groupAllowanceSnapshot: BrokerGroupAllowanceSnapshot? = nil
     ) throws -> BrokerApprovalTicket {
         try submit(
             request,
             trustedCredentialDeadline: trustedCredentialDeadline,
             trustedCredentialName: trustedCredentialName,
+            groupAllowanceSnapshot: groupAllowanceSnapshot,
             now: clock()
         )
     }
@@ -61,6 +63,7 @@ extension BrokerApprovalStateMachine {
         _ request: BrokerApprovalOperationRequest,
         trustedCredentialDeadline: BrokerCredentialDeadline,
         trustedCredentialName: String? = nil,
+        groupAllowanceSnapshot: BrokerGroupAllowanceSnapshot? = nil,
         now: Date
     ) throws -> BrokerApprovalTicket {
         try mutate {
@@ -89,8 +92,7 @@ extension BrokerApprovalStateMachine {
                 throw BrokerApprovalError.capacityReached
             }
             let allowanceEnd = request.operation == .read && timedAllowanceEnabled
-                && timedAllowanceProjectionDigests[request.credentialID] == request.readProjectionDigest
-                ? timedAllowances[request.credentialID]
+                ? allowanceLocked(credentialID: request.credentialID, digest: request.readProjectionDigest)?.expiresAt
                 : nil
             let state: BrokerRequestState = allowanceEnd != nil ? .approved : .pending
             try makeRetentionRoom()
@@ -104,6 +106,7 @@ extension BrokerApprovalStateMachine {
             let entry = Entry(
                 trustedCredentialName: trustedCredentialName,
                 request: request,
+                groupAllowanceSnapshot: groupAllowanceSnapshot,
                 requestID: UUID().uuidString,
                 capability: UUID().uuidString,
                 expiresAt: expiresAt,
@@ -196,7 +199,8 @@ extension BrokerApprovalStateMachine {
                     capability: entry.capability,
                     request: entry.request,
                     expiresAt: entry.expiresAt,
-                    trustedCredentialName: entry.trustedCredentialName
+                    trustedCredentialName: entry.trustedCredentialName,
+                    groupAllowanceSnapshot: entry.groupAllowanceSnapshot
                 )
             }
         }

@@ -9,6 +9,7 @@ public struct BrokerPendingApproval: Equatable, Sendable {
     public let expiresAt: Date?
     /// Vault-derived display metadata; never part of the operation binding.
     public let trustedCredentialName: String?
+    public let groupAllowanceSnapshot: BrokerGroupAllowanceSnapshot?
 
     public var displayCredentialName: String {
         trustedCredentialName ?? request.credentialName ?? request.targetID
@@ -19,12 +20,14 @@ public struct BrokerPendingApproval: Equatable, Sendable {
         capability: String,
         request: BrokerApprovalOperationRequest,
         expiresAt: Date? = nil,
-        trustedCredentialName: String? = nil
+        trustedCredentialName: String? = nil,
+        groupAllowanceSnapshot: BrokerGroupAllowanceSnapshot? = nil
     ) {
         self.requestID = requestID
         self.capability = capability
         self.request = request
         self.expiresAt = expiresAt
         self.trustedCredentialName = trustedCredentialName
+        self.groupAllowanceSnapshot = groupAllowanceSnapshot
     }
 }

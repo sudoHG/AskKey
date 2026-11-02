@@ -46,12 +46,22 @@ extension BrokerApprovalStateMachine {
         let entry = context.0
         guard entry.state == .pending else { throw BrokerApprovalError.invalidDecision }
         let timedAllowanceDuration: TimeInterval?
-        if case let .timedAllow(duration) = decision {
+        if let duration = decision.timedDuration {
             guard context.2, entry.request.operation == .read else { throw BrokerApprovalError.invalidDecision }
             if let duration, !Self.validDuration(duration) { throw BrokerApprovalError.invalidDecision }
             timedAllowanceDuration = min(duration ?? context.3, Self.maximumTimedAllowanceDuration)
         } else {
             timedAllowanceDuration = nil
+        }
+        if case .timedAllowGroup = decision {
+            guard let snapshot = entry.groupAllowanceSnapshot,
+                  !snapshot.groupName.isEmpty, !snapshot.members.isEmpty,
+                  Set(snapshot.members.map(\.credentialID)).count == snapshot.members.count,
+                  snapshot.members.contains(where: {
+                      $0.credentialID == entry.request.credentialID && $0.metadataDigest == entry.request.readProjectionDigest
+                  }), snapshot.members.allSatisfy({ $0.expiresAt.map { $0 > now } ?? true }) else {
+                throw BrokerApprovalError.invalidDecision
+            }
         }
         let requiresAuthentication = decision != .deny && (entry.request.operation != .read || context.1)
         if requiresAuthentication {
@@ -77,7 +87,7 @@ extension BrokerApprovalStateMachine {
             case .once:
                 entry.state = .approved
                 entry.approvedByTimedAllowance = false
-            case .timedAllow:
+            case .timedAllow, .timedAllowGroup:
                 // Settings may have changed while system authentication ran.
                 guard timedAllowanceEnabled else { throw BrokerApprovalError.invalidDecision }
                 guard timedAllowanceSessionGeneration == context.4,
@@ -87,11 +97,29 @@ extension BrokerApprovalStateMachine {
                 guard let timedAllowanceDuration else { throw BrokerApprovalError.invalidDecision }
                 let duration = min(timedAllowanceDuration, defaultTimedAllowance)
                 let windowEnd = verifiedAt.addingTimeInterval(duration)
-                let effectiveWindowEnd = entry.credentialExpiresAt.map {
+                var effectiveWindowEnd = entry.credentialExpiresAt.map {
                     min(windowEnd, $0)
                 } ?? windowEnd
-                timedAllowances[entry.request.credentialID] = effectiveWindowEnd
-                timedAllowanceProjectionDigests[entry.request.credentialID] = entry.request.readProjectionDigest
+                let members: [BrokerGroupAllowanceSnapshot.Member]
+                let groupName: String?
+                if case .timedAllowGroup = decision {
+                    guard let snapshot = entry.groupAllowanceSnapshot,
+                          snapshot == context.0.groupAllowanceSnapshot else { throw BrokerApprovalError.invalidDecision }
+                    members = snapshot.members
+                    groupName = snapshot.groupName
+                    effectiveWindowEnd = min(effectiveWindowEnd, snapshot.earliestExpiry ?? effectiveWindowEnd)
+                } else {
+                    members = [.init(credentialID: entry.request.credentialID,
+                        name: entry.trustedCredentialName ?? entry.request.credentialName ?? entry.request.targetID,
+                        metadataDigest: entry.request.readProjectionDigest ?? "", expiresAt: entry.credentialExpiresAt)]
+                    groupName = nil
+                }
+                guard effectiveWindowEnd > verifiedAt else { throw BrokerApprovalError.invalidDecision }
+                invalidateReplacedTimedAuthorizationsLocked(credentialIDs: Set(members.map(\.credentialID)))
+                for member in members { removeAllowanceMemberLocked(credentialID: member.credentialID) }
+                let allowance = BrokerTimedAllowance(groupName: groupName, members: members, expiresAt: effectiveWindowEnd)
+                timedAllowances[allowance.id] = allowance
+                if groupName != nil { approvePendingGroupReadsLocked(allowance) }
                 entry.expiresAt = min(entry.expiresAt, effectiveWindowEnd)
                 entry.state = .approved
                 entry.approvedByTimedAllowance = true
