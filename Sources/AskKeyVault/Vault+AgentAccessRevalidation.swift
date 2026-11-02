@@ -86,13 +86,14 @@ extension Vault {
             policy = try savedAgentAccessPolicyState().policy
         }
         let effectiveDecision: BrokerApprovalDecision
-        if case let .timedAllow(duration) = decision {
+        if let duration = decision.timedDuration {
             guard policy.timedAllowanceEnabled else { throw BrokerApprovalError.invalidDecision }
             if let duration, !duration.isFinite || duration <= 0 || duration > 120 * 60 {
                 throw BrokerApprovalError.invalidDecision
             }
-            effectiveDecision = .timedAllow(duration: min(duration ?? .infinity,
-                                                          TimeInterval(policy.timedAllowanceMinutes * 60)))
+            let capped = min(duration ?? .infinity, TimeInterval(policy.timedAllowanceMinutes * 60))
+            if case .timedAllowGroup = decision { effectiveDecision = .timedAllowGroup(duration: capped) }
+            else { effectiveDecision = .timedAllow(duration: capped) }
         } else {
             effectiveDecision = decision
         }
@@ -102,6 +103,9 @@ extension Vault {
                 try self.agentAccessGate.beginSpawnAuthorization(validating: self.revalidateAgentAccessPolicy,
                                                                  waitForExclusiveChange: 2)
                 defer { self.agentAccessGate.endSpawnAuthorization() }
+                if case .timedAllowGroup = effectiveDecision {
+                    try self.revalidateGroupAllowance(requestID: requestID, capability: capability)
+                }
             }
         )
     }

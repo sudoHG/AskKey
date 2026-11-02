@@ -1,4 +1,5 @@
 import Foundation
+import AskKeyBroker
 import AskKeyVault
 
 struct CredentialWorkspaceMutations {
@@ -33,6 +34,7 @@ struct CredentialWorkspaceMutations {
     var revealText: (String, ManagementAuthenticator) throws -> ManagedTextCredential
     var timedAllowanceDeadline: (String) -> Date?
     var revokeTimedAllowance: (String) -> Bool
+    var activeTimedAllowances: () -> [BrokerTimedAllowance] = { [] }
     var storedCredentialCount: () throws -> Int
     var accessRecords: CredentialAccessRecordMutations
     var componentMetadataIssue: () -> ComponentMetadataUpgradeError? = { nil }
@@ -101,6 +103,7 @@ struct CredentialWorkspaceMutations {
         },
         timedAllowanceDeadline: { Vault.shared.approvalRequests.timedAllowanceDeadline(credentialID: $0) },
         revokeTimedAllowance: { Vault.shared.approvalRequests.revokeTimedAllowance(credentialID: $0) },
+        activeTimedAllowances: { Vault.shared.approvalRequests.activeTimedAllowances() },
         storedCredentialCount: { try Vault.shared.storedCredentialCount() },
         accessRecords: .live,
         componentMetadataIssue: { Vault.shared.componentMetadataIssue }

@@ -38,29 +38,74 @@ extension BrokerApprovalStateMachine {
     public func timedAllowanceDeadline(credentialID: String) -> Date? {
         mutate {
             expireTimedAllowancesLocked(now: clock())
-            return timedAllowances[credentialID]
+            return timedAllowances.values.first { $0.members.contains { $0.credentialID == credentialID } }?.expiresAt
+        }
+    }
+
+    public func activeTimedAllowances() -> [BrokerTimedAllowance] {
+        mutate {
+            expireTimedAllowancesLocked(now: clock())
+            return timedAllowances.values.sorted { $0.id.uuidString < $1.id.uuidString }
+        }
+    }
+
+    func allowanceLocked(credentialID: String, digest: String?) -> BrokerTimedAllowance? {
+        timedAllowances.values.first { allowance in
+            allowance.members.contains { $0.credentialID == credentialID && $0.metadataDigest == (digest ?? "") }
+        }
+    }
+
+    func removeAllowanceMemberLocked(credentialID: String) {
+        for id in Array(timedAllowances.keys) {
+            timedAllowances[id]?.members.removeAll { $0.credentialID == credentialID }
+            if timedAllowances[id]?.members.isEmpty == true { timedAllowances.removeValue(forKey: id) }
+        }
+    }
+
+    /// A run may already be waiting for several members when the first card is approved.
+    func approvePendingGroupReadsLocked(_ allowance: BrokerTimedAllowance) {
+        for operationID in entriesByOperationID.keys {
+            guard var entry = entriesByOperationID[operationID], entry.state == .pending,
+                  entry.request.operation == .read,
+                  allowance.members.contains(where: {
+                      $0.credentialID == entry.request.credentialID && $0.metadataDigest == entry.request.readProjectionDigest
+                  }) else { continue }
+            entry.state = .approved
+            entry.approvedByTimedAllowance = true
+            entry.expiresAt = min(entry.expiresAt, allowance.expiresAt)
+            entriesByOperationID[operationID] = entry
+        }
+    }
+
+    package func withdrawGroupAllowance(requestID: String, capability: String) {
+        mutate {
+            guard let entry = matchingEntry(requestID: requestID, capability: capability) else { return }
+            entriesByOperationID[entry.request.operationID]?.groupAllowanceSnapshot = nil
         }
     }
 
     @discardableResult
     public func revokeTimedAllowance(credentialID: String) -> Bool {
-        let handler: (@Sendable (String) -> Void)? = mutate {
-            guard timedAllowances.removeValue(forKey: credentialID) != nil else { return nil }
-            timedAllowanceProjectionDigests.removeValue(forKey: credentialID)
-            invalidateRuntimeAuthorizationsLocked(credentialID: credentialID, timedOnly: true)
+        let result: ([String], @Sendable (String) -> Void)? = mutate {
+            guard let allowance = timedAllowances.values.first(where: {
+                $0.members.contains { $0.credentialID == credentialID }
+            }) else { return nil }
+            timedAllowances.removeValue(forKey: allowance.id)
+            let ids = allowance.members.map(\.credentialID)
+            for id in ids { invalidateRuntimeAuthorizationsLocked(credentialID: id, timedOnly: true) }
             for operationID in entriesByOperationID.keys {
                 guard var entry = entriesByOperationID[operationID],
-                      entry.request.credentialID == credentialID,
+                      ids.contains(entry.request.credentialID),
                       entry.state == .approved,
                       !entry.committing,
                       entry.approvedByTimedAllowance else { continue }
                 entry.state = .cancelled
                 entriesByOperationID[operationID] = entry
             }
-            return timedAllowanceRevoked
+            return (ids, timedAllowanceRevoked)
         }
-        handler?(credentialID)
-        return handler != nil
+        if let result { result.0.forEach(result.1) }
+        return result != nil
     }
 
     public func revokeAllTimedAllowances() {
@@ -69,9 +114,8 @@ extension BrokerApprovalStateMachine {
     }
 
     func revokeAllTimedAllowancesLocked() -> ([String], @Sendable (String) -> Void) {
-        let credentialIDs = Array(timedAllowances.keys)
+        let credentialIDs = timedAllowances.values.flatMap { $0.members.map(\.credentialID) }
         timedAllowances.removeAll()
-        timedAllowanceProjectionDigests.removeAll()
         invalidateRuntimeAuthorizationsLocked(timedOnly: true)
         for operationID in entriesByOperationID.keys {
             guard var entry = entriesByOperationID[operationID],

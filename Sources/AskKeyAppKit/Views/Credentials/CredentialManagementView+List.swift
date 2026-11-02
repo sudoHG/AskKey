@@ -185,6 +185,17 @@ extension CredentialManagementView {
     private var credentialList: some View {
         let credentials = filteredCredentials
         return ScrollView {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let _ = allowanceRefresh
+                FrozenTimedAllowanceList(allowances: vault.activeTimedAllowances().filter { allowance in
+                    allowance.members.contains { member in credentials.contains { $0.id == member.credentialID } }
+                }, now: context.date) { id in
+                    _ = vault.revokeTimedAllowance(for: id)
+                    allowanceRefresh += 1
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.xxl)
+            .padding(.bottom, Theme.Spacing.md)
             GroupedList {
                 ForEach(Array(credentials.enumerated()), id: \.element.id) { index, credential in
                     if index > 0 { GroupedListSeparator() }

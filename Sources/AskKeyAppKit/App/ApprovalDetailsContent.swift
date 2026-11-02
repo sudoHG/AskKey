@@ -33,7 +33,7 @@ struct ApprovalDetailsContent: Equatable {
 
     init(request: BrokerApprovalOperationRequest, credentialName: String, write: FrozenWriteSummaryContent? = nil,
          organization: FrozenOrganizationSummaryContent? = nil, timedAllowanceEnabled: Bool = false,
-         timedAllowanceMinutes: Int = 30) {
+         timedAllowanceMinutes: Int = 30, groupSnapshot: BrokerGroupAllowanceSnapshot? = nil) {
         var rows = [Row(label: appLocalized("Requested by"),
                         value: .text(appLocalizedFormat("%@ (not verified)", ApprovalCopy.requester(request))))]
         if let purpose = request.callerPurpose, !purpose.isEmpty {
@@ -52,6 +52,17 @@ struct ApprovalDetailsContent: Equatable {
             if timedAllowanceEnabled {
                 rows.append(Row(label: appLocalizedFormat("%lld minutes", timedAllowanceMinutes),
                                 value: .text(FrozenApprovalActions.timedScope(minutes: timedAllowanceMinutes))))
+                if let snapshot = groupSnapshot {
+                    rows.append(Row(label: appLocalized("Group"), value: .text(snapshot.groupName)))
+                    rows.append(Row(label: appLocalized("Group allowance"), value: .lines(snapshot.members.map {
+                        Line(text: ApprovalLine($0.name))
+                    }), note: ApprovalLine(FrozenApprovalActions.groupTimedScope(minutes: timedAllowanceMinutes))))
+                    if let expiry = snapshot.earliestExpiry {
+                        rows.append(Row(label: appLocalized("Group deadline"), value: .text(appLocalizedFormat(
+                            "The whole allowance ends after %1$lld minutes or at %2$@, whichever comes first, because a listed credential expires then.",
+                            timedAllowanceMinutes, expiry.formatted(.dateTime.locale(AppLanguage.locale(for: AppLanguage.current)))))))
+                    }
+                }
             }
         case .create, .modify, .delete:
             if let write {
@@ -150,7 +161,7 @@ struct ApprovalDetailsContent: Equatable {
     /// for the longest label.
     static func labelWidth() -> CGFloat {
         let labels = ["Requested by", "Purpose", "Command", "Runs in", "Hands over", "Contents", "Instructions",
-                      "Changes", "Group", "Value"].map { appLocalized($0) }
+                      "Changes", "Group", "Value", "Group allowance", "Group deadline"].map { appLocalized($0) }
             + [appLocalizedFormat("%lld minutes", 999), appLocalizedFormat("Step %lld", 64)]
         let font = NSFont.systemFont(ofSize: 12)
         return ceil(labels.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0) + 1

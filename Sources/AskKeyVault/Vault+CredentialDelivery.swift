@@ -137,7 +137,8 @@ extension Vault {
             let ticket = try approvalRequests.submit(
                 approvalRequest,
                 trustedCredentialDeadline: expiresAt.map(BrokerCredentialDeadline.expiresAt) ?? .none,
-                trustedCredentialName: trustedName
+                trustedCredentialName: trustedName,
+                groupAllowanceSnapshot: try? groupAllowanceSnapshot(for: record, key: key)
             )
             switch ticket.state {
             case .approved:

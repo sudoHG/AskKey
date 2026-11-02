@@ -147,7 +147,9 @@ extension CredentialManagementView {
                                     Text(appLocalized("Timed allow remaining ") + FrozenCountdown.format(deadline: deadline, now: context.date))
                                         .font(Theme.Fonts.caption).foregroundStyle(Theme.textSecondary)
                                     Spacer()
-                                    Button(appLocalized("Revoke Now")) {
+                                    Button(appLocalized(vault.activeTimedAllowances().contains {
+                                        $0.groupName != nil && $0.members.contains { $0.credentialID == credential.id }
+                                    } ? "Revoke Group Allowance" : "Revoke Now")) {
                                         _ = vault.revokeTimedAllowance(for: credential.id)
                                         allowanceRefresh += 1
                                     }

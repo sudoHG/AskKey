@@ -12,12 +12,16 @@ struct RuntimeReadApprovalBinding: Encodable {
     init(request: BrokerTextRunRequest, credentialID: String, metadata: CredentialComponentMetadata?) throws {
         self.request = request
         self.credentialID = credentialID
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
         // Unavailable metadata still permits an approval to be denied, but can
         // never pass the post-approval projection check.
-        metadataDigest = try metadata.map { Self.digest(try encoder.encode($0)) }
+        metadataDigest = try metadata.map(Self.metadataDigest)
             ?? Self.digest(Data("AskKey unavailable component metadata v1".utf8))
+    }
+
+    static func metadataDigest(_ metadata: CredentialComponentMetadata) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return digest(try encoder.encode(metadata))
     }
 
     func payloadDigest() throws -> String {
