@@ -64,27 +64,92 @@ final class TimedAllowanceScreenSamplingTests: ApprovalStateMachineTestCase {
         XCTAssertEqual(try machine.status(requestID: pending.requestID, capability: pending.capability), .pending)
     }
 
-    func testSecondConcurrentRevisionChangeFailsClosedWithoutUnboundedSampling() throws {
+    func testOrdinaryConcurrentMutationsDoNotInvalidateUnlockedSamplesOrRevokeAuthority() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        let probe = SamplingProbe()
+        machine.configureTimedAllowanceScreenState { probe.sample() }
+        machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+            timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+        let ticket = try machine.submit(request(operationID: "before-ordinary-contention"))
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
+        let deadline = machine.timedAllowanceDeadline(credentialID: "credential-1")
+        let generation = machine.timedAllowanceSessionGeneration
+        let reads = probe.reads
+        probe.blockNextSample()
+        let finished = expectation(description: "ordinary contention preserves the unlocked sample")
+        DispatchQueue.global().async {
+            XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "credential-1"), deadline)
+            finished.fulfill()
+        }
+        XCTAssertEqual(probe.entered.wait(timeout: .now() + 2), .success)
+        _ = machine.pendingRequests()
+        _ = machine.activeTimedAllowances()
+        probe.release.signal()
+        wait(for: [finished], timeout: 2)
+        XCTAssertEqual(probe.reads - reads, 3, "Read-only mutations must not force another screen sample")
+        XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
+        XCTAssertFalse(machine.timedAllowances.isEmpty)
+        XCTAssertNil(machine.timedAllowanceScreenSample)
+        XCTAssertFalse(machine.timedAllowanceScreenSampleFailed)
+    }
+
+    func testRepeatedSessionRacesRefuseOnlyThisOperationWithoutRevokingAllowances() throws {
         let machine = configuredMachine(authenticate: { _ in true })
         let ticket = try machine.submit(request(operationID: "before-contention"))
         _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
         machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
             timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+        let generation = machine.timedAllowanceSessionGeneration
         let probe = SamplingProbe()
         machine.configureTimedAllowanceScreenState { [weak machine] in
             if let machine {
-                // Deterministically model another mutation completing during each sample.
+                // Model a session configuration change completing during each sample.
                 machine.lock.lock()
-                machine.stateRevision &+= 1
+                machine.timedAllowanceSessionRevision = UUID()
                 machine.lock.unlock()
             }
             return probe.sample()
         }
         XCTAssertEqual(probe.reads, 2, "Only one sampling retry is permitted")
-        XCTAssertTrue(machine.timedAllowances.isEmpty)
+        XCTAssertFalse(machine.timedAllowances.isEmpty)
+        XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
         let before = probe.reads
-        XCTAssertNil(machine.timedAllowanceDeadline(credentialID: "credential-1"))
+        XCTAssertNotNil(machine.timedAllowanceDeadline(credentialID: "credential-1"))
         XCTAssertEqual(probe.reads - before, 2)
+        machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+            timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+        XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
+        XCTAssertFalse(machine.timedAllowances.isEmpty, "A failed policy-apply sample must not revoke globally either")
+        let pending = try machine.submit(request(operationID: "sample-race-submission"))
+        XCTAssertEqual(pending.state, .pending, "A failed sample must not auto-approve from a surviving allowance")
+        XCTAssertThrowsError(try machine.decide(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllow(duration: 120)))
+        XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
+        XCTAssertFalse(machine.timedAllowances.isEmpty)
+        XCTAssertNil(machine.timedAllowanceScreenSample)
+        XCTAssertFalse(machine.timedAllowanceScreenSampleFailed)
+        machine.configureTimedAllowanceScreenState { true }
+        XCTAssertEqual(try machine.submit(request(operationID: "stable-sample-submission")).state, .approved)
+    }
+
+    func testFenceBeginAndFinishInsideOneSampleStillInvalidatesThatSample() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        let ticket = try machine.submit(request(operationID: "before-fence-roundtrip"))
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
+        machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+            timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+        let generation = machine.timedAllowanceSessionGeneration
+        let reads = SamplingProbe()
+        machine.configureTimedAllowanceScreenState { [weak machine] in
+            let event = machine?.beginTimedAllowanceSessionEvent(sleeping: nil)
+            event?.finish()
+            return reads.sample()
+        }
+        XCTAssertEqual(reads.reads, 2)
+        let pending = try machine.submit(request(operationID: "fence-roundtrip-submission"))
+        XCTAssertEqual(pending.state, .pending)
+        XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
+        XCTAssertFalse(machine.timedAllowances.isEmpty)
     }
 }
 

@@ -18,10 +18,11 @@ final class SynchronousTimedAllowanceSessionObserver {
 
     init(screenNotifications: NotificationCenter, workspaceNotifications: NotificationCenter,
          screenState: @escaping @Sendable () -> AgentApprovalScreenState,
+         beginEndingEvent: @escaping @Sendable (Bool?) -> BrokerTimedAllowanceSessionEvent? = { _ in nil },
          updateSession: @escaping @Sendable (Bool, Bool, Bool, Bool?, UInt64?) -> Void) {
         observer = TimedAllowanceSessionObserver(screenNotifications: screenNotifications,
             workspaceNotifications: workspaceNotifications, screenState: screenState,
-            queue: timedAllowanceSessionTestQueue, updateSession: updateSession)
+            queue: timedAllowanceSessionTestQueue, beginEndingEvent: beginEndingEvent, updateSession: updateSession)
         timedAllowanceSessionTestQueue.sync {}
     }
 }

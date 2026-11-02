@@ -95,8 +95,10 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
             try fixture.fire(event)
 
             XCTAssertThrowsError(try lease.performAuthorizedSpawn { XCTFail("A revoked pending sibling must not launch") })
-            wait(for: [cleaned], timeout: 1)
+            // A missed event refuses spawn immediately; the next ordinary
+            // mutation performs cleanup after leaving the spawn gate.
             XCTAssertEqual(try fixture.approvals.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
+            wait(for: [cleaned], timeout: 1)
             XCTAssertThrowsError(try fixture.approvals.consumeApproved(requestID: ticket.requestID, capability: ticket.capability,
                 operationRequest: read, perform: { XCTFail("A revoked pending sibling must not deliver") }))
             XCTAssertTrue(fixture.approvals.activeTimedAllowances().isEmpty)

@@ -45,6 +45,7 @@ extension BrokerApprovalStateMachine {
             let terminalTransitions = terminalTransitionsLocked(from: previousEntries)
             let cleanups = runtimeInvalidationCleanupsLocked(now: schedulingNow)
             rescheduleExpirationLocked(now: schedulingNow)
+            clearTimedAllowanceScreenSampleLocked()
             lock.unlock()
             cleanups.forEach { $0() }
             if let screenRevocation { screenRevocation.0.forEach(screenRevocation.1) }
@@ -57,6 +58,7 @@ extension BrokerApprovalStateMachine {
             let terminalTransitions = terminalTransitionsLocked(from: previousEntries)
             let cleanups = runtimeInvalidationCleanupsLocked(now: schedulingNow)
             rescheduleExpirationLocked(now: schedulingNow)
+            clearTimedAllowanceScreenSampleLocked()
             lock.unlock()
             cleanups.forEach { $0() }
             if let screenRevocation { screenRevocation.0.forEach(screenRevocation.1) }

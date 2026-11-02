@@ -115,6 +115,8 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         // No notification, status query, submission or other Broker mutation
         // can revoke this lease before the actual final-spawn check.
         XCTAssertThrowsError(try lease.performAuthorizedSpawn(afterAuthorization: {}, spawn: { XCTFail("Must not spawn") }))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path), "Refusal inside the spawn gate must not perform cleanup")
+        _ = approvals.pendingRequests() // The next ordinary mutation performs global revocation and cleanup.
         XCTAssertFalse(FileManager.default.fileExists(atPath: path))
         probe.set(.unlocked)
         XCTAssertThrowsError(try lease.performAuthorizedSpawn(afterAuthorization: {}, spawn: { XCTFail("Revoked authority cannot revive") }))

@@ -8,6 +8,7 @@ extension BrokerApprovalStateMachine {
     package func updateTimedAllowanceSession(active: Bool, endOnLock: Bool, suspended: Bool = false,
                                            sleeping: Bool? = nil, sleepOffsetUpperBound: UInt64? = nil) -> Bool {
         let revoked: ([String], @Sendable (String) -> Void)? = mutate {
+            timedAllowanceSessionRevision = UUID()
             timedAllowanceSessionActive = active
             timedAllowanceSessionSuspended = suspended
             if let sleeping {

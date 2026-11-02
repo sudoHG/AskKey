@@ -92,6 +92,7 @@ extension BrokerApprovalStateMachine {
                 throw BrokerApprovalError.capacityReached
             }
             let allowanceEnd = request.operation == .read && timedAllowanceEnabled
+                && (!endTimedAllowancesOnLock || timedAllowanceSessionPermitsGrantLocked())
                 ? allowanceLocked(credentialID: request.credentialID, digest: request.readProjectionDigest)?.expiresAt
                 : nil
             let state: BrokerRequestState = allowanceEnd != nil ? .approved : .pending

@@ -55,7 +55,9 @@ final class TimedAllowanceSessionObserverTests: XCTestCase {
         let workspace = TimedAllowanceTestNotificationCenter()
         let vault = library.vault
         let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
+            screenState: { .unlocked },
+            beginEndingEvent: { vault.approvalRequests.beginTimedAllowanceSessionEvent(sleeping: $0) },
+            updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         let approvals = vault.approvalRequests
         approvals.configureAuthentication { _ in true }

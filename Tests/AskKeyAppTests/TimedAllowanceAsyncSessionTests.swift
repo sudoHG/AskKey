@@ -97,7 +97,9 @@ final class TimedAllowanceAsyncSessionTests: XCTestCase {
             trace.arm()
             workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
             XCTAssertEqual(trace.entered.wait(timeout: .now() + 2), .success)
-            if realSleep { offset.advance() }
+            // Both iterations change the execution-time upper bound. Only the
+            // real-sleep iteration separates the lower bound from receipt time.
+            offset.advance(realSleep: realSleep)
             let pending = try approvals.submit(request("sleep-pending"), trustedCredentialDeadline: .none)
             XCTAssertThrowsError(try approvals.decide(requestID: pending.requestID, capability: pending.capability,
                 decision: .timedAllow(duration: 120)), "Even clock proof must not bypass a queued ending event")
@@ -186,7 +188,8 @@ private final class SessionTrace: @unchecked Sendable {
 
 private final class SessionSleepOffset: @unchecked Sendable {
     private let lock = NSLock()
-    private var value: UInt64 = 100
-    var current: (UInt64, UInt64) { lock.lock(); defer { lock.unlock() }; return (value, value) }
-    func advance() { lock.lock(); value += 1; lock.unlock() }
+    private var lower: UInt64 = 100
+    private var upper: UInt64 = 100
+    var current: (UInt64, UInt64) { lock.lock(); defer { lock.unlock() }; return (lower, upper) }
+    func advance(realSleep: Bool) { lock.lock(); upper += 1; if realSleep { lower += 1 }; lock.unlock() }
 }

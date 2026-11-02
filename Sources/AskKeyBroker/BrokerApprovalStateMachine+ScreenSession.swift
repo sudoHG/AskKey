@@ -5,19 +5,24 @@ extension BrokerApprovalStateMachine {
     /// App-supplied live session check, called outside the approval lock.
     /// Providers must not recursively start another screen-sampling mutation.
     package func configureTimedAllowanceScreenState(_ unlocked: @escaping @Sendable () -> Bool) {
-        mutate(screenProvider: unlocked) { timedAllowanceScreenUnlocked = unlocked }
+        mutate(screenProvider: unlocked) {
+            timedAllowanceScreenUnlocked = unlocked
+            timedAllowanceSessionRevision = UUID()
+        }
     }
 
     package func configureTimedAllowanceSleepOffset(
         _ offset: @escaping @Sendable () -> (lower: UInt64, upper: UInt64)
     ) {
         mutate {
+            timedAllowanceSessionRevision = UUID()
             timedAllowanceSleepOffset = offset
             timedAllowanceSessionFence.configureSleepOffset(offset)
         }
     }
 
-    /// Only ending events acquire a fence. Resume events cannot release it.
+    /// The observer calls this at receipt of each ending event, never for resume.
+    /// Only that event's completion can release its fence.
     package func beginTimedAllowanceSessionEvent(sleeping: Bool?) -> BrokerTimedAllowanceSessionEvent {
         timedAllowanceSessionFence.begin(sleeping: sleeping)
     }
@@ -37,23 +42,28 @@ extension BrokerApprovalStateMachine {
                 timedAllowanceScreenSampleFailed = false
                 return
             }
-            let revision = stateRevision
+            let revision = timedAllowanceSessionRevision
             let fenceRevision = timedAllowanceSessionFence.snapshot.revision
             lock.unlock()
             let sample = provider()
             lock.lock()
-            if stateRevision == revision, timedAllowanceSessionFence.snapshot.revision == fenceRevision {
+            if timedAllowanceSessionRevision == revision, timedAllowanceSessionFence.snapshot.revision == fenceRevision {
                 timedAllowanceScreenSample = sample
                 timedAllowanceScreenSampleFailed = false
                 return
             }
             if attempt == 1 {
                 timedAllowanceScreenSample = nil
-                timedAllowanceScreenSampleFailed = endOnLock ?? endTimedAllowancesOnLock
+                timedAllowanceScreenSampleFailed = true
                 return
             }
             lock.unlock()
         }
+    }
+
+    func clearTimedAllowanceScreenSampleLocked() {
+        timedAllowanceScreenSample = nil
+        timedAllowanceScreenSampleFailed = false
     }
 
     static func currentTimedAllowanceSleepOffset() -> (lower: UInt64, upper: UInt64) {
@@ -91,8 +101,9 @@ extension BrokerApprovalStateMachine {
     /// console session.
     func revokeForScreenBackstopLocked() -> ([String], @Sendable (String) -> Void)? {
         guard endTimedAllowancesOnLock,
+              !timedAllowanceScreenSampleFailed || timedAllowanceSessionFence.snapshot.pending,
               timedAllowanceScreenSample != nil || timedAllowanceScreenUnlocked != nil
-                || timedAllowanceSessionFence.snapshot.pending || timedAllowanceScreenSampleFailed,
+                || timedAllowanceSessionFence.snapshot.pending,
               !timedAllowanceSessionPermitsGrantLocked() else { return nil }
         timedAllowanceSessionGeneration = UUID()
         return revokeAllTimedAllowancesLocked()
