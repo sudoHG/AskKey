@@ -62,6 +62,20 @@ extension BrokerApprovalStateMachine {
         }
     }
 
+    /// Replacement ends older timed authority before the new membership is installed.
+    /// Once-only approvals and credentials outside the replacement retain their authority.
+    func invalidateReplacedTimedAuthorizationsLocked(credentialIDs: Set<String>) {
+        for id in credentialIDs { invalidateRuntimeAuthorizationsLocked(credentialID: id, timedOnly: true) }
+        for operationID in entriesByOperationID.keys {
+            guard var entry = entriesByOperationID[operationID],
+                  credentialIDs.contains(entry.request.credentialID),
+                  entry.state == .approved, !entry.committing,
+                  entry.approvedByTimedAllowance else { continue }
+            entry.state = .cancelled
+            entriesByOperationID[operationID] = entry
+        }
+    }
+
     /// A run may already be waiting for several members when the first card is approved.
     func approvePendingGroupReadsLocked(_ allowance: BrokerTimedAllowance) {
         for operationID in entriesByOperationID.keys {

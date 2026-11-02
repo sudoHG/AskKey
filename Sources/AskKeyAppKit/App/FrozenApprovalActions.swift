@@ -31,8 +31,10 @@ enum FrozenApprovalActions {
             buttons.append(Button(title: appLocalizedFormat("Allow for %lld Minutes", minutes), role: .secondary,
                                   decision: .timedAllow(duration: TimeInterval(minutes * 60)), identifier: "approval-allow-timed",
                                   help: timedScope(minutes: minutes)))
-            if groupSnapshot != nil {
-                buttons.append(Button(title: appLocalizedFormat("Allow Group for %lld Minutes", minutes), role: .secondary,
+            if let snapshot = groupSnapshot, !snapshot.members.isEmpty {
+                let count = AppLanguage.localizedCount("%lld credentials", oneKey: "%lld credential",
+                    count: snapshot.members.count, language: AppLanguage.current)
+                buttons.append(Button(title: appLocalizedFormat("Allow Group for %1$lld Minutes (%2$@)", minutes, count), role: .secondary,
                     decision: .timedAllowGroup(duration: TimeInterval(minutes * 60)), identifier: "approval-allow-group-timed",
                     help: groupTimedScope(minutes: minutes)))
             }

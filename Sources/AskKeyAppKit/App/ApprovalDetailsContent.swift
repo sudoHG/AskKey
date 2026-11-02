@@ -54,11 +54,11 @@ struct ApprovalDetailsContent: Equatable {
                                 value: .text(FrozenApprovalActions.timedScope(minutes: timedAllowanceMinutes))))
                 if let snapshot = groupSnapshot {
                     rows.append(Row(label: appLocalized("Group"), value: .text(snapshot.groupName)))
-                    rows.append(Row(label: appLocalized("Group allowance"), value: .lines(snapshot.members.map {
+                    rows.append(Row(label: appLocalized("Entire group"), value: .lines(snapshot.members.map {
                         Line(text: ApprovalLine($0.name))
                     }), note: ApprovalLine(FrozenApprovalActions.groupTimedScope(minutes: timedAllowanceMinutes))))
                     if let expiry = snapshot.earliestExpiry {
-                        rows.append(Row(label: appLocalized("Group deadline"), value: .text(appLocalizedFormat(
+                        rows.append(Row(label: appLocalized("Expires"), value: .text(appLocalizedFormat(
                             "The whole allowance ends after %1$lld minutes or at %2$@, whichever comes first, because a listed credential expires then.",
                             timedAllowanceMinutes, expiry.formatted(.dateTime.locale(AppLanguage.locale(for: AppLanguage.current)))))))
                     }
@@ -161,7 +161,7 @@ struct ApprovalDetailsContent: Equatable {
     /// for the longest label.
     static func labelWidth() -> CGFloat {
         let labels = ["Requested by", "Purpose", "Command", "Runs in", "Hands over", "Contents", "Instructions",
-                      "Changes", "Group", "Value", "Group allowance", "Group deadline"].map { appLocalized($0) }
+                      "Changes", "Group", "Value", "Entire group", "Expires"].map { appLocalized($0) }
             + [appLocalizedFormat("%lld minutes", 999), appLocalizedFormat("Step %lld", 64)]
         let font = NSFont.systemFont(ofSize: 12)
         return ceil(labels.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0) + 1

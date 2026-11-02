@@ -17,12 +17,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ and %2$@!!]" } }
       }
     },
-    "Allow Group for %lld Minutes": {
+    "Allow Group for %1$lld Minutes (%2$@)": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Allow Group for %lld Minutes" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "允许整个分组 %lld 分钟" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Allow Group for %lld Minutes!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Allow Group for %1$lld Minutes (%2$@)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "允许整个分组 %1$lld 分钟（%2$@）" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Allow Group for %1$lld Minutes (%2$@)!!]" } }
       }
     },
     "For up to %lld minutes, any agent or command in your Mac account can read only the listed credentials without asking. Later additions are excluded. Changing or deleting credentials still needs approval. Revoke ends the whole group allowance.": {
@@ -33,20 +33,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!For up to %lld minutes, any agent or command in your Mac account can read only the listed credentials without asking. Later additions are excluded. Changing or deleting credentials still needs approval. Revoke ends the whole group allowance.!!]" } }
       }
     },
-    "Group allowance": {
+    "Entire group": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Group allowance" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "限时允许" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Group allowance!!]" } }
-      }
-    },
-    "Group deadline": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Group deadline" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "到期时间" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Group deadline!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Entire group" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "整个分组" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Entire group!!]" } }
       }
     },
     "The whole allowance ends after %1$lld minutes or at %2$@, whichever comes first, because a listed credential expires then.": {

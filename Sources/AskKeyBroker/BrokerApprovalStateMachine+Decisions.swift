@@ -115,6 +115,7 @@ extension BrokerApprovalStateMachine {
                     groupName = nil
                 }
                 guard effectiveWindowEnd > verifiedAt else { throw BrokerApprovalError.invalidDecision }
+                invalidateReplacedTimedAuthorizationsLocked(credentialIDs: Set(members.map(\.credentialID)))
                 for member in members { removeAllowanceMemberLocked(credentialID: member.credentialID) }
                 let allowance = BrokerTimedAllowance(groupName: groupName, members: members, expiresAt: effectiveWindowEnd)
                 timedAllowances[allowance.id] = allowance

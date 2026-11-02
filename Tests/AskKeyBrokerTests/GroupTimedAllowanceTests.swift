@@ -159,6 +159,90 @@ final class GroupTimedAllowanceTests: ApprovalStateMachineTestCase {
         }
     }
 
+    func testShorterReplacementInvalidatesOlderTimedTicketAndRuntimeLeaseWithoutPriorCancellation() throws {
+        let clock = TestClock(start)
+        let machine = configuredMachine(clock: { clock.now }, authenticate: { _ in true })
+        let original = read("a")
+        let ticket = try machine.submit(original, trustedCredentialDeadline: .none,
+                                        groupAllowanceSnapshot: replacementSnapshot(["a", "b"]))
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability,
+                               decision: .timedAllowGroup(duration: 1_800))
+        let runtimeRead = read("a")
+        let runtimeTicket = try machine.submit(runtimeRead)
+        let lease = try XCTUnwrap(machine.consumeForRuntime([
+            .init(requestID: runtimeTicket.requestID, capability: runtimeTicket.capability, operationRequest: runtimeRead)
+        ]))
+        defer { lease.finish() }
+        let cleaned = expectation(description: "replacement cleans the older timed runtime lease")
+        try lease.registerCleanup { cleaned.fulfill() }
+        let expiry = start.addingTimeInterval(60)
+        let replacement = try machine.submit(read("c"), trustedCredentialDeadline: .expiresAt(expiry),
+            groupAllowanceSnapshot: replacementSnapshot(["a", "b", "c"], expiry: expiry))
+        _ = try machine.decide(requestID: replacement.requestID, capability: replacement.capability,
+                               decision: .timedAllowGroup(duration: 1_800))
+        XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "a"), expiry)
+        XCTAssertEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
+        XCTAssertThrowsError(try lease.validate())
+        wait(for: [cleaned], timeout: 1)
+
+        clock.advance(by: 61)
+        machine.refreshExpiration()
+        XCTAssertTrue(machine.activeTimedAllowances().isEmpty)
+        XCTAssertThrowsError(try machine.consumeApproved(requestID: ticket.requestID, capability: ticket.capability,
+            operationRequest: original, perform: { XCTFail("An older timed ticket must not deliver after replacement expiry") }))
+        XCTAssertThrowsError(try lease.performAuthorizedSpawn { XCTFail("An older timed lease must not launch after replacement expiry") })
+        XCTAssertEqual(try machine.submit(read("a")).state, .pending)
+    }
+
+    func testReplacementPreservesOnceOnlyTicketsLeasesAndNonoverlappingMembers() throws {
+        let clock = TestClock(start)
+        let machine = configuredMachine(clock: { clock.now }, authenticate: { _ in true })
+        let onceRequest = read("a")
+        let onceTicket = try machine.submit(onceRequest)
+        _ = try machine.decide(requestID: onceTicket.requestID, capability: onceTicket.capability, decision: .once)
+        let onceRuntimeRead = read("a")
+        let onceRuntimeTicket = try machine.submit(onceRuntimeRead)
+        _ = try machine.decide(requestID: onceRuntimeTicket.requestID, capability: onceRuntimeTicket.capability, decision: .once)
+        let onceLease = try XCTUnwrap(machine.consumeForRuntime([
+            .init(requestID: onceRuntimeTicket.requestID, capability: onceRuntimeTicket.capability, operationRequest: onceRuntimeRead)
+        ]))
+        defer { onceLease.finish() }
+
+        let initial = try machine.submit(read("a"), trustedCredentialDeadline: .none,
+                                         groupAllowanceSnapshot: replacementSnapshot(["a", "b"]))
+        _ = try machine.decide(requestID: initial.requestID, capability: initial.capability, decision: .timedAllowGroup(duration: 1_800))
+        let untouchedRequest = read("b")
+        let untouchedTicket = try machine.submit(untouchedRequest)
+        let untouchedRuntimeRead = read("b")
+        let untouchedRuntimeTicket = try machine.submit(untouchedRuntimeRead)
+        let untouchedLease = try XCTUnwrap(machine.consumeForRuntime([
+            .init(requestID: untouchedRuntimeTicket.requestID, capability: untouchedRuntimeTicket.capability,
+                  operationRequest: untouchedRuntimeRead)
+        ]))
+        defer { untouchedLease.finish() }
+
+        let expiry = start.addingTimeInterval(60)
+        let replacement = try machine.submit(read("c"), trustedCredentialDeadline: .expiresAt(expiry),
+            groupAllowanceSnapshot: replacementSnapshot(["a", "c"], expiry: expiry))
+        _ = try machine.decide(requestID: replacement.requestID, capability: replacement.capability,
+                               decision: .timedAllowGroup(duration: 1_800))
+        clock.advance(by: 61)
+        machine.refreshExpiration()
+        XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "b"), start.addingTimeInterval(1_800))
+        XCTAssertNoThrow(try machine.consume(requestID: untouchedTicket.requestID, capability: untouchedTicket.capability,
+                                            operationRequest: untouchedRequest))
+        XCTAssertNoThrow(try untouchedLease.performAuthorizedSpawn {})
+        XCTAssertNoThrow(try machine.consume(requestID: onceTicket.requestID, capability: onceTicket.capability,
+                                            operationRequest: onceRequest))
+        XCTAssertNoThrow(try onceLease.performAuthorizedSpawn {})
+    }
+
+    private func replacementSnapshot(_ ids: [String], expiry: Date? = nil) -> BrokerGroupAllowanceSnapshot {
+        .init(groupName: "Project", members: ids.map {
+            .init(credentialID: $0, name: $0.uppercased(), metadataDigest: digest, expiresAt: $0 == "c" ? expiry : nil)
+        })
+    }
+
     private func makeMachine() -> BrokerApprovalStateMachine {
         let start = start
         return configuredMachine(clock: { start }, authenticate: { _ in true })
