@@ -17,6 +17,7 @@ extension BrokerApprovalStateMachine {
     static func currentTimedAllowanceSleepOffset() -> (lower: UInt64, upper: UInt64) {
         // Bracket the continuous clock to bound sampling jitter. Only sleep
         // advances continuous time without advancing absolute time.
+        // The bounds rely on in-order counter reads: absolute, continuous, absolute.
         let before = mach_absolute_time()
         let continuous = mach_continuous_time()
         let after = mach_absolute_time()

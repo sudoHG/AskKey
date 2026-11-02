@@ -257,6 +257,8 @@ extension Vault {
 
     package func updateTimedAllowanceSession(active: Bool, ending: Bool = true, suspended: Bool = false,
                                             sleeping: Bool? = nil) {
+        // Callers reporting sleeping: true must also pass ending: true so a
+        // remote opt-in reaches the Keychain fallback when both local flags are off.
         if active && sleeping != true {
             approvalRequests.updateTimedAllowanceSession(active: true, endOnLock: false, suspended: suspended, sleeping: sleeping)
             return
@@ -269,7 +271,7 @@ extension Vault {
             return
         }
         guard ending else { return }
-        // Only an inactive event with both local flags off needs a policy read:
+        // An ending event (including active willSleep) with both local flags off needs a policy read:
         // a remote process may have opted in since our last authorization.
         // Resume events never read Keychain; a verified off value never advances
         // the session generation. This preserves pre-adoption remote opt-in.

@@ -5,25 +5,27 @@ import AskKeyBroker
 @testable import AskKeyVault
 
 final class TimedAllowanceSessionPolicyTests: XCTestCase {
-    func testInactiveEventsRevokeWithoutPolicyReadWhenEitherLocalFlagIsOn() throws {
-        for memoryOn in [false, true] {
-            let library = try AgentAccessPolicyTestLibrary()
-            defer { try? library.close() }
-            let vault = library.vault
-            try vault.updateEndTimedAllowancesOnLock(memoryOn, using: .allow)
-            let approvals = vault.approvalRequests
-            // Exercise both halves of the save/apply window independently.
-            approvals.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
-                timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: !memoryOn)
-            approvals.configureAuthentication { _ in true }
-            let timed = try submit(approvals, credential: "timed")
-            _ = try approvals.decide(requestID: timed.requestID, capability: timed.capability, decision: .timedAllow(duration: 120))
-            let reads = library.keys.policyReads
-            library.keys.loadFailure = VaultError.managementAuthenticationRequired
-            vault.updateTimedAllowanceSession(active: false)
-            XCTAssertEqual(library.keys.policyReads, reads, "Revocation must not wait for any policy read")
-            XCTAssertNil(approvals.timedAllowanceDeadline(credentialID: "timed"))
-            XCTAssertEqual(try approvals.status(requestID: timed.requestID, capability: timed.capability), .cancelled)
+    func testEndingEventsRevokeWithoutPolicyReadWhenEitherLocalFlagIsOn() throws {
+        for (active, sleeping) in [(false, false), (true, true)] {
+            for memoryOn in [false, true] {
+                let library = try AgentAccessPolicyTestLibrary()
+                defer { try? library.close() }
+                let vault = library.vault
+                try vault.updateEndTimedAllowancesOnLock(memoryOn, using: .allow)
+                let approvals = vault.approvalRequests
+                // Exercise both halves of the save/apply window independently.
+                approvals.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+                    timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: !memoryOn)
+                approvals.configureAuthentication { _ in true }
+                let timed = try submit(approvals, credential: "timed")
+                _ = try approvals.decide(requestID: timed.requestID, capability: timed.capability, decision: .timedAllow(duration: 120))
+                let reads = library.keys.policyReads
+                library.keys.loadFailure = VaultError.managementAuthenticationRequired
+                vault.updateTimedAllowanceSession(active: active, ending: true, sleeping: sleeping ? true : nil)
+                XCTAssertEqual(library.keys.policyReads, reads, "Revocation must not wait for any policy read")
+                XCTAssertNil(approvals.timedAllowanceDeadline(credentialID: "timed"))
+                XCTAssertEqual(try approvals.status(requestID: timed.requestID, capability: timed.capability), .cancelled)
+            }
         }
     }
 

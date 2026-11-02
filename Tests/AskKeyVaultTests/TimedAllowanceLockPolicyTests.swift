@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 import XCTest
-import AskKeyBroker
+@testable import AskKeyBroker
 @testable import AskKeyVault
 
 final class TimedAllowanceLockPolicyTests: XCTestCase {
@@ -80,20 +80,27 @@ final class TimedAllowanceLockPolicyTests: XCTestCase {
     }
 
     func testSessionEndReadsRemoteOptInWithoutCancellingPending() throws {
-        let library = try makeLibrary()
-        let second = try makeSecondVault(library)
-        second.approvalRequests.configureAuthentication { _ in true }
-        let allowed = try submit(second)
-        _ = try second.decideAgentApproval(requestID: allowed.requestID, capability: allowed.capability,
-                                          decision: .timedAllow(duration: 120))
-        let pending = try submit(second, credentialID: "pending")
-        try library.vault.updateEndTimedAllowancesOnLock(true, using: .allow)
-        // No catalog/authorization boundary refreshed the second process yet.
-        XCTAssertFalse(try second.agentAccessPolicyState().policy.endTimedAllowancesOnLock)
-        second.updateTimedAllowanceSession(active: false)
-        XCTAssertNil(second.approvalRequests.timedAllowanceDeadline(credentialID: "synthetic"))
-        XCTAssertEqual(try second.approvalRequests.status(requestID: pending.requestID, capability: pending.capability), .pending)
-        XCTAssertFalse(try second.isAgentAccessPaused())
+        for sleeping in [false, true] {
+            let library = try makeLibrary()
+            let second = try makeSecondVault(library)
+            second.approvalRequests.configureAuthentication { _ in true }
+            let allowed = try submit(second)
+            _ = try second.decideAgentApproval(requestID: allowed.requestID, capability: allowed.capability,
+                                              decision: .timedAllow(duration: 120))
+            let pending = try submit(second, credentialID: "pending")
+            try library.vault.updateEndTimedAllowancesOnLock(true, using: .allow)
+            // No catalog/authorization boundary refreshed the second process yet.
+            XCTAssertFalse(try second.agentAccessPolicyState().policy.endTimedAllowancesOnLock)
+            XCTAssertFalse(second.approvalRequests.endTimedAllowancesOnLock)
+            var reads = 0
+            library.keys.onPolicyLoad = { reads += 1 }
+            second.updateTimedAllowanceSession(active: sleeping, ending: true, sleeping: sleeping ? true : nil)
+            XCTAssertEqual(reads, 1, "Both local flags are off, so read the remote opt-in")
+            XCTAssertNil(second.approvalRequests.timedAllowanceDeadline(credentialID: "synthetic"))
+            XCTAssertEqual(try second.approvalRequests.status(requestID: allowed.requestID, capability: allowed.capability), .cancelled)
+            XCTAssertEqual(try second.approvalRequests.status(requestID: pending.requestID, capability: pending.capability), .pending)
+            XCTAssertFalse(try second.isAgentAccessPaused())
+        }
     }
 
     func testPreparedAllowDeliveryStillSpawnsAfterRemoteOptInAndSessionEnd() throws {

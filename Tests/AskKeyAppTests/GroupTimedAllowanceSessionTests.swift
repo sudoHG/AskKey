@@ -67,6 +67,75 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
         }
     }
 
+    func testAlreadyPendingSiblingReadsApprovedByGroupAreRevokedByLockSleepAndBackstop() throws {
+        for event in [Event.lock, .sleep, .backstop] {
+            let fixture = try Fixture(enabled: true)
+            defer { try? fixture.library.close() }
+            let subject = try fixture.pendingGroup()
+            let snapshot = try XCTUnwrap(fixture.approvals.pendingRequests().first?.groupAllowanceSnapshot)
+            let sibling = try XCTUnwrap(snapshot.members.first { $0.name == "Beta" })
+            let read = fixture.read(sibling)
+            let ticket = try fixture.approvals.submit(read, trustedCredentialDeadline: .none)
+            let runtimeRead = fixture.read(sibling)
+            let runtimeTicket = try fixture.approvals.submit(runtimeRead, trustedCredentialDeadline: .none)
+            XCTAssertEqual(ticket.state, .pending)
+            XCTAssertEqual(runtimeTicket.state, .pending)
+            _ = try fixture.vault.decideAgentApproval(requestID: subject.requestID, capability: subject.capability,
+                                                     decision: .timedAllowGroup(duration: 60))
+            for pending in [ticket, runtimeTicket] {
+                XCTAssertEqual(try fixture.approvals.status(requestID: pending.requestID, capability: pending.capability), .approved)
+            }
+            let lease = try XCTUnwrap(fixture.approvals.consumeForRuntime([
+                .init(requestID: runtimeTicket.requestID, capability: runtimeTicket.capability, operationRequest: runtimeRead)
+            ]))
+            defer { lease.finish() }
+            let cleaned = expectation(description: "pending sibling cleanup on \(event)")
+            try lease.registerCleanup { cleaned.fulfill() }
+
+            try fixture.fire(event)
+
+            XCTAssertThrowsError(try lease.performAuthorizedSpawn { XCTFail("A revoked pending sibling must not launch") })
+            wait(for: [cleaned], timeout: 1)
+            XCTAssertEqual(try fixture.approvals.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
+            XCTAssertThrowsError(try fixture.approvals.consumeApproved(requestID: ticket.requestID, capability: ticket.capability,
+                operationRequest: read, perform: { XCTFail("A revoked pending sibling must not deliver") }))
+            XCTAssertTrue(fixture.approvals.activeTimedAllowances().isEmpty)
+            XCTAssertEqual(try fixture.approvals.submit(fixture.read(sibling), trustedCredentialDeadline: .none).state, .pending)
+        }
+    }
+
+    func testLockCancelsWholePreparedRunContainingTimedAndOnceOnlyCredentials() throws {
+        let fixture = try Fixture(enabled: true)
+        defer { try? fixture.library.close() }
+        let group = try fixture.grantGroup()
+        let timedRead = fixture.read(try XCTUnwrap(group.members.first))
+        let timed = try fixture.approvals.submit(timedRead, trustedCredentialDeadline: .none)
+        let onceRead = fixture.read("once")
+        let once = try fixture.approvals.submit(onceRead, trustedCredentialDeadline: .none)
+        _ = try fixture.approvals.decide(requestID: once.requestID, capability: once.capability, decision: .once)
+        let mixed = try XCTUnwrap(fixture.approvals.consumeForRuntime([
+            .init(requestID: timed.requestID, capability: timed.capability, operationRequest: timedRead),
+            .init(requestID: once.requestID, capability: once.capability, operationRequest: onceRead)
+        ]))
+        defer { mixed.finish() }
+        let cleaned = expectation(description: "lock cleans the entire mixed run")
+        try mixed.registerCleanup { cleaned.fulfill() }
+        let separateRead = fixture.read("once")
+        let separate = try fixture.approvals.submit(separateRead, trustedCredentialDeadline: .none)
+        _ = try fixture.approvals.decide(requestID: separate.requestID, capability: separate.capability, decision: .once)
+        let onceOnly = try XCTUnwrap(fixture.approvals.consumeForRuntime([
+            .init(requestID: separate.requestID, capability: separate.capability, operationRequest: separateRead)
+        ]))
+        defer { onceOnly.finish() }
+
+        try fixture.fire(.lock)
+
+        XCTAssertThrowsError(try mixed.performAuthorizedSpawn { XCTFail("A mixed run must be cancelled as a whole") })
+        wait(for: [cleaned], timeout: 1)
+        XCTAssertNoThrow(try onceOnly.performAuthorizedSpawn {})
+        XCTAssertTrue(fixture.approvals.activeTimedAllowances().isEmpty)
+    }
+
     func testGroupGrantsRespectLockedSleepingAndSwitchedOutSessionsOnlyWhenEnabled() throws {
         for enabled in [false, true] {
             for event in Event.sessionEvents {
@@ -105,6 +174,9 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
                             try fixture.fire(event)
                             _ = fixture.approvals.pendingRequests() // Observe a missed lock through the backstop.
                             fixture.resume(event)
+                            // The Vault's metadata revalidation succeeds after resume;
+                            // the stale session generation must still reject this decision.
+                            try fixture.vault.revalidateGroupAllowance(requestID: pending.requestID, capability: pending.capability)
                         })
                 }
                 if enabled {
@@ -120,6 +192,39 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testRemoteOptInAdoptedDuringGroupAuthenticationWhileLockedBlocksGrantAndPreservesPending() throws {
+        let fixture = try Fixture(enabled: false)
+        defer { try? fixture.library.close() }
+        let vault = fixture.vault
+        let remote = Vault(store: try fixture.library.store, key: try vault.requireKey(), policyStore: fixture.library.keys,
+            fileDeliveryManager: try FileDeliveryManager(rootURL: fixture.library.directory.appendingPathComponent("remote-deliveries")))
+        let pending = try fixture.pendingGroup()
+        let snapshot = try XCTUnwrap(fixture.approvals.pendingRequests().first?.groupAllowanceSnapshot)
+        try fixture.fire(.lock)
+        fixture.approvals.configureAuthentication { _ in
+            do {
+                let locallyEnabled = try vault.agentAccessPolicyState().policy.endTimedAllowancesOnLock
+                XCTAssertFalse(locallyEnabled)
+                try remote.updateEndTimedAllowancesOnLock(true, using: .allow)
+            }
+            catch { XCTFail("Remote opt-in failed: \(error)"); return false }
+            return true
+        }
+
+        XCTAssertThrowsError(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllowGroup(duration: 60))) { XCTAssertEqual($0 as? BrokerApprovalError, .invalidDecision) }
+
+        XCTAssertTrue(try vault.agentAccessPolicyState().policy.endTimedAllowancesOnLock)
+        XCTAssertTrue(fixture.approvals.activeTimedAllowances().isEmpty)
+        XCTAssertEqual(try fixture.approvals.status(requestID: pending.requestID, capability: pending.capability), .pending)
+        XCTAssertEqual(fixture.approvals.pendingRequests().first?.groupAllowanceSnapshot, snapshot)
+        XCTAssertFalse(try vault.isAgentAccessPaused())
+        fixture.approvals.configureAuthentication { _ in true }
+        fixture.resume(.lock)
+        XCTAssertEqual(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllowGroup(duration: 60)).state, .approved)
     }
 
     func testLateUnlockedSampleAfterWillSleepCannotGrantGroupUntilDidWake() throws {

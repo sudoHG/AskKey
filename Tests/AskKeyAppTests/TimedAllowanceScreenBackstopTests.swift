@@ -314,6 +314,142 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
             decision: .timedAllow(duration: 120)).state, .approved)
     }
 
+    func testSettingOffWillSleepAndDidWakeNeverReadLiveProviderOrRevoke() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let vault = library.vault
+        let approvals = vault.approvalRequests
+        let probe = ScreenProbe(.locked)
+        approvals.configureTimedAllowanceScreenState { probe.unlocked() }
+        approvals.configureTimedAllowanceSleepOffset { (100, 100) }
+        approvals.configureAuthentication { _ in true }
+        let workspace = NotificationCenter()
+        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        defer { withExtendedLifetime(observer) {} }
+        let ticket = try submit(approvals, credential: "timed")
+        _ = try vault.decideAgentApproval(requestID: ticket.requestID, capability: ticket.capability,
+            decision: .timedAllow(duration: 120))
+        let deadline = try XCTUnwrap(approvals.timedAllowanceDeadline(credentialID: "timed"))
+        let generation = approvals.timedAllowanceSessionGeneration
+        for event in [NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification] {
+            workspace.post(name: event, object: nil)
+            XCTAssertEqual(approvals.timedAllowanceDeadline(credentialID: "timed"), deadline)
+            XCTAssertEqual(try approvals.status(requestID: ticket.requestID, capability: ticket.capability), .approved)
+            XCTAssertEqual(approvals.timedAllowanceSessionGeneration, generation)
+            XCTAssertEqual(probe.reads, 0, "Setting-off sleep and wake must not consult the live provider")
+        }
+    }
+
+    func testEnablingBetweenWillSleepAndActualSleepRevokesButProvenMissedWakePreservesAllowance() throws {
+        for liveProvider in [false, true] {
+            for provenSleep in [false, true] {
+                let library = try AgentAccessPolicyTestLibrary()
+                defer { try? library.close() }
+                let vault = library.vault
+                let approvals = vault.approvalRequests
+                let offset = SleepOffsetProbe()
+                approvals.configureTimedAllowanceSleepOffset { offset.current }
+                if liveProvider { approvals.configureTimedAllowanceScreenState { true } }
+                approvals.configureAuthentication { _ in true }
+                let screen = NotificationCenter()
+                let workspace = NotificationCenter()
+                let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+                defer { withExtendedLifetime(observer) {} }
+                let previous = try submit(approvals, credential: "previous")
+                _ = try vault.decideAgentApproval(requestID: previous.requestID, capability: previous.capability,
+                    decision: .timedAllow(duration: 120))
+                let deadline = try XCTUnwrap(approvals.timedAllowanceDeadline(credentialID: "previous"))
+                workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+                XCTAssertEqual(try approvals.status(requestID: previous.requestID, capability: previous.capability), .approved)
+                if provenSleep {
+                    offset.set(lower: 101, upper: 101)
+                    if !liveProvider { screen.post(name: .init("com.apple.screenIsUnlocked"), object: nil) }
+                }
+                let generation = approvals.timedAllowanceSessionGeneration
+                try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
+                XCTAssertEqual(approvals.timedAllowanceSessionSleeping, !provenSleep)
+                XCTAssertEqual(approvals.timedAllowanceSessionGeneration == generation, provenSleep)
+                XCTAssertEqual(approvals.timedAllowanceDeadline(credentialID: "previous"), provenSleep ? deadline : nil)
+                XCTAssertEqual(try approvals.status(requestID: previous.requestID, capability: previous.capability),
+                    provenSleep ? .approved : .cancelled)
+                let fresh = try submit(approvals, credential: "fresh")
+                let decide = {
+                    try vault.decideAgentApproval(requestID: fresh.requestID, capability: fresh.capability,
+                        decision: .timedAllow(duration: 120))
+                }
+                if provenSleep {
+                    XCTAssertEqual(try decide().state, .approved)
+                } else {
+                    XCTAssertThrowsError(try decide()) { XCTAssertEqual($0 as? BrokerApprovalError, .invalidDecision) }
+                    XCTAssertEqual(try approvals.status(requestID: fresh.requestID, capability: fresh.capability), .pending)
+                    workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+                    XCTAssertEqual(try decide().state, .approved)
+                    XCTAssertEqual(try approvals.status(requestID: previous.requestID, capability: previous.capability), .cancelled)
+                }
+            }
+        }
+    }
+
+    func testFullLockUnlockCycleBeforeProvenSleepKeepsSleepingSet() throws {
+        for liveProvider in [false, true] {
+            let library = try AgentAccessPolicyTestLibrary()
+            defer { try? library.close() }
+            let vault = library.vault
+            try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
+            let approvals = vault.approvalRequests
+            approvals.configureTimedAllowanceSleepOffset { (100, 100) }
+            if liveProvider { approvals.configureTimedAllowanceScreenState { true } }
+            approvals.configureAuthentication { _ in true }
+            let screen = NotificationCenter()
+            let workspace = NotificationCenter()
+            let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+                screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+            defer { withExtendedLifetime(observer) {} }
+            workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+            screen.post(name: .init("com.apple.screenIsLocked"), object: nil)
+            screen.post(name: .init("com.apple.screenIsUnlocked"), object: nil)
+            XCTAssertTrue(approvals.timedAllowanceSessionSleeping)
+            XCTAssertEqual(approvals.timedAllowanceSleepOffsetAtSleep, 100)
+            let pending = try submit(approvals, credential: "pending")
+            XCTAssertThrowsError(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+                decision: .timedAllow(duration: 120))) { XCTAssertEqual($0 as? BrokerApprovalError, .invalidDecision) }
+            XCTAssertTrue(approvals.timedAllowanceSessionSleeping)
+            XCTAssertEqual(try approvals.status(requestID: pending.requestID, capability: pending.capability), .pending)
+            workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+            XCTAssertEqual(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+                decision: .timedAllow(duration: 120)).state, .approved)
+        }
+    }
+
+    func testResignWillSleepDidWakeKeepsGrantsBlockedUntilBecomeActive() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let vault = library.vault
+        try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
+        let approvals = vault.approvalRequests
+        approvals.configureTimedAllowanceScreenState { true }
+        approvals.configureTimedAllowanceSleepOffset { (100, 100) }
+        approvals.configureAuthentication { _ in true }
+        let workspace = NotificationCenter()
+        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        defer { withExtendedLifetime(observer) {} }
+        workspace.post(name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+        workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+        XCTAssertFalse(approvals.timedAllowanceSessionSleeping)
+        XCTAssertTrue(approvals.timedAllowanceSessionSuspended)
+        let pending = try submit(approvals, credential: "pending")
+        XCTAssertThrowsError(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllow(duration: 120))) { XCTAssertEqual($0 as? BrokerApprovalError, .invalidDecision) }
+        XCTAssertEqual(try approvals.status(requestID: pending.requestID, capability: pending.capability), .pending)
+        workspace.post(name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+        XCTAssertEqual(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllow(duration: 120)).state, .approved)
+    }
+
     private func submit(_ approvals: BrokerApprovalStateMachine, credential: String,
                         operation: BrokerApprovalOperation = .read) throws -> BrokerApprovalTicket {
         try approvals.submit(.init(operationID: UUID().uuidString, credentialID: credential, targetID: credential,
