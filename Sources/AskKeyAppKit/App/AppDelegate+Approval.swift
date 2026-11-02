@@ -11,7 +11,8 @@ extension AppDelegate {
         timedAllowanceSessionObserver = TimedAllowanceSessionObserver(
             screenNotifications: DistributedNotificationCenter.default,
             workspaceNotifications: NSWorkspace.shared.notificationCenter,
-            endAllowances: { Vault.shared.endTimedAllowancesForScreenLockOrSleep() }
+            screenState: { AgentApprovalScreenSession.current() },
+            updateSession: { Vault.shared.updateTimedAllowanceSession(active: $0) }
         )
         Vault.shared.approvalRequests.configureAuthentication { purpose in
             let reason = purpose == .readApproval

@@ -30,7 +30,7 @@ final class TimedAllowanceSessionObserverTests: XCTestCase {
                 let workspace = NotificationCenter()
                 let vault = library.vault
                 let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-                    endAllowances: { vault.endTimedAllowancesForScreenLockOrSleep() })
+                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0) })
                 withExtendedLifetime(observer) {
                     (event == NSWorkspace.willSleepNotification ? workspace : screen).post(name: event, object: nil)
                 }
@@ -55,11 +55,12 @@ final class TimedAllowanceSessionObserverTests: XCTestCase {
         let workspace = NotificationCenter()
         let vault = library.vault
         let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-            endAllowances: { vault.endTimedAllowancesForScreenLockOrSleep() })
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0) })
         defer { withExtendedLifetime(observer) {} }
         let approvals = vault.approvalRequests
         approvals.configureAuthentication { _ in true }
         for enabled in [true, false, true] {
+            screen.post(name: .init("com.apple.screenIsUnlocked"), object: nil)
             try vault.updateEndTimedAllowancesOnLock(enabled, using: .allow)
             let credentialID = UUID().uuidString
             let ticket = try submit(approvals, credential: credentialID)
@@ -83,7 +84,7 @@ final class TimedAllowanceSessionObserverTests: XCTestCase {
                                              decision: .timedAllow(duration: 120))
         let pending = try submit(vault.approvalRequests, credential: "pending")
         library.keys.loadFailure = VaultError.managementAuthenticationRequired
-        vault.endTimedAllowancesForScreenLockOrSleep()
+        vault.updateTimedAllowanceSession(active: false)
         XCTAssertNil(vault.approvalRequests.timedAllowanceDeadline(credentialID: "timed"))
         XCTAssertEqual(try vault.approvalRequests.status(requestID: pending.requestID, capability: pending.capability), .pending)
         XCTAssertFalse(try vault.isAgentAccessPaused())

@@ -44,6 +44,9 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
     var defaultTimedAllowance: TimeInterval
     var readAuthenticationEnabled: Bool
     var timedAllowanceEnabled: Bool
+    var endTimedAllowancesOnLock = false
+    var timedAllowanceSessionActive = true
+    var timedAllowanceSessionGeneration = UUID()
     var entriesByOperationID: [String: Entry] = [:]
     var operationOrder: [String] = []
     var timedAllowances: [String: Date] = [:]

@@ -4,12 +4,18 @@ extension BrokerApprovalStateMachine {
     package func configureAgentAccessPolicy(
         readAuthenticationEnabled: Bool,
         timedAllowanceEnabled: Bool,
-        timedAllowanceDuration: TimeInterval
+        timedAllowanceDuration: TimeInterval,
+        endTimedAllowancesOnLock: Bool = false
     ) {
         let revoked: ([String], @Sendable (String) -> Void)? = mutate {
             self.readAuthenticationEnabled = readAuthenticationEnabled
             self.timedAllowanceEnabled = timedAllowanceEnabled
+            self.endTimedAllowancesOnLock = endTimedAllowancesOnLock
             defaultTimedAllowance = Self.validDuration(timedAllowanceDuration) ? timedAllowanceDuration : 30 * 60
+            if endTimedAllowancesOnLock && !timedAllowanceSessionActive {
+                timedAllowanceSessionGeneration = UUID()
+                return revokeAllTimedAllowancesLocked()
+            }
             return timedAllowanceEnabled ? nil : revokeAllTimedAllowancesLocked()
         }
         if let revoked {

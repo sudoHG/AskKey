@@ -40,7 +40,8 @@ extension BrokerApprovalStateMachine {
         revalidate: () throws -> Void = {}
     ) throws -> BrokerApprovalTicket {
         let context = try withEntry(requestID: requestID, capability: capability, now: now) {
-            ($0, readAuthenticationEnabled, timedAllowanceEnabled, defaultTimedAllowance)
+            ($0, readAuthenticationEnabled, timedAllowanceEnabled, defaultTimedAllowance,
+             timedAllowanceSessionGeneration)
         }
         let entry = context.0
         guard entry.state == .pending else { throw BrokerApprovalError.invalidDecision }
@@ -79,6 +80,10 @@ extension BrokerApprovalStateMachine {
             case .timedAllow:
                 // Settings may have changed while system authentication ran.
                 guard timedAllowanceEnabled else { throw BrokerApprovalError.invalidDecision }
+                guard !endTimedAllowancesOnLock || (timedAllowanceSessionActive
+                    && timedAllowanceSessionGeneration == context.4) else {
+                    throw BrokerApprovalError.invalidDecision
+                }
                 guard let timedAllowanceDuration else { throw BrokerApprovalError.invalidDecision }
                 let duration = min(timedAllowanceDuration, defaultTimedAllowance)
                 let windowEnd = verifiedAt.addingTimeInterval(duration)

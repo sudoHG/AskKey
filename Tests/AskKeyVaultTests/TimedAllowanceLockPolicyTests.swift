@@ -90,7 +90,7 @@ final class TimedAllowanceLockPolicyTests: XCTestCase {
         try library.vault.updateEndTimedAllowancesOnLock(true, using: .allow)
         // No catalog/authorization boundary refreshed the second process yet.
         XCTAssertFalse(try second.agentAccessPolicyState().policy.endTimedAllowancesOnLock)
-        second.endTimedAllowancesForScreenLockOrSleep()
+        second.updateTimedAllowanceSession(active: false)
         XCTAssertNil(second.approvalRequests.timedAllowanceDeadline(credentialID: "synthetic"))
         XCTAssertEqual(try second.approvalRequests.status(requestID: pending.requestID, capability: pending.capability), .pending)
         XCTAssertFalse(try second.isAgentAccessPaused())
@@ -110,7 +110,7 @@ final class TimedAllowanceLockPolicyTests: XCTestCase {
         defer { delivery.finish(); delivery.cleanup() }
         XCTAssertEqual(values.first?.value, "synthetic")
         try library.vault.updateEndTimedAllowancesOnLock(true, using: .allow)
-        second.endTimedAllowancesForScreenLockOrSleep()
+        second.updateTimedAllowanceSession(active: false)
         var spawned = false
         try delivery.performAuthorizedSpawn(afterAuthorization: {}, spawn: { spawned = true })
         XCTAssertTrue(spawned)

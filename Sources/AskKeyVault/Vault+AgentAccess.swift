@@ -53,7 +53,8 @@ extension Vault {
         approvalRequests.configureAgentAccessPolicy(
             readAuthenticationEnabled: policy.readApprovalAuthentication,
             timedAllowanceEnabled: policy.timedAllowanceEnabled,
-            timedAllowanceDuration: TimeInterval(policy.timedAllowanceMinutes * 60)
+            timedAllowanceDuration: TimeInterval(policy.timedAllowanceMinutes * 60),
+            endTimedAllowancesOnLock: policy.endTimedAllowancesOnLock
         )
         let state = AgentAccessPolicyState(policy: policy, needsRecovery: needsRecovery || latches.recovery,
                                           pauseNotPersisted: latches.pause && !latches.pausePersisted,
@@ -250,14 +251,13 @@ extension Vault {
         try changeAgentAccessPolicy { $0.endTimedAllowancesOnLock = enabled }
     }
 
-    package func endTimedAllowancesForScreenLockOrSleep() {
+    package func updateTimedAllowanceSession(active: Bool) {
         // Revocation needs no global pause or policy adoption. A failed read
         // cannot undo a previously verified opt-in in this process.
         let memory = try? savedAgentAccessPolicyState().policy
         let persisted = try? loadAgentAccessPolicy(key: requireKey(), keyStore: policyKeyStore(), created: false).policy
-        if memory?.endTimedAllowancesOnLock == true || persisted?.endTimedAllowancesOnLock == true {
-            approvalRequests.revokeAllTimedAllowances()
-        }
+        approvalRequests.updateTimedAllowanceSession(active: active,
+            endOnLock: memory?.endTimedAllowancesOnLock == true || persisted?.endTimedAllowancesOnLock == true)
     }
 
     private func changeAgentAccessPolicy(_ change: (inout AgentAccessPolicy) -> Void) throws {
