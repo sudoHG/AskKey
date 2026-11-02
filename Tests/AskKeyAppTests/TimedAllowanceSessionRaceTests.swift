@@ -170,11 +170,14 @@ final class TimedAllowanceSessionRaceTests: XCTestCase {
         try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
         let screen = NotificationCenter()
         let workspace = NotificationCenter()
+        let state = TimedAllowanceTestScreenState(.unlocked)
+        vault.approvalRequests.configureTimedAllowanceSleepOffset { state.sleepOffset }
         let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
             screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
         defer { withExtendedLifetime(observer) {} }
         vault.approvalRequests.configureAuthentication { _ in true }
         workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        state.advanceSleepOffset()
         screen.post(name: .init("com.apple.screenIsUnlocked"), object: nil)
         let pending = try submit(vault.approvalRequests, credential: "pending")
         XCTAssertEqual(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
@@ -232,6 +235,7 @@ final class TimedAllowanceSessionRaceTests: XCTestCase {
 private final class TimedAllowanceTestScreenState: @unchecked Sendable {
     private let lock = NSLock()
     private var value: AgentApprovalScreenState
+    private var slept: UInt64 = 100
 
     init(_ value: AgentApprovalScreenState) { self.value = value }
 
@@ -245,5 +249,13 @@ private final class TimedAllowanceTestScreenState: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         self.value = value
+    }
+
+    var sleepOffset: (lower: UInt64, upper: UInt64) {
+        lock.lock(); defer { lock.unlock() }; return (slept, slept)
+    }
+
+    func advanceSleepOffset() {
+        lock.lock(); defer { lock.unlock() }; slept += 1
     }
 }

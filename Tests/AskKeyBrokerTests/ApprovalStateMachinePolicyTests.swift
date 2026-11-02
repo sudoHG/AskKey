@@ -2,6 +2,14 @@ import XCTest
 @testable import AskKeyBroker
 
 final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
+    func testRealSleepOffsetBoundsDoNotReportSleepBetweenAwakeSamples() {
+        let first = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
+        let second = BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
+        XCTAssertLessThanOrEqual(first.lower, first.upper)
+        XCTAssertLessThanOrEqual(second.lower, second.upper)
+        XCTAssertLessThanOrEqual(second.lower, first.upper)
+    }
+
     func testEnablingWithCachedActiveButLiveLockedRevokesAllowanceAndAdvancesGeneration() throws {
         let machine = configuredMachine(authenticate: { _ in true })
         machine.configureTimedAllowanceScreenState { false }
@@ -12,6 +20,8 @@ final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
         machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
             timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
         XCTAssertNotEqual(machine.timedAllowanceSessionGeneration, generation)
+        XCTAssertTrue(machine.timedAllowances.isEmpty, "Policy apply itself must revoke before another mutation")
+        XCTAssertEqual(machine.entriesByOperationID["stale-active-policy"]?.state, .cancelled)
         XCTAssertNil(machine.timedAllowanceDeadline(credentialID: "credential-1"))
         XCTAssertEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
     }

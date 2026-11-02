@@ -256,15 +256,15 @@ extension Vault {
     }
 
     package func updateTimedAllowanceSession(active: Bool, ending: Bool = true, suspended: Bool = false,
-                                            sleeping: Bool = false) {
-        if active {
+                                            sleeping: Bool? = nil) {
+        if active && sleeping != true {
             approvalRequests.updateTimedAllowanceSession(active: true, endOnLock: false, suspended: suspended, sleeping: sleeping)
             return
         }
         // Revoke immediately from either local flag, without Keychain work.
         // A failed read cannot undo a previously verified opt-in.
         let memory = try? savedAgentAccessPolicyState().policy
-        if approvalRequests.updateTimedAllowanceSession(active: false,
+        if approvalRequests.updateTimedAllowanceSession(active: active,
             endOnLock: memory?.endTimedAllowancesOnLock == true, suspended: suspended, sleeping: sleeping) {
             return
         }
@@ -275,7 +275,7 @@ extension Vault {
         // the session generation. This preserves pre-adoption remote opt-in.
         let persisted = try? loadAgentAccessPolicy(key: requireKey(), keyStore: policyKeyStore(), created: false).policy
         if persisted?.endTimedAllowancesOnLock == true {
-            approvalRequests.updateTimedAllowanceSession(active: false, endOnLock: true, suspended: suspended, sleeping: sleeping)
+            approvalRequests.updateTimedAllowanceSession(active: active, endOnLock: true, suspended: suspended, sleeping: sleeping)
         }
     }
 

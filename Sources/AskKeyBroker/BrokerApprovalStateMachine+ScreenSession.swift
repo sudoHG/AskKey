@@ -26,16 +26,19 @@ extension BrokerApprovalStateMachine {
 
     func timedAllowanceSessionPermitsGrantLocked() -> Bool {
         if let unlocked = timedAllowanceScreenUnlocked?() {
-            // An unlocked sample before actual sleep cannot clear willSleep.
-            // Strictly separated bounds prove sleep occurred despite a missed wake.
-            if unlocked, timedAllowanceSessionSleeping, let offset = timedAllowanceSleepOffsetAtSleep,
-               timedAllowanceSleepOffset().lower > offset {
-                timedAllowanceSessionSleeping = false
-                timedAllowanceSleepOffsetAtSleep = nil
-            }
+            clearTimedAllowanceSleepIfProvenLocked(unlocked: unlocked)
             return unlocked && !timedAllowanceSessionSuspended && !timedAllowanceSessionSleeping
         }
         return timedAllowanceSessionActive && !timedAllowanceSessionSuspended && !timedAllowanceSessionSleeping
+    }
+
+    func clearTimedAllowanceSleepIfProvenLocked(unlocked: Bool) {
+        // An unlocked sample before actual sleep cannot clear willSleep.
+        // Strictly separated bounds prove sleep occurred despite a missed wake.
+        guard unlocked, timedAllowanceSessionSleeping, let offset = timedAllowanceSleepOffsetAtSleep,
+              timedAllowanceSleepOffset().lower > offset else { return }
+        timedAllowanceSessionSleeping = false
+        timedAllowanceSleepOffsetAtSleep = nil
     }
 
     /// Backstop delayed/missed distributed events before cached authority is
