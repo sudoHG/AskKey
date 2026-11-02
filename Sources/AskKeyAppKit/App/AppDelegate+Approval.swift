@@ -15,8 +15,8 @@ extension AppDelegate {
             screenNotifications: DistributedNotificationCenter.default,
             workspaceNotifications: NSWorkspace.shared.notificationCenter,
             screenState: { AgentApprovalScreenSession.current() },
-            updateSession: { active, ending, suspended in
-                Vault.shared.updateTimedAllowanceSession(active: active, ending: ending, suspended: suspended)
+            updateSession: { active, ending, suspended, sleeping in
+                Vault.shared.updateTimedAllowanceSession(active: active, ending: ending, suspended: suspended, sleeping: sleeping)
             }
         )
         Vault.shared.approvalRequests.configureAuthentication { purpose in

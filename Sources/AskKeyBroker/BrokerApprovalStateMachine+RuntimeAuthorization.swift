@@ -2,14 +2,24 @@ import Foundation
 
 extension BrokerApprovalStateMachine {
     func withRuntimeAuthorization<T>(id: UUID, _ body: () throws -> T) throws -> T {
-        try mutate {
-            guard let authorization = runtimeAuthorizations[id], authorization.valid,
-                  !paused, clock() < authorization.expiresAt else {
-                throw BrokerProviderError.requestRejected
+        lock.lock()
+        if endTimedAllowancesOnLock {
+            lock.unlock()
+            return try mutate {
+                try runtimeAuthorizationLocked(id: id, body)
             }
-            // No observer, file IO, or acquisition of the Vault gate while locked.
-            return try body()
         }
+        defer { lock.unlock() }
+        return try runtimeAuthorizationLocked(id: id, body)
+    }
+
+    private func runtimeAuthorizationLocked<T>(id: UUID, _ body: () throws -> T) throws -> T {
+        guard let authorization = runtimeAuthorizations[id], authorization.valid,
+              !paused, clock() < authorization.expiresAt else {
+            throw BrokerProviderError.requestRejected
+        }
+        // No observer, file IO, or acquisition of the Vault gate while locked.
+        return try body()
     }
 
     func registerRuntimeCleanup(id: UUID, cleanup: @escaping @Sendable () -> Void) throws {

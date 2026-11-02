@@ -8,15 +8,21 @@ extension BrokerApprovalStateMachine {
     }
 
     func timedAllowanceSessionPermitsGrantLocked() -> Bool {
-        !timedAllowanceSessionSuspended && (timedAllowanceScreenUnlocked?() ?? timedAllowanceSessionActive)
+        if let unlocked = timedAllowanceScreenUnlocked?() {
+            // A running process on its unlocked console is awake, even if
+            // didWake was missed. This cannot restore revoked authority.
+            if unlocked { timedAllowanceSessionSleeping = false }
+            return unlocked && !timedAllowanceSessionSuspended && !timedAllowanceSessionSleeping
+        }
+        return timedAllowanceSessionActive && !timedAllowanceSessionSuspended && !timedAllowanceSessionSleeping
     }
 
     /// Backstop delayed/missed distributed events before cached authority is
     /// used. A fresh unlocked sample can supersede a stale cached screen flag,
-    /// but cannot undo an explicit sleep or inactive console session.
+    /// and clear a missed wake, but cannot undo an inactive console session.
     func revokeForScreenBackstopLocked() -> ([String], @Sendable (String) -> Void)? {
-        guard endTimedAllowancesOnLock, let unlocked = timedAllowanceScreenUnlocked,
-              timedAllowanceSessionSuspended || !unlocked() else { return nil }
+        guard endTimedAllowancesOnLock, timedAllowanceScreenUnlocked != nil,
+              !timedAllowanceSessionPermitsGrantLocked() else { return nil }
         timedAllowanceSessionGeneration = UUID()
         return revokeAllTimedAllowancesLocked()
     }

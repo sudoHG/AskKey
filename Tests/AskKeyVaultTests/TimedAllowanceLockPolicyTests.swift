@@ -158,6 +158,41 @@ final class TimedAllowanceLockPolicyTests: XCTestCase {
         }
     }
 
+    func testCorruptReopenAndRecoveryResumePreservePreviouslyVerifiedLockOptIn() throws {
+        for enabled in [false, true] {
+            for corruption in ["missing-policy", "invalid-policy", "policy-conflict", "key-load-failure", "pause-save-failure"] {
+                let library = try makeLibrary()
+                try library.vault.updateEndTimedAllowancesOnLock(enabled, using: .allow)
+                switch corruption {
+                case "missing-policy": library.keys.policy = nil
+                case "invalid-policy": library.keys.policy = Data("invalid-policy".utf8)
+                case "policy-conflict": library.keys.policyLoadFailure = AppKeyStoreError.conflictingItem(.agentAccessPolicy)
+                case "key-load-failure": library.keys.appLoadFailure = SyntheticPolicyFailure()
+                default:
+                    // A latched pause retries its save during adoption.
+                    try library.vault.pauseAgentAccess(using: .allow)
+                    library.keys.policySaveFailure = SyntheticPolicyFailure()
+                }
+                if corruption == "key-load-failure" {
+                    XCTAssertThrowsError(try library.reopen())
+                } else {
+                    try library.reopen()
+                }
+                XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.endTimedAllowancesOnLock, enabled, corruption)
+                library.keys.appLoadFailure = nil
+                library.keys.policyLoadFailure = nil
+                library.keys.policySaveFailure = nil
+                try library.reopen()
+                XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.endTimedAllowancesOnLock, enabled, corruption)
+                try library.vault.resumeAgentAccess(using: .allow)
+                XCTAssertEqual(try AgentAccessPolicyAuthentication.open(XCTUnwrap(library.keys.policy), using: library.key)
+                    .endTimedAllowancesOnLock, enabled, corruption)
+                try library.reopen()
+                XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.endTimedAllowancesOnLock, enabled, corruption)
+            }
+        }
+    }
+
     func testExistingDeliveryRuleChangesStillRejectPreparedAllowDelivery() throws {
         for change in ["paused", "readApprovalAuthentication", "timedAllowanceEnabled", "timedAllowanceMinutes"] {
             let library = try makeLibrary()

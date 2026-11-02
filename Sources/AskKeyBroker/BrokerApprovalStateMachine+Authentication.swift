@@ -12,7 +12,7 @@ extension BrokerApprovalStateMachine {
             self.timedAllowanceEnabled = timedAllowanceEnabled
             self.endTimedAllowancesOnLock = endTimedAllowancesOnLock
             defaultTimedAllowance = Self.validDuration(timedAllowanceDuration) ? timedAllowanceDuration : 30 * 60
-            if endTimedAllowancesOnLock && !timedAllowanceSessionActive {
+            if endTimedAllowancesOnLock && !timedAllowanceSessionPermitsGrantLocked() {
                 timedAllowanceSessionGeneration = UUID()
                 return revokeAllTimedAllowancesLocked()
             }

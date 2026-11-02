@@ -2,6 +2,24 @@ import XCTest
 @testable import AskKeyBroker
 
 final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
+    func testPolicyApplyPreservesAllowanceWhenCachedInactiveButLiveScreenIsUnlocked() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        machine.configureTimedAllowanceScreenState { true }
+        let ticket = try machine.submit(request(operationID: "stale-inactive-policy"))
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
+        let deadline = try XCTUnwrap(machine.timedAllowanceDeadline(credentialID: "credential-1"))
+        machine.updateTimedAllowanceSession(active: false, endOnLock: false)
+        let generation = machine.timedAllowanceSessionGeneration
+        for _ in 0..<2 {
+            machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+                timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+            XCTAssertFalse(machine.timedAllowanceSessionActive)
+            XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
+            XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "credential-1"), deadline)
+            XCTAssertEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .approved)
+        }
+    }
+
     func testTimedAllowanceStartsDisabledUntilPolicyIsApplied() throws {
         let machine = BrokerApprovalStateMachine(authenticate: { _ in true })
         let ticket = try machine.submit(request(operationID: "restrictive-default"), trustedCredentialDeadline: .none)

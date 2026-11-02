@@ -12,7 +12,7 @@ final class TimedAllowanceSessionObserver: NSObject {
         screenNotifications: NotificationCenter,
         workspaceNotifications: NotificationCenter,
         screenState: @escaping @Sendable () -> AgentApprovalScreenState,
-        updateSession: @escaping @Sendable (Bool, Bool, Bool) -> Void
+        updateSession: @escaping @Sendable (Bool, Bool, Bool, Bool) -> Void
     ) {
         self.screenNotifications = screenNotifications
         self.workspaceNotifications = workspaceNotifications
@@ -71,13 +71,13 @@ final class TimedAllowanceSessionObserver: NSObject {
 private final class TimedAllowanceSessionState: @unchecked Sendable {
     private let lock = NSLock()
     private let screenState: @Sendable () -> AgentApprovalScreenState
-    private let updateSession: @Sendable (Bool, Bool, Bool) -> Void
+    private let updateSession: @Sendable (Bool, Bool, Bool, Bool) -> Void
     private var screenUnlocked = false
     private var sleeping = false
     private var sessionActive = true
 
     init(screenState: @escaping @Sendable () -> AgentApprovalScreenState,
-         updateSession: @escaping @Sendable (Bool, Bool, Bool) -> Void) {
+         updateSession: @escaping @Sendable (Bool, Bool, Bool, Bool) -> Void) {
         self.screenState = screenState
         self.updateSession = updateSession
     }
@@ -89,8 +89,11 @@ private final class TimedAllowanceSessionState: @unchecked Sendable {
         if let screenUnlocked { self.screenUnlocked = screenUnlocked }
         if let sleeping { self.sleeping = sleeping }
         if let sessionActive { self.sessionActive = sessionActive }
-        if refreshScreen { self.screenUnlocked = screenState() == .unlocked }
+        if refreshScreen {
+            self.screenUnlocked = screenState() == .unlocked
+            if self.screenUnlocked { self.sleeping = false }
+        }
         let suspended = self.sleeping || !self.sessionActive
-        updateSession(self.screenUnlocked && !suspended, ending, suspended)
+        updateSession(self.screenUnlocked && !suspended, ending, !self.sessionActive, self.sleeping)
     }
 }

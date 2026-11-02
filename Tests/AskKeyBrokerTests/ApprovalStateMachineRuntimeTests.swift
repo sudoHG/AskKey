@@ -2,6 +2,41 @@ import XCTest
 @testable import AskKeyBroker
 
 final class ApprovalStateMachineRuntimeTests: ApprovalStateMachineTestCase {
+    func testSettingOffRuntimeValidationPreservesRevisionAndDefersUnrelatedCleanup() throws {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let machine = configuredMachine(clock: { clock.now }, authenticate: { _ in true })
+        var leases: [BrokerRuntimeReadAuthorization] = []
+        for (credential, decision) in [("live", BrokerApprovalDecision.once), ("expired", .timedAllow(duration: 30))] {
+            let operation = request(operationID: credential, credentialID: credential)
+            let ticket = try machine.submit(operation)
+            _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: decision)
+            leases.append(try XCTUnwrap(machine.consumeForRuntime([
+                .init(requestID: ticket.requestID, capability: ticket.capability, operationRequest: operation)
+            ])))
+        }
+        defer { leases.forEach { $0.finish() } }
+        let cleaned = NotificationRecorder()
+        try leases[1].registerCleanup {
+            // Cleanup must still be allowed to reenter after an ordinary mutation.
+            _ = machine.pendingRequests()
+            cleaned.record(count: 1)
+        }
+        machine.flushObservers()
+        let revision = machine.stateRevision
+        let reportedRevision = machine.reportedRevision
+        clock.advance(by: 31)
+        XCTAssertNoThrow(try leases[0].validate())
+        XCTAssertEqual(try leases[0].performAuthorizedSpawn { "spawned" }, "spawned")
+        XCTAssertThrowsError(try leases[0].performAuthorizedSpawn { throw BrokerProviderError.requestRejected })
+        XCTAssertThrowsError(try leases[1].validate())
+        machine.flushObservers()
+        XCTAssertEqual(machine.stateRevision, revision)
+        XCTAssertEqual(machine.reportedRevision, reportedRevision)
+        XCTAssertTrue(cleaned.counts.isEmpty, "Validation and spawn must not sweep another lease's resources")
+        _ = machine.pendingRequests()
+        XCTAssertEqual(cleaned.counts, [1])
+    }
+
     func testTimedRevocationUsesEachRuntimeCredentialsApprovalSource() throws {
         let machine = configuredMachine(authenticate: { _ in true })
         let once = request(operationID: "once-source", credentialID: "once")

@@ -12,7 +12,7 @@ final class TimedAllowanceDistributedObserverTests: XCTestCase {
         try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
         let center = RecordingDistributedCenter()
         let observer = TimedAllowanceSessionObserver(screenNotifications: center, workspaceNotifications: .init(),
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2) })
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
         defer { withExtendedLifetime(observer) {} }
         XCTAssertEqual(Set(center.registrations.map(\.name)),
             Set([Notification.Name("com.apple.screenIsLocked"), .init("com.apple.screenIsUnlocked")]))

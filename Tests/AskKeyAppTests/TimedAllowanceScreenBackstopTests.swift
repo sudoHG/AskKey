@@ -129,7 +129,7 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         let approvals = vault.approvalRequests
         approvals.configureTimedAllowanceScreenState { probe.unlocked() }
         let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: .init(),
-            screenState: { probe.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2) })
+            screenState: { probe.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
         defer { withExtendedLifetime(observer) {} }
         approvals.configureAuthentication { _ in true }
         probe.set(.unlocked)
@@ -138,7 +138,7 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
             decision: .timedAllow(duration: 120)).state, .approved)
     }
 
-    func testSessionBecomeActiveClearsMissedWakeButLiveUnlockedCannotOverrideSuspension() throws {
+    func testSleepWithoutLockOrDidWakeAllowsFreshTimedGrantButNeverRevivesRevokedAllowance() throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }
         let vault = library.vault
@@ -148,17 +148,42 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         approvals.configureAuthentication { _ in true }
         let workspace = NotificationCenter()
         let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2) })
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
         defer { withExtendedLifetime(observer) {} }
-        for event in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
-            workspace.post(name: event, object: nil)
-            let pending = try submit(approvals, credential: UUID().uuidString)
-            XCTAssertThrowsError(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
-                decision: .timedAllow(duration: 120)))
-            workspace.post(name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
-            XCTAssertEqual(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
-                decision: .timedAllow(duration: 120)).state, .approved)
-        }
+        let previous = try submit(approvals, credential: "timed")
+        _ = try vault.decideAgentApproval(requestID: previous.requestID, capability: previous.capability,
+            decision: .timedAllow(duration: 120))
+        workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        // The console is unlocked after sleep without a password. Deliver no
+        // wake, unlock or become-active event before the next live refresh.
+        let fresh = try submit(approvals, credential: "timed")
+        XCTAssertEqual(fresh.state, .pending)
+        XCTAssertEqual(try approvals.status(requestID: previous.requestID, capability: previous.capability), .cancelled)
+        XCTAssertNil(approvals.timedAllowanceDeadline(credentialID: "timed"))
+        XCTAssertEqual(try vault.decideAgentApproval(requestID: fresh.requestID, capability: fresh.capability,
+            decision: .timedAllow(duration: 120)).state, .approved)
+        XCTAssertEqual(try approvals.status(requestID: previous.requestID, capability: previous.capability), .cancelled)
+    }
+
+    func testLiveUnlockedCannotOverrideInactiveSessionUntilBecomeActive() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let vault = library.vault
+        try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
+        let approvals = vault.approvalRequests
+        approvals.configureTimedAllowanceScreenState { true }
+        approvals.configureAuthentication { _ in true }
+        let workspace = NotificationCenter()
+        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        defer { withExtendedLifetime(observer) {} }
+        workspace.post(name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+        let pending = try submit(approvals, credential: "inactive-session")
+        XCTAssertThrowsError(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllow(duration: 120)))
+        workspace.post(name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+        XCTAssertEqual(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllow(duration: 120)).state, .approved)
     }
 
     private func submit(_ approvals: BrokerApprovalStateMachine, credential: String,

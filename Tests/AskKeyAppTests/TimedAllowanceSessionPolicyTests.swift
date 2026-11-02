@@ -35,7 +35,7 @@ final class TimedAllowanceSessionPolicyTests: XCTestCase {
         let workspace = NotificationCenter()
         let reads = library.keys.policyReads
         let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2) })
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
         defer { withExtendedLifetime(observer) {} }
         XCTAssertEqual(library.keys.policyReads, reads, "Initial active session must not read Keychain")
         let approvals = vault.approvalRequests
@@ -84,7 +84,7 @@ final class TimedAllowanceSessionPolicyTests: XCTestCase {
                 let screen = NotificationCenter()
                 let workspace = NotificationCenter()
                 let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2) })
+                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
                 defer { withExtendedLifetime(observer) {} }
                 (sleep ? workspace : screen).post(
                     name: sleep ? NSWorkspace.willSleepNotification : .init("com.apple.screenIsLocked"), object: nil)

@@ -4,10 +4,12 @@ extension BrokerApprovalStateMachine {
     /// Session events and final timed grants share the same lock. Advance even
     /// with no allowances, so an in-flight decision cannot restore authority.
     @discardableResult
-    package func updateTimedAllowanceSession(active: Bool, endOnLock: Bool, suspended: Bool = false) -> Bool {
+    package func updateTimedAllowanceSession(active: Bool, endOnLock: Bool, suspended: Bool = false,
+                                           sleeping: Bool = false) -> Bool {
         let revoked: ([String], @Sendable (String) -> Void)? = mutate {
             timedAllowanceSessionActive = active
             timedAllowanceSessionSuspended = suspended
+            timedAllowanceSessionSleeping = sleeping
             guard !active, endOnLock || endTimedAllowancesOnLock else { return nil }
             timedAllowanceSessionGeneration = UUID()
             return revokeAllTimedAllowancesLocked()
