@@ -91,6 +91,69 @@ final class GroupTimedAllowanceTests: ApprovalStateMachineTestCase {
         }
     }
 
+    func testRevokingDisplayedRecordAfterFirstMemberReplacementOnlyRevokesRemainingMembers() throws {
+        let machine = makeMachine()
+        _ = try grant(machine)
+        let displayed = try XCTUnwrap(machine.activeTimedAllowances().first)
+        let remainingTicket = try machine.submit(read("b"))
+        let remainingLease = try runtimeLease(machine, credentialID: "b")
+        defer { remainingLease.finish() }
+        let cleaned = expectation(description: "remaining member runtime cleanup")
+        try remainingLease.registerCleanup { cleaned.fulfill() }
+
+        let replacement = try machine.submit(read("c"), trustedCredentialDeadline: .none,
+            groupAllowanceSnapshot: replacementSnapshot(["a", "c"]))
+        _ = try machine.decide(requestID: replacement.requestID, capability: replacement.capability,
+                               decision: .timedAllowGroup(duration: 60))
+        let newer = try XCTUnwrap(machine.activeTimedAllowances().first { $0.id != displayed.id })
+        let newerRead = read("a")
+        let newerTicket = try machine.submit(newerRead)
+        let newerLease = try runtimeLease(machine, credentialID: "a")
+        defer { newerLease.finish() }
+        let revoked = expectation(description: "only the remaining member is revoked")
+        machine.setTimedAllowanceRevokedHandler { id in
+            XCTAssertEqual(id, "b")
+            revoked.fulfill()
+        }
+
+        XCTAssertTrue(machine.revokeTimedAllowance(id: displayed.id))
+
+        wait(for: [cleaned, revoked], timeout: 1)
+        XCTAssertEqual(machine.activeTimedAllowances(), [newer])
+        XCTAssertEqual(try machine.status(requestID: remainingTicket.requestID, capability: remainingTicket.capability), .cancelled)
+        XCTAssertThrowsError(try remainingLease.performAuthorizedSpawn { XCTFail("The displayed grant was revoked") })
+        XCTAssertNoThrow(try machine.consume(requestID: newerTicket.requestID, capability: newerTicket.capability,
+                                            operationRequest: newerRead))
+        XCTAssertNoThrow(try newerLease.performAuthorizedSpawn {})
+        XCTAssertFalse(machine.revokeTimedAllowance(id: displayed.id))
+        XCTAssertEqual(try machine.submit(read("b")).state, .pending)
+    }
+
+    func testRevokingMissingDisplayedRecordPreservesReplacementTicketsAndRuntimeLeases() throws {
+        let machine = makeMachine()
+        _ = try grant(machine)
+        let displayed = try XCTUnwrap(machine.activeTimedAllowances().first)
+        let replacement = try machine.submit(read("c"), trustedCredentialDeadline: .none,
+            groupAllowanceSnapshot: replacementSnapshot(["a", "b", "c"]))
+        _ = try machine.decide(requestID: replacement.requestID, capability: replacement.capability,
+                               decision: .timedAllowGroup(duration: 60))
+        let newer = try XCTUnwrap(machine.activeTimedAllowances().first)
+        XCTAssertNotEqual(newer.id, displayed.id)
+        let newerRead = read("a")
+        let newerTicket = try machine.submit(newerRead)
+        let newerLease = try runtimeLease(machine, credentialID: "a")
+        defer { newerLease.finish() }
+        machine.setTimedAllowanceRevokedHandler { _ in XCTFail("A missing record must not revoke any credential") }
+
+        XCTAssertFalse(machine.revokeTimedAllowance(id: displayed.id))
+
+        XCTAssertEqual(machine.activeTimedAllowances(), [newer])
+        XCTAssertNoThrow(try machine.consume(requestID: newerTicket.requestID, capability: newerTicket.capability,
+                                            operationRequest: newerRead))
+        XCTAssertNoThrow(try newerLease.performAuthorizedSpawn {})
+        for id in ["a", "b", "c"] { XCTAssertEqual(try machine.submit(read(id)).state, .approved) }
+    }
+
     func testPendingMemberExpiryWithdrawsGroupOptionWithoutCancellingSubject() throws {
         let clock = TestClock(start)
         let machine = configuredMachine(clock: { clock.now }, authenticate: { _ in true })
@@ -241,6 +304,14 @@ final class GroupTimedAllowanceTests: ApprovalStateMachineTestCase {
         .init(groupName: "Project", members: ids.map {
             .init(credentialID: $0, name: $0.uppercased(), metadataDigest: digest, expiresAt: $0 == "c" ? expiry : nil)
         })
+    }
+
+    private func runtimeLease(_ machine: BrokerApprovalStateMachine, credentialID: String) throws -> BrokerRuntimeReadAuthorization {
+        let operation = read(credentialID)
+        let ticket = try machine.submit(operation)
+        return try XCTUnwrap(machine.consumeForRuntime([
+            .init(requestID: ticket.requestID, capability: ticket.capability, operationRequest: operation)
+        ]))
     }
 
     private func makeMachine() -> BrokerApprovalStateMachine {

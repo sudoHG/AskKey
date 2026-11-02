@@ -34,6 +34,7 @@ struct CredentialWorkspaceMutations {
     var revealText: (String, ManagementAuthenticator) throws -> ManagedTextCredential
     var timedAllowanceDeadline: (String) -> Date?
     var revokeTimedAllowance: (String) -> Bool
+    var revokeTimedAllowanceByID: (UUID) -> Bool
     var activeTimedAllowances: () -> [BrokerTimedAllowance] = { [] }
     var storedCredentialCount: () throws -> Int
     var accessRecords: CredentialAccessRecordMutations
@@ -103,6 +104,7 @@ struct CredentialWorkspaceMutations {
         },
         timedAllowanceDeadline: { Vault.shared.approvalRequests.timedAllowanceDeadline(credentialID: $0) },
         revokeTimedAllowance: { Vault.shared.approvalRequests.revokeTimedAllowance(credentialID: $0) },
+        revokeTimedAllowanceByID: { Vault.shared.approvalRequests.revokeTimedAllowance(id: $0) },
         activeTimedAllowances: { Vault.shared.approvalRequests.activeTimedAllowances() },
         storedCredentialCount: { try Vault.shared.storedCredentialCount() },
         accessRecords: .live,
@@ -143,6 +145,7 @@ struct CredentialWorkspaceMutations {
             revealText: { _, _ in try refuseValue() },
             timedAllowanceDeadline: { _ in nil },
             revokeTimedAllowance: { _ in false },
+            revokeTimedAllowanceByID: { _ in false },
             storedCredentialCount: {
                 let snapshot = try loadWorkspace()
                 return snapshot.credentials.count + snapshot.recycled.count

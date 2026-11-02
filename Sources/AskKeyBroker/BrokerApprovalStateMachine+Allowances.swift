@@ -100,10 +100,18 @@ extension BrokerApprovalStateMachine {
 
     @discardableResult
     public func revokeTimedAllowance(credentialID: String) -> Bool {
+        revokeTimedAllowance { $0.members.contains { $0.credentialID == credentialID } }
+    }
+
+    /// List actions target the displayed grant even if its membership has changed.
+    @discardableResult
+    public func revokeTimedAllowance(id: UUID) -> Bool {
+        revokeTimedAllowance { $0.id == id }
+    }
+
+    private func revokeTimedAllowance(matching matches: (BrokerTimedAllowance) -> Bool) -> Bool {
         let result: ([String], @Sendable (String) -> Void)? = mutate {
-            guard let allowance = timedAllowances.values.first(where: {
-                $0.members.contains { $0.credentialID == credentialID }
-            }) else { return nil }
+            guard let allowance = timedAllowances.values.first(where: matches) else { return nil }
             timedAllowances.removeValue(forKey: allowance.id)
             let ids = allowance.members.map(\.credentialID)
             for id in ids { invalidateRuntimeAuthorizationsLocked(credentialID: id, timedOnly: true) }

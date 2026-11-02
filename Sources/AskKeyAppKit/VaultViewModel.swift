@@ -572,4 +572,9 @@ package final class VaultViewModel {
         credentialMutations.revokeTimedAllowance(credentialID)
     }
 
+    @discardableResult
+    func revokeTimedAllowance(id: UUID) -> Bool {
+        credentialMutations.revokeTimedAllowanceByID(id)
+    }
+
 }

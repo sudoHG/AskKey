@@ -5,7 +5,7 @@ import AskKeyBroker
 struct FrozenTimedAllowanceList: View {
     let allowances: [BrokerTimedAllowance]
     let now: Date
-    let revoke: (String) -> Void
+    let revoke: (UUID) -> Void
 
     var body: some View {
         if !allowances.isEmpty {
@@ -27,7 +27,7 @@ struct FrozenTimedAllowanceList: View {
                         }
                         Spacer()
                         Button(appLocalized(allowance.groupName == nil ? "Revoke Now" : "Revoke Group Allowance")) {
-                            if let id = allowance.members.first?.credentialID { revoke(id) }
+                            revoke(allowance.id)
                         }
                         .accessibilityIdentifier("timed-allowance-revoke-\(allowance.id)")
                     }

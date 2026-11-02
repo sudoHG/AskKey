@@ -190,7 +190,7 @@ extension CredentialManagementView {
                 FrozenTimedAllowanceList(allowances: vault.activeTimedAllowances().filter { allowance in
                     allowance.members.contains { member in credentials.contains { $0.id == member.credentialID } }
                 }, now: context.date) { id in
-                    _ = vault.revokeTimedAllowance(for: id)
+                    _ = vault.revokeTimedAllowance(id: id)
                     allowanceRefresh += 1
                 }
             }
