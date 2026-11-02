@@ -81,7 +81,7 @@ extension BrokerApprovalStateMachine {
                 // Settings may have changed while system authentication ran.
                 guard timedAllowanceEnabled else { throw BrokerApprovalError.invalidDecision }
                 guard timedAllowanceSessionGeneration == context.4,
-                      !endTimedAllowancesOnLock || timedAllowanceSessionActive else {
+                      !endTimedAllowancesOnLock || timedAllowanceSessionPermitsGrantLocked() else {
                     throw BrokerApprovalError.invalidDecision
                 }
                 guard let timedAllowanceDuration else { throw BrokerApprovalError.invalidDecision }

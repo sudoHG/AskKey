@@ -141,6 +141,23 @@ final class TimedAllowanceLockPolicyTests: XCTestCase {
         }
     }
 
+    func testRecoveryResumePreservesPreviouslyVerifiedLockOptIn() throws {
+        for enabled in [false, true] {
+            for missing in [false, true] {
+                let library = try makeLibrary()
+                try library.vault.updateEndTimedAllowancesOnLock(enabled, using: .allow)
+                library.keys.policy = missing ? nil : Data("invalid-policy".utf8)
+                XCTAssertThrowsError(try library.vault.brokerCredentialCatalog())
+                XCTAssertTrue(try library.vault.agentAccessPolicyState().needsRecovery)
+                try library.vault.resumeAgentAccess(using: .allow)
+                XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.endTimedAllowancesOnLock, enabled)
+                XCTAssertFalse(try library.vault.isAgentAccessPaused())
+                try library.reopen()
+                XCTAssertEqual(try library.vault.agentAccessPolicyState().policy.endTimedAllowancesOnLock, enabled)
+            }
+        }
+    }
+
     func testExistingDeliveryRuleChangesStillRejectPreparedAllowDelivery() throws {
         for change in ["paused", "readApprovalAuthentication", "timedAllowanceEnabled", "timedAllowanceMinutes"] {
             let library = try makeLibrary()

@@ -36,6 +36,7 @@ extension BrokerApprovalStateMachine {
         lock.lock()
         let schedulingNow = clock()
         let previousEntries = entriesByOperationID.mapValues { ($0.state, $0.request) }
+        let screenRevocation = revokeForScreenBackstopLocked()
         do {
             let result = try body()
             stateRevision &+= 1
@@ -45,6 +46,7 @@ extension BrokerApprovalStateMachine {
             rescheduleExpirationLocked(now: schedulingNow)
             lock.unlock()
             cleanups.forEach { $0() }
+            if let screenRevocation { screenRevocation.0.forEach(screenRevocation.1) }
             publishPendingCount(publication)
             publishTerminalTransitions(terminalTransitions)
             return result
@@ -56,6 +58,7 @@ extension BrokerApprovalStateMachine {
             rescheduleExpirationLocked(now: schedulingNow)
             lock.unlock()
             cleanups.forEach { $0() }
+            if let screenRevocation { screenRevocation.0.forEach(screenRevocation.1) }
             publishPendingCount(publication)
             publishTerminalTransitions(terminalTransitions)
             throw error
