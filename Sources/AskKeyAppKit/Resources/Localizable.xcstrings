@@ -6443,6 +6443,30 @@
         }
       }
     },
+    "Change when timed allowances end": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Change when timed allowances end" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "更改限时允许的结束条件" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Change when timed allowances end!!]" } }
+      }
+    },
+    "End Timed Allow on Lock": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "End Timed Allow on Lock" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "锁屏时结束限时允许" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!End Timed Allow on Lock!!]" } }
+      }
+    },
+    "End all timed allowances when the screen locks or the Mac sleeps. Allow permissions are unchanged.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "End all timed allowances when the screen locks or the Mac sleeps. Allow permissions are unchanged." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "锁屏或 Mac 睡眠时结束所有限时允许，不影响设为「允许」的凭证。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!End all timed allowances when the screen locks or the Mac sleeps. Allow permissions are unchanged.!!]" } }
+      }
+    },
     "Default Timed Allow": {
       "extractionState": "extracted_with_value",
       "localizations": {

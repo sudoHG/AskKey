@@ -154,6 +154,22 @@ struct FrozenSettingsPage: View {
                 .accessibilityIdentifier("settings-timed-allow-minutes")
                 .disabled(vault.agentAccessPolicyNeedsRecovery)
             }
+            GroupedListSeparator()
+            settingRow(
+                appLocalized("End Timed Allow on Lock"),
+                appLocalized("End all timed allowances when the screen locks or the Mac sleeps. Allow permissions are unchanged.")
+            ) {
+                Toggle("", isOn: Binding(
+                    get: { vault.endTimedAllowancesOnLock },
+                    set: { enabled in Task { await vault.setEndTimedAllowancesOnLock(enabled) } }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .tint(Theme.accent)
+                .accessibilityLabel(appLocalized("End Timed Allow on Lock"))
+                .accessibilityIdentifier("settings-end-timed-allow-on-lock")
+                .disabled(vault.agentAccessPolicyNeedsRecovery)
+            }
         }
     }
 

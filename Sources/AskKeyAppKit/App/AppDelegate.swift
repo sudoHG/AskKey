@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     var approvalPresentationObserver: NSObjectProtocol?
     var screenUnlockObserver: NSObjectProtocol?
     var approvalWakeObserver: NSObjectProtocol?
+    var timedAllowanceSessionObserver: TimedAllowanceSessionObserver?
     var recycleBinCleanupTimer: Timer?
     var lockedApprovalReminderPosted = false
     var lockedApprovalReminderAttempt: UUID?

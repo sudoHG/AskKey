@@ -203,7 +203,7 @@ extension Vault {
             beginSpawnAuthorization: {
                 try gate.beginSpawnAuthorization(validating: {
                     try self.revalidateAgentAccessPolicy()
-                    guard try self.savedAgentAccessPolicyState().policy == deliveryPolicy else {
+                    guard try self.savedAgentAccessPolicyState().policy.deliveryRules == deliveryPolicy.deliveryRules else {
                         throw BrokerProviderError.requestRejected
                     }
                 })

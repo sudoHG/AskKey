@@ -33,6 +33,10 @@ final class AgentAccessPolicyTestLibrary {
                 try self.vault.updateTimedAllowance(enabled: enabled, minutes: minutes)
                 return try self.vault.agentAccessPolicyState()
             },
+            setEndTimedAllowancesOnLock: { enabled, authenticator in
+                try self.vault.updateEndTimedAllowancesOnLock(enabled, using: authenticator)
+                return try self.vault.agentAccessPolicyState()
+            },
             isPaused: { try self.vault.isAgentAccessPaused() },
             validateOwnership: { try self.vault.validateAgentAccessPolicyOwnership() }
         )
@@ -112,6 +116,12 @@ final class AgentAccessPolicyTestState {
                 policy.timedAllowanceEnabled = enabled
                 policy.timedAllowanceMinutes = minutes
                 try policy.validate()
+                self.state = .init(policy: policy, needsRecovery: false)
+                return self.state
+            },
+            setEndTimedAllowancesOnLock: { enabled, _ in
+                var policy = self.state.policy
+                policy.endTimedAllowancesOnLock = enabled
                 self.state = .init(policy: policy, needsRecovery: false)
                 return self.state
             }

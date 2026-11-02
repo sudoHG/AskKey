@@ -18,6 +18,7 @@ extension AppDelegate {
         AppRuntimeState.configuration.willStop?()
         brokerServer?.stop()
         recycleBinCleanupTimer?.invalidate()
+        timedAllowanceSessionObserver = nil
         if let screenUnlockObserver {
             DistributedNotificationCenter.default.removeObserver(screenUnlockObserver)
         }
