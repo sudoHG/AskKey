@@ -80,6 +80,8 @@ extension BrokerApprovalStateMachine {
     func timedAllowanceSessionPermitsGrantLocked() -> Bool {
         guard !timedAllowanceSessionFence.snapshot.pending, !timedAllowanceScreenSampleFailed else { return false }
         if let unlocked = timedAllowanceScreenSample {
+            // Proven sleep may be cleared here even on the runtime gate path;
+            // this changes no authority records and publishes no callbacks.
             clearTimedAllowanceSleepIfProvenLocked(unlocked: unlocked)
             return unlocked && !timedAllowanceSessionSuspended && !timedAllowanceSessionSleeping
         }

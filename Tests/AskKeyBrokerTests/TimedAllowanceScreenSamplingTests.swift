@@ -16,6 +16,7 @@ final class TimedAllowanceScreenSamplingTests: ApprovalStateMachineTestCase {
         XCTAssertEqual(probe.reads, 0)
         machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
             timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+        XCTAssertEqual(probe.reads, 1, "Enabling the policy must sample the configured provider")
         let ticket = try machine.submit(request(operationID: "sample-outside-lock"))
         _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
         XCTAssertNotNil(machine.timedAllowanceDeadline(credentialID: "credential-1"))
@@ -123,7 +124,7 @@ final class TimedAllowanceScreenSamplingTests: ApprovalStateMachineTestCase {
         let pending = try machine.submit(request(operationID: "sample-race-submission"))
         XCTAssertEqual(pending.state, .pending, "A failed sample must not auto-approve from a surviving allowance")
         XCTAssertThrowsError(try machine.decide(requestID: pending.requestID, capability: pending.capability,
-            decision: .timedAllow(duration: 120)))
+            decision: .timedAllow(duration: 120))) { XCTAssertEqual($0 as? BrokerApprovalError, .invalidDecision) }
         XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
         XCTAssertFalse(machine.timedAllowances.isEmpty)
         XCTAssertNil(machine.timedAllowanceScreenSample)
@@ -148,6 +149,35 @@ final class TimedAllowanceScreenSamplingTests: ApprovalStateMachineTestCase {
         XCTAssertEqual(reads.reads, 2)
         let pending = try machine.submit(request(operationID: "fence-roundtrip-submission"))
         XCTAssertEqual(pending.state, .pending)
+        XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
+        XCTAssertFalse(machine.timedAllowances.isEmpty)
+    }
+
+    func testUnrelatedPolicyChangesDuringSamplingPreserveTheSampleAndAllowance() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        let probe = SamplingProbe()
+        machine.configureTimedAllowanceScreenState { probe.sample() }
+        machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+            timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+        let ticket = try machine.submit(request(operationID: "before-unrelated-policy-change"))
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
+        let deadline = machine.timedAllowanceDeadline(credentialID: "credential-1")
+        let generation = machine.timedAllowanceSessionGeneration
+        let revision = machine.timedAllowanceSessionRevision
+        let reads = probe.reads
+        probe.blockNextSample()
+        let finished = expectation(description: "unrelated policy changes do not invalidate the sample")
+        DispatchQueue.global().async {
+            XCTAssertEqual(machine.timedAllowanceDeadline(credentialID: "credential-1"), deadline)
+            finished.fulfill()
+        }
+        XCTAssertEqual(probe.entered.wait(timeout: .now() + 2), .success)
+        machine.configureAgentAccessPolicy(readAuthenticationEnabled: false, timedAllowanceEnabled: true,
+            timedAllowanceDuration: 900, endTimedAllowancesOnLock: true)
+        probe.release.signal()
+        wait(for: [finished], timeout: 2)
+        XCTAssertEqual(probe.reads - reads, 2)
+        XCTAssertEqual(machine.timedAllowanceSessionRevision, revision)
         XCTAssertEqual(machine.timedAllowanceSessionGeneration, generation)
         XCTAssertFalse(machine.timedAllowances.isEmpty)
     }

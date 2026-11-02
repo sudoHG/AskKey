@@ -2,7 +2,12 @@ import Foundation
 
 extension BrokerApprovalStateMachine {
     func withRuntimeAuthorization<T>(id: UUID, _ body: () throws -> T) throws -> T {
-        lockWithTimedAllowanceScreenSample(screenProvider: nil, endOnLock: nil)
+        lock.lock()
+        if endTimedAllowancesOnLock, let authorization = runtimeAuthorizations[id],
+           !authorization.timedCredentialIDs.isEmpty {
+            lock.unlock()
+            lockWithTimedAllowanceScreenSample(screenProvider: nil, endOnLock: nil)
+        }
         defer {
             clearTimedAllowanceScreenSampleLocked()
             lock.unlock()
