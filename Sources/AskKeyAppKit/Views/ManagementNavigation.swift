@@ -25,7 +25,9 @@ final class ManagementNavigation {
         pendingNotification = NotificationRoute(userInfo: userInfo)
         // Keep the locked sidebar neutral, including when replacing an older route.
         section = .all
-        route = .library
+        if entryState != .locked || pendingNotification != .pendingRequests {
+            route = .library
+        }
         notificationRevision += 1
         openManagement()
     }
@@ -36,7 +38,7 @@ final class ManagementNavigation {
             // Match the locked page's direct approval action without unlocking management.
             self.pendingNotification = nil
             guard canLeaveCurrentPage(entryState: vault.settingsEntryState) else { return }
-            if vault.pendingApprovalCount > 0 {
+            if !vault.pendingApprovals.isEmpty {
                 NotificationCenter.default.post(name: .presentNextAgentApproval, object: nil)
             }
             return
@@ -64,6 +66,8 @@ final class ManagementNavigation {
     private func canLeaveCurrentPage(entryState: SettingsEntryState) -> Bool {
         guard entryState != .onboarding, entryState != .empty,
               !interaction.hasWorkInProgress else { return false }
+        // Locked pages have no active draft; preserve the remembered route for unlock.
+        if entryState == .locked { return true }
         switch route {
         // These pages own drafts, onboarding, or nested confirmation state.
         // Protect the whole page, even before the first edit is made.
