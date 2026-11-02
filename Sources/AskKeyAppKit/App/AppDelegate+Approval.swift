@@ -320,7 +320,8 @@ extension AppDelegate {
         guard !lockedApprovalReminderPosted, lockedApprovalReminderAttempt == nil else { return }
         let attempt = UUID()
         lockedApprovalReminderAttempt = attempt
-        postApprovalNotification(identifier: "askkey-locked-approval-reminder", title: title, body: body) { [weak self] result in
+        postApprovalNotification(identifier: "askkey-locked-approval-reminder", title: title, body: body,
+            route: .pendingRequests) { [weak self] result in
             guard let self, self.lockedApprovalReminderAttempt == attempt else { return }
             self.lockedApprovalReminderAttempt = nil
             self.lockedApprovalReminderPosted = LockedApprovalReminderDeliveryPolicy.marksNotificationPosted(for: result)
@@ -344,7 +345,7 @@ extension AppDelegate {
         _ = managementDockPolicy.handle(.agentWriteFailureStarted(attempt))
         observeAgentWriteFailureAcknowledgement(attempt)
         postApprovalNotification(identifier: "askkey-agent-write-failure", title: vault.brandName,
-            body: displayedUserMessage(message)) { [weak self] result in
+            body: displayedUserMessage(message), route: .main) { [weak self] result in
                 guard let self else { return }
                 _ = self.managementDockPolicy.handle(.agentWriteFailureDeliveryFinished(attempt, result))
                 self.scheduleManagementDockPolicyApplication()
@@ -377,7 +378,7 @@ extension AppDelegate {
     }
 
     private func postApprovalNotification(
-        identifier: String, title: String, body: String,
+        identifier: String, title: String, body: String, route: NotificationRoute,
         completion: @escaping @MainActor (LockedApprovalReminderDeliveryResult) -> Void
     ) {
         NSApp.dockTile.badgeLabel = "!"
@@ -396,7 +397,7 @@ extension AppDelegate {
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
-            content.userInfo = NotificationRoute.pendingRequests.userInfo
+            content.userInfo = route.userInfo
             let request = UNNotificationRequest(
                 identifier: identifier,
                 content: content,

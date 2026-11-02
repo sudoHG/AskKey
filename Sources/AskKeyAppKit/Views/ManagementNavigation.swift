@@ -23,15 +23,30 @@ final class ManagementNavigation {
             return
         }
         pendingNotification = NotificationRoute(userInfo: userInfo)
-        // Keep the locked sidebar neutral, including when replacing an older route.
-        section = .all
-        route = .library
+        if entryState == .locked, pendingNotification == .main {
+            // There is no destination to defer; keep the remembered page and sidebar.
+            pendingNotification = nil
+        } else if entryState != .locked || pendingNotification != .pendingRequests {
+            // Keep deferred credential destinations neutral until management unlocks.
+            section = .all
+            route = .library
+        }
         notificationRevision += 1
         openManagement()
     }
 
     func applyPendingNotification(to vault: VaultViewModel) {
-        guard let pendingNotification, !vault.isLocked, vault.hasManagementSession else { return }
+        guard let pendingNotification else { return }
+        if pendingNotification == .pendingRequests, vault.settingsEntryState == .locked {
+            // Match the locked page's direct approval action without unlocking management.
+            self.pendingNotification = nil
+            guard canLeaveCurrentPage(entryState: vault.settingsEntryState) else { return }
+            if !vault.pendingApprovals.isEmpty {
+                NotificationCenter.default.post(name: .presentNextAgentApproval, object: nil)
+            }
+            return
+        }
+        guard !vault.isLocked, vault.hasManagementSession else { return }
         self.pendingNotification = nil
         guard canLeaveCurrentPage(entryState: vault.settingsEntryState) else { return }
         section = .all
@@ -54,6 +69,8 @@ final class ManagementNavigation {
     private func canLeaveCurrentPage(entryState: SettingsEntryState) -> Bool {
         guard entryState != .onboarding, entryState != .empty,
               !interaction.hasWorkInProgress else { return false }
+        // Locked pages have no active draft; preserve the remembered route for unlock.
+        if entryState == .locked { return true }
         switch route {
         // These pages own drafts, onboarding, or nested confirmation state.
         // Protect the whole page, even before the first edit is made.

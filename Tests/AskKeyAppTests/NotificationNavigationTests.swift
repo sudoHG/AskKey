@@ -1,6 +1,7 @@
 import AppKit
 import UserNotifications
 import XCTest
+import AskKeyBroker
 import AskKeyVault
 @testable import AskKeyAppKit
 
@@ -14,6 +15,9 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
         let navigation = ManagementNavigation()
         navigation.section = .named("SYNTHETIC previous group")
         navigation.route = .credentialDetail(otherID)
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
         var opens = 0
         click(.credential(id), navigation: navigation) { opens += 1 }
         navigation.applyPendingNotification(to: fixture.vault)
@@ -23,6 +27,7 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
         XCTAssertEqual(navigation.route, .library)
         XCTAssertEqual(fixture.loads, 0)
         XCTAssertEqual(fixture.authentications, 0)
+        XCTAssertEqual(prompts.count, 0)
         XCTAssertTrue(fixture.vault.isLocked)
 
         fixture.authenticationResult = .cancelled
@@ -65,6 +70,9 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
     func testPendingRequestsSelectsQueueAndExpiredQueueFallsBack() throws {
         let fixture = try makeFixture()
         let navigation = ManagementNavigation()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
         fixture.vault.isLocked = false
         fixture.vault.hasManagementSession = true
         fixture.vault.pendingApprovalCount = 1
@@ -76,6 +84,230 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
         click(.pendingRequests, navigation: navigation)
         navigation.applyPendingNotification(to: fixture.vault)
         XCTAssertEqual(navigation.route, .library)
+        XCTAssertEqual(prompts.count, 0, "Unlocked clicks keep navigating within management")
+    }
+
+    func testLockedPendingClickOpensApprovalOnceAfterManagementOpensWithoutUnlocking() async throws {
+        let fixture = try makeFixture()
+        let navigation = ManagementNavigation()
+        try enqueueApproval()
+        XCTAssertEqual(fixture.vault.pendingApprovalCount, 0, "The deferred count has not caught up")
+        fixture.failLoading = true
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+        var opens = 0
+        click(.pendingRequests, navigation: navigation) {
+            opens += 1
+            XCTAssertEqual(prompts.count, 0)
+        }
+        navigation.applyPendingNotification(to: fixture.vault)
+        navigation.applyPendingNotification(to: fixture.vault)
+
+        XCTAssertEqual(opens, 1)
+        XCTAssertEqual(prompts.count, 1)
+        XCTAssertTrue(prompts.receivedOnlyUntargetedPrompts)
+        XCTAssertEqual(navigation.route, .library)
+        XCTAssertEqual(navigation.section, .all)
+        XCTAssertTrue(fixture.vault.isLocked)
+        XCTAssertFalse(fixture.vault.hasManagementSession)
+        XCTAssertEqual(fixture.authentications, 0)
+        XCTAssertEqual(fixture.loads, 0)
+
+        fixture.failLoading = false
+        await fixture.vault.unlockForManagement()
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(navigation.route, .library, "Unlock must not replay the consumed reminder")
+        XCTAssertEqual(prompts.count, 1)
+    }
+
+    func testPendingClickWithExpiredManagementSessionAlsoOpensApproval() throws {
+        let fixture = try makeFixture()
+        fixture.vault.isLocked = false
+        try enqueueApproval()
+        let navigation = ManagementNavigation()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        click(.pendingRequests, navigation: navigation)
+        navigation.applyPendingNotification(to: fixture.vault)
+
+        XCTAssertEqual(prompts.count, 1)
+        XCTAssertFalse(fixture.vault.hasManagementSession)
+        XCTAssertEqual(fixture.loads, 0)
+        XCTAssertEqual(fixture.authentications, 0)
+    }
+
+    func testExpiredLockedPendingClickFallsBackAndIsNotReplayedForLaterRequests() throws {
+        let fixture = try makeFixture()
+        let navigation = ManagementNavigation()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+        fixture.vault.pendingApprovalCount = 1
+        click(.pendingRequests, navigation: navigation)
+        navigation.applyPendingNotification(to: fixture.vault)
+        try enqueueApproval()
+        navigation.applyPendingNotification(to: fixture.vault)
+        fixture.vault.isLocked = false
+        fixture.vault.hasManagementSession = true
+        navigation.applyPendingNotification(to: fixture.vault)
+
+        XCTAssertEqual(prompts.count, 0)
+        XCTAssertEqual(navigation.route, .library)
+        XCTAssertEqual(fixture.loads, 0)
+    }
+
+    func testLockedPendingClickPreservesWorkAndDropsDestination() throws {
+        let fixture = try makeFixture()
+        try enqueueApproval()
+        let navigation = ManagementNavigation()
+        navigation.interaction.searchText = "SYNTHETIC unfinished search"
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+        var opens = 0
+        click(.pendingRequests, navigation: navigation) { opens += 1 }
+        navigation.applyPendingNotification(to: fixture.vault)
+
+        XCTAssertEqual(opens, 1)
+        XCTAssertEqual(navigation.interaction.searchText, "SYNTHETIC unfinished search")
+        XCTAssertEqual(navigation.notificationRevision, 0)
+        navigation.interaction.reset()
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(prompts.count, 0)
+        XCTAssertEqual(navigation.route, .library)
+        XCTAssertEqual(fixture.loads, 0)
+    }
+
+    func testWorkStartedBeforeLockedPendingClickIsConsumedPreventsApproval() throws {
+        let fixture = try makeFixture()
+        try enqueueApproval()
+        let navigation = ManagementNavigation()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+        click(.pendingRequests, navigation: navigation)
+        navigation.route = .editor(template: .custom, credentialID: nil)
+        navigation.interaction.searchText = "SYNTHETIC unfinished work"
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(navigation.route, .editor(template: .custom, credentialID: nil))
+        navigation.route = .library
+        navigation.interaction.reset()
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(prompts.count, 0)
+        XCTAssertEqual(fixture.loads, 0)
+    }
+
+    func testLockedPendingClickPreservesRememberedPagesThroughUnlock() throws {
+        let fixture = try makeFixture()
+        try enqueueApproval()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+        for page in [CredentialWorkspaceRoute.settings, .agentAccess,
+                     .editor(template: .custom, credentialID: nil)] {
+            fixture.vault.isLocked = true
+            fixture.vault.hasManagementSession = false
+            let navigation = ManagementNavigation()
+            navigation.route = page
+            navigation.section = .named("SYNTHETIC remembered group")
+            let before = prompts.count
+            var opens = 0
+            click(.pendingRequests, navigation: navigation) { opens += 1 }
+            XCTAssertEqual(navigation.route, page)
+            XCTAssertEqual(navigation.section, .named("SYNTHETIC remembered group"))
+            navigation.applyPendingNotification(to: fixture.vault)
+            navigation.applyPendingNotification(to: fixture.vault)
+            XCTAssertEqual(prompts.count, before + 1)
+            XCTAssertEqual(opens, 1)
+            XCTAssertEqual(navigation.route, page)
+            XCTAssertEqual(navigation.section, .named("SYNTHETIC remembered group"))
+            XCTAssertEqual(fixture.authentications, 0)
+            XCTAssertEqual(fixture.loads, 0)
+            fixture.vault.isLocked = false
+            fixture.vault.hasManagementSession = true
+            navigation.applyPendingNotification(to: fixture.vault)
+            XCTAssertEqual(navigation.route, page)
+            XCTAssertEqual(navigation.section, .named("SYNTHETIC remembered group"))
+            XCTAssertEqual(prompts.count, before + 1)
+        }
+    }
+
+    func testLockedPendingClickReplacesDeferredCredentialWithoutReplayingItAfterUnlock() async throws {
+        let fixture = try makeFixture()
+        try enqueueApproval()
+        let navigation = ManagementNavigation()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+        click(.credential(id), navigation: navigation)
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(navigation.route, .library)
+        XCTAssertEqual(prompts.count, 0)
+        click(.pendingRequests, navigation: navigation)
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(prompts.count, 1)
+        XCTAssertEqual(fixture.loads, 0)
+        XCTAssertEqual(fixture.authentications, 0)
+        await fixture.vault.unlockForManagement()
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(navigation.route, .library)
+        XCTAssertEqual(prompts.count, 1)
+    }
+
+    func testLockedWriteFailureMainRouteDoesNotOpenApprovalOrClearError() throws {
+        let fixture = try makeFixture()
+        try enqueueApproval()
+        let navigation = ManagementNavigation()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+        fixture.vault.errorMessage = "SYNTHETIC write failure"
+        for page in [CredentialWorkspaceRoute.settings, .agentAccess,
+                     .editor(template: .custom, credentialID: nil), .credentialDetail(otherID), .library] {
+            fixture.vault.isLocked = true
+            fixture.vault.hasManagementSession = false
+            navigation.route = page
+            navigation.section = .named("SYNTHETIC remembered group")
+            var opens = 0
+            click(.main, navigation: navigation) { opens += 1 }
+            XCTAssertEqual(navigation.route, page)
+            XCTAssertEqual(navigation.section, .named("SYNTHETIC remembered group"))
+            navigation.applyPendingNotification(to: fixture.vault)
+            XCTAssertEqual(opens, 1)
+            XCTAssertEqual(navigation.route, page)
+            XCTAssertEqual(navigation.section, .named("SYNTHETIC remembered group"))
+            fixture.vault.isLocked = false
+            fixture.vault.hasManagementSession = true
+            navigation.applyPendingNotification(to: fixture.vault)
+            XCTAssertEqual(navigation.route, page)
+            XCTAssertEqual(navigation.section, .named("SYNTHETIC remembered group"))
+        }
+        XCTAssertEqual(prompts.count, 0)
+        XCTAssertEqual(fixture.vault.errorMessage, "SYNTHETIC write failure")
+        XCTAssertEqual(fixture.loads, 0)
+        XCTAssertEqual(fixture.authentications, 0)
+    }
+
+    func testLockedMainClickDropsDeferredCredentialWithoutReplayingItAfterUnlock() async throws {
+        let fixture = try makeFixture()
+        let navigation = ManagementNavigation()
+        click(.credential(id), navigation: navigation)
+        navigation.applyPendingNotification(to: fixture.vault)
+        navigation.route = .credentialDetail(otherID)
+        navigation.section = .named("SYNTHETIC remembered group")
+        click(.main, navigation: navigation)
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(fixture.loads, 0)
+        XCTAssertEqual(fixture.authentications, 0)
+        await fixture.vault.unlockForManagement()
+        let loadsAfterUnlock = fixture.loads
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(navigation.route, .credentialDetail(otherID))
+        XCTAssertEqual(navigation.section, .named("SYNTHETIC remembered group"))
+        XCTAssertEqual(fixture.loads, loadsAfterUnlock)
     }
 
     func testDeletedRecycledUnknownAndUnreadableTargetsFallBack() throws {
@@ -151,7 +383,13 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
 
     func testOpenDeleteConfirmationIsPreservedAndDestinationIsDropped() throws {
         let fixture = try makeFixture()
+        try enqueueApproval()
+        fixture.vault.isLocked = false
+        fixture.vault.hasManagementSession = true
         let navigation = ManagementNavigation()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
         navigation.route = .credentialDetail(id)
         navigation.interaction.deletingCredential = fixture.credentials[0]
         var opens = 0
@@ -160,11 +398,12 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
         XCTAssertEqual(navigation.route, .credentialDetail(id))
         XCTAssertEqual(navigation.interaction.deletingCredential?.id, id)
         XCTAssertEqual(navigation.notificationRevision, 0)
+        navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(prompts.count, 0)
         navigation.interaction.deletingCredential = nil
-        fixture.vault.isLocked = false
-        fixture.vault.hasManagementSession = true
         fixture.vault.pendingApprovalCount = 1
         navigation.applyPendingNotification(to: fixture.vault)
+        XCTAssertEqual(prompts.count, 0)
         XCTAssertEqual(navigation.route, .credentialDetail(id), "Closing the confirmation must not resume the click")
         XCTAssertEqual(fixture.loads, 0)
     }
@@ -270,6 +509,40 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
         XCTAssertFalse(window.isVisible)
     }
 
+    func testRealLockedRootConsumesColdAndWarmPendingClicksWithoutUnlocking() async throws {
+        let fixture = try makeFixture()
+        try enqueueApproval()
+        let previous = AppRuntimeState.configuration
+        AppRuntimeState.configuration = .init(makeViewModel: { fixture.vault })
+        defer { AppRuntimeState.configuration = previous }
+        _ = NSApplication.shared
+        let delegate = AppDelegate()
+        let prompts = ApprovalPromptRecorder()
+        let observer = prompts.observe()
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        XCTAssertNil(delegate.managementWindow)
+        click(.pendingRequests, navigation: delegate.managementNavigation) {
+            delegate.ensureManagementWindow()
+        }
+        let window = try XCTUnwrap(delegate.managementWindow)
+        defer { window.close() }
+        await layoutHiddenWindow(window)
+        XCTAssertEqual(prompts.count, 1)
+
+        click(.pendingRequests, navigation: delegate.managementNavigation) {
+            delegate.ensureManagementWindow()
+        }
+        await layoutHiddenWindow(window)
+        XCTAssertEqual(prompts.count, 2)
+        XCTAssertTrue(fixture.vault.isLocked)
+        XCTAssertFalse(fixture.vault.hasManagementSession)
+        XCTAssertEqual(fixture.authentications, 0)
+        XCTAssertEqual(fixture.loads, 0)
+        XCTAssertEqual(delegate.managementNavigation.route, .library)
+        XCTAssertFalse(window.isVisible)
+    }
+
     private func layoutHiddenWindow(_ window: NSWindow) async {
         for _ in 0..<10 {
             window.layoutIfNeeded()
@@ -296,45 +569,13 @@ final class NotificationNavigationTests: AskKeyAppTestCase {
         addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
         return NotificationNavigationFixture(id: id, defaults: defaults)
     }
-}
 
-@MainActor
-private final class NotificationNavigationFixture {
-    var credentials: [ManagedTextCredential]
-    var recycled: [ManagedTextCredential] = []
-    var loads = 0
-    var authentications = 0
-    var failLoading = false
-    var authenticationResult: ManagementAuthenticationResult = .authenticated(.allow)
-    let defaults: UserDefaults
-    private let policy = AgentAccessPolicyTestState()
-
-    lazy var vault = VaultViewModel(
-        runtimeFileCleanupFailures: { false }, accessRecords: .empty,
-        unlockVault: {}, beginManagementSession: { _ in },
-        authenticateDeviceOwner: { [unowned self] _ in
-            authentications += 1
-            return authenticationResult
-        },
-        preferences: AppPreferences(defaults: defaults),
-        loginItem: LoginItemController(isEnabled: { false }, setEnabled: { _ in }),
-        agentAccessPolicyOperations: policy.operations,
-        credentialMutations: CredentialWorkspaceMutations.readOnly { [unowned self] in
-            loads += 1
-            if failLoading { throw CocoaError(.fileReadCorruptFile) }
-            return (credentials, recycled, ["SYNTHETIC target group"], false)
-        }.counting { [unowned self] in credentials.count }
-    )
-
-    init(id: String, defaults: UserDefaults) {
-        self.defaults = defaults
-        credentials = [.init(
-            id: id, name: "SYNTHETIC notification target", value: nil,
-            usageInstructions: "SYNTHETIC", privateNotes: nil,
-            groupName: "SYNTHETIC target group", environmentVariable: nil,
-            permission: .ask, expiresAt: nil, payloadKind: .bundle,
-            originalFilename: nil, byteSize: nil, contentDigest: nil,
-            fileBytes: nil, components: [.init(name: "SYNTHETIC_FIELD", value: nil)]
-        )]
+    private func enqueueApproval() throws {
+        let queue = Vault.shared.approvalRequests
+        let ticket = try queue.submit(.init(
+            operationID: "synthetic-notification-\(UUID())", credentialID: id, targetID: id,
+            operation: .read, payloadDigest: String(repeating: "a", count: 64)
+        ), trustedCredentialDeadline: .none)
+        addTeardownBlock { _ = try queue.cancel(requestID: ticket.requestID, capability: ticket.capability) }
     }
 }

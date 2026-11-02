@@ -23,6 +23,8 @@ final class AgentWriteFailurePresentationTests: XCTestCase {
         }
         XCTAssertTrue(presentation.contains("vault.errorMessage = message"))
         XCTAssertTrue(presentation.contains("postApprovalNotification"))
+        XCTAssertTrue(presentation.contains("route: .main"))
+        XCTAssertTrue(notification.contains("content.userInfo = route.userInfo"))
         XCTAssertTrue(notification.contains("NSApp.dockTile.badgeLabel = \"!\""))
         XCTAssertTrue(notification.contains("completion(.authorizationUnavailable)"))
         XCTAssertTrue(notification.contains(".deliveryFailed"))
