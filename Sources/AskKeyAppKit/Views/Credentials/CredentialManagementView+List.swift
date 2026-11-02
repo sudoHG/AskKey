@@ -4,23 +4,12 @@ import AskKeyBroker
 import AskKeyVault
 
 extension CredentialManagementView {
-    var filteredCredentials: [ManagedTextCredential] {
-        vault.credentials.filter { credential in
-            switch selectedSection {
-            case .all: break
-            case .accessRecords, .recycleBin, .agentAccess: return false
-            case .ungrouped:
-                if credential.groupName != nil { return false }
-            case .named(let name):
-                if credential.groupName != name { return false }
-            }
-            if searchText.isEmpty { return true }
-            let query = searchText.lowercased()
-            return credential.name.lowercased().contains(query)
-                || (credential.groupName?.lowercased().contains(query) ?? false)
-                || credential.usageInstructions.lowercased().contains(query)
-        }
+    private var libraryPresentation: CredentialLibraryPresentation {
+        .init(credentials: vault.credentials, allowances: vault.activeTimedAllowances(),
+              section: selectedSection, searchText: searchText)
     }
+
+    var filteredCredentials: [ManagedTextCredential] { libraryPresentation.credentials }
 
     @ViewBuilder
     var credentialDetail: some View {
@@ -62,11 +51,7 @@ extension CredentialManagementView {
                         .padding(.bottom, Theme.Spacing.md)
                 }
 
-                if filteredCredentials.isEmpty {
-                    emptyState
-                } else {
-                    credentialList
-                }
+                credentialList
             }
             .background(Theme.windowBackground)
         }
@@ -187,23 +172,25 @@ extension CredentialManagementView {
         return ScrollView {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let _ = allowanceRefresh
-                FrozenTimedAllowanceList(allowances: vault.activeTimedAllowances().filter { allowance in
-                    allowance.members.contains { member in credentials.contains { $0.id == member.credentialID } }
-                }, now: context.date) { id in
+                FrozenTimedAllowanceList(allowances: libraryPresentation.allowances, now: context.date) { id in
                     _ = vault.revokeTimedAllowance(id: id)
                     allowanceRefresh += 1
                 }
             }
             .padding(.horizontal, Theme.Spacing.xxl)
             .padding(.bottom, Theme.Spacing.md)
-            GroupedList {
-                ForEach(Array(credentials.enumerated()), id: \.element.id) { index, credential in
-                    if index > 0 { GroupedListSeparator() }
-                    credentialRow(credential)
+            if credentials.isEmpty {
+                emptyState
+            } else {
+                GroupedList {
+                    ForEach(Array(credentials.enumerated()), id: \.element.id) { index, credential in
+                        if index > 0 { GroupedListSeparator() }
+                        credentialRow(credential)
+                    }
                 }
+                .padding(.horizontal, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.xxl)
             }
-            .padding(.horizontal, Theme.Spacing.xxl)
-            .padding(.bottom, Theme.Spacing.xxl)
         }
     }
 

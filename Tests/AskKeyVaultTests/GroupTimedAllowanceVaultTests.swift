@@ -1,5 +1,6 @@
 import XCTest
 import AskKeyBroker
+import GRDB
 @testable import AskKeyVault
 
 final class GroupTimedAllowanceVaultTests: AgentTextWriteTestSupport {
@@ -82,6 +83,46 @@ final class GroupTimedAllowanceVaultTests: AgentTextWriteTestSupport {
         XCTAssertEqual(try harness.vault.approvalRequests.status(requestID: ticket.requestID, capability: ticket.capability), .pending)
         XCTAssertNil(harness.vault.approvalRequests.pendingRequests().first?.groupAllowanceSnapshot)
         _ = try harness.vault.decideAgentApproval(requestID: ticket.requestID, capability: ticket.capability, decision: .once)
+    }
+
+    func testTransientKeyFailurePreservesGroupOptionAndAllowsRetry() throws {
+        let harness = try makeHarness { _ in true }
+        try harness.vault.updateTimedAllowance(enabled: true, minutes: 30)
+        _ = try create("Alpha", in: harness)
+        _ = try create("Beta", in: harness)
+        let ticket = try pending("Alpha", in: harness)
+        let snapshot = try XCTUnwrap(harness.vault.approvalRequests.pendingRequests().first?.groupAllowanceSnapshot)
+        harness.store.bindCredentialAuthenticationKey(nil)
+        XCTAssertThrowsError(try harness.vault.revalidateGroupAllowance(requestID: ticket.requestID, capability: ticket.capability)) {
+            guard let error = $0 as? VaultError, case .vaultLocked = error else {
+                return XCTFail("Expected the key failure to propagate")
+            }
+        }
+        XCTAssertEqual(harness.vault.approvalRequests.pendingRequests().first?.groupAllowanceSnapshot, snapshot)
+        XCTAssertTrue(harness.vault.approvalRequests.activeTimedAllowances().isEmpty)
+        harness.store.bindCredentialAuthenticationKey(harness.key)
+        _ = try harness.vault.decideAgentApproval(requestID: ticket.requestID, capability: ticket.capability,
+                                                decision: .timedAllowGroup(duration: 60))
+        XCTAssertEqual(harness.vault.approvalRequests.activeTimedAllowances().first?.members, snapshot.members)
+    }
+
+    func testTransientDatabaseFailurePreservesGroupOptionAndAllowsRetry() throws {
+        let harness = try makeHarness { _ in true }
+        try harness.vault.updateTimedAllowance(enabled: true, minutes: 30)
+        _ = try create("Alpha", in: harness)
+        _ = try create("Beta", in: harness)
+        let ticket = try pending("Alpha", in: harness)
+        let snapshot = try XCTUnwrap(harness.vault.approvalRequests.pendingRequests().first?.groupAllowanceSnapshot)
+        try harness.store.db.write { try $0.execute(sql: "ALTER TABLE credentials RENAME TO unavailable_credentials") }
+        XCTAssertThrowsError(try harness.vault.revalidateGroupAllowance(requestID: ticket.requestID, capability: ticket.capability)) {
+            XCTAssertTrue($0 is DatabaseError)
+        }
+        XCTAssertEqual(harness.vault.approvalRequests.pendingRequests().first?.groupAllowanceSnapshot, snapshot)
+        XCTAssertTrue(harness.vault.approvalRequests.activeTimedAllowances().isEmpty)
+        try harness.store.db.write { try $0.execute(sql: "ALTER TABLE unavailable_credentials RENAME TO credentials") }
+        _ = try harness.vault.decideAgentApproval(requestID: ticket.requestID, capability: ticket.capability,
+                                                decision: .timedAllowGroup(duration: 60))
+        XCTAssertEqual(harness.vault.approvalRequests.activeTimedAllowances().first?.members, snapshot.members)
     }
 
     private func create(_ name: String, permission: CredentialPermission = .ask, expiry: Date? = nil,

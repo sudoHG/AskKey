@@ -33,7 +33,7 @@ struct ApprovalDetailsContent: Equatable {
 
     init(request: BrokerApprovalOperationRequest, credentialName: String, write: FrozenWriteSummaryContent? = nil,
          organization: FrozenOrganizationSummaryContent? = nil, timedAllowanceEnabled: Bool = false,
-         timedAllowanceMinutes: Int = 30, groupSnapshot: BrokerGroupAllowanceSnapshot? = nil) {
+         timedAllowanceMinutes: Int = 30, groupSnapshot: BrokerGroupAllowanceSnapshot? = nil, now: Date = Date()) {
         var rows = [Row(label: appLocalized("Requested by"),
                         value: .text(appLocalizedFormat("%@ (not verified)", ApprovalCopy.requester(request))))]
         if let purpose = request.callerPurpose, !purpose.isEmpty {
@@ -57,7 +57,8 @@ struct ApprovalDetailsContent: Equatable {
                     rows.append(Row(label: appLocalized("Entire group"), value: .lines(snapshot.members.map {
                         Line(text: ApprovalLine($0.name))
                     }), note: ApprovalLine(FrozenApprovalActions.groupTimedScope(minutes: timedAllowanceMinutes))))
-                    if let expiry = snapshot.earliestExpiry {
+                    if let expiry = snapshot.earliestExpiry,
+                       expiry < now.addingTimeInterval(TimeInterval(timedAllowanceMinutes) * 60) {
                         rows.append(Row(label: appLocalized("Expires"), value: .text(appLocalizedFormat(
                             "The whole allowance ends after %1$lld minutes or at %2$@, whichever comes first, because a listed credential expires then.",
                             timedAllowanceMinutes, expiry.formatted(.dateTime.locale(AppLanguage.locale(for: AppLanguage.current)))))))

@@ -27,17 +27,13 @@ extension Vault {
         guard let pending = approvalRequests.pendingRequests().first(where: {
             $0.requestID == requestID && $0.capability == capability
         }), let snapshot = pending.groupAllowanceSnapshot else { throw BrokerApprovalError.invalidDecision }
-        do {
-            let key = try requireKey()
-            guard let record = try store.fetchCredential(id: pending.request.credentialID),
-                  let current = try groupAllowanceSnapshot(for: record, key: key),
-                  current.groupName == snapshot.groupName,
-                  snapshot.members.allSatisfy({ current.members.contains($0) }) else {
-                throw BrokerApprovalError.invalidDecision
-            }
-        } catch {
+        let key = try requireKey()
+        guard let record = try store.fetchCredential(id: pending.request.credentialID),
+              let current = try groupAllowanceSnapshot(for: record, key: key),
+              current.groupName == snapshot.groupName,
+              snapshot.members.allSatisfy({ current.members.contains($0) }) else {
             approvalRequests.withdrawGroupAllowance(requestID: requestID, capability: capability)
-            throw error
+            throw BrokerApprovalError.invalidDecision
         }
     }
 }

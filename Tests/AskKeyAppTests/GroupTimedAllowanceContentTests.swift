@@ -12,7 +12,7 @@ final class GroupTimedAllowanceContentTests: AskKeyAppTestCase {
         ])
     }
 
-    func testBothLanguagesShowEveryMemberAndEarlierExpiryOnlyInDetails() {
+    func testBothLanguagesShowEveryMemberOnlyInDetails() {
         ApprovalCardFixtures.withLanguages { language in
             let state = GroupTimedAllowancePresentation(snapshot: Self.snapshot)
             let request = ApprovalCardFixtures.request(.read, display: ApprovalCardFixtures.display())
@@ -29,9 +29,27 @@ final class GroupTimedAllowanceContentTests: AskKeyAppTestCase {
                 return lines.map { $0.text.plainText }
             }
             XCTAssertEqual(names, [Self.snapshot.members.map(\.name)])
-            XCTAssertEqual(group.details.rows.last?.label, language == "en" ? "Expires" : "到期时间") // i18n-literal: Chinese deadline label.
-            guard case .text(let deadline) = group.details.rows.last?.value else { return XCTFail("Missing shared deadline") }
-            XCTAssertTrue(deadline.contains(language == "en" ? "whichever comes first" : "以较早者为准")) // i18n-literal: Chinese expiry explanation.
+        }
+    }
+
+    func testExpiryRowAppearsOnlyWhenItShortensTheChosenDurationInBothLanguages() {
+        let now = Self.expiry.addingTimeInterval(-1_800)
+        let offsets: [TimeInterval?] = [nil, 1_799, 1_800, 1_801]
+        ApprovalCardFixtures.withLanguages { language in
+            for offset in offsets {
+                let snapshot = BrokerGroupAllowanceSnapshot(groupName: "Project", members: [
+                    .init(credentialID: "alpha", name: "Synthetic API", metadataDigest: String(repeating: "a", count: 64),
+                          expiresAt: offset.map { now.addingTimeInterval($0) })
+                ])
+                let details = ApprovalDetailsContent(request: ApprovalCardFixtures.request(.read), credentialName: "Synthetic API",
+                    timedAllowanceEnabled: true, timedAllowanceMinutes: 30, groupSnapshot: snapshot, now: now)
+                let label = language == "en" ? "Expires" : "到期时间" // i18n-literal: Chinese deadline label.
+                let expiryRow = details.rows.first { $0.label == label }
+                XCTAssertEqual(expiryRow != nil, offset.map { $0 < 1_800 } ?? false)
+                if case .text(let deadline) = expiryRow?.value {
+                    XCTAssertTrue(deadline.contains(language == "en" ? "whichever comes first" : "以较早者为准")) // i18n-literal: Chinese expiry explanation.
+                }
+            }
         }
     }
 
