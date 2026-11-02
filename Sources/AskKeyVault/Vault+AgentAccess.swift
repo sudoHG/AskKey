@@ -251,13 +251,26 @@ extension Vault {
         try changeAgentAccessPolicy { $0.endTimedAllowancesOnLock = enabled }
     }
 
-    package func updateTimedAllowanceSession(active: Bool) {
-        // Revocation needs no global pause or policy adoption. A failed read
-        // cannot undo a previously verified opt-in in this process.
+    package func updateTimedAllowanceSession(active: Bool, ending: Bool = true) {
+        if active {
+            approvalRequests.updateTimedAllowanceSession(active: true, endOnLock: false)
+            return
+        }
+        // Revoke immediately from either local flag, without Keychain work.
+        // A failed read cannot undo a previously verified opt-in.
         let memory = try? savedAgentAccessPolicyState().policy
+        if approvalRequests.updateTimedAllowanceSession(active: false, endOnLock: memory?.endTimedAllowancesOnLock == true) {
+            return
+        }
+        guard ending else { return }
+        // Only an inactive event with both local flags off needs a policy read:
+        // a remote process may have opted in since our last authorization.
+        // Resume events never read Keychain; a verified off value never advances
+        // the session generation. This preserves pre-adoption remote opt-in.
         let persisted = try? loadAgentAccessPolicy(key: requireKey(), keyStore: policyKeyStore(), created: false).policy
-        approvalRequests.updateTimedAllowanceSession(active: active,
-            endOnLock: memory?.endTimedAllowancesOnLock == true || persisted?.endTimedAllowancesOnLock == true)
+        if persisted?.endTimedAllowancesOnLock == true {
+            approvalRequests.updateTimedAllowanceSession(active: false, endOnLock: true)
+        }
     }
 
     private func changeAgentAccessPolicy(_ change: (inout AgentAccessPolicy) -> Void) throws {

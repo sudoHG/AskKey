@@ -30,7 +30,7 @@ final class TimedAllowanceSessionObserverTests: XCTestCase {
                 let workspace = NotificationCenter()
                 let vault = library.vault
                 let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0) })
+                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1) })
                 withExtendedLifetime(observer) {
                     (event == NSWorkspace.willSleepNotification ? workspace : screen).post(name: event, object: nil)
                 }
@@ -55,7 +55,7 @@ final class TimedAllowanceSessionObserverTests: XCTestCase {
         let workspace = NotificationCenter()
         let vault = library.vault
         let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0) })
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1) })
         defer { withExtendedLifetime(observer) {} }
         let approvals = vault.approvalRequests
         approvals.configureAuthentication { _ in true }

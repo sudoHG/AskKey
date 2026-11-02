@@ -80,8 +80,8 @@ extension BrokerApprovalStateMachine {
             case .timedAllow:
                 // Settings may have changed while system authentication ran.
                 guard timedAllowanceEnabled else { throw BrokerApprovalError.invalidDecision }
-                guard !endTimedAllowancesOnLock || (timedAllowanceSessionActive
-                    && timedAllowanceSessionGeneration == context.4) else {
+                guard timedAllowanceSessionGeneration == context.4,
+                      !endTimedAllowancesOnLock || timedAllowanceSessionActive else {
                     throw BrokerApprovalError.invalidDecision
                 }
                 guard let timedAllowanceDuration else { throw BrokerApprovalError.invalidDecision }

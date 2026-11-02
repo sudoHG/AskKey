@@ -11,25 +11,31 @@ final class TimedAllowanceSessionObserver {
         screenNotifications: NotificationCenter,
         workspaceNotifications: NotificationCenter,
         screenState: @escaping @Sendable () -> AgentApprovalScreenState,
-        updateSession: @escaping @Sendable (Bool) -> Void
+        updateSession: @escaping @Sendable (Bool, Bool) -> Void
     ) {
         self.screenNotifications = screenNotifications
         self.workspaceNotifications = workspaceNotifications
         let state = TimedAllowanceSessionState(screenState: screenState, updateSession: updateSession)
         screenObservers = [
             screenNotifications.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: nil) { _ in
-                state.update(screenUnlocked: false)
+                state.update(screenUnlocked: false, ending: true)
             },
             screenNotifications.addObserver(forName: .init("com.apple.screenIsUnlocked"), object: nil, queue: nil) { _ in
-                state.update(screenUnlocked: true)
+                state.update(sleeping: false, refreshScreen: true)
             }
         ]
         workspaceObservers = [
             workspaceNotifications.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: nil) { _ in
-                state.update(sleeping: true)
+                state.update(sleeping: true, ending: true)
             },
             workspaceNotifications.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: nil) { _ in
                 state.update(sleeping: false, refreshScreen: true)
+            },
+            workspaceNotifications.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: nil) { _ in
+                state.update(sessionActive: false, ending: true)
+            },
+            workspaceNotifications.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: nil) { _ in
+                state.update(sessionActive: true, refreshScreen: true)
             }
         ]
         // Register first, then sample under the event lock to avoid missing a
@@ -46,22 +52,25 @@ final class TimedAllowanceSessionObserver {
 private final class TimedAllowanceSessionState: @unchecked Sendable {
     private let lock = NSLock()
     private let screenState: @Sendable () -> AgentApprovalScreenState
-    private let updateSession: @Sendable (Bool) -> Void
+    private let updateSession: @Sendable (Bool, Bool) -> Void
     private var screenUnlocked = false
     private var sleeping = false
+    private var sessionActive = true
 
     init(screenState: @escaping @Sendable () -> AgentApprovalScreenState,
-         updateSession: @escaping @Sendable (Bool) -> Void) {
+         updateSession: @escaping @Sendable (Bool, Bool) -> Void) {
         self.screenState = screenState
         self.updateSession = updateSession
     }
 
-    func update(screenUnlocked: Bool? = nil, sleeping: Bool? = nil, refreshScreen: Bool = false) {
+    func update(screenUnlocked: Bool? = nil, sleeping: Bool? = nil, sessionActive: Bool? = nil,
+                refreshScreen: Bool = false, ending: Bool = false) {
         lock.lock()
         defer { lock.unlock() }
         if let screenUnlocked { self.screenUnlocked = screenUnlocked }
         if let sleeping { self.sleeping = sleeping }
+        if let sessionActive { self.sessionActive = sessionActive }
         if refreshScreen { self.screenUnlocked = screenState() == .unlocked }
-        updateSession(self.screenUnlocked && !self.sleeping)
+        updateSession(self.screenUnlocked && !self.sleeping && self.sessionActive, ending)
     }
 }

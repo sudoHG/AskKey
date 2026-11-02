@@ -55,6 +55,7 @@ final class AppPolicyMemoryStore: AppKeyStore {
     var policy: Data?
     var saveFailure: Error?
     var loadFailure: Error?
+    var policyReads = 0
     func savePendingKey(_ data: Data) throws { pendingKey = data }
     func loadPendingKey() throws -> Data {
         guard let pendingKey else { throw AppKeyStoreError.missingPendingKey }
@@ -72,6 +73,7 @@ final class AppPolicyMemoryStore: AppKeyStore {
     func deletePendingKey() throws { pendingKey = nil }
     func deleteAppKey() throws { appKey = nil }
     func loadAgentAccessPolicy() throws -> Data? {
+        policyReads += 1
         if let loadFailure { throw loadFailure }
         return policy
     }

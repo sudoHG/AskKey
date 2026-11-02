@@ -34,8 +34,9 @@ package struct AgentAccessPolicy: Codable, Equatable, Sendable {
              endTimedAllowancesOnLock: endTimedAllowancesOnLock || other.endTimedAllowancesOnLock)
     }
 
-    /// Session revocation is checked at the event; it does not invalidate an
-    /// unrelated prepared delivery when this preference alone changes.
+    /// Used for final-spawn comparison and persisted-policy tightening checks.
+    /// Session revocation handles this preference separately, so changing it
+    /// neither invalidates unrelated prepared deliveries nor quiesces requests.
     var deliveryRules: Self {
         var policy = self
         policy.endTimedAllowancesOnLock = false

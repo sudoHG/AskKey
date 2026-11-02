@@ -117,6 +117,30 @@ final class TimedAllowanceLockPolicyTests: XCTestCase {
         XCTAssertTrue(try second.agentAccessPolicyState().policy.endTimedAllowancesOnLock)
     }
 
+    func testRemoteOptInAfterRevalidationInvalidatesTimedDecisionBeforeLocalPolicyAdoption() throws {
+        for resumeBeforeMutation in [false, true] {
+            let library = try makeLibrary()
+            let second = try makeSecondVault(library)
+            let approvals = second.approvalRequests
+            approvals.configureAuthentication { _ in true }
+            let timed = try submit(second)
+            XCTAssertThrowsError(try approvals.decide(requestID: timed.requestID, capability: timed.capability,
+                decision: .timedAllow(duration: 120), revalidate: {
+                    try second.agentAccessGate.beginSpawnAuthorization(validating: second.revalidateAgentAccessPolicy)
+                    second.agentAccessGate.endSpawnAuthorization()
+                    try library.vault.updateEndTimedAllowancesOnLock(true, using: .allow)
+                    XCTAssertFalse(try second.agentAccessPolicyState().policy.endTimedAllowancesOnLock)
+                    second.updateTimedAllowanceSession(active: false)
+                    // The saved policy is on, but this process still has not
+                    // adopted it. Generation equality must be unconditional.
+                    XCTAssertFalse(try second.agentAccessPolicyState().policy.endTimedAllowancesOnLock)
+                    if resumeBeforeMutation { second.updateTimedAllowanceSession(active: true) }
+                })) { XCTAssertEqual($0 as? BrokerApprovalError, .invalidDecision) }
+            XCTAssertNil(approvals.timedAllowanceDeadline(credentialID: "synthetic"))
+            XCTAssertEqual(try approvals.status(requestID: timed.requestID, capability: timed.capability), .pending)
+        }
+    }
+
     func testExistingDeliveryRuleChangesStillRejectPreparedAllowDelivery() throws {
         for change in ["paused", "readApprovalAuthentication", "timedAllowanceEnabled", "timedAllowanceMinutes"] {
             let library = try makeLibrary()
