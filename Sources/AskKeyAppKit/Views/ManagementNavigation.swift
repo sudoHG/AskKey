@@ -23,9 +23,12 @@ final class ManagementNavigation {
             return
         }
         pendingNotification = NotificationRoute(userInfo: userInfo)
-        // Keep the locked sidebar neutral, including when replacing an older route.
-        section = .all
-        if entryState != .locked || pendingNotification != .pendingRequests {
+        if entryState == .locked, pendingNotification == .main {
+            // There is no destination to defer; keep the remembered page and sidebar.
+            pendingNotification = nil
+        } else if entryState != .locked || pendingNotification != .pendingRequests {
+            // Keep deferred credential destinations neutral until management unlocks.
+            section = .all
             route = .library
         }
         notificationRevision += 1
