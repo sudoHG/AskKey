@@ -47,7 +47,7 @@ enum FrozenApprovalActions {
     }
 
     static func groupTimedScope(minutes: Int) -> String {
-        appLocalizedFormat("Approval group timed scope", minutes)
+        appLocalizedFormat("For up to %lld minutes, any agent or command in your Mac account can read only the listed credentials without asking. Later additions are excluded. Changing or deleting credentials still needs approval. Revoke ends the whole group allowance.", minutes)
     }
 
     static func titles(operation: BrokerApprovalOperation, timedAllowanceEnabled: Bool, minutes: Int = 30,

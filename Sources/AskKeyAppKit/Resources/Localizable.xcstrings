@@ -25,7 +25,7 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Allow Group for %lld Minutes!!]" } }
       }
     },
-    "Approval group timed scope": {
+    "For up to %lld minutes, any agent or command in your Mac account can read only the listed credentials without asking. Later additions are excluded. Changing or deleting credentials still needs approval. Revoke ends the whole group allowance.": {
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "For up to %lld minutes, any agent or command in your Mac account can read only the listed credentials without asking. Later additions are excluded. Changing or deleting credentials still needs approval. Revoke ends the whole group allowance." } },
