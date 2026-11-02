@@ -144,6 +144,8 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         let vault = library.vault
         try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
         let approvals = vault.approvalRequests
+        let offset = SleepOffsetProbe()
+        approvals.configureTimedAllowanceSleepOffset { offset.current }
         approvals.configureTimedAllowanceScreenState { true }
         approvals.configureAuthentication { _ in true }
         let workspace = NotificationCenter()
@@ -160,9 +162,46 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         XCTAssertEqual(fresh.state, .pending)
         XCTAssertEqual(try approvals.status(requestID: previous.requestID, capability: previous.capability), .cancelled)
         XCTAssertNil(approvals.timedAllowanceDeadline(credentialID: "timed"))
+        XCTAssertThrowsError(try vault.decideAgentApproval(requestID: fresh.requestID, capability: fresh.capability,
+            decision: .timedAllow(duration: 120)), "Unlocked before actual sleep must not clear willSleep")
+        offset.set(lower: 101, upper: 101) // The system slept, but didWake was missed.
         XCTAssertEqual(try vault.decideAgentApproval(requestID: fresh.requestID, capability: fresh.capability,
             decision: .timedAllow(duration: 120)).state, .approved)
         XCTAssertEqual(try approvals.status(requestID: previous.requestID, capability: previous.capability), .cancelled)
+    }
+
+    func testSleepWithLiveLockedOrOverlappingClockBoundsKeepsTimedGrantsBlocked() throws {
+        let library = try AgentAccessPolicyTestLibrary()
+        defer { try? library.close() }
+        let vault = library.vault
+        try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
+        let approvals = vault.approvalRequests
+        let screen = ScreenProbe(.unlocked)
+        let offset = SleepOffsetProbe()
+        offset.set(lower: 100, upper: 110)
+        approvals.configureTimedAllowanceSleepOffset { offset.current }
+        approvals.configureTimedAllowanceScreenState { screen.unlocked() }
+        approvals.configureAuthentication { _ in true }
+        let workspace = NotificationCenter()
+        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { screen.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        defer { withExtendedLifetime(observer) {} }
+        workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        let pending = try submit(approvals, credential: "sleep-window")
+        offset.set(lower: 105, upper: 115)
+        XCTAssertThrowsError(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllow(duration: 120)), "Sampling jitter is not evidence of sleep")
+        offset.set(lower: 111, upper: 120)
+        for blocked in [AgentApprovalScreenState.locked, .unknown] {
+            screen.set(blocked)
+            XCTAssertThrowsError(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+                decision: .timedAllow(duration: 120)), "Proven sleep still requires a live unlocked console")
+            XCTAssertEqual(try approvals.status(requestID: pending.requestID, capability: pending.capability), .pending)
+            XCTAssertNil(approvals.timedAllowanceDeadline(credentialID: "sleep-window"))
+        }
+        screen.set(.unlocked)
+        XCTAssertEqual(try vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability,
+            decision: .timedAllow(duration: 120)).state, .approved)
     }
 
     func testLiveUnlockedCannotOverrideInactiveSessionUntilBecomeActive() throws {
@@ -202,4 +241,11 @@ private final class ScreenProbe: @unchecked Sendable {
     var reads: Int { lock.lock(); defer { lock.unlock() }; return count }
     func set(_ state: AgentApprovalScreenState) { lock.lock(); defer { lock.unlock() }; self.state = state }
     func unlocked() -> Bool { lock.lock(); defer { lock.unlock() }; count += 1; return state == .unlocked }
+}
+
+private final class SleepOffsetProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var bounds: (lower: UInt64, upper: UInt64) = (100, 100)
+    var current: (lower: UInt64, upper: UInt64) { lock.lock(); defer { lock.unlock() }; return bounds }
+    func set(lower: UInt64, upper: UInt64) { lock.lock(); defer { lock.unlock() }; bounds = (lower, upper) }
 }

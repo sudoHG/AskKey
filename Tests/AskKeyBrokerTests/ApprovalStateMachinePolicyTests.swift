@@ -2,6 +2,20 @@ import XCTest
 @testable import AskKeyBroker
 
 final class ApprovalStateMachinePolicyTests: ApprovalStateMachineTestCase {
+    func testEnablingWithCachedActiveButLiveLockedRevokesAllowanceAndAdvancesGeneration() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        machine.configureTimedAllowanceScreenState { false }
+        let ticket = try machine.submit(request(operationID: "stale-active-policy"))
+        _ = try machine.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .timedAllow(duration: 120))
+        XCTAssertTrue(machine.timedAllowanceSessionActive)
+        let generation = machine.timedAllowanceSessionGeneration
+        machine.configureAgentAccessPolicy(readAuthenticationEnabled: true, timedAllowanceEnabled: true,
+            timedAllowanceDuration: 1_800, endTimedAllowancesOnLock: true)
+        XCTAssertNotEqual(machine.timedAllowanceSessionGeneration, generation)
+        XCTAssertNil(machine.timedAllowanceDeadline(credentialID: "credential-1"))
+        XCTAssertEqual(try machine.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
+    }
+
     func testPolicyApplyPreservesAllowanceWhenCachedInactiveButLiveScreenIsUnlocked() throws {
         let machine = configuredMachine(authenticate: { _ in true })
         machine.configureTimedAllowanceScreenState { true }

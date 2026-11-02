@@ -10,6 +10,7 @@ extension BrokerApprovalStateMachine {
             timedAllowanceSessionActive = active
             timedAllowanceSessionSuspended = suspended
             timedAllowanceSessionSleeping = sleeping
+            timedAllowanceSleepOffsetAtSleep = sleeping ? timedAllowanceSleepOffset().upper : nil
             guard !active, endOnLock || endTimedAllowancesOnLock else { return nil }
             timedAllowanceSessionGeneration = UUID()
             return revokeAllTimedAllowancesLocked()
