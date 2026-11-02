@@ -7,7 +7,7 @@ extension BrokerApprovalStateMachine {
         timedAllowanceDuration: TimeInterval,
         endTimedAllowancesOnLock: Bool = false
     ) {
-        let revoked: ([String], @Sendable (String) -> Void)? = mutate {
+        let revoked: ([String], @Sendable (String) -> Void)? = mutate(endOnLock: endTimedAllowancesOnLock) {
             self.readAuthenticationEnabled = readAuthenticationEnabled
             self.timedAllowanceEnabled = timedAllowanceEnabled
             self.endTimedAllowancesOnLock = endTimedAllowancesOnLock

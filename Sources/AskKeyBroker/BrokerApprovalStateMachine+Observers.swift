@@ -32,8 +32,9 @@ extension BrokerApprovalStateMachine {
         observerQueue.sync {}
     }
 
-    func mutate<T>(_ body: () throws -> T) rethrows -> T {
-        lock.lock()
+    func mutate<T>(screenProvider: (@Sendable () -> Bool)? = nil, endOnLock: Bool? = nil,
+                   _ body: () throws -> T) rethrows -> T {
+        lockWithTimedAllowanceScreenSample(screenProvider: screenProvider, endOnLock: endOnLock)
         let schedulingNow = clock()
         let previousEntries = entriesByOperationID.mapValues { ($0.state, $0.request) }
         let screenRevocation = revokeForScreenBackstopLocked()

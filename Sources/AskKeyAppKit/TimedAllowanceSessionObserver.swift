@@ -1,4 +1,5 @@
 import AppKit
+import AskKeyBroker
 
 /// Listens without changing pending approvals or the management session.
 final class TimedAllowanceSessionObserver: NSObject {
@@ -12,11 +13,14 @@ final class TimedAllowanceSessionObserver: NSObject {
         screenNotifications: NotificationCenter,
         workspaceNotifications: NotificationCenter,
         screenState: @escaping @Sendable () -> AgentApprovalScreenState,
-        updateSession: @escaping @Sendable (Bool, Bool, Bool, Bool?) -> Void
+        queue: DispatchQueue = DispatchQueue(label: "com.sudohg.askkey.timed-allowance-session"),
+        beginEndingEvent: @escaping @Sendable (Bool?) -> BrokerTimedAllowanceSessionEvent? = { _ in nil },
+        updateSession: @escaping @Sendable (Bool, Bool, Bool, Bool?, UInt64?) -> Void
     ) {
         self.screenNotifications = screenNotifications
         self.workspaceNotifications = workspaceNotifications
-        state = TimedAllowanceSessionState(screenState: screenState, updateSession: updateSession)
+        state = TimedAllowanceSessionState(screenState: screenState, queue: queue,
+            beginEndingEvent: beginEndingEvent, updateSession: updateSession)
         super.init()
         let state = self.state
         if let distributed = screenNotifications as? DistributedNotificationCenter {
@@ -48,8 +52,8 @@ final class TimedAllowanceSessionObserver: NSObject {
                 state.update(sessionActive: true, refreshScreen: true)
             }
         ]
-        // Register first, then sample under the event lock to avoid missing a
-        // lock between the initial screen-state read and observer installation.
+        // Register first, then enqueue the initial sample in the same FIFO as
+        // notifications. Sampling and policy work never hold the event lock.
         state.update(refreshScreen: true)
     }
 
@@ -70,14 +74,19 @@ final class TimedAllowanceSessionObserver: NSObject {
 
 private final class TimedAllowanceSessionState: @unchecked Sendable {
     private let lock = NSLock()
+    private let queue: DispatchQueue
     private let screenState: @Sendable () -> AgentApprovalScreenState
-    private let updateSession: @Sendable (Bool, Bool, Bool, Bool?) -> Void
+    private let beginEndingEvent: @Sendable (Bool?) -> BrokerTimedAllowanceSessionEvent?
+    private let updateSession: @Sendable (Bool, Bool, Bool, Bool?, UInt64?) -> Void
     private var screenUnlocked = false
     private var sessionActive = true
 
-    init(screenState: @escaping @Sendable () -> AgentApprovalScreenState,
-         updateSession: @escaping @Sendable (Bool, Bool, Bool, Bool?) -> Void) {
+    init(screenState: @escaping @Sendable () -> AgentApprovalScreenState, queue: DispatchQueue,
+         beginEndingEvent: @escaping @Sendable (Bool?) -> BrokerTimedAllowanceSessionEvent?,
+         updateSession: @escaping @Sendable (Bool, Bool, Bool, Bool?, UInt64?) -> Void) {
         self.screenState = screenState
+        self.queue = queue
+        self.beginEndingEvent = beginEndingEvent
         self.updateSession = updateSession
     }
 
@@ -85,10 +94,15 @@ private final class TimedAllowanceSessionState: @unchecked Sendable {
                 refreshScreen: Bool = false, ending: Bool = false) {
         lock.lock()
         defer { lock.unlock() }
-        if let screenUnlocked { self.screenUnlocked = screenUnlocked }
-        if let sessionActive { self.sessionActive = sessionActive }
-        if refreshScreen { self.screenUnlocked = screenState() == .unlocked }
-        // Sleep is a transition owned by the Broker, never an observer level.
-        updateSession(self.screenUnlocked && self.sessionActive, ending, !self.sessionActive, sleeping)
+        let event = ending ? beginEndingEvent(sleeping) : nil
+        queue.async { [self] in
+            defer { event?.finish() }
+            if let screenUnlocked { self.screenUnlocked = screenUnlocked }
+            if let sessionActive { self.sessionActive = sessionActive }
+            if refreshScreen { self.screenUnlocked = screenState() == .unlocked }
+            // Sleep is a transition owned by the Broker, never an observer level.
+            updateSession(self.screenUnlocked && self.sessionActive, ending, !self.sessionActive, sleeping,
+                event?.sleepOffsetUpperBound)
+        }
     }
 }

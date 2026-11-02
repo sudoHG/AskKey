@@ -18,6 +18,10 @@ extension BrokerApprovalStateMachine {
               !paused, clock() < authorization.expiresAt else {
             throw BrokerProviderError.requestRejected
         }
+        if endTimedAllowancesOnLock, !authorization.timedCredentialIDs.isEmpty,
+           !timedAllowanceSessionPermitsGrantLocked() {
+            throw BrokerProviderError.requestRejected
+        }
         // No observer, file IO, or acquisition of the Vault gate while locked.
         return try body()
     }

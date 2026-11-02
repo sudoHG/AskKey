@@ -255,13 +255,13 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
         let screen: NotificationCenter
         let workspace: NotificationCenter
         let probe: Probe
-        let observer: TimedAllowanceSessionObserver
+        let observer: SynchronousTimedAllowanceSessionObserver
 
         init(enabled: Bool) throws {
             let library = try AgentAccessPolicyTestLibrary()
             self.library = library
-            let screen = NotificationCenter()
-            let workspace = NotificationCenter()
+            let screen = TimedAllowanceTestNotificationCenter()
+            let workspace = TimedAllowanceTestNotificationCenter()
             let probe = Probe()
             self.screen = screen
             self.workspace = workspace
@@ -277,9 +277,9 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
             vault.approvalRequests.configureAuthentication { _ in true }
             vault.approvalRequests.configureTimedAllowanceScreenState { probe.unlocked }
             vault.approvalRequests.configureTimedAllowanceSleepOffset { (100, 100) }
-            observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+            observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
                 screenState: { probe.unlocked ? .unlocked : .locked },
-                updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+                updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         }
 
         func pendingGroup() throws -> BrokerApprovalTicket {

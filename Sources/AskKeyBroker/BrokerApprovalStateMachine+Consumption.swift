@@ -124,6 +124,8 @@ extension BrokerApprovalStateMachine {
             if entry.state == .consumed { throw BrokerApprovalError.alreadyConsumed }
             if entry.committing { throw BrokerApprovalError.commitInProgress }
             guard entry.state == .approved else { throw BrokerApprovalError.invalidDecision }
+            guard !entry.approvedByTimedAllowance || !endTimedAllowancesOnLock
+                    || timedAllowanceSessionPermitsGrantLocked() else { throw BrokerApprovalError.invalidDecision }
             entries.append(entry)
         }
         for var entry in entries {
@@ -169,6 +171,8 @@ extension BrokerApprovalStateMachine {
             if entry.state == .consumed { throw BrokerApprovalError.alreadyConsumed }
             if entry.committing { throw BrokerApprovalError.commitInProgress }
             guard entry.state == .approved else { throw BrokerApprovalError.invalidDecision }
+            guard !entry.approvedByTimedAllowance || !endTimedAllowancesOnLock
+                    || timedAllowanceSessionPermitsGrantLocked() else { throw BrokerApprovalError.invalidDecision }
             let result = try perform()
             entry.state = .consumed
             entriesByOperationID[operationID] = entry
@@ -192,6 +196,8 @@ extension BrokerApprovalStateMachine {
             }
             if entry.state == .consumed { throw BrokerApprovalError.alreadyConsumed }
             guard entry.state == .approved else { throw BrokerApprovalError.invalidDecision }
+            guard !entry.approvedByTimedAllowance || !endTimedAllowancesOnLock
+                    || timedAllowanceSessionPermitsGrantLocked() else { throw BrokerApprovalError.invalidDecision }
             guard !entry.committing else { throw BrokerApprovalError.commitInProgress }
             entry.committing = true
         }
