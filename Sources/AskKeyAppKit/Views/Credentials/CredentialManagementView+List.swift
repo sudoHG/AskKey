@@ -167,21 +167,24 @@ extension CredentialManagementView {
         CredentialEmptyPresentation.action(section: selectedSection, searchText: searchText)
     }
 
+    @ViewBuilder
     private var credentialList: some View {
         let credentials = filteredCredentials
-        return ScrollView {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let _ = allowanceRefresh
-                FrozenTimedAllowanceList(allowances: libraryPresentation.allowances, now: context.date) { id in
-                    _ = vault.revokeTimedAllowance(id: id)
-                    allowanceRefresh += 1
+        if credentials.isEmpty {
+            GeometryReader { viewport in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        if !libraryPresentation.allowances.isEmpty {
+                            timedAllowanceList
+                        }
+                        emptyState
+                    }
+                    .frame(minHeight: viewport.size.height)
                 }
             }
-            .padding(.horizontal, Theme.Spacing.xxl)
-            .padding(.bottom, Theme.Spacing.md)
-            if credentials.isEmpty {
-                emptyState
-            } else {
+        } else {
+            ScrollView {
+                timedAllowanceList
                 GroupedList {
                     ForEach(Array(credentials.enumerated()), id: \.element.id) { index, credential in
                         if index > 0 { GroupedListSeparator() }
@@ -192,6 +195,18 @@ extension CredentialManagementView {
                 .padding(.bottom, Theme.Spacing.xxl)
             }
         }
+    }
+
+    private var timedAllowanceList: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let _ = allowanceRefresh
+            FrozenTimedAllowanceList(allowances: libraryPresentation.allowances, now: context.date) { id in
+                _ = vault.revokeTimedAllowance(id: id)
+                allowanceRefresh += 1
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.xxl)
+        .padding(.bottom, Theme.Spacing.md)
     }
 
     private func credentialRow(_ credential: ManagedTextCredential) -> some View {
