@@ -6,8 +6,10 @@ import os
 from pathlib import Path
 import plistlib
 import shutil
+import signal
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -234,7 +236,7 @@ class PackageReleaseTests(unittest.TestCase):
             self.assertNotIn(value, text)
         self.assertNotIn("synthetic-private-key-bytes", text)
 
-    def assert_credential_submit(self, call, suffix):
+    def assert_credential_request(self, call, action):
         self.assertEqual(call[:6], ["askkey", "run", "--wait-for-approval", "--credential",
                                     NOTARY_CREDENTIAL, "--operation-id"])
         operation_id = call[6]
@@ -247,9 +249,8 @@ class PackageReleaseTests(unittest.TestCase):
             self.assertIn(f'"${key}"', call[14])
             self.assertNotIn(value, call[14])
         self.assertEqual(call[15], "bash")
-        self.assertEqual(Path(call[16]).name, "notarize-release.py")
-        self.assertEqual(Path(call[17]).suffix, suffix)
-        self.assertEqual(len(call), 18)
+        self.assertEqual(call[16], action)
+        self.assertEqual(call[18:], ["--no-wait"] if action == "submit" else [])
         self.assertLess(len(call[14].encode()), 512)  # Well below the broker's 4 KiB limit.
         self.assertTrue(all(len(argument.encode()) < 4096 for argument in call))
         return operation_id
@@ -302,21 +303,25 @@ class PackageReleaseTests(unittest.TestCase):
         self.assert_notarized_artifacts(image)
         calls = [json.loads(line) for line in trace.read_text().splitlines()]
         submissions = [call for call in calls if call[0] == "askkey"]
-        self.assertEqual(len(submissions), 2)
-        operation_ids = [self.assert_credential_submit(call, suffix)
-                         for call, suffix in zip(submissions, (".zip", ".dmg"))]
-        self.assertEqual(len(set(operation_ids)), 2)
+        self.assertEqual(len(submissions), 4)
+        operation_ids = [self.assert_credential_request(call, action)
+                         for call, action in zip(submissions, ("submit", "info", "submit", "info"))]
+        self.assertEqual(len(set(operation_ids)), 4)
+        self.assertEqual(result.stdout.count("Allow for N Minutes"), 1)
+        key_paths = []
         for action in ("submit", "info"):
             requests = [call for call in calls if call[:3] == ["xcrun", "notarytool", action]]
             self.assertEqual(len(requests), 2)
             for call in requests:
                 offset = 5 if action == "submit" else 4
                 self.assertEqual(call[offset], "--key")
-                self.assertTrue(call[offset + 1].startswith("/dev/fd/"))
+                key_paths.append(call[offset + 1])
+                self.assertFalse(Path(call[offset + 1]).exists())
                 self.assertEqual(call[offset + 2:offset + 6], [
                     "--key-id", SYNTHETIC_MAPPINGS["KEY_ID"],
                     "--issuer", SYNTHETIC_MAPPINGS["ISSUER_ID"],
                 ])
+        self.assertEqual(len(set(key_paths)), 4)
         self.assertEqual(list(self.scratch.iterdir()), [])
 
     def test_notary_modes_conflict_before_work(self):
@@ -406,7 +411,7 @@ class PackageReleaseTests(unittest.TestCase):
                 self.assert_settings_not_printed(result, environment)
                 if failure in ("app-notary", "dmg-notary", "notary-command"):
                     submission_id = DMG_SUBMISSION_ID if failure == "dmg-notary" else SUBMISSION_ID
-                    self.assertIn(f"xcrun notarytool log {submission_id} --keychain-profile ...",
+                    self.assertIn(f"xcrun notarytool log {submission_id} <authentication-options>",
                                   result.stderr)
                 self.assert_no_artifacts()
 
@@ -421,13 +426,13 @@ class PackageReleaseTests(unittest.TestCase):
                 self.assert_settings_not_printed(result, environment)
                 if failure in ("app-notary", "dmg-notary", "notary-command"):
                     submission_id = DMG_SUBMISSION_ID if failure == "dmg-notary" else SUBMISSION_ID
-                    self.assertIn(f"xcrun notarytool log {submission_id} --key ... --key-id ... --issuer ...",
+                    self.assertIn(f"xcrun notarytool log {submission_id} <authentication-options>",
                                   result.stderr)
                 self.assert_no_artifacts()
 
     def test_approval_denial_is_distinguished_from_submission_failure(self):
         environment, trace = self.credential_environment()
-        for failure in ("invalid-json", "approval-denied"):
+        for failure in ("invalid-json", "approval-denied", "delivery-missing"):
             with self.subTest(failure=failure):
                 environment["PACKAGE_TEST_FAILURE"] = failure
                 result = self.run_script("--notary-credential", NOTARY_CREDENTIAL,
@@ -435,7 +440,11 @@ class PackageReleaseTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assert_settings_not_printed(result, environment)
                 if failure == "approval-denied":
-                    self.assertIn("target did not start", result.stderr)
+                    self.assertIn("request did not start", result.stderr)
+                    self.assertNotIn("inspect notarytool history", result.stderr)
+                elif failure == "delivery-missing":
+                    self.assertIn("credential delivery", result.stderr)
+                    self.assertNotIn("inspect notarytool history", result.stderr)
                 else:
                     self.assertIn("submission failed", result.stderr)
                 calls = [json.loads(line) for line in trace.read_text().splitlines()]
@@ -445,6 +454,34 @@ class PackageReleaseTests(unittest.TestCase):
                 self.assertFalse(any(call[:3] == ["xcrun", "notarytool", "info"] for call in calls))
                 self.assert_no_artifacts()
                 trace.unlink()
+
+    def test_interrupts_report_saved_ids_before_cleaning_staging(self):
+        environment, _ = self.credential_environment()
+        ready = self.directory / "notary-ready"
+        environment.update(PACKAGE_TEST_FAILURE="interrupt-info", PACKAGE_TEST_READY=str(ready))
+        for interrupted, code in ((signal.SIGINT, 130), (signal.SIGTERM, 143)):
+            with self.subTest(signal=interrupted):
+                process = subprocess.Popen(
+                    ["bash", str(SCRIPT), "--app", str(self.app), "--output", str(self.output),
+                     "--notary-credential", NOTARY_CREDENTIAL],
+                    env=environment, cwd=self.directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    text=True, start_new_session=True)
+                try:
+                    deadline = time.monotonic() + 15
+                    while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                    self.assertTrue(ready.exists(), "synthetic info request did not start")
+                    os.killpg(process.pid, interrupted)
+                    stdout, stderr = process.communicate(timeout=10)
+                    self.assertEqual(process.returncode, code, stderr)
+                    self.assertIn(f"Notarization submission: {SUBMISSION_ID}", stderr)
+                    self.assert_settings_not_printed(subprocess.CompletedProcess([], code, stdout, stderr), environment)
+                    self.assert_no_artifacts()
+                finally:
+                    if process.poll() is None:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.communicate()
+                    ready.unlink(missing_ok=True)
 
     def test_existing_artifact_is_not_overwritten(self):
         environment, _ = self.mock_tools()

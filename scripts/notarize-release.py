@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Run one artifact's notarization inside its delivered-credential process."""
+"""Recover notarization requests without receiving delivered credential values."""
 
-from datetime import datetime, timezone
+import argparse
+from datetime import datetime, timedelta, timezone
 import json
-import os
 from pathlib import Path
 import re
 import subprocess
 import sys
-import threading
 import time
+import uuid
 
 UUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 TRANSIENT = re.compile(
     r"NSURLErrorDomain[^\r\n]*?(?<!\d)-(?:1001|1003|1004|1005|1006|1009)(?!\d)"
 )
 FAILURES = {
-    "credentials": "Delivered credentials could not be read before expiry",
+    "approval": "Ask Key request did not start; check approval denial, timeout, credential delivery, or helper failure",
     "deadline": "Notarization reached its 30-minute deadline",
-    "request": "Notarytool failed; check authentication and inherited key-pipe support",
+    "adopted-incomplete": "Adopted submission is still In Progress at the deadline; its upload may be incomplete; check notarytool log before resubmitting",
+    "request": "Notarytool failed; check authentication and credential delivery",
     "submission": "Notarization submission failed without a usable ID",
     "history": "Submission history is unavailable or invalid; do not resubmit automatically",
     "ambiguous": "Multiple matching submissions found; inspect every ID before proceeding",
@@ -26,6 +27,12 @@ FAILURES = {
     "status": "Notarization returned an invalid or unexpected status",
     "rejected": "Notarization was rejected",
 }
+REQUEST_STARTED = b"ASKKEY_NOTARY_REQUEST_STARTED\n"
+TARGET_SHELL = (
+    'set +x; set -eu; printf "%s\\n" ASKKEY_NOTARY_REQUEST_STARTED; '
+    'exec xcrun notarytool "$@" --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" '
+    '--issuer "$ISSUER_ID" --output-format json'
+)
 
 
 class Failure(Exception):
@@ -37,23 +44,19 @@ def emit(record):
 
 
 class Notarizer:
-    def __init__(self, artifact, auth, *, clock=time.monotonic, sleep=time.sleep,
+    def __init__(self, artifact, auth=(), *, credential=None, helper=None, version=None,
+                 clock=time.monotonic, sleep=time.sleep,
                  now=lambda: datetime.now(timezone.utc), run=subprocess.run, report=emit):
         self.artifact = artifact
         self.auth = list(auth)
+        self.credential, self.helper, self.version = credential, helper, version
         self.clock, self.sleep, self.now = clock, sleep, now
         self.run, self.report = run, report
         self.deadline = clock() + 30 * 60
         self.delay = 5
         self.ids = []
-        self.key = None
-        if "--key" in self.auth:
-            try:
-                self.key = Path(self.auth[self.auth.index("--key") + 1]).read_bytes()
-                if not self.key:
-                    raise ValueError()
-            except (OSError, ValueError, IndexError):
-                raise Failure("credentials") from None
+        self.adopted = False
+        self.adopted_in_progress = False
 
     def remaining(self):
         remaining = self.deadline - self.clock()
@@ -69,39 +72,33 @@ class Notarizer:
     def request(self, action, *arguments):
         timeout = min(300 if action == "submit" else 120, self.remaining())
         timed_out = False
-        auth = self.auth.copy()
-        reader = None
-        writer = None
-        if self.key is not None:
-            reader, write_fd = os.pipe()
-            auth[auth.index("--key") + 1] = f"/dev/fd/{reader}"
-
-            def feed_key():
-                try:
-                    with os.fdopen(write_fd, "wb") as pipe:
-                        pipe.write(self.key)
-                except OSError:
-                    pass  # A failed or timed-out child may close its reader early.
-
-            writer = threading.Thread(target=feed_key, daemon=True)
-            writer.start()
+        command = ["xcrun", "notarytool", action, *arguments, *self.auth, "--output-format", "json"]
+        if self.credential:
+            # Approval waiting and execution both consume the artifact's budget.
+            timeout = self.remaining()
+            command = [
+                self.helper, "run", "--wait-for-approval", "--credential", self.credential,
+                "--operation-id", str(uuid.uuid4()), "--caller-name", "AskKey release",
+                "--caller-purpose", f"Notarize AskKey {self.version}", "--",
+                "/bin/bash", "-c", TARGET_SHELL, "bash", action, *arguments,
+            ]
         try:
             result = self.run(
-                ["xcrun", "notarytool", action, *arguments, *auth, "--output-format", "json"],
+                command,
                 stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout,
-                pass_fds=() if reader is None else (reader,),
             )
         except subprocess.TimeoutExpired as error:
             timed_out = True
             result = subprocess.CompletedProcess([], 1, error.output or b"", error.stderr or b"")
         except OSError:
             raise Failure("request") from None
-        finally:
-            if reader is not None:
-                os.close(reader)
-                writer.join()
         # Raw diagnostics stay in memory, including on decoding or parse failure.
-        stdout = result.stdout.decode("utf-8", errors="replace")
+        output = result.stdout
+        if self.credential:
+            if not output.startswith(REQUEST_STARTED):
+                raise Failure("approval")
+            output = output[len(REQUEST_STARTED):]
+        stdout = output.decode("utf-8", errors="replace")
         stderr = result.stderr.decode("utf-8", errors="replace")
         transient = timed_out or bool(TRANSIENT.search(stdout + "\n" + stderr))
         try:
@@ -122,12 +119,16 @@ class Notarizer:
     def reconcile(self, started):
         # Require repeated successful empty snapshots before another upload, and
         # include all attempts in the time window to catch a delayed prior upload.
-        for _ in range(3):
+        empty_snapshots = 0
+        while empty_snapshots < 3:
             self.pause()
-            data, _, success = self.request("history")
-            if not success or not isinstance(data, dict) or not isinstance(data.get("history"), list):
+            data, transient, success = self.request("history")
+            if data is None and transient and not success:
+                continue
+            if not isinstance(data, dict) or not isinstance(data.get("history"), list):
                 raise Failure("history")
             matches = []
+            skewed = False
             try:
                 for entry in data["history"]:
                     if entry["name"] != Path(self.artifact).name:
@@ -135,22 +136,29 @@ class Notarizer:
                     created = datetime.fromisoformat(entry["createdDate"].replace("Z", "+00:00"))
                     if created.tzinfo is None:
                         raise ValueError()
-                    if created < started:
+                    if created < started - timedelta(minutes=3):
                         continue
                     if not self.remember(entry["id"]):
                         raise ValueError()
                     if entry["id"].lower() not in matches:
                         matches.append(entry["id"].lower())
+                    if created < started:
+                        skewed = True
             except (KeyError, TypeError, ValueError, AttributeError):
                 raise Failure("history") from None
-            if len(matches) > 1:
+            if not success and not transient:
+                raise Failure("history")
+            if skewed or len(matches) > 1:
                 raise Failure("ambiguous")
             if matches:
                 return matches[0]
+            if not success:
+                continue
+            empty_snapshots += 1
         return None
 
     def submit(self):
-        started = self.now()
+        started = self.now().replace(microsecond=0)
         for _ in range(3):
             data, transient, success = self.request("submit", self.artifact, "--no-wait")
             if isinstance(data, dict) and self.remember(data.get("id")):
@@ -161,11 +169,20 @@ class Notarizer:
                 raise Failure("submission" if success else "request")
             recovered = self.reconcile(started)
             if recovered:
+                self.adopted = True
                 return recovered
         raise Failure("attempts")
 
     def notarize(self):
         submission_id = self.submit()
+        try:
+            self.poll(submission_id)
+        except Failure as error:
+            if str(error) == "deadline" and self.adopted_in_progress:
+                raise Failure("adopted-incomplete") from None
+            raise
+
+    def poll(self, submission_id):
         while True:
             data, transient, success = self.request("info", submission_id)
             if isinstance(data, dict) and isinstance(data.get("id"), str):
@@ -178,6 +195,7 @@ class Notarizer:
                     self.report({"event": "accepted", "id": submission_id})
                     return
                 if success and status == "In Progress":
+                    self.adopted_in_progress = self.adopted
                     self.pause()
                     continue
             if not transient:
@@ -185,10 +203,65 @@ class Notarizer:
             self.pause()
 
 
+def summarize(path, completed=False, *, ids_only=False):
+    ids = []
+    started = accepted = False
+    reason = "approval"
+    try:
+        with open(path, encoding="utf-8") as response:
+            for line in response:
+                result = json.loads(line)
+                event = result["event"]
+                if event == "started":
+                    started = True
+                    reason = "request"
+                elif event == "submission" and UUID.fullmatch(result["id"]):
+                    if result["id"] not in ids:
+                        ids.append(result["id"])
+                elif event == "accepted" and ids == [result["id"]]:
+                    accepted = True
+                elif event == "failed" and result["reason"] in FAILURES:
+                    accepted = False
+                    reason = result["reason"]
+                else:
+                    raise ValueError()
+    except (OSError, ValueError, KeyError, TypeError):
+        accepted = False
+        reason = "status"
+    for submission_id in ids:
+        print(f"Notarization submission: {submission_id}", flush=True)
+    if ids_only:
+        return 0
+    if completed and started and accepted:
+        return 0
+    print("Error: " + FAILURES[reason], file=sys.stderr)
+    if ids:
+        for submission_id in ids:
+            print(f"Inspect with: xcrun notarytool log {submission_id} <authentication-options>", file=sys.stderr)
+    elif reason not in ("approval", "request"):
+        print("No submission ID available; inspect notarytool history before submitting again.", file=sys.stderr)
+    return 1
+
+
 def main():
+    if len(sys.argv) > 2 and sys.argv[1] in ("--summarize", "--report-ids"):
+        return summarize(sys.argv[2], completed=sys.argv[3:] == ["true"],
+                         ids_only=sys.argv[1] == "--report-ids")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("artifact")
+    auth = parser.add_mutually_exclusive_group(required=True)
+    auth.add_argument("--credential")
+    auth.add_argument("--keychain-profile")
+    parser.add_argument("--helper")
+    parser.add_argument("--version")
+    args = parser.parse_args()
+    if args.credential and (not args.helper or not args.version):
+        parser.error("credential mode requires --helper and --version")
     emit({"event": "started"})
     try:
-        Notarizer(sys.argv[1], sys.argv[2:]).notarize()
+        Notarizer(args.artifact,
+                  ["--keychain-profile", args.keychain_profile] if args.keychain_profile else (),
+                  credential=args.credential, helper=args.helper, version=args.version).notarize()
         return 0
     except Failure as error:
         emit({"event": "failed", "reason": str(error)})

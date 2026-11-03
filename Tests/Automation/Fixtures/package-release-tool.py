@@ -7,12 +7,15 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 
 name, arguments = Path(sys.argv[0]).name, sys.argv[1:]
-trace = Path(os.environ["PACKAGE_TEST_TRACE"])
+configuration_path = Path(sys.argv[0]).parent / "target-config.json"
+configuration = os.environ if "PACKAGE_TEST_TRACE" in os.environ else json.loads(configuration_path.read_text())
+trace = Path(configuration["PACKAGE_TEST_TRACE"])
 with trace.open("a") as stream:
     stream.write(json.dumps([name, *arguments]) + "\n")
-failure = os.environ.get("PACKAGE_TEST_FAILURE", "")
+failure = configuration.get("PACKAGE_TEST_FAILURE", "")
 submission_ids = {
     "app": "12345678-1234-1234-1234-123456789abc",
     "dmg": "87654321-4321-4321-4321-cba987654321",
@@ -41,13 +44,11 @@ elif name == "xcrun":
             print(os.environ.get(key, ""), file=sys.stderr)
         if "--key" in arguments:
             key_path = arguments[arguments.index("--key") + 1]
-            assert key_path.startswith("/dev/fd/")
+            assert not key_path.startswith("/dev/fd/")
             assert Path(key_path).read_bytes() == b"synthetic-private-key-bytes"
             for flag, key in (("--key-id", "KEY_ID"), ("--issuer", "ISSUER_ID")):
                 assert arguments[arguments.index(flag) + 1] == os.environ[key]
-            assert os.environ["PACKAGE_TEST_DELIVERED"] == "true"
-            # Every later request must work even after the original file expires.
-            Path(os.environ["PRIVATE_KEY_FILE"]).unlink(missing_ok=True)
+            assert not any(key.startswith(("ASKKEY_", "PACKAGE_TEST_")) for key in os.environ)
         else:
             assert arguments[arguments.index("--keychain-profile") + 1] == os.environ["ASKKEY_NOTARY_PROFILE"]
         if arguments[1] == "submit":
@@ -55,6 +56,9 @@ elif name == "xcrun":
             print(json.dumps({"id": submission_ids[kind]}) if failure != "invalid-json" else "{}")
             sys.exit(1 if failure == "notary-command" else 0)
         assert arguments[1] == "info"
+        if failure == "interrupt-info":
+            Path(configuration["PACKAGE_TEST_READY"]).touch()
+            time.sleep(120)
         kind = next(kind for kind, value in submission_ids.items() if value == arguments[2])
         status = "Invalid" if failure == kind + "-notary" else "Accepted"
         print(json.dumps({"status": status, "id": submission_ids[kind]}))
@@ -79,16 +83,23 @@ elif name == "askkey":
     assert arguments[0] == "run" and "--" in arguments
     if failure == "approval-denied":
         sys.exit(1)
-    environment = os.environ.copy()
+    # Pass test control data through a local fixture file, not the target env.
+    configuration_path.write_text(json.dumps({key: os.environ[key] for key in (
+        "PACKAGE_TEST_TRACE", "PACKAGE_TEST_FAILURE", "PACKAGE_TEST_READY") if key in os.environ}))
+    environment = {key: value for key, value in os.environ.items()
+                   if key in ("HOME", "PATH", "TMPDIR", "LANG", "TERM", "SHELL", "USER", "LOGNAME")
+                   or key.startswith("LC_")}
     for key, value in (("KEY_ID", "synthetic-key-id"), ("ISSUER_ID", "synthetic-issuer-id")):
         assert key not in environment
         environment[key] = value
-    environment["PACKAGE_TEST_DELIVERED"] = "true"
     assert "PRIVATE_KEY_FILE" not in environment
-    with tempfile.TemporaryDirectory(prefix="synthetic-key-") as directory:
+    key_root, = Path(environment["TMPDIR"]).glob("askkey-package-release.*")
+    with tempfile.TemporaryDirectory(prefix="synthetic-key-", dir=key_root) as directory:
         key_file = Path(directory) / "key.p8"
         key_file.write_bytes(b"synthetic-private-key-bytes")
         environment["PRIVATE_KEY_FILE"] = str(key_file)
+        if failure == "delivery-missing":
+            key_file.unlink()
         result = subprocess.call(arguments[arguments.index("--") + 1:], env=environment)
     sys.exit(result)
 else:

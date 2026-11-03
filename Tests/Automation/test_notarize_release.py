@@ -1,9 +1,10 @@
-"""Exercise deadlines, reconciliation and expiring keys without credentials or sleeps."""
+"""Exercise deadlines, reconciliation and fresh helper requests without credentials."""
 
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import importlib.util
+import io
 import json
-import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -23,19 +24,22 @@ class NotarizeReleaseTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory(prefix="notary-runner-test-")
         self.addCleanup(directory.cleanup)
         self.directory = Path(directory.name)
-        self.key_path = self.directory / "delivered.p8"
-        self.key_path.write_bytes(KEY)
         self.elapsed = 0
         self.sleeps = []
         self.calls = []
         self.events = []
-        self.descriptors = []
+        self.target_started = True
         self.response = self.success
         self.start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        self.runner = MODULE.Notarizer(
-            "AskKey.zip", ["--key", str(self.key_path), "--key-id", "synthetic-key-id",
-                           "--issuer", "synthetic-issuer-id"],
-            clock=lambda: self.elapsed, sleep=self.sleep, now=lambda: self.start,
+        self.runner = self.make_runner()
+
+    def make_runner(self, credential=False):
+        return MODULE.Notarizer(
+            "AskKey.zip", () if credential else ["--keychain-profile", "synthetic-profile"],
+            credential="synthetic-credential" if credential else None,
+            helper="synthetic-askkey", version="1.2.3",
+            clock=lambda: self.elapsed, sleep=self.sleep,
+            now=lambda: self.start + timedelta(seconds=self.elapsed),
             run=self.tool, report=self.events.append,
         )
 
@@ -58,49 +62,54 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.assertLess(self.elapsed, 1800)
         self.assertGreater(options["timeout"], 0)
         self.assertLessEqual(options["timeout"], 1800 - self.elapsed)
-        if "--key" in arguments:
-            descriptor, = options["pass_fds"]
-            self.descriptors.append(descriptor)
-            self.assertEqual(arguments[arguments.index("--key") + 1], f"/dev/fd/{descriptor}")
-            with os.fdopen(os.dup(descriptor), "rb") as pipe:
-                self.assertEqual(pipe.read(), KEY)
-            self.assertNotIn(str(self.key_path), arguments)
-        else:
-            self.assertEqual(options["pass_fds"], ())
-        return self.response(arguments[2], arguments, options)
+        self.assertNotIn("pass_fds", options)
+        if arguments[0] != "synthetic-askkey":
+            return self.response(arguments[2], arguments, options)
+        self.assertEqual(options["timeout"], 1800 - self.elapsed)
+        self.assertEqual(arguments[1:5], ["run", "--wait-for-approval", "--credential", "synthetic-credential"])
+        self.assertEqual(arguments[12:14], ["/bin/bash", "-c"])
+        for name in ("PRIVATE_KEY_FILE", "KEY_ID", "ISSUER_ID"):
+            self.assertIn(f'"${name}"', arguments[14])
+        self.assertLess(len(arguments[14].encode()), 512)
+        self.assertNotIn("synthetic-key-id", " ".join(arguments))
+        marker = MODULE.REQUEST_STARTED if self.target_started else b""
+        try:
+            result = self.response(arguments[16], arguments, options)
+        except subprocess.TimeoutExpired as error:
+            error.output = marker + (error.output or b"")
+            raise
+        result.stdout = marker + result.stdout
+        return result
 
     def actions(self):
-        return [arguments[2] for arguments, _, _ in self.calls]
+        return [arguments[16] if arguments[0] == "synthetic-askkey" else arguments[2]
+                for arguments, _, _ in self.calls]
 
     def assert_failure(self, reason):
         with self.assertRaisesRegex(MODULE.Failure, f"^{reason}$"):
             self.runner.notarize()
         self.assertNotIn("synthetic", json.dumps(self.events))
-        for descriptor in self.descriptors:
-            with self.assertRaises(OSError):
-                os.fstat(descriptor)
 
     def history_entry(self, submission_id=ID, *, name="AskKey.zip", seconds=1):
         return {"id": submission_id, "name": name,
                 "createdDate": (self.start + timedelta(seconds=seconds)).isoformat()}
 
-    def test_in_progress_survives_key_expiry_after_five_minutes(self):
+    def test_in_progress_uses_fresh_helper_requests_after_five_minutes(self):
+        self.runner = self.make_runner(credential=True)
         def response(action, arguments, options):
-            if self.elapsed >= 300:
-                self.key_path.unlink(missing_ok=True)
             if action == "info" and self.elapsed < 350:
                 return self.result({"id": ID, "status": "In Progress"})
             return self.success(action, arguments, options)
 
         self.response = response
         self.runner.notarize()
-        self.assertFalse(self.key_path.exists())
         self.assertGreater(self.elapsed, 300)
         self.assertEqual(self.actions().count("submit"), 1)
         self.assertEqual(self.sleeps[:5], [5, 10, 20, 40, 60])
         self.assertLessEqual(max(self.sleeps), 60)
         self.assertEqual(self.events[-1], {"event": "accepted", "id": ID})
-        self.assertEqual(list(self.directory.iterdir()), [])
+        operations = [arguments[6] for arguments, _, _ in self.calls]
+        self.assertEqual(len(operations), len(set(operations)))
 
     def test_fast_transient_errors_use_time_budget_not_four_attempts(self):
         for code in ("-1001", "-1003", "-1004", "-1005", "-1006", "-1009"):
@@ -108,6 +117,7 @@ class NotarizeReleaseTests(unittest.TestCase):
                 self.elapsed = 0
                 self.calls.clear()
                 self.sleeps.clear()
+                self.runner.delay = 5
                 self.response = lambda action, args, opts: (
                     self.result({"id": ID}) if action == "submit" else
                     self.result(error=f"NSURLErrorDomain Code={code}", code=1))
@@ -129,10 +139,9 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.assertEqual(self.elapsed, 1800)
         self.assertEqual(self.actions().count("submit"), 1)
 
-    def test_transient_errors_recover_after_key_expiry_without_new_submit(self):
+    def test_transient_errors_recover_through_fresh_helper_requests(self):
+        self.runner = self.make_runner(credential=True)
         def response(action, arguments, options):
-            if self.elapsed >= 300:
-                self.key_path.unlink(missing_ok=True)
             if action == "info" and self.actions().count("info") <= 10:
                 return subprocess.CompletedProcess(arguments, 1, b"\xffsynthetic-private-key-bytes",
                                                    b"NSURLErrorDomain Code=-1001")
@@ -140,7 +149,6 @@ class NotarizeReleaseTests(unittest.TestCase):
 
         self.response = response
         self.runner.notarize()
-        self.assertFalse(self.key_path.exists())
         self.assertEqual(self.actions().count("info"), 11)
         self.assertEqual(self.actions().count("submit"), 1)
         self.assertEqual(self.events[-1], {"event": "accepted", "id": ID})
@@ -149,7 +157,6 @@ class NotarizeReleaseTests(unittest.TestCase):
     def test_submit_timeout_adopts_delayed_history_without_resubmitting(self):
         def response(action, arguments, options):
             if action == "submit":
-                self.key_path.unlink()
                 return self.result(error="NSURLErrorDomain error -1001", code=1)
             if action == "history":
                 entries = [] if self.actions().count("history") == 1 else [self.history_entry()]
@@ -180,7 +187,7 @@ class NotarizeReleaseTests(unittest.TestCase):
                 return self.result(error="NSURLErrorDomain Code=-1001", code=1)
             if action == "history":
                 return self.result({"history": [self.history_entry(name="Other.zip"),
-                                                 self.history_entry(seconds=-60)]})
+                                                 self.history_entry(seconds=-240)]})
             return self.success(action, arguments, options)
 
         self.response = response
@@ -211,7 +218,7 @@ class NotarizeReleaseTests(unittest.TestCase):
 
     def test_history_unavailable_invalid_or_ambiguous_stops_without_upload(self):
         histories = [
-            (self.result(error="NSURLErrorDomain Code=-1001", code=1), "history", []),
+            (self.result(error="Authentication failed", code=1), "history", []),
             (self.result({}), "history", []),
             (self.result({"history": [self.history_entry(submission_id="synthetic-key-id")]}), "history", []),
             (self.result({"history": [self.history_entry(), self.history_entry(OTHER_ID)]}),
@@ -222,6 +229,7 @@ class NotarizeReleaseTests(unittest.TestCase):
                 self.calls.clear()
                 self.events.clear()
                 self.runner.ids.clear()
+                self.runner.delay = 5
                 self.response = lambda action, args, opts: (
                     history if action == "history" else
                     self.result(error="NSURLErrorDomain Code=-1001", code=1))
@@ -265,27 +273,105 @@ class NotarizeReleaseTests(unittest.TestCase):
             (self.result({"id": ID, "status": "synthetic-private-key-bytes"}), "status"),
             (self.result({"id": ID, "status": "Accepted"}, code=1), "request"),
             (self.result(code=1, error="NSURLErrorDomain Code=-1200"), "request"),
-            (self.result(code=1, error="Cannot read /dev/fd/3"), "request"),
+            (self.result(code=1, error="Credential unavailable"), "request"),
         ]
         for response, reason in responses:
             with self.subTest(reason=reason):
                 self.calls.clear()
+                self.runner.delay = 5
                 self.response = lambda action, args, opts: self.result({"id": ID}) if action == "submit" else response
                 self.assert_failure(reason)
                 self.assertEqual(self.actions(), ["submit", "info"])
 
-    def test_key_unavailable_at_start_fails_before_any_request(self):
-        self.key_path.unlink()
-        with self.assertRaisesRegex(MODULE.Failure, "credentials"):
-            MODULE.Notarizer("AskKey.zip", ["--key", str(self.key_path)], run=self.tool)
-        self.assertEqual(self.calls, [])
+    def test_approval_denial_does_not_reconcile_or_retry(self):
+        self.runner = self.make_runner(credential=True)
+        self.target_started = False
+        self.response = lambda *args: self.result(code=1)
+        self.assert_failure("approval")
+        self.assertEqual(self.actions(), ["submit"])
 
     def test_profile_mode_needs_no_key_file_or_pipe(self):
-        self.runner.auth = ["--keychain-profile", "synthetic-profile"]
-        self.runner.key = None
         self.runner.notarize()
-        self.assertTrue(all(options["pass_fds"] == () for _, options, _ in self.calls))
+        self.assertTrue(all(arguments[0] == "xcrun" for arguments, _, _ in self.calls))
+        self.assertTrue(all("--keychain-profile" in arguments for arguments, _, _ in self.calls))
+        self.assertFalse(hasattr(self.runner, "key"))
         self.assertEqual(self.events[-1], {"event": "accepted", "id": ID})
+
+    def test_transient_history_errors_do_not_count_as_empty_snapshots(self):
+        def response(action, arguments, options):
+            if action == "submit" and self.actions().count("submit") == 1:
+                return self.result(error="NSURLErrorDomain Code=-1001", code=1)
+            if action == "history":
+                if self.actions().count("history") in (1, 3, 5):
+                    return self.result(error="NSURLErrorDomain Code=-1005", code=1)
+                return self.result({"history": []})
+            return self.success(action, arguments, options)
+        self.response = response
+        self.runner.notarize()
+        self.assertEqual(self.actions(), ["submit"] + ["history"] * 6 + ["submit", "info"])
+
+    def test_clock_skew_before_start_is_ambiguous_after_start_is_adopted(self):
+        for seconds, expected in ((-60, "ambiguous"), (-180, "ambiguous"), (180, None)):
+            with self.subTest(seconds=seconds):
+                self.elapsed = 0
+                self.calls.clear()
+                self.events.clear()
+                self.runner = self.make_runner()
+                self.response = lambda action, args, opts: (
+                    self.result(error="NSURLErrorDomain Code=-1001", code=1) if action == "submit" else
+                    self.result({"history": [self.history_entry(seconds=seconds)]}) if action == "history" else
+                    self.result({"id": ID, "status": "Accepted"}))
+                if expected:
+                    self.assert_failure(expected)
+                    self.assertEqual(self.actions(), ["submit", "history"])
+                else:
+                    self.runner.notarize()
+                self.assertEqual(self.events[0], {"event": "submission", "id": ID})
+
+    def test_history_timeout_preserves_a_matching_id_in_partial_output(self):
+        def response(action, arguments, options):
+            if action == "submit":
+                return self.result(error="NSURLErrorDomain Code=-1001", code=1)
+            if action == "history":
+                raise subprocess.TimeoutExpired(arguments, options["timeout"],
+                    output=json.dumps({"history": [self.history_entry()]}).encode())
+            return self.success(action, arguments, options)
+        self.response = response
+        self.runner.notarize()
+        self.assertEqual(self.actions(), ["submit", "history", "info"])
+        self.assertEqual(self.events[0], {"event": "submission", "id": ID})
+
+    def test_started_time_rounds_down_to_the_second(self):
+        self.elapsed = 0.75
+        self.response = lambda action, args, opts: (
+            self.result(error="NSURLErrorDomain Code=-1001", code=1) if action == "submit" else
+            self.result({"history": [self.history_entry(seconds=0)]}) if action == "history" else
+            self.result({"id": ID, "status": "Accepted"}))
+        self.runner.notarize()
+        self.assertEqual(self.actions(), ["submit", "history", "info"])
+
+    def test_adopted_in_progress_deadline_has_incomplete_upload_diagnostic(self):
+        self.response = lambda action, args, opts: (
+            self.result(error="NSURLErrorDomain Code=-1001", code=1) if action == "submit" else
+            self.result({"history": [self.history_entry()]}) if action == "history" else
+            self.result({"id": ID, "status": "In Progress"}))
+        self.assert_failure("adopted-incomplete")
+        self.assertEqual(self.elapsed, 1800)
+        self.assertEqual(self.events, [{"event": "submission", "id": ID}])
+
+    def test_summary_preserves_ids_before_partial_line_and_avoids_history_after_approval_failure(self):
+        response = self.directory / "response.jsonl"
+        response.write_text(json.dumps({"event": "submission", "id": ID}) + '\n{"event":', encoding="utf-8")
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(MODULE.summarize(response, ids_only=True), 0)
+        self.assertIn(ID, output.getvalue())
+        response.write_text(json.dumps({"event": "failed", "reason": "approval"}), encoding="utf-8")
+        error = io.StringIO()
+        with redirect_stderr(error):
+            self.assertEqual(MODULE.summarize(response), 1)
+        self.assertIn("credential delivery", error.getvalue())
+        self.assertNotIn("history", error.getvalue())
 
 
 if __name__ == "__main__":
