@@ -14,11 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/package-release.sh"
 SIGNING_ENV = ("ASKKEY_CODESIGN_IDENTITY", "ASKKEY_APPLE_TEAM_ID", "ASKKEY_NOTARY_PROFILE")
 SUBMISSION_ID = "12345678-1234-1234-1234-123456789abc"
+DMG_SUBMISSION_ID = "87654321-4321-4321-4321-cba987654321"
 NOTARY_CREDENTIAL = "synthetic-notary"
-NOTARY_SHELL = (
-    'xcrun notarytool submit "$1" --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" '
-    '--issuer "$ISSUER_ID" --wait --output-format json'
-)
 SYNTHETIC_MAPPINGS = {
     "PRIVATE_KEY_FILE": "synthetic-private-key-file",
     "KEY_ID": "synthetic-key-id",
@@ -47,7 +44,7 @@ class PackageReleaseTests(unittest.TestCase):
             ["bash", str(ROOT / "scripts/product-version.sh")], text=True
         ).strip()
         self.environment = {key: value for key, value in os.environ.items()
-                            if not key.startswith("ASKKEY_")}
+                            if not key.startswith("ASKKEY_") and key not in SYNTHETIC_MAPPINGS}
         self.environment["TMPDIR"] = str(self.scratch)
         self.make_app()
 
@@ -213,76 +210,7 @@ class PackageReleaseTests(unittest.TestCase):
         tools.mkdir()
         trace = self.directory / "calls.jsonl"
         command = tools / "mock-tool"
-        command.write_text('''#!/usr/bin/env python3
-import json
-import os
-from pathlib import Path
-import subprocess
-import sys
-
-name, arguments = Path(sys.argv[0]).name, sys.argv[1:]
-with open(os.environ["PACKAGE_TEST_TRACE"], "a") as stream:
-    stream.write(json.dumps([name, *arguments]) + "\\n")
-failure = os.environ.get("PACKAGE_TEST_FAILURE", "")
-if name == "ditto":
-    sys.exit(subprocess.call(["/usr/bin/ditto", *arguments]))
-if name == "codesign":
-    if "-dv" in arguments:
-        team = "OTHERTEAM0" if failure == "team" else "FAKETEAM01"
-        print("TeamIdentifier=" + team, file=sys.stderr)
-    if "--sign" in arguments:
-        print(os.environ["ASKKEY_CODESIGN_IDENTITY"], file=sys.stderr)
-        sys.exit(1 if failure == "dmg-sign" else 0)
-elif name == "hdiutil":
-    if failure == "dmg-create":
-        sys.exit(1)
-    staging = Path(arguments[arguments.index("-srcfolder") + 1])
-    assert {path.name for path in staging.iterdir()} == {"Ask Key.app", "Applications"}
-    assert (staging / "Applications").is_symlink()
-    Path(arguments[-1]).write_bytes(b"synthetic disk image")
-elif name == "xcrun":
-    profile = os.environ.get("ASKKEY_NOTARY_PROFILE")
-    if profile:
-        print(profile, file=sys.stderr)
-    if arguments[:2] == ["notarytool", "submit"]:
-        artifact = Path(arguments[2])
-        kind = "app" if artifact.suffix == ".zip" else "dmg"
-        if failure == "invalid-json":
-            print("{}")
-        else:
-            status = "Invalid" if failure == kind + "-notary" else "Accepted"
-            print(json.dumps({"status": status, "id": "12345678-1234-1234-1234-123456789abc"}))
-        sys.exit(1 if failure == "notary-command" else 0)
-    elif arguments[0] == "stapler":
-        artifact = Path(arguments[2])
-        kind = "app" if artifact.suffix == ".app" else "dmg"
-        if failure == kind + "-" + arguments[1]:
-            sys.exit(1)
-        if kind == "dmg" and arguments[1] == "staple":
-            with artifact.open("ab") as stream:
-                stream.write(b":stapled")
-    else:
-        sys.exit(1)
-elif name == "spctl":
-    kind = "app" if "exec" in arguments else "dmg"
-    if failure == kind + "-gatekeeper":
-        sys.exit(1)
-    print(str(arguments[-1]) + ": accepted")
-    print("source=" + ("Developer ID" if failure == "app-source" else "Notarized Developer ID"))
-elif name == "askkey":
-    if not arguments or arguments[0] != "run" or "--" not in arguments:
-        sys.exit(1)
-    artifact = Path(arguments[arguments.index("--") + 1:][-1])
-    kind = "app" if artifact.suffix == ".zip" else "dmg"
-    if failure == "invalid-json":
-        print("{}")
-    else:
-        status = "Invalid" if failure == kind + "-notary" else "Accepted"
-        print(json.dumps({"status": status, "id": "12345678-1234-1234-1234-123456789abc"}))
-    sys.exit(1 if failure == "notary-command" else 0)
-else:
-    sys.exit(1)
-''', encoding="utf-8")
+        shutil.copyfile(ROOT / "Tests/Automation/Fixtures/package-release-tool.py", command)
         command.chmod(0o755)
         for name in ("codesign", "ditto", "hdiutil", "xcrun", "spctl", "askkey"):
             (tools / name).symlink_to(command)
@@ -294,7 +222,6 @@ else:
             "ASKKEY_APPLE_TEAM_ID": "FAKETEAM01",
             "ASKKEY_NOTARY_PROFILE": "synthetic-notary-profile",
             "ASKKEY_RELEASE_HELPER": str(tools / "askkey"),
-            **SYNTHETIC_MAPPINGS,
         })
         return environment, trace
 
@@ -311,12 +238,16 @@ else:
                                     NOTARY_CREDENTIAL, "--operation-id"])
         operation_id = call[6]
         self.assertTrue(operation_id)
-        self.assertEqual(call[7:16], [
+        self.assertEqual(call[7:14], [
             "--caller-name", "AskKey release", "--caller-purpose",
-            f"Notarize AskKey {self.version}", "--", "/bin/bash", "-c", NOTARY_SHELL, "bash",
+            f"Notarize AskKey {self.version}", "--", "/bin/bash", "-c",
         ])
+        for key, value in SYNTHETIC_MAPPINGS.items():
+            self.assertIn(f'"${key}"', call[14])
+            self.assertNotIn(value, call[14])
+        self.assertEqual(call[15], "bash")
         self.assertEqual(Path(call[16]).suffix, suffix)
-        self.assertEqual(len(call), 17)
+        self.assertEqual(call[17:], ["credential"])
         return operation_id
 
     def credential_environment(self):
@@ -338,7 +269,12 @@ else:
         self.assertEqual([Path(call[3]).suffix for call in submissions], [".zip", ".dmg"])
         for call in submissions:
             self.assertEqual(call[4:], ["--keychain-profile", environment["ASKKEY_NOTARY_PROFILE"],
-                                        "--wait", "--output-format", "json"])
+                                        "--no-wait", "--output-format", "json"])
+        waits = [call for call in calls if call[:3] == ["xcrun", "notarytool", "wait"]]
+        self.assertEqual([call[3] for call in waits], [SUBMISSION_ID, DMG_SUBMISSION_ID])
+        for call in waits:
+            self.assertEqual(call[4:], ["--keychain-profile", environment["ASKKEY_NOTARY_PROFILE"],
+                                        "--timeout", "10m", "--output-format", "json"])
         self.assertEqual([call[2] for call in calls if call[:2] == ["xcrun", "stapler"]],
                          ["staple", "validate", "staple", "validate"])
         signing = [call for call in calls if call[:2] == ["codesign", "--sign"]]
@@ -366,7 +302,15 @@ else:
         operation_ids = [self.assert_credential_submit(call, suffix)
                          for call, suffix in zip(submissions, (".zip", ".dmg"))]
         self.assertEqual(len(set(operation_ids)), 2)
-        self.assertFalse(any(call[:3] == ["xcrun", "notarytool", "submit"] for call in calls))
+        for action in ("submit", "wait"):
+            requests = [call for call in calls if call[:3] == ["xcrun", "notarytool", action]]
+            self.assertEqual(len(requests), 2)
+            for call in requests:
+                self.assertEqual(call[4:10], [
+                    "--key", SYNTHETIC_MAPPINGS["PRIVATE_KEY_FILE"],
+                    "--key-id", SYNTHETIC_MAPPINGS["KEY_ID"],
+                    "--issuer", SYNTHETIC_MAPPINGS["ISSUER_ID"],
+                ])
         self.assertEqual(list(self.scratch.iterdir()), [])
 
     def test_notary_modes_conflict_before_work(self):
@@ -455,7 +399,8 @@ else:
                 self.assertNotEqual(result.returncode, 0)
                 self.assert_settings_not_printed(result, environment)
                 if failure in ("app-notary", "dmg-notary", "notary-command"):
-                    self.assertIn(f"xcrun notarytool log {SUBMISSION_ID} --keychain-profile ...",
+                    submission_id = DMG_SUBMISSION_ID if failure == "dmg-notary" else SUBMISSION_ID
+                    self.assertIn(f"xcrun notarytool log {submission_id} --keychain-profile ...",
                                   result.stderr)
                 self.assert_no_artifacts()
 
@@ -469,9 +414,86 @@ else:
                 self.assertNotEqual(result.returncode, 0)
                 self.assert_settings_not_printed(result, environment)
                 if failure in ("app-notary", "dmg-notary", "notary-command"):
-                    self.assertIn(f"xcrun notarytool log {SUBMISSION_ID} --key ... --key-id ... --issuer ...",
+                    submission_id = DMG_SUBMISSION_ID if failure == "dmg-notary" else SUBMISSION_ID
+                    self.assertIn(f"xcrun notarytool log {submission_id} --key ... --key-id ... --issuer ...",
                                   result.stderr)
                 self.assert_no_artifacts()
+
+    def test_transient_wait_failures_retry_same_ids_with_one_approval_per_artifact(self):
+        environment, trace = self.mock_tools()
+        environment["PACKAGE_TEST_TIMEOUTS"] = "3"
+        for credential_mode, error in ((False, "-1001"), (True, "-1005")):
+            with self.subTest(credential_mode=credential_mode):
+                env = environment.copy()
+                env["PACKAGE_TEST_ERROR"] = error
+                arguments = []
+                if credential_mode:
+                    env.pop("ASKKEY_NOTARY_PROFILE")
+                    arguments = ["--notary-credential", NOTARY_CREDENTIAL]
+                result = self.run_script(*arguments, notarize=True, environment=env)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assert_settings_not_printed(result, env)
+                self.assert_notarized_artifacts(self.output / f"AskKey-{self.version}.dmg")
+                calls = [json.loads(line) for line in trace.read_text().splitlines()]
+                self.assertEqual(sum(call[0] == "askkey" for call in calls), 2 if credential_mode else 0)
+                submissions = [call for call in calls if call[:3] == ["xcrun", "notarytool", "submit"]]
+                self.assertEqual([Path(call[3]).suffix for call in submissions], [".zip", ".dmg"])
+                waits = [call[3] for call in calls if call[:3] == ["xcrun", "notarytool", "wait"]]
+                self.assertEqual(waits, [SUBMISSION_ID] * 4 + [DMG_SUBMISSION_ID] * 4)
+                self.assertEqual(list(self.scratch.iterdir()), [])
+                shutil.rmtree(self.output)
+                trace.unlink()
+
+    def test_wait_failure_is_bounded_preserves_id_and_never_resubmits(self):
+        environment, trace = self.mock_tools()
+        cases = [("", "9", "-1001", 4), ("", "9", "-1200", 1)]
+        cases += [(failure, "0", "-1001", 1) for failure in (
+            "app-notary", "wait-command", "wait-invalid-json", "wait-in-progress",
+            "wrong-id", "unknown-status", "rejected-with-timeout",
+        )]
+        for credential_mode in (False, True):
+            for failure, timeouts, error, expected_waits in cases:
+                with self.subTest(credential_mode=credential_mode, failure=failure, error=error):
+                    env = dict(environment, PACKAGE_TEST_FAILURE=failure,
+                               PACKAGE_TEST_TIMEOUTS=timeouts, PACKAGE_TEST_ERROR=error)
+                    arguments = []
+                    if credential_mode:
+                        env.pop("ASKKEY_NOTARY_PROFILE")
+                        arguments = ["--notary-credential", NOTARY_CREDENTIAL]
+                    result = self.run_script(*arguments, notarize=True, environment=env)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assert_settings_not_printed(result, env)
+                    auth_hint = "--key ... --key-id ... --issuer ..." if credential_mode else "--keychain-profile ..."
+                    self.assertIn(f"xcrun notarytool log {SUBMISSION_ID} {auth_hint}", result.stderr)
+                    calls = [json.loads(line) for line in trace.read_text().splitlines()]
+                    self.assertEqual(sum(call[0] == "askkey" for call in calls), int(credential_mode))
+                    self.assertEqual(sum(call[:3] == ["xcrun", "notarytool", "submit"] for call in calls), 1)
+                    waits = [call[3] for call in calls if call[:3] == ["xcrun", "notarytool", "wait"]]
+                    self.assertEqual(waits, [SUBMISSION_ID] * expected_waits)
+                    self.assertFalse(any(call[:2] == ["xcrun", "stapler"] for call in calls))
+                    self.assert_no_artifacts()
+                    trace.unlink()
+
+    def test_submission_failures_do_not_retry_or_wait(self):
+        environment, trace = self.credential_environment()
+        for failure in ("submit-timeout", "invalid-json", "notary-command", "approval-denied"):
+            with self.subTest(failure=failure):
+                environment["PACKAGE_TEST_FAILURE"] = failure
+                result = self.run_script("--notary-credential", NOTARY_CREDENTIAL,
+                                         notarize=True, environment=environment)
+                self.assertNotEqual(result.returncode, 0)
+                self.assert_settings_not_printed(result, environment)
+                if failure == "notary-command":
+                    self.assertIn(SUBMISSION_ID, result.stderr)
+                else:
+                    self.assertIn("inspect notarytool history", result.stderr)
+                calls = [json.loads(line) for line in trace.read_text().splitlines()]
+                self.assertEqual(sum(call[0] == "askkey" for call in calls), 1)
+                self.assertEqual(sum(call[:3] == ["xcrun", "notarytool", "submit"] for call in calls),
+                                 0 if failure == "approval-denied" else 1)
+                self.assertFalse(any(call[:3] == ["xcrun", "notarytool", "wait"] for call in calls))
+                self.assert_no_artifacts()
+                trace.unlink()
 
     def test_existing_artifact_is_not_overwritten(self):
         environment, _ = self.mock_tools()
