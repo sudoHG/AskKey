@@ -120,13 +120,17 @@ Desktop tests exercise shared App/Broker/helper behavior, but system authenticat
 
 Notarization needs exactly one of `ASKKEY_NOTARY_PROFILE` (a `notarytool` keychain profile) or `--notary-credential <name>` (an Ask Key credential). `--no-notarize` skips notarization for synthetic packaging checks, writes only `AskKey-<version>-unnotarized.dmg` and its checksum, and cannot be combined with `--notary-credential`. The two notarization modes cannot be combined.
 
-In credential mode each `xcrun notarytool submit … --wait` runs as:
+In credential mode each artifact runs once through the helper's target shell:
 
 ```text
-/Applications/Ask Key.app/Contents/Helpers/askkey run --wait-for-approval --credential <name> --operation-id <unique> --caller-name "AskKey release" --caller-purpose "Notarize AskKey <version>" -- xcrun notarytool submit <artifact> --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER_ID" --wait --output-format json
+askkey run --wait-for-approval --credential <name> --operation-id <unique> --caller-name "AskKey release" --caller-purpose "Notarize AskKey <version>" -- /bin/bash -c 'set +x; set -eu; exec python3 "$1" "$2" --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER_ID"' bash scripts/notarize-release.py <artifact>
 ```
 
-`PRIVATE_KEY_FILE`, `KEY_ID`, and `ISSUER_ID` are the credential's delivery mappings (file path, key id, and issuer id). The script expands them only in the helper's target shell and never prints their values. Tests may point `ASKKEY_RELEASE_HELPER` at a stub; that override is not a release input. Automation tests must not call a real notary service or use the maintainer's identity.
+`PRIVATE_KEY_FILE`, `KEY_ID`, and `ISSUER_ID` are the credential's delivery mappings (file path, key id, and issuer id). The script expands them only in the helper's target shell and never prints their values. The runner reads the delivered key once before its file expires and supplies each request through a fresh inherited anonymous pipe (`--key /dev/fd/N`); it never writes another key file. The helper is still invoked once per artifact. The runner path is passed as an argument to keep the shell command well below the broker's 4 KiB per-argument limit. Tests may point `ASKKEY_RELEASE_HELPER` at a stub; that override is not a release input. Automation tests must not call a real notary service or use the maintainer's identity.
+
+The runner submits with `--no-wait`, reports every validated submission ID, and polls `notarytool info` under one 30-minute monotonic deadline. Processing and transient NSURLErrorDomain errors (-1001, -1003, -1004, -1005, -1006 and -1009) use backoff starting at 5 seconds and capped at 60 seconds. Individual subprocesses are bounded by the remaining budget and a 5-minute submit or 2-minute query timeout. Raw tool output stays in memory; permanent errors and rejected submissions stop with sanitized diagnostics.
+
+A transient submit failure without an ID first reconciles `notarytool history` by artifact name and creation time since the first upload attempt. One match is adopted; multiple matches or unavailable/invalid history stop the run. Only three successful empty snapshots allow another upload, with at most three upload attempts total. A known submission is never resubmitted. History visibility and clock skew can still affect reconciliation; real network recovery and Apple's acceptance of inherited key pipes remain to be verified at the next release. Failures retain all observed IDs with credential-free log commands, and a target that never started is distinguished from a failed submission. Resuming stapling from an existing submission ID is outside this flow.
 
 ## Pre-release checks on the maintainer's Mac
 

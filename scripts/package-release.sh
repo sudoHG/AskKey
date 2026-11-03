@@ -80,73 +80,8 @@ STAGED_APP="$STAGING/Ask Key.app"
 ditto "$APP" "$STAGED_APP" || fail "Cannot stage the app"
 
 notarize() {
-  local artifact="$1" response="$WORK_DIR/notary-result.json" fields completed=true notary_script
-  # The same runner handles both authentication modes. Credential expansion stays
-  # inside the delivered target shell, including every retry of the status wait.
-  notary_script="$(cat <<'SH'
-set +x
-set -euo pipefail
-artifact="$1"
-if [[ "$2" == credential ]]; then
-  auth=(--key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER_ID")
-else
-  auth=(--keychain-profile "$3")
-fi
-python3 - "$artifact" "${auth[@]}" <<'PY'
-import json
-import re
-import subprocess
-import sys
-import time
-
-artifact, auth = sys.argv[1], sys.argv[2:]
-uuid = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
-transient = re.compile(
-    r"NSURLErrorDomain[^\r\n]*?(?<!\d)-(?:1001|1003|1004|1005|1006|1009)(?!\d)"
-)
-
-
-def request(action, target, *options):
-    # Keep raw output in memory: diagnostics can include credential values.
-    return subprocess.run(
-        ["xcrun", "notarytool", action, target, *auth, *options, "--output-format", "json"],
-        capture_output=True, text=True,
-    )
-
-
-try:
-    submitted = request("submit", artifact, "--no-wait")
-    submission_id = json.loads(submitted.stdout)["id"]
-    if not isinstance(submission_id, str) or not uuid.fullmatch(submission_id):
-        raise ValueError()
-    # Flush the validated ID before waiting so a later failure cannot lose it.
-    print(json.dumps({"id": submission_id}), flush=True)
-    if submitted.returncode:
-        sys.exit(1)
-    for attempt in range(4):
-        if attempt:
-            time.sleep(2 ** (attempt - 1))
-        waited = request("wait", submission_id, "--timeout", "10m")
-        try:
-            result = json.loads(waited.stdout)
-            if result["id"].lower() != submission_id.lower():
-                sys.exit(1)
-            status = result["status"]
-        except (ValueError, KeyError, TypeError, AttributeError):
-            status = None
-        if status == "Accepted" and waited.returncode == 0:
-            print(json.dumps({"id": submission_id, "status": "Accepted"}), flush=True)
-            sys.exit(0)
-        if status in ("Invalid", "Rejected"):
-            sys.exit(1)
-        if not transient.search(waited.stdout + "\n" + waited.stderr):
-            sys.exit(1)
-    sys.exit(1)
-except (OSError, ValueError, KeyError, TypeError):
-    sys.exit(1)
-PY
-SH
-)"
+  local artifact="$1" response="$WORK_DIR/notary-result.json" fields completed=true
+  local runner="$ROOT_DIR/scripts/notarize-release.py"
   # Tool diagnostics can contain signing or credential values; never echo them.
   if [[ -n "$NOTARY_CREDENTIAL" ]]; then
     local operation_id
@@ -156,41 +91,71 @@ SH
     "$ASKKEY_RELEASE_HELPER" run --wait-for-approval --credential "$NOTARY_CREDENTIAL" \
       --operation-id "$operation_id" --caller-name "AskKey release" \
       --caller-purpose "Notarize AskKey $VERSION" -- \
-      /bin/bash -c "$notary_script" bash "$artifact" credential \
+      /bin/bash -c 'set +x; set -eu; exec python3 "$1" "$2" --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER_ID"' \
+      bash "$runner" "$artifact" \
       >"$response" 2>/dev/null || completed=false
   else
-    /bin/bash -c "$notary_script" bash "$artifact" profile "$ASKKEY_NOTARY_PROFILE" \
+    python3 "$runner" "$artifact" --keychain-profile "$ASKKEY_NOTARY_PROFILE" \
       >"$response" 2>/dev/null || completed=false
   fi
-  fields="$(python3 - "$response" <<'PY'
+  fields="$(python3 - "$response" "$runner" <<'PY'
+import importlib.util
 import json
-import re
 import sys
 
+spec = importlib.util.spec_from_file_location("notary_runner", sys.argv[2])
+runner = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runner)
+ids = []
+started = accepted = False
+reason = "Notarization target did not start; check Ask Key approval denial, timeout, or helper failure"
 try:
     with open(sys.argv[1], encoding="utf-8") as response:
-        results = [json.loads(line) for line in response]
-    submission_id = results[0]["id"]
-    if not isinstance(submission_id, str) or not re.fullmatch(
-        r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", submission_id
-    ):
-        raise ValueError()
-    accepted = len(results) == 2 and results[1] == {"id": submission_id, "status": "Accepted"}
-    print("Accepted" if accepted else "NotAccepted")
+        for line in response:
+            result = json.loads(line)
+            event = result["event"]
+            if event == "started":
+                started = True
+                reason = "Notarization target failed before completion"
+            elif event == "submission" and runner.UUID.fullmatch(result["id"]):
+                ids.append(result["id"])
+            elif event == "accepted" and ids == [result["id"]]:
+                accepted = True
+            elif event == "failed":
+                accepted = False
+                reason = runner.FAILURES[result["reason"]]
+            else:
+                raise ValueError()
+except (OSError, ValueError, KeyError, TypeError):
+    accepted = False
+    reason = "Notarization target returned an invalid result"
+print("Accepted" if started and accepted else "NotAccepted")
+print(reason)
+for submission_id in ids:
     print(submission_id)
-except (OSError, ValueError, KeyError, TypeError, IndexError):
-    sys.exit(1)
 PY
-)" || fail "Notarization submission ID unavailable; inspect notarytool history with your credentials before submitting again"
-  local status="${fields%%$'\n'*}" submission_id="${fields#*$'\n'}"
+)" || fail "Cannot read the notarization target result"
+  local status="${fields%%$'\n'*}" details="${fields#*$'\n'}" reason submission_id
+  reason="${details%%$'\n'*}"
+  local ids=""
+  if [[ "$details" == *$'\n'* ]]; then ids="${details#*$'\n'}"; fi
+  while IFS= read -r submission_id; do
+    [[ -z "$submission_id" ]] || printf 'Notarization submission: %s\n' "$submission_id"
+  done <<<"$ids"
   if [[ "$completed" != true || "$status" != Accepted ]]; then
-    printf 'Notarization was not accepted. Inspect the submission with:\n' >&2
-    if [[ -n "$NOTARY_CREDENTIAL" ]]; then
-      printf 'xcrun notarytool log %s --key ... --key-id ... --issuer ...\n' "$submission_id" >&2
+    if [[ -n "$ids" ]]; then
+      printf 'Inspect each submission with:\n' >&2
+      while IFS= read -r submission_id; do
+        if [[ -n "$NOTARY_CREDENTIAL" ]]; then
+          printf 'xcrun notarytool log %s --key ... --key-id ... --issuer ...\n' "$submission_id" >&2
+        else
+          printf 'xcrun notarytool log %s --keychain-profile ...\n' "$submission_id" >&2
+        fi
+      done <<<"$ids"
     else
-      printf 'xcrun notarytool log %s --keychain-profile ...\n' "$submission_id" >&2
+      printf 'No submission ID available; inspect notarytool history before submitting again.\n' >&2
     fi
-    fail "Notarization must report Accepted"
+    fail "$reason"
   fi
 }
 
