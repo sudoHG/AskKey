@@ -65,7 +65,8 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.assertNotIn("pass_fds", options)
         if arguments[0] != "synthetic-askkey":
             return self.response(arguments[2], arguments, options)
-        self.assertEqual(options["timeout"], 1800 - self.elapsed)
+        self.assertEqual(options["timeout"], min(300 if arguments[16] == "submit" else 120,
+                                                1800 - self.elapsed))
         self.assertEqual(arguments[1:5], ["run", "--wait-for-approval", "--credential", "synthetic-credential"])
         self.assertEqual(arguments[12:14], ["/bin/bash", "-c"])
         for name in ("PRIVATE_KEY_FILE", "KEY_ID", "ISSUER_ID"):
@@ -166,7 +167,7 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.response = response
         self.runner.notarize()
         self.assertEqual(self.actions(), ["submit", "history", "history", "info"])
-        self.assertEqual(self.events, [{"event": "submission", "id": ID},
+        self.assertEqual(self.events, [{"event": "upload-started"}, {"event": "submission", "id": ID},
                                        {"event": "accepted", "id": ID}])
 
     def test_subprocess_submit_timeout_also_reconciles(self):
@@ -204,7 +205,7 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.response = response
         self.runner.notarize()
         self.assertEqual(self.actions(), ["submit", "info"])
-        self.assertEqual(self.events, [{"event": "submission", "id": ID},
+        self.assertEqual(self.events, [{"event": "upload-started"}, {"event": "submission", "id": ID},
                                        {"event": "accepted", "id": ID}])
 
     def test_missing_submission_stops_after_three_uploads(self):
@@ -214,7 +215,7 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.assert_failure("attempts")
         self.assertEqual(self.actions().count("submit"), 3)
         self.assertEqual(self.actions().count("history"), 9)
-        self.assertEqual(self.events, [])
+        self.assertEqual(self.events, [{"event": "upload-started"}])
 
     def test_history_unavailable_invalid_or_ambiguous_stops_without_upload(self):
         histories = [
@@ -229,13 +230,14 @@ class NotarizeReleaseTests(unittest.TestCase):
                 self.calls.clear()
                 self.events.clear()
                 self.runner.ids.clear()
+                self.runner.upload_started = False
                 self.runner.delay = 5
                 self.response = lambda action, args, opts: (
                     history if action == "history" else
                     self.result(error="NSURLErrorDomain Code=-1001", code=1))
                 self.assert_failure(reason)
                 self.assertEqual(self.actions(), ["submit", "history"])
-                self.assertEqual([event["id"] for event in self.events], ids)
+                self.assertEqual([event["id"] for event in self.events if event["event"] == "submission"], ids)
 
     def test_history_window_includes_first_upload_after_a_retry(self):
         def response(action, arguments, options):
@@ -255,7 +257,7 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.response = lambda *args: self.result({"id": ID}, code=1)
         self.assert_failure("request")
         self.assertEqual(self.actions(), ["submit"])
-        self.assertEqual(self.events, [{"event": "submission", "id": ID}])
+        self.assertEqual(self.events, [{"event": "upload-started"}, {"event": "submission", "id": ID}])
 
     def test_transient_submit_with_id_goes_directly_to_info(self):
         self.response = lambda action, args, opts: (
@@ -326,7 +328,7 @@ class NotarizeReleaseTests(unittest.TestCase):
                     self.assertEqual(self.actions(), ["submit", "history"])
                 else:
                     self.runner.notarize()
-                self.assertEqual(self.events[0], {"event": "submission", "id": ID})
+                self.assertEqual(self.events[1], {"event": "submission", "id": ID})
 
     def test_history_timeout_preserves_a_matching_id_in_partial_output(self):
         def response(action, arguments, options):
@@ -339,7 +341,7 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.response = response
         self.runner.notarize()
         self.assertEqual(self.actions(), ["submit", "history", "info"])
-        self.assertEqual(self.events[0], {"event": "submission", "id": ID})
+        self.assertEqual(self.events[1], {"event": "submission", "id": ID})
 
     def test_started_time_rounds_down_to_the_second(self):
         self.elapsed = 0.75
@@ -357,7 +359,7 @@ class NotarizeReleaseTests(unittest.TestCase):
             self.result({"id": ID, "status": "In Progress"}))
         self.assert_failure("adopted-incomplete")
         self.assertEqual(self.elapsed, 1800)
-        self.assertEqual(self.events, [{"event": "submission", "id": ID}])
+        self.assertEqual(self.events, [{"event": "upload-started"}, {"event": "submission", "id": ID}])
 
     def test_summary_preserves_ids_before_partial_line_and_avoids_history_after_approval_failure(self):
         response = self.directory / "response.jsonl"
@@ -372,6 +374,37 @@ class NotarizeReleaseTests(unittest.TestCase):
             self.assertEqual(MODULE.summarize(response), 1)
         self.assertIn("credential delivery", error.getvalue())
         self.assertNotIn("history", error.getvalue())
+
+    def test_history_approval_failure_after_upload_keeps_history_guidance(self):
+        self.runner = self.make_runner(credential=True)
+        def response(action, arguments, options):
+            self.target_started = False  # The next helper request never reaches its target.
+            return self.result(error="NSURLErrorDomain Code=-1001", code=1)
+        self.response = response
+        self.assert_failure("approval")
+        self.assertEqual(self.actions(), ["submit", "history"])
+        self.assertEqual(self.events, [{"event": "upload-started"}])
+        response_file = self.directory / "response.jsonl"
+        records = [{"event": "started"}, *self.events, {"event": "failed", "reason": "approval"}]
+        response_file.write_text("\n".join(map(json.dumps, records)), encoding="utf-8")
+        error = io.StringIO()
+        with redirect_stderr(error):
+            self.assertEqual(MODULE.summarize(response_file), 1)
+        self.assertIn("after an upload started", error.getvalue())
+        self.assertIn("inspect notarytool history", error.getvalue())
+        self.assertNotIn("did not start", error.getvalue())
+
+    def test_helper_waiting_at_deadline_is_not_reported_as_approval_denial(self):
+        self.runner = self.make_runner(credential=True)
+        self.elapsed = 1750
+        self.target_started = False
+        def response(action, arguments, options):
+            self.elapsed += options["timeout"]
+            raise subprocess.TimeoutExpired(arguments, options["timeout"])
+        self.response = response
+        self.assert_failure("deadline")
+        self.assertEqual(self.elapsed, 1800)
+        self.assertEqual(self.events, [])
 
 
 if __name__ == "__main__":

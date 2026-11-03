@@ -22,14 +22,15 @@ FAILURES = {
     "request": "Notarytool failed; check authentication and credential delivery",
     "submission": "Notarization submission failed without a usable ID",
     "history": "Submission history is unavailable or invalid; do not resubmit automatically",
-    "ambiguous": "Multiple matching submissions found; inspect every ID before proceeding",
+    "ambiguous": "Ambiguous matching submission history; inspect every reported ID before proceeding",
     "attempts": "Submission retry limit reached without a usable ID",
     "status": "Notarization returned an invalid or unexpected status",
     "rejected": "Notarization was rejected",
 }
 REQUEST_STARTED = b"ASKKEY_NOTARY_REQUEST_STARTED\n"
 TARGET_SHELL = (
-    'set +x; set -eu; printf "%s\\n" ASKKEY_NOTARY_REQUEST_STARTED; '
+    'set +x; set -eu; [[ -f "$PRIVATE_KEY_FILE" && -r "$PRIVATE_KEY_FILE" ]] || exit 1; '
+    'printf "%s\\n" ASKKEY_NOTARY_REQUEST_STARTED; '
     'exec xcrun notarytool "$@" --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" '
     '--issuer "$ISSUER_ID" --output-format json'
 )
@@ -55,6 +56,7 @@ class Notarizer:
         self.deadline = clock() + 30 * 60
         self.delay = 5
         self.ids = []
+        self.upload_started = False
         self.adopted = False
         self.adopted_in_progress = False
 
@@ -75,13 +77,14 @@ class Notarizer:
         command = ["xcrun", "notarytool", action, *arguments, *self.auth, "--output-format", "json"]
         if self.credential:
             # Approval waiting and execution both consume the artifact's budget.
-            timeout = self.remaining()
             command = [
                 self.helper, "run", "--wait-for-approval", "--credential", self.credential,
                 "--operation-id", str(uuid.uuid4()), "--caller-name", "AskKey release",
                 "--caller-purpose", f"Notarize AskKey {self.version}", "--",
                 "/bin/bash", "-c", TARGET_SHELL, "bash", action, *arguments,
             ]
+        elif action == "submit":
+            self.mark_upload_started()
         try:
             result = self.run(
                 command,
@@ -96,8 +99,12 @@ class Notarizer:
         output = result.stdout
         if self.credential:
             if not output.startswith(REQUEST_STARTED):
+                if timed_out and self.clock() >= self.deadline:
+                    raise Failure("deadline")
                 raise Failure("approval")
             output = output[len(REQUEST_STARTED):]
+            if action == "submit":
+                self.mark_upload_started()
         stdout = output.decode("utf-8", errors="replace")
         stderr = result.stderr.decode("utf-8", errors="replace")
         transient = timed_out or bool(TRANSIENT.search(stdout + "\n" + stderr))
@@ -106,6 +113,11 @@ class Notarizer:
         except ValueError:
             data = None
         return data, transient, result.returncode == 0
+
+    def mark_upload_started(self):
+        if not self.upload_started:
+            self.upload_started = True
+            self.report({"event": "upload-started"})
 
     def remember(self, submission_id):
         if not isinstance(submission_id, str) or not UUID.fullmatch(submission_id):
@@ -205,7 +217,7 @@ class Notarizer:
 
 def summarize(path, completed=False, *, ids_only=False):
     ids = []
-    started = accepted = False
+    started = accepted = upload_started = False
     reason = "approval"
     try:
         with open(path, encoding="utf-8") as response:
@@ -215,6 +227,8 @@ def summarize(path, completed=False, *, ids_only=False):
                 if event == "started":
                     started = True
                     reason = "request"
+                elif event == "upload-started":
+                    upload_started = True
                 elif event == "submission" and UUID.fullmatch(result["id"]):
                     if result["id"] not in ids:
                         ids.append(result["id"])
@@ -234,11 +248,14 @@ def summarize(path, completed=False, *, ids_only=False):
         return 0
     if completed and started and accepted:
         return 0
-    print("Error: " + FAILURES[reason], file=sys.stderr)
+    message = FAILURES[reason]
+    if upload_started and reason == "approval":
+        message = "Ask Key approval or credential delivery failed after an upload started"
+    print("Error: " + message, file=sys.stderr)
     if ids:
         for submission_id in ids:
             print(f"Inspect with: xcrun notarytool log {submission_id} <authentication-options>", file=sys.stderr)
-    elif reason not in ("approval", "request"):
+    elif upload_started:
         print("No submission ID available; inspect notarytool history before submitting again.", file=sys.stderr)
     return 1
 

@@ -450,7 +450,7 @@ class PackageReleaseTests(unittest.TestCase):
                 calls = [json.loads(line) for line in trace.read_text().splitlines()]
                 self.assertEqual(sum(call[0] == "askkey" for call in calls), 1)
                 self.assertEqual(sum(call[:3] == ["xcrun", "notarytool", "submit"] for call in calls),
-                                 0 if failure == "approval-denied" else 1)
+                                 0 if failure in ("approval-denied", "delivery-missing") else 1)
                 self.assertFalse(any(call[:3] == ["xcrun", "notarytool", "info"] for call in calls))
                 self.assert_no_artifacts()
                 trace.unlink()
