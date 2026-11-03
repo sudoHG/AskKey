@@ -187,6 +187,19 @@ class NotarizeReleaseTests(unittest.TestCase):
         self.runner.notarize()
         self.assertEqual(self.actions(), ["submit", "history", "history", "history", "submit", "info"])
 
+    def test_subprocess_timeout_preserves_an_already_emitted_submission_id(self):
+        def response(action, arguments, options):
+            if action == "submit":
+                raise subprocess.TimeoutExpired(arguments, options["timeout"],
+                                                output=json.dumps({"id": ID}).encode(), stderr=KEY)
+            return self.success(action, arguments, options)
+
+        self.response = response
+        self.runner.notarize()
+        self.assertEqual(self.actions(), ["submit", "info"])
+        self.assertEqual(self.events, [{"event": "submission", "id": ID},
+                                       {"event": "accepted", "id": ID}])
+
     def test_missing_submission_stops_after_three_uploads(self):
         self.response = lambda action, args, opts: (
             self.result({"history": []}) if action == "history" else

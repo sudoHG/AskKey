@@ -68,6 +68,7 @@ class Notarizer:
 
     def request(self, action, *arguments):
         timeout = min(300 if action == "submit" else 120, self.remaining())
+        timed_out = False
         auth = self.auth.copy()
         reader = None
         writer = None
@@ -90,8 +91,9 @@ class Notarizer:
                 stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout,
                 pass_fds=() if reader is None else (reader,),
             )
-        except subprocess.TimeoutExpired:
-            return None, True, False
+        except subprocess.TimeoutExpired as error:
+            timed_out = True
+            result = subprocess.CompletedProcess([], 1, error.output or b"", error.stderr or b"")
         except OSError:
             raise Failure("request") from None
         finally:
@@ -101,7 +103,7 @@ class Notarizer:
         # Raw diagnostics stay in memory, including on decoding or parse failure.
         stdout = result.stdout.decode("utf-8", errors="replace")
         stderr = result.stderr.decode("utf-8", errors="replace")
-        transient = bool(TRANSIENT.search(stdout + "\n" + stderr))
+        transient = timed_out or bool(TRANSIENT.search(stdout + "\n" + stderr))
         try:
             data = json.loads(stdout)
         except ValueError:
