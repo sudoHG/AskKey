@@ -167,21 +167,22 @@ extension CredentialManagementView {
         CredentialEmptyPresentation.action(section: selectedSection, searchText: searchText)
     }
 
+    @ViewBuilder
     private var credentialList: some View {
         let credentials = filteredCredentials
-        return ScrollView {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let _ = allowanceRefresh
-                FrozenTimedAllowanceList(allowances: libraryPresentation.allowances, now: context.date) { id in
-                    _ = vault.revokeTimedAllowance(id: id)
-                    allowanceRefresh += 1
+        if credentials.isEmpty {
+            GeometryReader { viewport in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        timedAllowanceList()
+                        emptyState
+                    }
+                    .frame(minHeight: viewport.size.height)
                 }
             }
-            .padding(.horizontal, Theme.Spacing.xxl)
-            .padding(.bottom, Theme.Spacing.md)
-            if credentials.isEmpty {
-                emptyState
-            } else {
+        } else {
+            ScrollView {
+                timedAllowanceList(keepsEmptySpacing: true)
                 GroupedList {
                     ForEach(Array(credentials.enumerated()), id: \.element.id) { index, credential in
                         if index > 0 { GroupedListSeparator() }
@@ -190,6 +191,22 @@ extension CredentialManagementView {
                 }
                 .padding(.horizontal, Theme.Spacing.xxl)
                 .padding(.bottom, Theme.Spacing.xxl)
+            }
+        }
+    }
+
+    // Populated lists keep their original spacing even when no grants exist.
+    private func timedAllowanceList(keepsEmptySpacing: Bool = false) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let _ = allowanceRefresh
+            let allowances = libraryPresentation.allowances
+            if keepsEmptySpacing || !allowances.isEmpty {
+                FrozenTimedAllowanceList(allowances: allowances, now: context.date) { id in
+                    _ = vault.revokeTimedAllowance(id: id)
+                    allowanceRefresh += 1
+                }
+                .padding(.horizontal, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.md)
             }
         }
     }
