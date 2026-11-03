@@ -18,7 +18,6 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 ### Fixed
 
 - Clicking an agent write-failure notification brings Ask Key forward without opening Pending requests.
-- Lock, sleep and user-switch handling runs Vault and Keychain work off the main thread, keeping the interface responsive. With End Timed Allow on Lock enabled, timed authority is refused during queued session-ending events.
 
 ### Security
 
