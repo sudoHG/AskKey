@@ -2,11 +2,34 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
-## [Unreleased]
+## [0.5.0] - 2026-11-03
+
+### Added
+
+- Read cards for grouped credentials offer one timed allowance for the eligible credentials listed in Details. Later additions to the group are excluded, and an earlier member expiry limits the whole allowance.
+- The library lists active timed allowances at the top, with remaining time and revocation actions, even when a search or group filter hides their credentials. A group grant appears once with all covered credentials.
+- **End Timed Allow on Lock** in Settings is off by default. Turning it on or off requires system authentication.
+
+### Changed
+
+- Clicking a pending-request reminder while management is locked opens the approval prompt directly, keeping management locked on its remembered page. With no pending requests, the click only brings the window forward. This replaces the 0.4.0 behavior of opening Pending requests after management unlocks.
+- A credential covered by a group allowance shows **Revoke Group Allowance**; revoking from any member ends the whole grant.
+
+### Fixed
+
+- Clicking an agent write-failure notification brings Ask Key forward without opening Pending requests.
+- Lock, sleep and user-switch handling runs Vault and Keychain work off the main thread, keeping the interface responsive. With End Timed Allow on Lock enabled, timed authority is refused during queued session-ending events.
+
+### Security
+
+- Once this process adopts **End Timed Allow on Lock** as enabled, screen lock, sleep and user switch end single and group timed allowances, cancel unconsumed timed approvals and invalidate prepared timed runtime authorizations. A prepared run containing a timed credential is cancelled as a whole. New timed grants are refused while locked, asleep or switched out, including an unknown screen state. Turning the setting off does not revive revoked authority.
+- A remote opt-in not yet adopted is checked at the next ending event through a Keychain policy read, which can fail, or at the next agent request. Allow credentials, once-only approvals, pending requests and management sessions keep their existing behavior, except for prepared runs that also contain a timed credential. Already delivered material cannot be retracted.
+- A group allowance covers the approved snapshot of visible, unexpired credentials outside the Recycle Bin, bound by credential ID and component metadata, for the whole local macOS user. Its shared deadline is capped by the configured duration and earliest member expiry. A member's metadata, permission or group change removes that member; explicit revocation, expiry, revoke-all and pause end the whole grant. Writes still need separate approval. See [SECURITY.md](SECURITY.md) for the full boundaries, including sleep and cross-process limitations.
 
 ### Upgrade notes
 
-- After enabling the option to end timed allowances on screen lock or sleep, downgrading to an older build makes Agent access settings fail verification and requires authenticated recovery in that build.
+- Upgrading from 0.4.0 does not migrate the library. Credentials, permissions and valid Agent access settings are kept without a Resume step; **End Timed Allow on Lock** starts off.
+- Downgrading to 0.4.0 with the setting off changes nothing. With it on, 0.4.0 cannot verify the saved Agent access settings and pauses Agent access. Its authenticated **Resume Agent Access** restores all Agent access settings to defaults. Upgrading again before Resume preserves the saved settings. Turn the setting off before downgrading.
 
 ## [0.4.0] - 2026-10-28
 

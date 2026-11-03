@@ -93,7 +93,9 @@ Each credential has one permission:
 | Ask every time (default) | Every use waits for your approval. |
 | Hidden | Not in the agent catalog; agents cannot request it. |
 
-When you approve a read, you choose **Once** or a **Timed allowance**: a number of minutes during which that credential can be read without asking again, until it ends or you revoke it. Pending requests expire after five minutes.
+When you approve a read, you choose **Allow Once** or a timed allowance: a number of minutes during which that credential can be read without asking again, until it ends or you revoke it. For a grouped credential, you can also allow the eligible credentials listed in **Details** together. Later additions are excluded, and the whole allowance ends at the earliest member expiry if that is sooner. Active allowances appear at the top of the library with remaining time and revocation actions; **Revoke Group Allowance** ends the whole grant. Pending requests expire after five minutes.
+
+In **Settings**, **End Timed Allow on Lock** is off by default and requires system authentication to turn on or off. Once enabled in this process, screen lock, sleep or user switch ends single and group timed allowances and unconsumed timed approvals, and cancels prepared runs containing a timed credential. New timed grants are refused while locked, asleep or switched out, including when the screen state is unknown. See [SECURITY.md](SECURITY.md) for the adoption and sleep limitations.
 
 Agents can also write: create, modify or delete a credential, set its usage instructions and group, or move credentials and create, rename or delete groups in one batch. Every write needs your approval for that operation (a batch is approved once), the approval is tied to the exact content you were shown, and it cannot be reused for another change. Permanent deletion stays in the app.
 
@@ -131,17 +133,17 @@ What Ask Key does not guarantee:
 - An approved target can print, copy or forward what it receives.
 - Caller names and purposes are declared by the agent. They help you read a request; they are not verified identity.
 - Another process running as the same macOS user may be able to read material after an approved delivery. Hidden keeps a credential out of the agent catalog but does not defend against that.
-- A timed allowance covers the credential for the whole local user, not one agent client.
+- A timed allowance covers one credential or the explicitly approved group snapshot for the whole local user, not one agent client. Later group additions are excluded; writes still need separate approval.
 
 ## Upgrade
 
-Before updating to 0.4.0, quit Ask Key and back up the library folder at `~/Library/Application Support/AskKey`. Download and verify the new DMG as described in [Install](#install), replace `/Applications/Ask Key.app` with the app from the new DMG, then open Ask Key from Applications.
+Before updating to 0.5.0, quit Ask Key. Download and verify the new DMG as described in [Install](#install), replace `/Applications/Ask Key.app` with the app from the new DMG, then open Ask Key from Applications.
 
-On first launch, 0.4.0 migrates the library once, including Hidden credentials and those in the Recycle Bin. Your credentials and their permissions are kept; valid 0.3.2 Agent access settings are preserved without a Resume step. **A migrated library cannot be opened by 0.3.2, and there is no reverse migration.** Ask Key has no built-in backup or recovery; keep the originals of your credentials elsewhere as well.
+Upgrading from 0.4.0 does not migrate the library or require a library backup for this upgrade. Credentials, permissions and valid Agent access settings are kept without a Resume step. **End Timed Allow on Lock** starts off. Ask Key has no built-in backup or recovery; keep the originals of your credentials elsewhere as well.
 
-If a credential cannot be migrated, management stays available and names it after unlock. Fix it in the editor or permanently delete it from the Recycle Bin, then reopen Ask Key. Agent access stays off until the migration completes.
+Downgrading to 0.4.0 with the setting off changes nothing. **Turn it off before downgrading.** With it on, 0.4.0 cannot verify the saved Agent access settings and pauses Agent access; choosing **Resume Agent Access** there and authenticating restores all Agent access settings to defaults. Upgrading again before Resume preserves the saved settings.
 
-MCP clients must now pass an absolute `cwd` to `run`, including when resuming an approval. CLI `run` continues to use the terminal's current directory.
+For upgrades from 0.3.2 or earlier, also read the migration and compatibility notes for the intervening versions in [CHANGELOG.md](CHANGELOG.md#040---2026-10-28).
 
 Watch [GitHub Releases](https://github.com/sudoHG/AskKey/releases) for new versions; there is no automatic update.
 
