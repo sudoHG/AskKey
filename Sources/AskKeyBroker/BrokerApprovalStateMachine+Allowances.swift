@@ -6,13 +6,14 @@ extension BrokerApprovalStateMachine {
     /// sleeping: true enters sleep, false reports didWake, nil leaves it unchanged.
     @discardableResult
     package func updateTimedAllowanceSession(active: Bool, endOnLock: Bool, suspended: Bool = false,
-                                           sleeping: Bool? = nil) -> Bool {
+                                           sleeping: Bool? = nil, sleepOffsetUpperBound: UInt64? = nil) -> Bool {
         let revoked: ([String], @Sendable (String) -> Void)? = mutate {
+            timedAllowanceSessionRevision = UUID()
             timedAllowanceSessionActive = active
             timedAllowanceSessionSuspended = suspended
             if let sleeping {
                 timedAllowanceSessionSleeping = sleeping
-                timedAllowanceSleepOffsetAtSleep = sleeping ? timedAllowanceSleepOffset().upper : nil
+                timedAllowanceSleepOffsetAtSleep = sleeping ? (sleepOffsetUpperBound ?? timedAllowanceSleepOffset().upper) : nil
             } else {
                 clearTimedAllowanceSleepIfProvenLocked(unlocked: active)
             }

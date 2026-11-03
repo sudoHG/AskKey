@@ -26,11 +26,11 @@ final class TimedAllowanceSessionObserverTests: XCTestCase {
                 for ticket in [once, write] {
                     _ = try approvals.decide(requestID: ticket.requestID, capability: ticket.capability, decision: .once)
                 }
-                let screen = NotificationCenter()
-                let workspace = NotificationCenter()
+                let screen = TimedAllowanceTestNotificationCenter()
+                let workspace = TimedAllowanceTestNotificationCenter()
                 let vault = library.vault
-                let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+                let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
                 withExtendedLifetime(observer) {
                     (event == NSWorkspace.willSleepNotification ? workspace : screen).post(name: event, object: nil)
                 }
@@ -51,11 +51,13 @@ final class TimedAllowanceSessionObserverTests: XCTestCase {
     func testEachEventReadsTheCurrentSettingAndUnlockOrWakeDoesNotRevoke() throws {
         let library = try AgentAccessPolicyTestLibrary()
         defer { try? library.close() }
-        let screen = NotificationCenter()
-        let workspace = NotificationCenter()
+        let screen = TimedAllowanceTestNotificationCenter()
+        let workspace = TimedAllowanceTestNotificationCenter()
         let vault = library.vault
-        let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+            screenState: { .unlocked },
+            beginEndingEvent: { vault.approvalRequests.beginTimedAllowanceSessionEvent(sleeping: $0) },
+            updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         let approvals = vault.approvalRequests
         approvals.configureAuthentication { _ in true }

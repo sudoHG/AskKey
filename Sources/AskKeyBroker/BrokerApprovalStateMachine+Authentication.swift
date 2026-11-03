@@ -7,12 +7,18 @@ extension BrokerApprovalStateMachine {
         timedAllowanceDuration: TimeInterval,
         endTimedAllowancesOnLock: Bool = false
     ) {
-        let revoked: ([String], @Sendable (String) -> Void)? = mutate {
+        let revoked: ([String], @Sendable (String) -> Void)? = mutate(endOnLock: endTimedAllowancesOnLock) {
+            let duration = Self.validDuration(timedAllowanceDuration) ? timedAllowanceDuration : 30 * 60
+            if self.endTimedAllowancesOnLock != endTimedAllowancesOnLock {
+                timedAllowanceSessionRevision = UUID()
+            }
             self.readAuthenticationEnabled = readAuthenticationEnabled
             self.timedAllowanceEnabled = timedAllowanceEnabled
             self.endTimedAllowancesOnLock = endTimedAllowancesOnLock
-            defaultTimedAllowance = Self.validDuration(timedAllowanceDuration) ? timedAllowanceDuration : 30 * 60
-            if endTimedAllowancesOnLock && !timedAllowanceSessionPermitsGrantLocked() {
+            defaultTimedAllowance = duration
+            if endTimedAllowancesOnLock,
+               !timedAllowanceScreenSampleFailed || timedAllowanceSessionFence.snapshot.pending,
+               !timedAllowanceSessionPermitsGrantLocked() {
                 timedAllowanceSessionGeneration = UUID()
                 return revokeAllTimedAllowancesLocked()
             }

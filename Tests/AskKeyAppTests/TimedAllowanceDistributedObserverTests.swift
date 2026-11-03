@@ -11,8 +11,8 @@ final class TimedAllowanceDistributedObserverTests: XCTestCase {
         let vault = library.vault
         try vault.updateEndTimedAllowancesOnLock(true, using: .allow)
         let center = RecordingDistributedCenter()
-        let observer = TimedAllowanceSessionObserver(screenNotifications: center, workspaceNotifications: .init(),
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: center, workspaceNotifications: .init(),
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         XCTAssertEqual(Set(center.registrations.map(\.name)),
             Set([Notification.Name("com.apple.screenIsLocked"), .init("com.apple.screenIsUnlocked")]))
@@ -23,9 +23,11 @@ final class TimedAllowanceDistributedObserverTests: XCTestCase {
         _ = try vault.decideAgentApproval(requestID: first.requestID, capability: first.capability, decision: .timedAllow(duration: 120))
         XCTAssertNotNil(approvals.timedAllowanceDeadline(credentialID: "timed"))
         center.deliver(.init("com.apple.screenIsLocked"))
+        timedAllowanceSessionTestQueue.sync {}
         XCTAssertNil(approvals.timedAllowanceDeadline(credentialID: "timed"))
         XCTAssertEqual(try approvals.status(requestID: first.requestID, capability: first.capability), .cancelled)
         center.deliver(.init("com.apple.screenIsUnlocked"))
+        timedAllowanceSessionTestQueue.sync {}
         let fresh = try submit(approvals)
         XCTAssertEqual(try vault.decideAgentApproval(requestID: fresh.requestID, capability: fresh.capability,
             decision: .timedAllow(duration: 120)).state, .approved)

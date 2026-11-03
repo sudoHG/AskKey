@@ -54,6 +54,10 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
         BrokerApprovalStateMachine.currentTimedAllowanceSleepOffset()
     }
     var timedAllowanceScreenUnlocked: (@Sendable () -> Bool)?
+    var timedAllowanceScreenSample: Bool?
+    var timedAllowanceScreenSampleFailed = false
+    let timedAllowanceSessionFence = TimedAllowanceSessionFence()
+    var timedAllowanceSessionRevision = UUID()
     var timedAllowanceSessionGeneration = UUID()
     var entriesByOperationID: [String: Entry] = [:]
     var operationOrder: [String] = []

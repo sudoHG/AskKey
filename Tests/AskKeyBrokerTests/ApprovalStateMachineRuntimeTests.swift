@@ -2,7 +2,7 @@ import XCTest
 @testable import AskKeyBroker
 
 final class ApprovalStateMachineRuntimeTests: ApprovalStateMachineTestCase {
-    func testSettingOnRuntimeBackstopRunsReentrantCleanupAfterUnlocking() throws {
+    func testSettingOnRuntimeRefusesImmediatelyAndDefersReentrantCleanupUntilMutation() throws {
         for spawn in [false, true] {
             let screen = NotificationRecorder()
             let machine = configuredMachine(authenticate: { _ in true })
@@ -16,13 +16,19 @@ final class ApprovalStateMachineRuntimeTests: ApprovalStateMachineTestCase {
                 .init(requestID: ticket.requestID, capability: ticket.capability, operationRequest: operation)
             ]))
             defer { lease.finish() }
+            let cleanups = NotificationRecorder()
+            let callbacks = NotificationRecorder()
+            machine.setTimedAllowanceRevokedHandler { _ in callbacks.record(count: 1) }
+            machine.configureOperationStateChanged { _, _, _ in callbacks.record(count: 2) }
             let cleaned = expectation(description: "screen backstop cleanup can reenter the Broker")
             try lease.registerCleanup {
                 _ = machine.pendingRequests()
+                cleanups.record(count: 1)
                 cleaned.fulfill()
             }
+            let revision = machine.stateRevision
             screen.record(count: 1) // No observer or other Broker mutation.
-            let finished = expectation(description: "runtime check returns after cleanup")
+            let finished = expectation(description: "runtime check refuses without cleanup or callbacks")
             DispatchQueue.global().async {
                 do {
                     if spawn {
@@ -36,7 +42,17 @@ final class ApprovalStateMachineRuntimeTests: ApprovalStateMachineTestCase {
                 }
                 finished.fulfill()
             }
-            wait(for: [cleaned, finished], timeout: 2)
+            wait(for: [finished], timeout: 2)
+            XCTAssertEqual(machine.stateRevision, revision)
+            XCTAssertTrue(cleanups.counts.isEmpty)
+            XCTAssertTrue(callbacks.counts.isEmpty)
+            XCTAssertFalse(machine.timedAllowances.isEmpty)
+            _ = machine.pendingRequests()
+            wait(for: [cleaned], timeout: 2)
+            XCTAssertEqual(cleanups.counts, [1])
+            XCTAssertFalse(callbacks.counts.isEmpty)
+            machine.configureTimedAllowanceScreenState { true }
+            XCTAssertThrowsError(try lease.validate(), "Later unlocked samples must not revive revoked authority")
         }
     }
 

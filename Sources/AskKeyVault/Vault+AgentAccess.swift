@@ -256,18 +256,20 @@ extension Vault {
     }
 
     package func updateTimedAllowanceSession(active: Bool, ending: Bool = true, suspended: Bool = false,
-                                            sleeping: Bool? = nil) {
+                                            sleeping: Bool? = nil, sleepOffsetUpperBound: UInt64? = nil) {
         // Callers reporting sleeping: true must also pass ending: true so a
         // remote opt-in reaches the Keychain fallback when both local flags are off.
         if active && sleeping != true {
-            approvalRequests.updateTimedAllowanceSession(active: true, endOnLock: false, suspended: suspended, sleeping: sleeping)
+            approvalRequests.updateTimedAllowanceSession(active: true, endOnLock: false, suspended: suspended,
+                sleeping: sleeping, sleepOffsetUpperBound: sleepOffsetUpperBound)
             return
         }
         // Revoke immediately from either local flag, without Keychain work.
         // A failed read cannot undo a previously verified opt-in.
         let memory = try? savedAgentAccessPolicyState().policy
         if approvalRequests.updateTimedAllowanceSession(active: active,
-            endOnLock: memory?.endTimedAllowancesOnLock == true, suspended: suspended, sleeping: sleeping) {
+            endOnLock: memory?.endTimedAllowancesOnLock == true, suspended: suspended,
+            sleeping: sleeping, sleepOffsetUpperBound: sleepOffsetUpperBound) {
             return
         }
         guard ending else { return }
@@ -277,7 +279,8 @@ extension Vault {
         // the session generation. This preserves pre-adoption remote opt-in.
         let persisted = try? loadAgentAccessPolicy(key: requireKey(), keyStore: policyKeyStore(), created: false).policy
         if persisted?.endTimedAllowancesOnLock == true {
-            approvalRequests.updateTimedAllowanceSession(active: active, endOnLock: true, suspended: suspended, sleeping: sleeping)
+            approvalRequests.updateTimedAllowanceSession(active: active, endOnLock: true, suspended: suspended,
+                sleeping: sleeping, sleepOffsetUpperBound: sleepOffsetUpperBound)
         }
     }
 

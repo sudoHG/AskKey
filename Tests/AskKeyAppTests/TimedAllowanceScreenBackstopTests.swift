@@ -115,6 +115,8 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         // No notification, status query, submission or other Broker mutation
         // can revoke this lease before the actual final-spawn check.
         XCTAssertThrowsError(try lease.performAuthorizedSpawn(afterAuthorization: {}, spawn: { XCTFail("Must not spawn") }))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path), "Refusal inside the spawn gate must not perform cleanup")
+        _ = approvals.pendingRequests() // The next ordinary mutation performs global revocation and cleanup.
         XCTAssertFalse(FileManager.default.fileExists(atPath: path))
         probe.set(.unlocked)
         XCTAssertThrowsError(try lease.performAuthorizedSpawn(afterAuthorization: {}, spawn: { XCTFail("Revoked authority cannot revive") }))
@@ -128,8 +130,8 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         let probe = ScreenProbe(.unknown)
         let approvals = vault.approvalRequests
         approvals.configureTimedAllowanceScreenState { probe.unlocked() }
-        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: .init(),
-            screenState: { probe.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: .init(),
+            screenState: { probe.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         approvals.configureAuthentication { _ in true }
         probe.set(.unlocked)
@@ -148,9 +150,9 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         approvals.configureTimedAllowanceSleepOffset { offset.current }
         approvals.configureTimedAllowanceScreenState { true }
         approvals.configureAuthentication { _ in true }
-        let workspace = NotificationCenter()
-        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        let workspace = TimedAllowanceTestNotificationCenter()
+        let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         let previous = try submit(approvals, credential: "timed")
         _ = try vault.decideAgentApproval(requestID: previous.requestID, capability: previous.capability,
@@ -185,9 +187,9 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         approvals.configureTimedAllowanceSleepOffset { offset.current }
         approvals.configureTimedAllowanceScreenState { screen.unlocked() }
         approvals.configureAuthentication { _ in true }
-        let workspace = NotificationCenter()
-        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
-            screenState: { screen.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        let workspace = TimedAllowanceTestNotificationCenter()
+        let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { screen.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
         let pending = try submit(approvals, credential: "sleep-window")
@@ -219,10 +221,10 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
                 approvals.configureTimedAllowanceSleepOffset { offset.current }
                 if liveProvider { approvals.configureTimedAllowanceScreenState { true } }
                 approvals.configureAuthentication { _ in true }
-                let screen = NotificationCenter()
-                let workspace = NotificationCenter()
-                let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+                let screen = TimedAllowanceTestNotificationCenter()
+                let workspace = TimedAllowanceTestNotificationCenter()
+                let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
                 defer { withExtendedLifetime(observer) {} }
                 let previous = try submit(approvals, credential: "timed")
                 _ = try vault.decideAgentApproval(requestID: previous.requestID, capability: previous.capability,
@@ -263,10 +265,10 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
                 approvals.configureTimedAllowanceSleepOffset { offset.current }
                 if liveProvider { approvals.configureTimedAllowanceScreenState { state.unlocked() } }
                 approvals.configureAuthentication { _ in true }
-                let screen = NotificationCenter()
-                let workspace = NotificationCenter()
-                let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-                    screenState: { state.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+                let screen = TimedAllowanceTestNotificationCenter()
+                let workspace = TimedAllowanceTestNotificationCenter()
+                let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+                    screenState: { state.current }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
                 defer { withExtendedLifetime(observer) {} }
                 workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
                 offset.set(lower: 101, upper: 101) // Actual sleep, with no didWake.
@@ -301,9 +303,9 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         let approvals = vault.approvalRequests
         approvals.configureTimedAllowanceScreenState { true }
         approvals.configureAuthentication { _ in true }
-        let workspace = NotificationCenter()
-        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        let workspace = TimedAllowanceTestNotificationCenter()
+        let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         workspace.post(name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
         let pending = try submit(approvals, credential: "inactive-session")
@@ -323,9 +325,9 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         approvals.configureTimedAllowanceScreenState { probe.unlocked() }
         approvals.configureTimedAllowanceSleepOffset { (100, 100) }
         approvals.configureAuthentication { _ in true }
-        let workspace = NotificationCenter()
-        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        let workspace = TimedAllowanceTestNotificationCenter()
+        let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         let ticket = try submit(approvals, credential: "timed")
         _ = try vault.decideAgentApproval(requestID: ticket.requestID, capability: ticket.capability,
@@ -352,10 +354,10 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
                 approvals.configureTimedAllowanceSleepOffset { offset.current }
                 if liveProvider { approvals.configureTimedAllowanceScreenState { true } }
                 approvals.configureAuthentication { _ in true }
-                let screen = NotificationCenter()
-                let workspace = NotificationCenter()
-                let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+                let screen = TimedAllowanceTestNotificationCenter()
+                let workspace = TimedAllowanceTestNotificationCenter()
+                let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+                    screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
                 defer { withExtendedLifetime(observer) {} }
                 let previous = try submit(approvals, credential: "previous")
                 _ = try vault.decideAgentApproval(requestID: previous.requestID, capability: previous.capability,
@@ -402,10 +404,10 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
             approvals.configureTimedAllowanceSleepOffset { (100, 100) }
             if liveProvider { approvals.configureTimedAllowanceScreenState { true } }
             approvals.configureAuthentication { _ in true }
-            let screen = NotificationCenter()
-            let workspace = NotificationCenter()
-            let observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
-                screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+            let screen = TimedAllowanceTestNotificationCenter()
+            let workspace = TimedAllowanceTestNotificationCenter()
+            let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+                screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
             defer { withExtendedLifetime(observer) {} }
             workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
             screen.post(name: .init("com.apple.screenIsLocked"), object: nil)
@@ -432,9 +434,9 @@ final class TimedAllowanceScreenBackstopTests: XCTestCase {
         approvals.configureTimedAllowanceScreenState { true }
         approvals.configureTimedAllowanceSleepOffset { (100, 100) }
         approvals.configureAuthentication { _ in true }
-        let workspace = NotificationCenter()
-        let observer = TimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
-            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+        let workspace = TimedAllowanceTestNotificationCenter()
+        let observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: .init(), workspaceNotifications: workspace,
+            screenState: { .unlocked }, updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         defer { withExtendedLifetime(observer) {} }
         workspace.post(name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
         workspace.post(name: NSWorkspace.willSleepNotification, object: nil)

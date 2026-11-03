@@ -3,19 +3,27 @@ import Foundation
 extension BrokerApprovalStateMachine {
     func withRuntimeAuthorization<T>(id: UUID, _ body: () throws -> T) throws -> T {
         lock.lock()
-        if endTimedAllowancesOnLock {
+        if endTimedAllowancesOnLock, let authorization = runtimeAuthorizations[id],
+           !authorization.timedCredentialIDs.isEmpty {
             lock.unlock()
-            return try mutate {
-                try runtimeAuthorizationLocked(id: id, body)
-            }
+            lockWithTimedAllowanceScreenSample(screenProvider: nil, endOnLock: nil)
         }
-        defer { lock.unlock() }
+        defer {
+            clearTimedAllowanceScreenSampleLocked()
+            lock.unlock()
+        }
+        // The caller may hold the Vault spawn gate and delivery lease lock.
+        // Refusal here must not publish observers, revoke or run any cleanup.
         return try runtimeAuthorizationLocked(id: id, body)
     }
 
     private func runtimeAuthorizationLocked<T>(id: UUID, _ body: () throws -> T) throws -> T {
         guard let authorization = runtimeAuthorizations[id], authorization.valid,
               !paused, clock() < authorization.expiresAt else {
+            throw BrokerProviderError.requestRejected
+        }
+        if endTimedAllowancesOnLock, !authorization.timedCredentialIDs.isEmpty,
+           !timedAllowanceSessionPermitsGrantLocked() {
             throw BrokerProviderError.requestRejected
         }
         // No observer, file IO, or acquisition of the Vault gate while locked.

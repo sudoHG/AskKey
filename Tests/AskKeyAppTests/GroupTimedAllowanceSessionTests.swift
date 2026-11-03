@@ -95,8 +95,10 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
             try fixture.fire(event)
 
             XCTAssertThrowsError(try lease.performAuthorizedSpawn { XCTFail("A revoked pending sibling must not launch") })
-            wait(for: [cleaned], timeout: 1)
+            // A missed event refuses spawn immediately; the next ordinary
+            // mutation performs cleanup after leaving the spawn gate.
             XCTAssertEqual(try fixture.approvals.status(requestID: ticket.requestID, capability: ticket.capability), .cancelled)
+            wait(for: [cleaned], timeout: 1)
             XCTAssertThrowsError(try fixture.approvals.consumeApproved(requestID: ticket.requestID, capability: ticket.capability,
                 operationRequest: read, perform: { XCTFail("A revoked pending sibling must not deliver") }))
             XCTAssertTrue(fixture.approvals.activeTimedAllowances().isEmpty)
@@ -255,13 +257,13 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
         let screen: NotificationCenter
         let workspace: NotificationCenter
         let probe: Probe
-        let observer: TimedAllowanceSessionObserver
+        let observer: SynchronousTimedAllowanceSessionObserver
 
         init(enabled: Bool) throws {
             let library = try AgentAccessPolicyTestLibrary()
             self.library = library
-            let screen = NotificationCenter()
-            let workspace = NotificationCenter()
+            let screen = TimedAllowanceTestNotificationCenter()
+            let workspace = TimedAllowanceTestNotificationCenter()
             let probe = Probe()
             self.screen = screen
             self.workspace = workspace
@@ -277,9 +279,9 @@ final class GroupTimedAllowanceSessionTests: XCTestCase {
             vault.approvalRequests.configureAuthentication { _ in true }
             vault.approvalRequests.configureTimedAllowanceScreenState { probe.unlocked }
             vault.approvalRequests.configureTimedAllowanceSleepOffset { (100, 100) }
-            observer = TimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
+            observer = SynchronousTimedAllowanceSessionObserver(screenNotifications: screen, workspaceNotifications: workspace,
                 screenState: { probe.unlocked ? .unlocked : .locked },
-                updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3) })
+                updateSession: { vault.updateTimedAllowanceSession(active: $0, ending: $1, suspended: $2, sleeping: $3, sleepOffsetUpperBound: $4) })
         }
 
         func pendingGroup() throws -> BrokerApprovalTicket {

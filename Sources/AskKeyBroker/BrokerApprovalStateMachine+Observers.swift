@@ -32,8 +32,9 @@ extension BrokerApprovalStateMachine {
         observerQueue.sync {}
     }
 
-    func mutate<T>(_ body: () throws -> T) rethrows -> T {
-        lock.lock()
+    func mutate<T>(screenProvider: (@Sendable () -> Bool)? = nil, endOnLock: Bool? = nil,
+                   _ body: () throws -> T) rethrows -> T {
+        lockWithTimedAllowanceScreenSample(screenProvider: screenProvider, endOnLock: endOnLock)
         let schedulingNow = clock()
         let previousEntries = entriesByOperationID.mapValues { ($0.state, $0.request) }
         let screenRevocation = revokeForScreenBackstopLocked()
@@ -44,6 +45,7 @@ extension BrokerApprovalStateMachine {
             let terminalTransitions = terminalTransitionsLocked(from: previousEntries)
             let cleanups = runtimeInvalidationCleanupsLocked(now: schedulingNow)
             rescheduleExpirationLocked(now: schedulingNow)
+            clearTimedAllowanceScreenSampleLocked()
             lock.unlock()
             cleanups.forEach { $0() }
             if let screenRevocation { screenRevocation.0.forEach(screenRevocation.1) }
@@ -56,6 +58,7 @@ extension BrokerApprovalStateMachine {
             let terminalTransitions = terminalTransitionsLocked(from: previousEntries)
             let cleanups = runtimeInvalidationCleanupsLocked(now: schedulingNow)
             rescheduleExpirationLocked(now: schedulingNow)
+            clearTimedAllowanceScreenSampleLocked()
             lock.unlock()
             cleanups.forEach { $0() }
             if let screenRevocation { screenRevocation.0.forEach(screenRevocation.1) }
