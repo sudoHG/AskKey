@@ -72,64 +72,39 @@ fi
 
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/askkey-package-release.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+report_notary_ids() {
+  if [[ -f "$WORK_DIR/notary-result.json" ]]; then
+    python3 "$ROOT_DIR/scripts/notarize-release.py" --report-ids "$WORK_DIR/notary-result.json" >&2 || true
+  fi
+}
+trap 'report_notary_ids; exit 130' INT
+trap 'report_notary_ids; exit 143' TERM
 STAGING="$WORK_DIR/contents"
 mkdir "$STAGING"
 STAGED_APP="$STAGING/Ask Key.app"
 ditto "$APP" "$STAGED_APP" || fail "Cannot stage the app"
 
 notarize() {
-  local artifact="$1" response="$WORK_DIR/notary-result.json" fields submitted=true
+  local artifact="$1" response="$WORK_DIR/notary-result.json" completed=true
+  local runner="$ROOT_DIR/scripts/notarize-release.py"
   # Tool diagnostics can contain signing or credential values; never echo them.
   if [[ -n "$NOTARY_CREDENTIAL" ]]; then
-    local operation_id
-    operation_id="$(uuidgen)"
-    # PRIVATE_KEY_FILE, KEY_ID, and ISSUER_ID are Ask Key delivery mappings.
-    # Expand them only inside the helper's target shell; never print their values.
-    "$ASKKEY_RELEASE_HELPER" run --wait-for-approval --credential "$NOTARY_CREDENTIAL" \
-      --operation-id "$operation_id" --caller-name "AskKey release" \
-      --caller-purpose "Notarize AskKey $VERSION" -- \
-      /bin/bash -c 'xcrun notarytool submit "$1" --key "$PRIVATE_KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER_ID" --wait --output-format json' \
-      bash "$artifact" >"$response" 2>/dev/null || submitted=false
+    # The runner never receives credential values; each request gets a fresh
+    # delivery, expanded only inside that helper run's target shell.
+    python3 "$runner" "$artifact" --credential "$NOTARY_CREDENTIAL" \
+      --helper "$ASKKEY_RELEASE_HELPER" --version "$VERSION" \
+      >"$response" 2>/dev/null || completed=false
   else
-    xcrun notarytool submit "$artifact" --keychain-profile "$ASKKEY_NOTARY_PROFILE" \
-      --wait --output-format json >"$response" 2>/dev/null || submitted=false
+    python3 "$runner" "$artifact" --keychain-profile "$ASKKEY_NOTARY_PROFILE" \
+      >"$response" 2>/dev/null || completed=false
   fi
-  fields="$(python3 - "$response" <<'PY'
-import json
-import re
-import sys
-
-try:
-    with open(sys.argv[1], encoding="utf-8") as response:
-        result = json.load(response)
-    status, submission_id = result["status"], result["id"]
-    if not isinstance(status, str) or not status or "\n" in status or "\r" in status:
-        raise ValueError()
-    if not isinstance(submission_id, str) or not re.fullmatch(
-        r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", submission_id
-    ):
-        raise ValueError()
-    print(status)
-    print(submission_id)
-except (OSError, ValueError, KeyError, TypeError):
-    sys.exit(1)
-PY
-)" || fail "Notarization failed or returned an invalid JSON result"
-  local status="${fields%%$'\n'*}" submission_id="${fields#*$'\n'}"
-  if [[ "$submitted" != true || "$status" != Accepted ]]; then
-    printf 'Notarization was not accepted. Inspect the submission with:\n' >&2
-    if [[ -n "$NOTARY_CREDENTIAL" ]]; then
-      printf 'xcrun notarytool log %s --key ... --key-id ... --issuer ...\n' "$submission_id" >&2
-    else
-      printf 'xcrun notarytool log %s --keychain-profile ...\n' "$submission_id" >&2
-    fi
-    fail "Notarization must report Accepted"
-  fi
+  python3 "$runner" --summarize "$response" "$completed" || return 1
 }
 
 if [[ "$NOTARIZE" == true ]]; then
+  if [[ -n "$NOTARY_CREDENTIAL" ]]; then
+    printf 'Approve the first Ask Key card with a timed allowance (Allow for N Minutes); later requests may ask again if needed.\n'
+  fi
   APP_ZIP="$WORK_DIR/AskKey.zip"
   ditto -c -k --keepParent "$STAGED_APP" "$APP_ZIP" || fail "Cannot archive the app"
   notarize "$APP_ZIP"
