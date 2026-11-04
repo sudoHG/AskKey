@@ -34,13 +34,25 @@ if [ "$MODE" = Release ]; then
   BUNDLE_ID="com.sudohg.askkey.app"
 fi
 # Explicit on-machine testing uses the real local vault namespace, signed by
-# the owner's Developer ID. It does not enable software updates.
+# the owner's Developer ID. It does not enable software updates: only Release
+# writes Sparkle keys (ADR 0011).
 if [ "$MODE" = Local ]; then
   : "${ASKKEY_CODESIGN_IDENTITY:?Local testing requires the owner signing identity}"
   : "${ASKKEY_APPLE_TEAM_ID:?Local testing requires the owner Apple Team}"
   [ "$ASKKEY_CODESIGN_IDENTITY" != - ] || exit 1
   SIGN_IDENTITY="$ASKKEY_CODESIGN_IDENTITY"
   BUNDLE_ID="com.sudohg.askkey.app"
+fi
+# Release builds ship the updater, which needs the committed EdDSA public key.
+# Without it they fail closed, so no release ships an updater without a key.
+SPARKLE_FEED_URL="https://askkey.sudohg.com/appcast.xml"
+SPARKLE_PUBLIC_KEY_FILE="scripts/sparkle-public-key.txt"
+if [ "$MODE" = Release ]; then
+  [ -f "$SPARKLE_PUBLIC_KEY_FILE" ] || { echo "Release builds require $SPARKLE_PUBLIC_KEY_FILE." >&2; exit 1; }
+  SPARKLE_PUBLIC_KEY="$(tr -d '[:space:]' < "$SPARKLE_PUBLIC_KEY_FILE")"
+  [[ "$SPARKLE_PUBLIC_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] \
+    && [ "$(printf '%s' "$SPARKLE_PUBLIC_KEY" | base64 -D 2>/dev/null | wc -c | tr -d ' ')" = 32 ] \
+    || { echo "$SPARKLE_PUBLIC_KEY_FILE must hold one base64-encoded 32-byte EdDSA public key." >&2; exit 1; }
 fi
 AVAILABLE_KIB="$(df -k /System/Volumes/Data | awk 'NR==2 {print $4}')"
 [ "${AVAILABLE_KIB:-0}" -ge 83886080 ] || { echo "At least 80 GiB free is required before building." >&2; exit 1; }
@@ -119,15 +131,67 @@ fi
 if [ "$CONFIG" = Debug ]; then
   /usr/libexec/PlistBuddy -c "Add :AskKeyRequiresDebugRunDirectory bool true" "$APP/Contents/Info.plist"
 fi
+# Only Release enables the updater. Every install needs the user's click, and
+# feeds and archives must carry EdDSA signatures from the committed key.
+if [ "$MODE" = Release ]; then
+  for entry in \
+    "SUFeedURL string $SPARKLE_FEED_URL" \
+    "SUPublicEDKey string $SPARKLE_PUBLIC_KEY" \
+    "SURequireSignedFeed bool true" \
+    "SUVerifyUpdateBeforeExtraction bool true" \
+    "SUAllowsAutomaticUpdates bool false" \
+    "SUAutomaticallyUpdate bool false" \
+    "SUEnableSystemProfiling bool false"
+  do
+    /usr/libexec/PlistBuddy -c "Add :$entry" "$APP/Contents/Info.plist"
+  done
+fi
 cp LICENSE "$APP/Contents/Resources/LICENSE"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+
+# Embed Sparkle in every mode so the executable always finds the framework it
+# links. The app is not sandboxed, so Sparkle's XPC services are not needed.
+SPARKLE_FRAMEWORK=""
+for candidate in "$PRODUCTS/Sparkle.framework" "$PRODUCTS/PackageFrameworks/Sparkle.framework" \
+  "$DD/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"; do
+  if [ -d "$candidate" ]; then SPARKLE_FRAMEWORK="$candidate"; break; fi
+done
+[ -n "$SPARKLE_FRAMEWORK" ] || { echo "Sparkle.framework not found in the build products" >&2; exit 1; }
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$SPARKLE_FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
+EMBEDDED_SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+rm -rf "$EMBEDDED_SPARKLE/XPCServices" "$EMBEDDED_SPARKLE/Versions/B/XPCServices"
+# Xcode also links an absolute rpath into its build products. Drop every rpath
+# into this checkout or the derived data, so dyld loads only the embedded
+# framework and no local path ships in the binary.
+EXECUTABLE="$APP/Contents/MacOS/AskKeyApp"
+list_rpaths() {
+  otool -l "$1" | awk '/cmd LC_RPATH/ { rpath = 1; next }
+    rpath && $1 == "path" { sub(/^ *path /, ""); sub(/ \(offset [0-9]+\)$/, ""); print; rpath = 0 }'
+}
+CHECKOUT_ROOT="$(pwd -P)"
+DD_ROOT="$(cd "$DD" && pwd -P)"
+LINKED_RPATHS="$(list_rpaths "$EXECUTABLE")"
+while IFS= read -r rpath; do
+  case "$rpath" in
+    "$CHECKOUT_ROOT"/*|"$DD_ROOT"/*) install_name_tool -delete_rpath "$rpath" "$EXECUTABLE" ;;
+  esac
+done <<< "$LINKED_RPATHS"
+if ! list_rpaths "$EXECUTABLE" | grep -Fxq '@executable_path/../Frameworks'; then
+  install_name_tool -add_rpath @executable_path/../Frameworks "$EXECUTABLE"
+fi
 
 echo "==> Signing with $SIGN_IDENTITY …"
 SIGN_OPTIONS=(--force)
 if [ "$CONFIG" = Release ]; then SIGN_OPTIONS=(--force --options runtime --timestamp); fi
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$CLI"
+# Sign nested code inside out; --deep is used only for verification.
+codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$EMBEDDED_SPARKLE/Versions/B/Autoupdate"
+codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$EMBEDDED_SPARKLE/Versions/B/Updater.app"
+codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$EMBEDDED_SPARKLE"
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP/Contents/Helpers/askkey"
-codesign --force --deep "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP"
+codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP/Contents/Helpers/AskKey_AskKeyHelper.bundle"
+codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP"
 codesign --verify --strict --deep "$APP"
 if [ "$CONFIG" = Release ]; then
   ACTUAL_TEAM="$(codesign -dv --verbose=4 "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"

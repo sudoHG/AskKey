@@ -9,19 +9,24 @@ package struct AppRuntimeConfiguration {
     package let didStart: (() -> Void)?
     package let willStop: (() -> Void)?
     package let startClient: (() -> Bool)?
+    /// Only the production executable passes one; the App still creates the
+    /// updater only when `SoftwareUpdateAvailability` allows it.
+    package let makeSoftwareUpdater: SoftwareUpdaterFactory?
 
     package init(
         makeViewModel: (() -> VaultViewModel)? = nil,
         prepareServices: (() -> Void)? = nil,
         didStart: (() -> Void)? = nil,
         willStop: (() -> Void)? = nil,
-        startClient: (() -> Bool)? = nil
+        startClient: (() -> Bool)? = nil,
+        makeSoftwareUpdater: SoftwareUpdaterFactory? = nil
     ) {
         self.makeViewModel = makeViewModel
         self.prepareServices = prepareServices
         self.didStart = didStart
         self.willStop = willStop
         self.startClient = startClient
+        self.makeSoftwareUpdater = makeSoftwareUpdater
     }
 
     package static var production: Self { Self() }

@@ -16,6 +16,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0"),
+        // Only the production executable links Sparkle (ADR 0011).
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
     ],
     targets: [
         .target(
@@ -73,7 +75,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "AskKeyApp",
-            dependencies: ["AskKeyAppKit"],
+            dependencies: [
+                "AskKeyAppKit",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             path: "Sources/AskKeyApp",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

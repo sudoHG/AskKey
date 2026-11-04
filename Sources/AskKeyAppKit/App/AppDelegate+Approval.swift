@@ -38,6 +38,7 @@ extension AppDelegate {
                 Task { @MainActor [weak self] in
                     self?.pendingApprovalCount = count
                     self?.vault.pendingApprovalCount = count
+                    if self?.vault.softwareUpdates != nil { self?.refreshApprovalActivity() }
                     if count == 0 { self?.resetLockedApprovalReminder() }
                     if count > 0 { self?.presentPendingApproval() }
                 }
