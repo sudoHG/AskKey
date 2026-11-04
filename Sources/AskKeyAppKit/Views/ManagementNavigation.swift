@@ -14,9 +14,15 @@ final class ManagementNavigation {
         actionIdentifier: String,
         userInfo: [AnyHashable: Any],
         entryState: SettingsEntryState,
-        openManagement: () -> Void
+        openManagement: () -> Void,
+        checkForUpdates: () -> Void = {}
     ) {
         guard actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
+        // An update reminder brings Sparkle's alert forward and leaves management as it is.
+        if NotificationRoute(userInfo: userInfo) == .softwareUpdate {
+            checkForUpdates()
+            return
+        }
         guard canLeaveCurrentPage(entryState: entryState) else {
             pendingNotification = nil
             openManagement()
@@ -55,7 +61,7 @@ final class ManagementNavigation {
         // credentials, expired requests and unreadable stores fall back to the library.
         guard vault.reloadCredentials() else { return }
         switch pendingNotification {
-        case .main:
+        case .main, .softwareUpdate:
             break
         case .pendingRequests:
             if vault.pendingApprovalCount > 0 { route = .pendingRequests }

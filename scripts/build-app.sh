@@ -138,6 +138,7 @@ if [ "$MODE" = Release ]; then
     "SUFeedURL string $SPARKLE_FEED_URL" \
     "SUPublicEDKey string $SPARKLE_PUBLIC_KEY" \
     "SURequireSignedFeed bool true" \
+    "SUSignedFeedFailureExpirationInterval real 0" \
     "SUVerifyUpdateBeforeExtraction bool true" \
     "SUAllowsAutomaticUpdates bool false" \
     "SUAutomaticallyUpdate bool false" \

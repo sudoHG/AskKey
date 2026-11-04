@@ -4,9 +4,10 @@ import Sparkle
 
 /// Sparkle 2 behind the `SoftwareUpdater` interface (ADR 0011). AskKeyAppKit
 /// decides whether this object exists; it only adapts Sparkle's standard
-/// controller and routes every relaunch through the relaunch gate.
+/// controller, routes every relaunch through the relaunch gate and adds a
+/// gentle reminder for updates that scheduled checks find.
 @MainActor
-final class SparkleSoftwareUpdater: NSObject, SoftwareUpdater, SPUUpdaterDelegate {
+final class SparkleSoftwareUpdater: NSObject, SoftwareUpdater, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
     private let relaunchGate: SoftwareUpdateRelaunchGate
     private var controller: SPUStandardUpdaterController?
     private var observations: [NSKeyValueObservation] = []
@@ -17,7 +18,7 @@ final class SparkleSoftwareUpdater: NSObject, SoftwareUpdater, SPUUpdaterDelegat
         let controller = SPUStandardUpdaterController(
             startingUpdater: false,
             updaterDelegate: self,
-            userDriverDelegate: nil
+            userDriverDelegate: self
         )
         controller.updater.userAgentString = Self.userAgent()
         self.controller = controller
@@ -52,6 +53,34 @@ final class SparkleSoftwareUpdater: NSObject, SoftwareUpdater, SPUUpdaterDelegat
         untilInvokingBlock installHandler: @escaping () -> Void
     ) -> Bool {
         relaunchGate.postponeIfBusy(installHandler)
+    }
+
+    // MARK: Gentle reminders for scheduled updates
+
+    nonisolated var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    /// Sparkle keeps showing the alert as before, without taking focus.
+    nonisolated func standardUserDriverShouldHandleShowingScheduledUpdate(
+        _ update: SUAppcastItem,
+        andInImmediateFocus immediateFocus: Bool
+    ) -> Bool {
+        true
+    }
+
+    nonisolated func standardUserDriverWillHandleShowingUpdate(
+        _ handleShowingUpdate: Bool,
+        forUpdate update: SUAppcastItem,
+        state: SPUUserUpdateState
+    ) {
+        SoftwareUpdateReminder.post(version: update.displayVersionString, userInitiated: state.userInitiated)
+    }
+
+    nonisolated func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+        SoftwareUpdateReminder.remove()
+    }
+
+    nonisolated func standardUserDriverWillFinishUpdateSession() {
+        SoftwareUpdateReminder.remove()
     }
 
     /// Sparkle's default user agent uses the localized display name and drops

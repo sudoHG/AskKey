@@ -17,6 +17,8 @@ RELEASE_KEYS = {
     "SUFeedURL": ("string", "$SPARKLE_FEED_URL"),
     "SUPublicEDKey": ("string", "$SPARKLE_PUBLIC_KEY"),
     "SURequireSignedFeed": ("bool", "true"),
+    # Zero disables Sparkle's acceptance of an unsigned feed 20 days after the first failure.
+    "SUSignedFeedFailureExpirationInterval": ("real", "0"),
     "SUVerifyUpdateBeforeExtraction": ("bool", "true"),
     "SUAllowsAutomaticUpdates": ("bool", "false"),
     "SUAutomaticallyUpdate": ("bool", "false"),

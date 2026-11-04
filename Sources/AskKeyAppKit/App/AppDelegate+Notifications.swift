@@ -18,7 +18,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 actionIdentifier: response.actionIdentifier,
                 userInfo: response.notification.request.content.userInfo,
                 entryState: self.vault.settingsEntryState,
-                openManagement: self.openManagementWindow
+                openManagement: self.openManagementWindow,
+                checkForUpdates: { self.vault.softwareUpdates?.checkForUpdates() }
             )
             completionHandler()
         }

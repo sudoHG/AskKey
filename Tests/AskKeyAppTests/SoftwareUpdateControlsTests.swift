@@ -50,9 +50,9 @@ final class SoftwareUpdateControlsTests: XCTestCase {
 
     func testUpdateCopyIsTranslatedWithCatalogTerms() {
         let copy = [
-            "Check for Updates…": "检查更新…",
-            "Check for Updates Automatically": "自动检查更新",
-            "Updates": "更新",
+            "Check for Updates…": "检查更新…", // i18n-literal: Chinese catalog assertion
+            "Check for Updates Automatically": "自动检查更新", // i18n-literal: Chinese catalog assertion
+            "Updates": "更新", // i18n-literal: Chinese catalog assertion
         ]
         for (english, chinese) in copy {
             XCTAssertEqual(AppLanguage.localized(english, language: "en"), english)
@@ -63,6 +63,6 @@ final class SoftwareUpdateControlsTests: XCTestCase {
             language: "zh-Hans"
         )
         XCTAssertTrue(relaunch.contains("请旨"))
-        XCTAssertTrue(relaunch.contains("限时允许"))
+        XCTAssertTrue(relaunch.contains("限时允许")) // i18n-literal: Chinese catalog assertion
     }
 }
