@@ -145,7 +145,13 @@ Claude Code、Codex、Cursor 和 Grok CLI。在应用的 **Agent 接入**页面�
 
 如果从 0.3.2 或更早版本升级，还需阅读 [CHANGELOG.md](CHANGELOG.md#040---2026-10-28) 中间各版本的迁移和兼容性说明。
 
-请关注 [GitHub Releases](https://github.com/sudoHG/AskKey/releases) 获取新版本；应用没有自动更新功能。
+### 应用内更新
+
+0.5.0 之后的版本可以自行更新。第二次启动时，请旨会询问是否自动检查更新（每天一次）。之后可以在“设置 → 通用”中用“自动检查更新”更改；也可以随时在那里或菜单栏图标的右键菜单中选择“检查更新…”。你确认之前，不会安装任何更新。安装时，请旨会等到没有待处理或进行中的请求后再重新启动；重启后请旨重新锁定，所有限时允许随之结束。已连接的 Agent 无需重新配置：安装路径、helper 和 Broker 协议都不变，正在运行的 helper 也能继续使用。新版本新增的工具，要等 Agent 重启它的 MCP 服务后才会出现。只有位于 `/Applications/Ask Key.app` 的正式版会检查更新，开发版和测试版不会。Sparkle 的更新窗口跟随 macOS 的语言，而不是请旨里的语言设置。
+
+检查更新是请旨唯一的对外网络请求。每次检查会经由 Cloudflare 请求 `https://askkey.sudohg.com/appcast.xml`，再跳转到最新 [GitHub Release](https://github.com/sudoHG/AskKey/releases) 中的 appcast；下载更新也来自 GitHub。两者都能看到你的 IP 地址。请求带有 `User-Agent`（`Ask Key/<版本> Sparkle/<版本>`）和 macOS 自动添加的标准请求头，例如你的首选语言；不会发送系统概况。appcast 和更新包都必须带有请旨 EdDSA 密钥的有效签名，否则不会安装。关闭自动检查后，只有在你选择“检查更新…”时才会发出请求。具体请求内容见 [ADR 0011](docs/adr/0011-in-app-updates.md)。
+
+0.5.0 及更早的版本没有更新功能：请关注 [GitHub Releases](https://github.com/sudoHG/AskKey/releases)，按上面的步骤手动更新。
 
 ## 卸载
 

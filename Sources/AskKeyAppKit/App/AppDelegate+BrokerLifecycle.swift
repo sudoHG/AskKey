@@ -60,6 +60,7 @@ extension AppDelegate {
         setupHotkey()
         setupWindowBehavior()
         setupStatusItemMenu()
+        setupSoftwareUpdates()
         NotificationCenter.default.addObserver(
             forName: .hotkeyShortcutChanged, object: nil, queue: .main
         ) { [weak self] note in
@@ -147,6 +148,8 @@ extension AppDelegate {
             presentBrokerRuntimeFailure(error)
             return
         }
+        // Calls that run, deliver or write are counted so an update relaunch waits for them.
+        let activity = agentActivity
         let textRuntime = BrokerTextRuntime(resolveCredentials: { request, cancellation in
             do {
                 return try Vault.shared.brokerTextCredentials(for: request, cancellation: cancellation)
@@ -205,7 +208,8 @@ extension AppDelegate {
                 }
             },
             textRun: { request, descriptors, cancellation in
-                try textRuntime.run(
+                activity.beginCall(); defer { activity.endCall() }
+                return try textRuntime.run(
                     request,
                     standardInputFD: descriptors.standardInput,
                     standardOutputFD: descriptors.standardOutput,
@@ -214,8 +218,9 @@ extension AppDelegate {
                     cancellation: cancellation
                 )
             },
-            fileWrite: { try fileWrites.handle($0) },
+            fileWrite: { request in try activity.fileWrite(request) { try fileWrites.handle(request) } },
             submitTextWrite: { request, cancellation in
+                activity.beginCall(); defer { activity.endCall() }
                 try cancellation.check()
                 return try mapAgentTextWriteProviderError {
                     try Vault.shared.requestAgentTextWrite(request, fileResolver: { reference in
@@ -224,6 +229,7 @@ extension AppDelegate {
                 }
             },
             commitTextWrite: { [weak self] request, requestID, capability in
+                activity.beginCall(); defer { activity.endCall() }
                 let result: AgentTextWriteResult
                 do {
                     result = try mapAgentTextWriteProviderError(onMaterialTooLarge: { [weak self] in
@@ -245,7 +251,8 @@ extension AppDelegate {
                 return result
             },
             cancelTextWrite: { operationID, requestID, capability in
-                try mapAgentTextWriteProviderError {
+                activity.beginCall(); defer { activity.endCall() }
+                return try mapAgentTextWriteProviderError {
                     try Vault.shared.cancelAgentTextWrite(
                         operationID: operationID,
                         requestID: requestID,

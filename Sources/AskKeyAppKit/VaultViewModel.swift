@@ -69,6 +69,8 @@ package final class VaultViewModel {
     var brokerRecoveryAvailable = false
     var brokerFailureMessage: String?
     var retryBrokerStart: (() -> Void)?
+    /// Present only in the official Release install (ADR 0011).
+    package var softwareUpdates: SoftwareUpdateControls?
     var pendingApprovalRequests: [BrokerApprovalOperationRequest] {
         pendingApprovals.map(\.request)
     }

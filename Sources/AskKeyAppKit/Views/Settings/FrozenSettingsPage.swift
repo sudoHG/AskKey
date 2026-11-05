@@ -219,6 +219,39 @@ struct FrozenSettingsPage: View {
                 .fixedSize()
                 .accessibilityIdentifier("settings-language")
             }
+            if let updates = vault.softwareUpdates {
+                GroupedListSeparator()
+                softwareUpdateRows(updates)
+            }
+        }
+    }
+
+    /// Shown only in the official Release install (ADR 0011).
+    @ViewBuilder
+    private func softwareUpdateRows(_ updates: SoftwareUpdateControls) -> some View {
+        settingRow(
+            appLocalized("Check for Updates Automatically"),
+            appLocalized("Checks once a day. Nothing is installed until you confirm it.")
+        ) {
+            Toggle("", isOn: Binding(
+                get: { updates.automaticallyChecksForUpdates },
+                set: { updates.setAutomaticallyChecksForUpdates($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .tint(Theme.accent)
+            .accessibilityLabel(appLocalized("Check for Updates Automatically"))
+            .accessibilityIdentifier("settings-automatic-update-checks")
+        }
+        GroupedListSeparator()
+        settingRow(
+            appLocalized("Updates"),
+            appLocalized("Installing an update relaunches Ask Key once no request is waiting or running. Ask Key then locks again, and timed allowances end.")
+        ) {
+            Button(appLocalized("Check for Updates…")) { updates.checkForUpdates() }
+                .buttonStyle(.secondaryAction)
+                .disabled(!updates.canCheckForUpdates)
+                .accessibilityIdentifier("settings-check-for-updates")
         }
     }
 

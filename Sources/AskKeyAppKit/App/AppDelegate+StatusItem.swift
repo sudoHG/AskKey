@@ -2,14 +2,20 @@ import AppKit
 
 extension AppDelegate {
     // MenuBarExtra has no public right-click API, so intercept right-clicks on the
-    // status bar item's window and show a Quit menu there.
+    // status bar item's window and show a Quit menu there. The official Release
+    // install also lists Check for Updates above Quit.
     func setupStatusItemMenu() {
-        statusItemMenuMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { event in
+        statusItemMenuMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
             guard let window = event.window,
                   NSStringFromClass(type(of: window)).contains("NSStatusBarWindow"),
                   let contentView = window.contentView else { return event }
 
             let menu = NSMenu()
+            menu.autoenablesItems = false
+            if let updates = self?.checkForUpdatesMenuItem() {
+                menu.addItem(updates)
+                menu.addItem(.separator())
+            }
             menu.addItem(NSMenuItem(title: appLocalized("Quit Ask Key"),
                                     action: #selector(NSApplication.terminate(_:)),
                                     keyEquivalent: "q"))

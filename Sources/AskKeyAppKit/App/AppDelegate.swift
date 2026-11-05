@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         self?.vault.lock()
     }
     var brokerServer: BrokerSocketServer?
+    let agentActivity = AgentActivityTracker()
     var fileWriteCoordinator: BrokerFileWriteCoordinator?
     @Published internal(set) var pendingApprovalCount = 0
     lazy var approvalPresentation = makeApprovalPresentationCoordinator()

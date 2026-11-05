@@ -14,6 +14,9 @@ final class NotificationRouteTests: XCTestCase {
         XCTAssertEqual(credential as NSDictionary,
                        ["route": "credential", "credentialID": id] as NSDictionary)
         XCTAssertEqual(NotificationRoute(userInfo: credential), .credential(id))
+        let update = NotificationRoute.softwareUpdate.userInfo
+        XCTAssertEqual(update as NSDictionary, ["route": "softwareUpdate"] as NSDictionary)
+        XCTAssertEqual(NotificationRoute(userInfo: update), .softwareUpdate)
     }
 
     func testUnknownLegacyAndMalformedPayloadsFallBackToMain() {
@@ -25,10 +28,40 @@ final class NotificationRouteTests: XCTestCase {
             ["route": "credential", "credentialID": String(repeating: "a", count: 4096)],
             ["route": "pendingRequests", "credentialID": id],
             ["route": "credential", "credentialID": id, "name": "SYNTHETIC"],
+            ["route": "softwareUpdate", "version": "9.9.9"],
+            ["route": "softwareUpdate", "credentialID": id],
+            ["route": "SoftwareUpdate"],
         ]
         for payload in payloads {
             XCTAssertEqual(NotificationRoute(userInfo: payload), .main)
         }
+    }
+
+    @MainActor
+    func testUpdateReminderClickChecksForUpdatesWithoutOpeningManagement() {
+        let navigation = ManagementNavigation()
+        navigation.route = .settings
+        for entryState in [SettingsEntryState.locked, .management, .onboarding, .empty] {
+            var checks = 0
+            navigation.handleNotificationResponse(
+                actionIdentifier: UNNotificationDefaultActionIdentifier,
+                userInfo: NotificationRoute.softwareUpdate.userInfo,
+                entryState: entryState,
+                openManagement: { XCTFail("An update reminder must not open management") },
+                checkForUpdates: { checks += 1 }
+            )
+            XCTAssertEqual(checks, 1, "\(entryState)")
+        }
+        XCTAssertEqual(navigation.notificationRevision, 0)
+        XCTAssertEqual(navigation.route, .settings)
+
+        navigation.handleNotificationResponse(
+            actionIdentifier: UNNotificationDismissActionIdentifier,
+            userInfo: NotificationRoute.softwareUpdate.userInfo,
+            entryState: .management,
+            openManagement: { XCTFail("Dismissing must not open management") },
+            checkForUpdates: { XCTFail("Dismissing must not check for updates") }
+        )
     }
 
     func testExpirySenderTagsImmediateAndScheduledNotificationsWithoutCredentialContents() {
