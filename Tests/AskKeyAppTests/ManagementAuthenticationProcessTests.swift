@@ -238,7 +238,7 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
 
         let executable = executableDirectory.appendingPathComponent("AskKeyApp")
         try FileManager.default.copyItem(at: try appExecutable(), to: executable)
-        try copyRuntimeDependencies(resources: resources)
+        try copyRuntimeDependencies(resources: resources, executableDirectory: executableDirectory)
         try copyInfoLocalization("en", to: resources)
         try copyInfoLocalization("zh-Hans", to: resources)
         try Data("""
@@ -355,16 +355,25 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
         )
     }
 
-    private func copyRuntimeDependencies(resources: URL) throws {
-        let found = try BuildProductLocator.locateRuntimeDependencies(
-            searchRoots: [try appExecutable().deletingLastPathComponent()]
-        )
+    private func copyRuntimeDependencies(resources: URL, executableDirectory: URL) throws {
+        let products = try appExecutable().deletingLastPathComponent()
+        let found = try BuildProductLocator.locateRuntimeDependencies(searchRoots: [products])
         if let resourceBundle = found {
             try FileManager.default.copyItem(
                 at: resourceBundle,
                 to: resources.appendingPathComponent("AskKey_AskKeyAppKit.bundle")
             )
         }
+        // AskKeyApp loads Sparkle through @rpath; @loader_path is the rpath that
+        // still resolves once the executable leaves the build products directory.
+        let sparkle = try XCTUnwrap(
+            try BuildProductLocator.locateSparkleFramework(searchRoots: [products]),
+            "AskKeyApp links Sparkle.framework, which the build products must contain"
+        )
+        try FileManager.default.copyItem(
+            at: sparkle,
+            to: executableDirectory.appendingPathComponent("Sparkle.framework")
+        )
     }
 
     private func repoRoot() -> URL {
@@ -379,28 +388,29 @@ enum BuildProductLocator {
     static func locateRuntimeDependencies(
         searchRoots: [URL]
     ) throws -> URL? {
-        var resourceBundle: URL?
+        locate("AskKey_AskKeyAppKit.bundle", searchRoots: searchRoots)
+    }
+
+    static func locateSparkleFramework(
+        searchRoots: [URL]
+    ) throws -> URL? {
+        locate("Sparkle.framework", searchRoots: searchRoots)
+    }
+
+    /// The first item with this name: directly in a root, then anywhere below it.
+    private static func locate(_ name: String, searchRoots: [URL]) -> URL? {
         for root in searchRoots {
             guard FileManager.default.fileExists(atPath: root.path) else { continue }
-            let directResources = root.appendingPathComponent("AskKey_AskKeyAppKit.bundle")
-            if resourceBundle == nil, FileManager.default.fileExists(atPath: directResources.path) {
-                resourceBundle = directResources
-            }
-            if resourceBundle != nil { break }
+            let direct = root.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: direct.path) { return direct }
             guard let enumerator = FileManager.default.enumerator(
                 at: root,
                 includingPropertiesForKeys: [.isDirectoryKey]
             ) else { continue }
-            for case let url as URL in enumerator {
-                if resourceBundle == nil,
-                   url.lastPathComponent == "AskKey_AskKeyAppKit.bundle" {
-                    resourceBundle = url
-                    enumerator.skipDescendants()
-                }
-                if resourceBundle != nil { break }
+            for case let url as URL in enumerator where url.lastPathComponent == name {
+                return url
             }
-            if resourceBundle != nil { break }
         }
-        return resourceBundle
+        return nil
     }
 }
