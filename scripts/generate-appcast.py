@@ -37,9 +37,10 @@ guard arguments.count == 4,
       let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: rawKey),
       let archive = try? Data(contentsOf: URL(fileURLWithPath: arguments[3]), options: .mappedIfSafe)
 else { exit(2) }
-exit(publicKey.isValidSignature(signature, for: archive) ? 0 : 1)
+// 3, not 1: a Swift compile failure also exits with 1.
+exit(publicKey.isValidSignature(signature, for: archive) ? 0 : 3)
 """
-SPARKLE ="http://www.andymatuschak.org/xml-namespaces/sparkle"
+SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 RELEASES = "https://github.com/sudoHG/AskKey/releases"
 MINIMUM_SYSTEM_VERSION = "14.0.0"
@@ -121,7 +122,7 @@ def check_public_key(public_key, signature, archive, directory):
                                 capture_output=True)
     except OSError:
         raise Failure("Cannot run Swift to check the DMG signature against the public key") from None
-    if result.returncode == 1:
+    if result.returncode == 3:
         raise Failure("The delivered Sparkle key does not match the repository public key")
     if result.returncode != 0:
         raise Failure("Cannot check the DMG signature against the public key")
