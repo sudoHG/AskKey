@@ -1,7 +1,9 @@
 """Check the signed appcast step of release packaging with synthetic tools and keys."""
 
+import base64
 import importlib.util
 import json
+import os
 from pathlib import Path
 import plistlib
 import subprocess
@@ -114,16 +116,23 @@ class PackageReleaseAppcastTests(unittest.TestCase):
     def test_appcast_failures_write_nothing(self):
         harness = self.harness
         environment, trace = harness.mock_tools()
-        for failure in ("sparkle-approval-denied", "invalid-key"):
+        # A valid Ed25519 seed that is not the pair of the public key packaging checks.
+        mismatched = base64.b64encode(os.urandom(32)).decode("ascii")
+        for failure in ("sparkle-approval-denied", "invalid-key", "mismatched-key"):
             with self.subTest(failure=failure):
                 environment["PACKAGE_TEST_FAILURE"] = failure
                 if failure == "invalid-key":
                     harness.sparkle_key.write_text("synthetic-invalid-sparkle-key\n", encoding="ascii")
+                elif failure == "mismatched-key":
+                    harness.sparkle_key.write_text(mismatched + "\n", encoding="ascii")
                 result = harness.run_script(notarize=True, environment=environment)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("Cannot write the signed appcast", result.stderr)
+                if failure == "mismatched-key":
+                    self.assertIn("does not match the repository public key", result.stderr)
                 harness.assert_settings_not_printed(result, environment)
-                self.assertNotIn("synthetic-invalid-sparkle-key", result.stdout + result.stderr)
+                for value in ("synthetic-invalid-sparkle-key", mismatched):
+                    self.assertNotIn(value, result.stdout + result.stderr)
                 self.assertEqual(sum(call[0] == "askkey" for call in self.calls(trace)), 1)
                 harness.assert_no_artifacts()
                 trace.unlink()

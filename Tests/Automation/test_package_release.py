@@ -1,6 +1,7 @@
 """Check real synthetic DMG packaging and fail-closed notarization gates."""
 
 import base64
+import functools
 import hashlib
 import json
 import os
@@ -23,6 +24,25 @@ DMG_SUBMISSION_ID = "87654321-4321-4321-4321-cba987654321"
 NOTARY_CREDENTIAL = "synthetic-notary"
 SPARKLE_CREDENTIAL = "synthetic-sparkle-key"
 ENCLOSURE_SIGNATURE = "{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature"
+PUBLIC_KEY_FROM_SEED = (
+    "import CryptoKit\nimport Foundation\n"
+    "let seed = Data(base64Encoded: CommandLine.arguments[1])!\n"
+    "print(try! Curve25519.Signing.PrivateKey(rawRepresentation: seed)"
+    ".publicKey.rawRepresentation.base64EncodedString())\n"
+)
+
+
+@functools.lru_cache(maxsize=None)
+def synthetic_key_pair():
+    """A random Ed25519 seed, as Sparkle exports one, and its CryptoKit public key; no keychain."""
+    seed = base64.b64encode(os.urandom(32)).decode("ascii")
+    with tempfile.TemporaryDirectory(prefix="askkey-synthetic-key-pair-") as directory:
+        script = Path(directory) / "public-key.swift"
+        script.write_text(PUBLIC_KEY_FROM_SEED, encoding="utf-8")
+        public_key = subprocess.run(
+            ["/usr/bin/xcrun", "swift", str(script), seed], env=dict(os.environ, TMPDIR=directory),
+            check=True, capture_output=True, text=True, timeout=120).stdout.strip()
+    return seed, public_key
 SYNTHETIC_MAPPINGS = {
     "PRIVATE_KEY_FILE": "synthetic-private-key-file",
     "KEY_ID": "synthetic-key-id",
@@ -53,10 +73,11 @@ class PackageReleaseTests(unittest.TestCase):
         self.environment = {key: value for key, value in os.environ.items()
                             if not key.startswith("ASKKEY_") and key not in SYNTHETIC_MAPPINGS}
         self.environment["TMPDIR"] = str(self.scratch)
-        # A random Ed25519 seed file, as Sparkle exports one; no keychain item is created.
-        self.sparkle_key_text = base64.b64encode(os.urandom(32)).decode("ascii")
+        self.sparkle_key_text, public_key = synthetic_key_pair()
         self.sparkle_key = self.directory / "sparkle-key"
         self.sparkle_key.write_text(self.sparkle_key_text + "\n", encoding="ascii")
+        self.sparkle_public_key = self.directory / "sparkle-public-key.txt"
+        self.sparkle_public_key.write_text(public_key + "\n", encoding="ascii")
         self.release_notes = self.directory / "release notes.md"
         self.release_notes.write_text("<!-- lang: en -->\nSynthetic notes.\n<!-- lang: zh-Hans -->\n"
                                       "Synthetic Simplified Chinese notes.\n", encoding="utf-8")
@@ -250,6 +271,7 @@ class PackageReleaseTests(unittest.TestCase):
             "PATH": f"{tools}{os.pathsep}{environment['PATH']}",
             "PACKAGE_TEST_TRACE": str(trace),
             "PACKAGE_TEST_SPARKLE_KEY": str(self.sparkle_key),
+            "PACKAGE_TEST_SPARKLE_PUBLIC_KEY": str(self.sparkle_public_key),
             "ASKKEY_CODESIGN_IDENTITY": "synthetic-signing-identity",
             "ASKKEY_APPLE_TEAM_ID": "FAKETEAM01",
             "ASKKEY_NOTARY_PROFILE": "synthetic-notary-profile",

@@ -2,8 +2,9 @@
 """Write a signed Sparkle appcast with one item for a notarized release DMG.
 
 The DMG and the feed are signed with Sparkle's sign_update from the resolved
-SwiftPM artifact and verified before the feed is written. Release notes are
-embedded in the signed feed in English and Simplified Chinese.
+SwiftPM artifact and verified before the feed is written, and the DMG signature
+is checked against the committed public key. Release notes are embedded in the
+signed feed in English and Simplified Chinese.
 """
 
 import argparse
@@ -22,7 +23,23 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 # SwiftPM resolves this artifact at the version pinned by Package.resolved.
 SIGN_UPDATE = ROOT / ".build/artifacts/sparkle/Sparkle/bin/sign_update"
-SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+PUBLIC_KEY_FILE = ROOT / "scripts/sparkle-public-key.txt"
+# sign_update --verify derives the public key from the private key, so check the
+# signature against the key the app ships with. CryptoKit sees no private key.
+PUBLIC_KEY_CHECK = """\
+import CryptoKit
+import Foundation
+
+let arguments = CommandLine.arguments
+guard arguments.count == 4,
+      let rawKey = Data(base64Encoded: arguments[1]),
+      let signature = Data(base64Encoded: arguments[2]),
+      let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: rawKey),
+      let archive = try? Data(contentsOf: URL(fileURLWithPath: arguments[3]), options: .mappedIfSafe)
+else { exit(2) }
+exit(publicKey.isValidSignature(signature, for: archive) ? 0 : 1)
+"""
+SPARKLE ="http://www.andymatuschak.org/xml-namespaces/sparkle"
 XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 RELEASES = "https://github.com/sudoHG/AskKey/releases"
 MINIMUM_SYSTEM_VERSION = "14.0.0"
@@ -79,6 +96,37 @@ def sign_archive(archive, key_file):
     return signature
 
 
+def read_public_key(path):
+    try:
+        key = "".join(Path(path).read_text(encoding="ascii").split())
+        valid = len(base64.b64decode(key, validate=True)) == 32
+    except (OSError, UnicodeDecodeError, binascii.Error, ValueError):
+        valid = False
+    if not valid:
+        raise Failure("The public key file must hold one base64-encoded 32-byte EdDSA public key")
+    return key
+
+
+def check_public_key(public_key, signature, archive, directory):
+    script = directory / "check-public-key.swift"
+    script.write_text(PUBLIC_KEY_CHECK, encoding="utf-8")
+    # The Swift interpreter leaves directories in TMPDIR; keep them in ours.
+    scratch = directory / "swift"
+    scratch.mkdir()
+    environment = {key: value for key, value in os.environ.items() if key != "SPARKLE_ED_KEY_FILE"}
+    environment["TMPDIR"] = str(scratch)
+    try:
+        result = subprocess.run(["/usr/bin/xcrun", "swift", str(script), public_key, signature,
+                                 str(archive)], env=environment, stdin=subprocess.DEVNULL,
+                                capture_output=True)
+    except OSError:
+        raise Failure("Cannot run Swift to check the DMG signature against the public key") from None
+    if result.returncode == 1:
+        raise Failure("The delivered Sparkle key does not match the repository public key")
+    if result.returncode != 0:
+        raise Failure("Cannot check the DMG signature against the public key")
+
+
 def sparkle_element(parent, name, text=None):
     element = ET.SubElement(parent, f"{{{SPARKLE}}}{name}")
     element.text = text
@@ -113,7 +161,7 @@ def feed(version, length, signature, notes, critical, published):
     return ET.tostring(rss, encoding="utf-8", xml_declaration=True) + b"\n"
 
 
-def write_appcast(dmg, version, notes_path, key_file, output, critical):
+def write_appcast(dmg, version, notes_path, key_file, output, critical, public_key_file):
     if not VERSION.fullmatch(version):
         raise Failure("Version must match X.Y.Z with numeric components")
     if dmg.name != f"AskKey-{version}.dmg" or not dmg.is_file():
@@ -121,14 +169,16 @@ def write_appcast(dmg, version, notes_path, key_file, output, critical):
     if os.path.lexists(output):
         raise Failure("The appcast output already exists")
     notes = read_release_notes(notes_path)
+    public_key = read_public_key(public_key_file)
     if not (SIGN_UPDATE.is_file() and os.access(SIGN_UPDATE, os.X_OK)):
         raise Failure("Sparkle sign_update was not found; run `swift package resolve` first")
     if not (key_file.is_file() and os.access(key_file, os.R_OK)):
         raise Failure("The Sparkle private key file is missing or unreadable")
-    signature = sign_archive(dmg, key_file)
-    data = feed(version, dmg.stat().st_size, signature, notes, critical,
-                datetime.now(timezone.utc).replace(microsecond=0))
     with tempfile.TemporaryDirectory(prefix="askkey-appcast-") as directory:
+        signature = sign_archive(dmg, key_file)
+        check_public_key(public_key, signature, dmg, Path(directory))
+        data = feed(version, dmg.stat().st_size, signature, notes, critical,
+                    datetime.now(timezone.utc).replace(microsecond=0))
         # sign_update treats a path ending in .xml as a feed and embeds the signature.
         unsigned = Path(directory) / "appcast.xml"
         unsigned.write_bytes(data)
@@ -155,9 +205,10 @@ def main(argv=None):
         parser.add_argument("--ed-key-file", type=Path, required=True)
         parser.add_argument("--output", type=Path, required=True)
         parser.add_argument("--critical", action="store_true")
+        parser.add_argument("--public-key-file", type=Path, default=PUBLIC_KEY_FILE)
         args = parser.parse_args(arguments)
         write_appcast(args.dmg, args.version, args.release_notes, args.ed_key_file,
-                      args.output, args.critical)
+                      args.output, args.critical, args.public_key_file)
         return 0
     except Failure as error:
         print(f"Error: {error}", file=sys.stderr)

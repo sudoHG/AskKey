@@ -108,7 +108,11 @@ elif name == "askkey":
         environment[variable] = str(key_file)
         if failure == "delivery-missing":
             key_file.unlink()
-        result = subprocess.call(arguments[arguments.index("--") + 1:], env=environment)
+        command = arguments[arguments.index("--") + 1:]
+        if sparkle:
+            # Check against the synthetic pair, not the committed public key.
+            command += ["--public-key-file", os.environ["PACKAGE_TEST_SPARKLE_PUBLIC_KEY"]]
+        result = subprocess.call(command, env=environment)
     sys.exit(result)
 else:
     sys.exit(1)
