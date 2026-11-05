@@ -81,7 +81,8 @@ elif name == "spctl":
     print("source=" + ("Developer ID" if failure == "app-source" else "Notarized Developer ID"))
 elif name == "askkey":
     assert arguments[0] == "run" and "--" in arguments
-    if failure == "approval-denied":
+    sparkle = arguments[arguments.index("--credential") + 1] == "synthetic-sparkle-key"
+    if failure == ("sparkle-approval-denied" if sparkle else "approval-denied"):
         sys.exit(1)
     # Pass test control data through a local fixture file, not the target env.
     configuration_path.write_text(json.dumps({key: os.environ[key] for key in (
@@ -89,18 +90,29 @@ elif name == "askkey":
     environment = {key: value for key, value in os.environ.items()
                    if key in ("HOME", "PATH", "TMPDIR", "LANG", "TERM", "SHELL", "USER", "LOGNAME")
                    or key.startswith("LC_")}
-    for key, value in (("KEY_ID", "synthetic-key-id"), ("ISSUER_ID", "synthetic-issuer-id")):
-        assert key not in environment
-        environment[key] = value
-    assert "PRIVATE_KEY_FILE" not in environment
+    if not sparkle:
+        for key, value in (("KEY_ID", "synthetic-key-id"), ("ISSUER_ID", "synthetic-issuer-id")):
+            assert key not in environment
+            environment[key] = value
+    variable = "SPARKLE_ED_KEY_FILE" if sparkle else "PRIVATE_KEY_FILE"
+    assert variable not in environment
     key_root, = Path(environment["TMPDIR"]).glob("askkey-package-release.*")
-    with tempfile.TemporaryDirectory(prefix="synthetic-key-", dir=key_root) as directory:
-        key_file = Path(directory) / "key.p8"
-        key_file.write_bytes(b"synthetic-private-key-bytes")
-        environment["PRIVATE_KEY_FILE"] = str(key_file)
+    prefix = "synthetic-sparkle-key-" if sparkle else "synthetic-key-"
+    with tempfile.TemporaryDirectory(prefix=prefix, dir=key_root) as directory:
+        key_file = Path(directory) / ("key" if sparkle else "key.p8")
+        if sparkle:
+            # The test's synthetic Ed25519 seed file; no keychain item exists.
+            key_file.write_bytes(Path(os.environ["PACKAGE_TEST_SPARKLE_KEY"]).read_bytes())
+        else:
+            key_file.write_bytes(b"synthetic-private-key-bytes")
+        environment[variable] = str(key_file)
         if failure == "delivery-missing":
             key_file.unlink()
-        result = subprocess.call(arguments[arguments.index("--") + 1:], env=environment)
+        command = arguments[arguments.index("--") + 1:]
+        if sparkle:
+            # Check against the synthetic pair, not the committed public key.
+            command += ["--public-key-file", os.environ["PACKAGE_TEST_SPARKLE_PUBLIC_KEY"]]
+        result = subprocess.call(command, env=environment)
     sys.exit(result)
 else:
     sys.exit(1)

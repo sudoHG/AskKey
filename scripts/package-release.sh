@@ -8,7 +8,12 @@ APP="$ROOT_DIR/.build/AskKeyApp.app"
 OUTPUT="$ROOT_DIR/.build/release-artifacts"
 NOTARIZE=true
 NOTARY_CREDENTIAL=""
+SPARKLE_KEY_CREDENTIAL=""
+RELEASE_NOTES=""
+CRITICAL=false
 ASKKEY_RELEASE_HELPER="${ASKKEY_RELEASE_HELPER:-/Applications/Ask Key.app/Contents/Helpers/askkey}"
+# The delivered key file path expands only in the helper's target shell.
+APPCAST_TARGET='set +x; set -eu; exec python3 "$@" --ed-key-file "$SPARKLE_ED_KEY_FILE"'
 
 fail() {
   printf 'Error: %s\n' "$1" >&2
@@ -16,21 +21,28 @@ fail() {
 }
 
 usage() {
-  echo "Usage: $0 [--app PATH] [--output DIR] [--notary-credential NAME] [--no-notarize]"
+  echo "Usage: $0 [--app PATH] [--output DIR] [--notary-credential NAME]"
+  echo "       [--sparkle-key-credential NAME --release-notes PATH [--critical]] [--no-notarize]"
+  echo "Notarized runs need --sparkle-key-credential and --release-notes and also write appcast.xml."
 }
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --app|--output)
+    --app|--output|--release-notes)
       [[ "$#" -ge 2 && -n "$2" && "$2" != --* ]] || fail "$1 requires a path"
-      if [[ "$1" == --app ]]; then APP="$2"; else OUTPUT="$2"; fi
+      case "$1" in
+        --app) APP="$2" ;;
+        --output) OUTPUT="$2" ;;
+        *) RELEASE_NOTES="$2" ;;
+      esac
       shift 2
       ;;
-    --notary-credential)
+    --notary-credential|--sparkle-key-credential)
       [[ "$#" -ge 2 && -n "$2" && "$2" != --* ]] || fail "$1 requires a name"
-      NOTARY_CREDENTIAL="$2"
+      if [[ "$1" == --notary-credential ]]; then NOTARY_CREDENTIAL="$2"; else SPARKLE_KEY_CREDENTIAL="$2"; fi
       shift 2
       ;;
+    --critical) CRITICAL=true; shift ;;
     --no-notarize) NOTARIZE=false; shift ;;
     --help|-h) usage; exit 0 ;;
     *) usage >&2; fail "Unknown argument" ;;
@@ -39,6 +51,9 @@ done
 
 if [[ -n "$NOTARY_CREDENTIAL" && "$NOTARIZE" == false ]]; then
   fail "Notary credential and --no-notarize modes conflict"
+fi
+if [[ "$NOTARIZE" == false && ( -n "$SPARKLE_KEY_CREDENTIAL" || -n "$RELEASE_NOTES" || "$CRITICAL" == true ) ]]; then
+  fail "Appcast options and --no-notarize modes conflict"
 fi
 if [[ -n "$NOTARY_CREDENTIAL" && -n "${ASKKEY_NOTARY_PROFILE:-}" ]]; then
   fail "Notary credential and ASKKEY_NOTARY_PROFILE modes conflict"
@@ -50,6 +65,11 @@ if [[ "$NOTARIZE" == true ]]; then
     fail "Exactly one of --notary-credential or ASKKEY_NOTARY_PROFILE is required"
   fi
   [[ "$ASKKEY_CODESIGN_IDENTITY" != - ]] || fail "A Developer ID signing identity is required"
+  [[ -n "$SPARKLE_KEY_CREDENTIAL" ]] || fail "--sparkle-key-credential is required when notarizing"
+  [[ -n "$RELEASE_NOTES" ]] || fail "--release-notes is required when notarizing"
+  [[ -f "$RELEASE_NOTES" ]] || fail "Release notes not found: $RELEASE_NOTES"
+  RELEASE_NOTES="$(CDPATH= cd -- "$(dirname -- "$RELEASE_NOTES")" && pwd -P)/$(basename -- "$RELEASE_NOTES")"
+  python3 "$ROOT_DIR/scripts/generate-appcast.py" --check-release-notes "$RELEASE_NOTES" || exit 1
 fi
 
 [[ -d "$APP" ]] || fail "App bundle not found: $APP"
@@ -60,6 +80,12 @@ PLIST="$APP/Contents/Info.plist"
 APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null)" \
   || fail "App version is missing or invalid"
 [[ "$APP_VERSION" == "$VERSION" ]] || fail "App version does not match the product version"
+if [[ "$NOTARIZE" == true ]]; then
+  # The appcast's sparkle:version is the product version, so it must be CFBundleVersion.
+  BUNDLE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST" 2>/dev/null)" \
+    || fail "App bundle version is missing or invalid"
+  [[ "$BUNDLE_VERSION" == "$VERSION" ]] || fail "App bundle version does not match the product version"
+fi
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST" 2>/dev/null)" \
   || fail "App bundle identifier is missing or invalid"
 [[ "$BUNDLE_ID" == com.sudohg.askkey.app ]] || fail "App bundle identifier must be com.sudohg.askkey.app"
@@ -136,11 +162,27 @@ fi
 
 # Do not expose a release-named image until every requested check succeeds.
 OUTPUT_NAMES=("$DMG_NAME" "$DMG_NAME.sha256")
-if [[ "$NOTARIZE" == true ]]; then OUTPUT_NAMES+=("AskKey.dmg" "AskKey.dmg.sha256"); fi
+if [[ "$NOTARIZE" == true ]]; then OUTPUT_NAMES+=("AskKey.dmg" "AskKey.dmg.sha256" "appcast.xml"); fi
 for name in "${OUTPUT_NAMES[@]}"; do
   [[ ! -e "$OUTPUT/$name" && ! -L "$OUTPUT/$name" ]] \
     || fail "Output artifacts already exist; choose an empty output directory"
 done
+
+if [[ "$NOTARIZE" == true ]]; then
+  # Sign the final, stapled DMG. The generator signs and verifies the DMG and the
+  # feed, and never prints sign_update output, which can echo key material.
+  APPCAST_ARGUMENTS=("$ROOT_DIR/scripts/generate-appcast.py" "$DMG" --version "$VERSION"
+    --release-notes "$RELEASE_NOTES" --output "$WORK_DIR/appcast.xml")
+  if [[ "$CRITICAL" == true ]]; then APPCAST_ARGUMENTS+=(--critical); fi
+  printf 'Approve the Ask Key card to sign the update feed.\n'
+  "$ASKKEY_RELEASE_HELPER" run --wait-for-approval --credential "$SPARKLE_KEY_CREDENTIAL" \
+    --operation-id "$(uuidgen)" --caller-name "AskKey release" \
+    --caller-purpose "Sign the AskKey $VERSION update feed" -- \
+    /bin/bash -c "$APPCAST_TARGET" bash "${APPCAST_ARGUMENTS[@]}" >/dev/null \
+    || fail "Cannot write the signed appcast; check Ask Key approval, credential delivery and sign_update"
+  [[ -f "$WORK_DIR/appcast.xml" ]] || fail "The signed appcast was not written"
+fi
+
 mkdir -p "$OUTPUT"
 OUTPUT="$(CDPATH= cd -- "$OUTPUT" && pwd -P)"
 ditto "$DMG" "$OUTPUT/$DMG_NAME" || fail "Cannot write the DMG to the output directory"
@@ -148,6 +190,8 @@ ditto "$DMG" "$OUTPUT/$DMG_NAME" || fail "Cannot write the DMG to the output dir
 if [[ "$NOTARIZE" == true ]]; then
   ditto "$OUTPUT/$DMG_NAME" "$OUTPUT/AskKey.dmg" || fail "Cannot write the stable-named DMG"
   (cd "$OUTPUT" && shasum -a 256 AskKey.dmg >AskKey.dmg.sha256)
+  ditto "$WORK_DIR/appcast.xml" "$OUTPUT/appcast.xml" || fail "Cannot write the appcast"
 fi
 SHA256="$(awk '{print $1}' "$OUTPUT/$DMG_NAME.sha256")"
 printf 'DMG: %s\nSHA-256: %s\nNotarized: %s\n' "$OUTPUT/$DMG_NAME" "$SHA256" "$NOTARIZE"
+if [[ "$NOTARIZE" == true ]]; then printf 'Appcast: %s\n' "$OUTPUT/appcast.xml"; fi
