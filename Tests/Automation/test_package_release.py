@@ -1,5 +1,6 @@
 """Check real synthetic DMG packaging and fail-closed notarization gates."""
 
+import base64
 import hashlib
 import json
 import os
@@ -11,13 +12,17 @@ import subprocess
 import tempfile
 import time
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/package-release.sh"
+SIGN_UPDATE = ROOT / ".build/artifacts/sparkle/Sparkle/bin/sign_update"
 SIGNING_ENV = ("ASKKEY_CODESIGN_IDENTITY", "ASKKEY_APPLE_TEAM_ID", "ASKKEY_NOTARY_PROFILE")
 SUBMISSION_ID = "12345678-1234-1234-1234-123456789abc"
 DMG_SUBMISSION_ID = "87654321-4321-4321-4321-cba987654321"
 NOTARY_CREDENTIAL = "synthetic-notary"
+SPARKLE_CREDENTIAL = "synthetic-sparkle-key"
+ENCLOSURE_SIGNATURE = "{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature"
 SYNTHETIC_MAPPINGS = {
     "PRIVATE_KEY_FILE": "synthetic-private-key-file",
     "KEY_ID": "synthetic-key-id",
@@ -48,6 +53,13 @@ class PackageReleaseTests(unittest.TestCase):
         self.environment = {key: value for key, value in os.environ.items()
                             if not key.startswith("ASKKEY_") and key not in SYNTHETIC_MAPPINGS}
         self.environment["TMPDIR"] = str(self.scratch)
+        # A random Ed25519 seed file, as Sparkle exports one; no keychain item is created.
+        self.sparkle_key_text = base64.b64encode(os.urandom(32)).decode("ascii")
+        self.sparkle_key = self.directory / "sparkle-key"
+        self.sparkle_key.write_text(self.sparkle_key_text + "\n", encoding="ascii")
+        self.release_notes = self.directory / "release notes.md"
+        self.release_notes.write_text("<!-- lang: en -->\nSynthetic notes.\n<!-- lang: zh-Hans -->\n"
+                                      "Synthetic Simplified Chinese notes.\n", encoding="utf-8")
         self.make_app()
 
     def make_app(self, version=None, identifier="com.sudohg.askkey.app", signed=True):
@@ -73,12 +85,14 @@ class PackageReleaseTests(unittest.TestCase):
             subprocess.run(["codesign", "--force", "--sign", "-", str(self.app)],
                            check=True, text=True, capture_output=True)
 
-    def run_script(self, *arguments, notarize=False, environment=None, output=True):
+    def run_script(self, *arguments, notarize=False, environment=None, output=True, appcast=True):
         command = ["bash", str(SCRIPT), "--app", str(self.app)]
         if output:
             command.extend(["--output", str(self.output)])
         if not notarize:
             command.append("--no-notarize")
+        elif appcast:
+            command.extend(self.appcast_arguments())
         return subprocess.run(command + list(map(str, arguments)), cwd=self.directory,
                               env=environment or self.environment, text=True,
                               capture_output=True, timeout=120)
@@ -96,13 +110,28 @@ class PackageReleaseTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"{image.name}: OK", result.stdout)
 
+    def appcast_arguments(self):
+        return ["--sparkle-key-credential", SPARKLE_CREDENTIAL, "--release-notes", str(self.release_notes)]
+
+    def sign_update_verifies(self, path, signature=None):
+        command = [str(SIGN_UPDATE), "--verify", "--ed-key-file", str(self.sparkle_key), str(path)]
+        return subprocess.run(command + ([signature] if signature else []),
+                              stdin=subprocess.DEVNULL, capture_output=True).returncode == 0
+
     def assert_notarized_artifacts(self, image):
         stable = self.output / "AskKey.dmg"
+        appcast = self.output / "appcast.xml"
         self.assertEqual({path.name for path in self.output.iterdir()},
-                         {image.name, image.name + ".sha256", stable.name, stable.name + ".sha256"})
+                         {image.name, image.name + ".sha256", stable.name, stable.name + ".sha256",
+                          appcast.name})
         self.assertEqual(stable.read_bytes(), image.read_bytes())
         self.assert_checksum(image)
         self.assert_checksum(stable)
+        self.assertTrue(self.sign_update_verifies(appcast))
+        enclosure = ET.parse(appcast).getroot().find("channel/item/enclosure")
+        self.assertTrue(enclosure.get("url").endswith(f"/v{self.version}/{image.name}"))
+        self.assertEqual(enclosure.get("length"), str(image.stat().st_size))
+        self.assertTrue(self.sign_update_verifies(image, enclosure.get(ENCLOSURE_SIGNATURE)))
 
     def attach_image(self, image, mountpoint):
         if diskutil_image_attach_available():
@@ -220,6 +249,7 @@ class PackageReleaseTests(unittest.TestCase):
         environment.update({
             "PATH": f"{tools}{os.pathsep}{environment['PATH']}",
             "PACKAGE_TEST_TRACE": str(trace),
+            "PACKAGE_TEST_SPARKLE_KEY": str(self.sparkle_key),
             "ASKKEY_CODESIGN_IDENTITY": "synthetic-signing-identity",
             "ASKKEY_APPLE_TEAM_ID": "FAKETEAM01",
             "ASKKEY_NOTARY_PROFILE": "synthetic-notary-profile",
@@ -235,6 +265,8 @@ class PackageReleaseTests(unittest.TestCase):
         for value in SYNTHETIC_MAPPINGS.values():
             self.assertNotIn(value, text)
         self.assertNotIn("synthetic-private-key-bytes", text)
+        for value in (self.sparkle_key_text, "synthetic-sparkle-key-", "SPARKLE_ED_KEY_FILE="):
+            self.assertNotIn(value, text)
 
     def assert_credential_request(self, call, action):
         self.assertEqual(call[:6], ["askkey", "run", "--wait-for-approval", "--credential",
@@ -260,6 +292,7 @@ class PackageReleaseTests(unittest.TestCase):
         environment.pop("ASKKEY_NOTARY_PROFILE")
         return environment, trace
 
+    @unittest.skipUnless(SIGN_UPDATE.is_file(), "needs the resolved Sparkle artifact")
     def test_mocked_notarization_checks_both_artifacts_before_checksum(self):
         environment, trace = self.mock_tools()
         result = self.run_script(notarize=True, environment=environment)
@@ -291,6 +324,7 @@ class PackageReleaseTests(unittest.TestCase):
         self.assertIn("context:primary-signature", assessments[1])
         self.assertEqual(list(self.scratch.iterdir()), [])
 
+    @unittest.skipUnless(SIGN_UPDATE.is_file(), "needs the resolved Sparkle artifact")
     def test_credential_mode_builds_askkey_run_invocation(self):
         environment, trace = self.credential_environment()
         result = self.run_script("--notary-credential", NOTARY_CREDENTIAL, notarize=True,
@@ -302,7 +336,8 @@ class PackageReleaseTests(unittest.TestCase):
         self.assertIn("Notarized: true", result.stdout)
         self.assert_notarized_artifacts(image)
         calls = [json.loads(line) for line in trace.read_text().splitlines()]
-        submissions = [call for call in calls if call[0] == "askkey"]
+        submissions = [call for call in calls if call[:5] == ["askkey", "run", "--wait-for-approval",
+                                                               "--credential", NOTARY_CREDENTIAL]]
         self.assertEqual(len(submissions), 4)
         operation_ids = [self.assert_credential_request(call, action)
                          for call, action in zip(submissions, ("submit", "info", "submit", "info"))]
@@ -463,7 +498,7 @@ class PackageReleaseTests(unittest.TestCase):
             with self.subTest(signal=interrupted):
                 process = subprocess.Popen(
                     ["bash", str(SCRIPT), "--app", str(self.app), "--output", str(self.output),
-                     "--notary-credential", NOTARY_CREDENTIAL],
+                     "--notary-credential", NOTARY_CREDENTIAL, *self.appcast_arguments()],
                     env=environment, cwd=self.directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     text=True, start_new_session=True)
                 try:
@@ -497,7 +532,7 @@ class PackageReleaseTests(unittest.TestCase):
     def test_existing_stable_artifact_is_not_overwritten(self):
         environment, _ = self.mock_tools()
         self.output.mkdir()
-        for name in ("AskKey.dmg", "AskKey.dmg.sha256"):
+        for name in ("AskKey.dmg", "AskKey.dmg.sha256", "appcast.xml"):
             for kind in ("file", "symlink", "dangling-symlink"):
                 with self.subTest(name=name, kind=kind):
                     self.assert_existing_artifact_rejected(name, kind, environment, notarize=True)

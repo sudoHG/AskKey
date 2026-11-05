@@ -15,6 +15,8 @@ Wrangler reads a Cloudflare API token with Pages write access from `CLOUDFLARE_A
 
 Before deploying, run `npm run stamp` in `how/` if any CSS or JS changed, so pages never pair with a cached old file, and check both pages in a browser.
 
+`site/_redirects` carries the update feed: `/appcast.xml` redirects with a temporary (302) redirect to the `appcast.xml` asset of the latest GitHub Release, which every installed copy of Ask Key requests ([ADR 0011](../docs/adr/0011-in-app-updates.md)). Deleting the file or changing its target breaks updates for every installed copy. Because each deploy replaces the whole site, a deploy from a checkout without it removes the redirect.
+
 ## Search and sharing
 
 `site/robots.txt` points crawlers to `site/sitemap.xml`; update its `lastmod` dates when the pages change. `site/_headers` sets Cloudflare Pages response headers: the `askkey.pages.dev` mirror is marked `noindex`, hashed stylesheets, scripts and fonts are cached for a year, and pictures for a week. Each page carries its canonical URL, `hreflang` alternates, Open Graph and X card tags with its own share image (`site/assets/og-*.jpg`), and `SoftwareApplication` structured data.
