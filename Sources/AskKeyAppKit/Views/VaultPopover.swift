@@ -68,6 +68,7 @@ struct VaultPopover: View {
                 }
             }
             Divider().padding(.horizontal, 10)
+            checkForUpdatesEntry
             menuEntry(appLocalized("Quit Ask Key"), systemImage: "power") {
                 closePopover()
                 NSApp.terminate(nil)
@@ -80,6 +81,21 @@ struct VaultPopover: View {
         .environment(\.locale, vault.appLocale)
         .preferredColorScheme(vault.colorScheme)
         .onAppear { vault.refreshAgentAccessPauseState() }
+    }
+
+    /// Only the official Release install has an updater (ADR 0011). Like the
+    /// right-click menu item, the row is disabled while a check or an update
+    /// is already in progress.
+    @ViewBuilder
+    private var checkForUpdatesEntry: some View {
+        if let updates = vault.softwareUpdates {
+            menuEntry(appLocalized("Check for Updates…"), systemImage: "arrow.triangle.2.circlepath") {
+                closePopover()
+                updates.checkForUpdates()
+            }
+            .disabled(!updates.canCheckForUpdates)
+            .accessibilityIdentifier("menubar-check-for-updates")
+        }
     }
 
     private func menuEntry(
