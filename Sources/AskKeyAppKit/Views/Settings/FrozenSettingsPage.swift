@@ -151,6 +151,7 @@ struct FrozenSettingsPage: View {
                 }
                 .labelsHidden()
                 .fixedSize()
+                .rebuildsOnLanguageChange()
                 .accessibilityIdentifier("settings-timed-allow-minutes")
                 .disabled(vault.agentAccessPolicyNeedsRecovery)
             }
@@ -200,10 +201,16 @@ struct FrozenSettingsPage: View {
                 }
                 .labelsHidden()
                 .fixedSize()
+                .rebuildsOnLanguageChange()
                 .accessibilityIdentifier("settings-hotkey-shortcut")
             }
             GroupedListSeparator()
-            settingRow(appLocalized("Language"), nil) {
+            // Ask Key's own text switches now; AppKit and Sparkle read the
+            // language at launch (`LaunchLanguageOverride`).
+            settingRow(
+                appLocalized("Language"),
+                appLocalized("The menu bar and system windows switch after Ask Key reopens.")
+            ) {
                 Picker("", selection: Binding(
                     get: { vault.languageMode },
                     set: { vault.languageMode = $0 }
@@ -217,6 +224,7 @@ struct FrozenSettingsPage: View {
                 }
                 .labelsHidden()
                 .fixedSize()
+                .rebuildsOnLanguageChange()
                 .accessibilityIdentifier("settings-language")
             }
             if let updates = vault.softwareUpdates {

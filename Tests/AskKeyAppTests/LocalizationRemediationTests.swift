@@ -16,7 +16,7 @@ final class LocalizationRemediationTests: AskKeyAppTestCase {
     }
 
     override func tearDown() {
-        AppLanguage.systemLanguages = { Locale.preferredLanguages }
+        AppLanguage.systemLanguages = { AppLanguage.macOSPreferredLanguages() }
         AppLanguage.apply(mode: "en")
         super.tearDown()
     }

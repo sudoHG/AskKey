@@ -7,21 +7,19 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 ### Added
 
 - The official Release install at `/Applications/Ask Key.app` can check for updates with Sparkle 2. Settings → General has **Check for Updates Automatically** and **Check for Updates…**, and the menu bar icon's menu and its right-click menu list **Check for Updates…** above **Quit Ask Key**. Sparkle asks on the second launch whether to check automatically, once a day. When a scheduled check finds an update, its window appears without taking focus; if notifications are already allowed, one notification names the version, and clicking it brings the window forward. Development, `Local` and test builds have no updater.
-- Each release publishes a signed update feed, `appcast.xml`, as a GitHub Release asset, and `https://askkey.sudohg.com/appcast.xml` redirects to the one on the latest release. The update window shows the release notes in English or Simplified Chinese, following the macOS language.
+- Each release publishes a signed update feed, `appcast.xml`, as a GitHub Release asset, and `https://askkey.sudohg.com/appcast.xml` redirects to the one on the latest release. The update window shows the release notes in English or Simplified Chinese, following Ask Key's language setting.
 
 ### Fixed
 
 - With the management window in front, **About Ask Key** and the update windows opened by **Check for Updates…** now open in front and keep Ask Key in the Dock and the menu bar. Before, the About panel opened behind other apps' windows. Closing them returns to the management window.
+- The menu bar, the About panel, standard alerts and panels, and Sparkle's update windows follow Ask Key's language setting instead of the macOS language. They switch the next time Ask Key opens, as a note under **Language** in Settings says; Ask Key's own windows still switch at once.
+- After a language switch, the **Default Timed Allow** and **Global Shortcut** pickers in Settings show the new language instead of the previous one.
 
 ### Security
 
 - Every update needs the user's confirmation; nothing installs silently. The appcast and the update archive must carry valid EdDSA signatures. The relaunch waits until no approval prompt, unused approval, running request, open upload or authentication prompt remains, and then locks Ask Key and ends timed allowances.
 - Update checks are Ask Key's only outbound network requests. They go to `askkey.sudohg.com` through Cloudflare and redirect to GitHub, and downloads come from GitHub; both see the IP address, the app version and preferred languages. No system profile is sent. See [ADR 0011](docs/adr/0011-in-app-updates.md).
 - Release notes are embedded in the signed feed, so showing them fetches nothing else. Security fixes are marked as critical updates.
-
-### Known limitations
-
-- Sparkle's update windows follow the macOS language, not Ask Key's language setting.
 
 ### Upgrade notes
 
