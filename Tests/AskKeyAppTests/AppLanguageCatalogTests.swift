@@ -13,7 +13,7 @@ final class AppLanguageCatalogTests: AppLanguageExperienceTestSupport {
             contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/Views/VaultPopover.swift"),
             encoding: .utf8
         )
-        let quitEntry = #"Divider\(\)\.padding\(\.horizontal, 10\)\s*"#
+        let quitEntry = #"Divider\(\)\.padding\(\.horizontal, 10\)\s*checkForUpdatesEntry\s*"#
             + #"menuEntry\(appLocalized\("Quit Ask Key"\), systemImage: "power"\) \{\s*"#
             + #"closePopover\(\)\s*NSApp\.terminate\(nil\)\s*\}\s*"#
             + #"\.accessibilityIdentifier\("menubar-quit"\)"#
