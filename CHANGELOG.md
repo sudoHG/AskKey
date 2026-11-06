@@ -2,11 +2,11 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
-## [Unreleased]
+## [0.6.0] - 2026-11-06
 
 ### Added
 
-- The official Release install at `/Applications/Ask Key.app` can check for updates with Sparkle 2. Settings → General has **Check for Updates Automatically** and **Check for Updates…**, and the menu bar icon's right-click menu has **Check for Updates…**. Sparkle asks on the second launch whether to check automatically, once a day. Development, `Local` and test builds have no updater.
+- The official Release install at `/Applications/Ask Key.app` can check for updates with Sparkle 2. Settings → General has **Check for Updates Automatically** and **Check for Updates…**, and the menu bar icon's right-click menu has **Check for Updates…**. Sparkle asks on the second launch whether to check automatically, once a day. When a scheduled check finds an update, its window appears without taking focus; if notifications are already allowed, one notification names the version, and clicking it brings the window forward. Development, `Local` and test builds have no updater.
 - Each release publishes a signed update feed, `appcast.xml`, as a GitHub Release asset, and `https://askkey.sudohg.com/appcast.xml` redirects to the one on the latest release. The update window shows the release notes in English or Simplified Chinese, following the macOS language.
 
 ### Security
@@ -18,6 +18,12 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 ### Known limitations
 
 - Sparkle's update windows follow the macOS language, not Ask Key's language setting.
+
+### Upgrade notes
+
+- Upgrading from 0.5.0 does not migrate the library. Credentials, permissions, Agent access settings and **End Timed Allow on Lock** are kept without a Resume step.
+- 0.5.0 has no updater, so install 0.6.0 from the DMG by hand. Later releases arrive through the in-app updater.
+- Downgrading to 0.5.0 keeps the library and settings; 0.5.0 ignores the updater's preferences and has no updater.
 
 ## [0.5.0] - 2026-11-03
 
