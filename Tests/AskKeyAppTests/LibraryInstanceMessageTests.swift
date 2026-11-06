@@ -32,7 +32,7 @@ final class LibraryInstanceMessageTests: AppLanguageExperienceTestSupport {
             contentsOf: repoRoot().appendingPathComponent("Sources/AskKeyAppKit/App/AskKeyApp.swift"),
             encoding: .utf8
         )
-        let language = try XCTUnwrap(source.range(of: "AppLanguage.applySavedPreference()"))
+        let language = try XCTUnwrap(source.range(of: "AppLanguage.applySavedPreferenceAtLaunch()"))
         let instance = try XCTUnwrap(source.range(of: "AppRuntimeState.acquireLibraryInstance()"))
         let main = try XCTUnwrap(source.range(of: "Self.main()"))
         XCTAssertLessThan(language.lowerBound, instance.lowerBound)

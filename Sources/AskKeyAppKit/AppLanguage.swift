@@ -105,7 +105,28 @@ enum AppLanguage {
 
     @MainActor static let store = AppLanguageStore()
 
-    static var systemLanguages: () -> [String] = { Locale.preferredLanguages }
+    static var systemLanguages: () -> [String] = { macOSPreferredLanguages() }
+
+    /// The macOS language order for this app: a per-app language chosen in
+    /// System Settings, else the system list. It is read from the preference
+    /// files, not `Locale.preferredLanguages`, which also reflects the launch
+    /// override (`LaunchLanguageOverride`), so Follow System never resolves
+    /// from Ask Key's own choice.
+    static func macOSPreferredLanguages(
+        copyValue: (CFString) -> CFPropertyList? = { application in
+            CFPreferencesCopyValue(
+                LaunchLanguageOverride.key as CFString, application,
+                kCFPreferencesCurrentUser, kCFPreferencesAnyHost
+            )
+        }
+    ) -> [String] {
+        for application in [kCFPreferencesCurrentApplication, kCFPreferencesAnyApplication] {
+            if let languages = copyValue(application) as? [String], !languages.isEmpty {
+                return languages
+            }
+        }
+        return []
+    }
 
     private static let currentLock = NSLock()
     private static var currentStorage = "en"
@@ -229,6 +250,21 @@ enum AppLanguage {
     @MainActor
     static func applySavedPreference(preferences: AppPreferences = AppPreferences()) {
         apply(mode: preferences.languageMode)
+    }
+
+    /// The first step of a launch: also sets the language AppKit and Sparkle
+    /// use for this process (`LaunchLanguageOverride`).
+    @MainActor
+    static func applySavedPreferenceAtLaunch(
+        preferences: AppPreferences = AppPreferences(),
+        argumentDomain: LaunchLanguageOverride.ArgumentDomain = .process
+    ) {
+        LaunchLanguageOverride.apply(
+            mode: preferences.languageMode,
+            macOSLanguages: systemLanguages(),
+            to: argumentDomain
+        )
+        applySavedPreference(preferences: preferences)
     }
 
     @MainActor

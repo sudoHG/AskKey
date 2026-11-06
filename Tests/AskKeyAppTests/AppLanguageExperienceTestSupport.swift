@@ -22,7 +22,7 @@ class AppLanguageExperienceTestSupport: AskKeyAppTestCase {
 
     override func tearDown() {
         defaults.removePersistentDomain(forName: suiteName)
-        AppLanguage.systemLanguages = { Locale.preferredLanguages }
+        AppLanguage.systemLanguages = { AppLanguage.macOSPreferredLanguages() }
         AppLanguage.current = "en"
         super.tearDown()
     }

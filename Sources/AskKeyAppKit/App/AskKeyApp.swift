@@ -9,7 +9,9 @@ package struct AskKeyApp: App {
     @MainActor package static func run(configuration: AppRuntimeConfiguration? = nil) {
         precondition(!AppRuntimeState.normalRuntimeInitialized)
         AppRuntimeState.configuration = configuration ?? .production
-        AppLanguage.applySavedPreference()
+        // Before anything is localized: the process reads its language order
+        // once, and AppKit builds the main menu from it.
+        AppLanguage.applySavedPreferenceAtLaunch()
         guard AppRuntimeState.acquireLibraryInstance() else { return }
         Self.main()
     }

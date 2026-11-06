@@ -2483,6 +2483,14 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Opens the Ask Key menu.!!]" } }
       }
     },
+    "The menu bar and system windows switch after Ask Key reopens.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The menu bar and system windows switch after Ask Key reopens." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "菜单栏和系统窗口会在重新打开请旨后切换语言。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The menu bar and system windows switch after Ask Key reopens.!!]" } }
+      }
+    },
     "Data": {
       "extractionState": "manual",
       "localizations": {
