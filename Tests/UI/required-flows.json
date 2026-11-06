@@ -13,5 +13,6 @@
   "testRestartInvalidatesPendingBrokerApprovalWithoutExecutingTarget",
   "testCredentialCreateEditRecycleRestorePersistsAfterRestart",
   "testManagementStartsLockedAndRequiresExplicitUnlock",
-  "testClosingManagementWindowRequiresUnlockWhenReopened"
+  "testClosingManagementWindowRequiresUnlockWhenReopened",
+  "testAboutPanelFromAppMenuKeepsAskKeyInFront"
 ]

@@ -6,11 +6,12 @@ Notable changes to AskKey are documented here, grouped by release and change typ
 
 ### Added
 
-- The official Release install at `/Applications/Ask Key.app` can check for updates with Sparkle 2. Settings → General has **Check for Updates Automatically** and **Check for Updates…**, and the menu bar icon's right-click menu has **Check for Updates…**. Sparkle asks on the second launch whether to check automatically, once a day. When a scheduled check finds an update, its window appears without taking focus; if notifications are already allowed, one notification names the version, and clicking it brings the window forward. Development, `Local` and test builds have no updater.
+- The official Release install at `/Applications/Ask Key.app` can check for updates with Sparkle 2. Settings → General has **Check for Updates Automatically** and **Check for Updates…**, and the menu bar icon's menu and its right-click menu list **Check for Updates…** above **Quit Ask Key**. Sparkle asks on the second launch whether to check automatically, once a day. When a scheduled check finds an update, its window appears without taking focus; if notifications are already allowed, one notification names the version, and clicking it brings the window forward. Development, `Local` and test builds have no updater.
 - Each release publishes a signed update feed, `appcast.xml`, as a GitHub Release asset, and `https://askkey.sudohg.com/appcast.xml` redirects to the one on the latest release. The update window shows the release notes in English or Simplified Chinese, following Ask Key's language setting.
 
 ### Fixed
 
+- With the management window in front, **About Ask Key** and the update windows opened by **Check for Updates…** now open in front and keep Ask Key in the Dock and the menu bar. Before, the About panel opened behind other apps' windows. Closing them returns to the management window.
 - The menu bar, the About panel, standard alerts and panels, and Sparkle's update windows follow Ask Key's language setting instead of the macOS language. They switch the next time Ask Key opens, as a note under **Language** in Settings says; Ask Key's own windows still switch at once.
 - After a language switch, the **Default Timed Allow** and **Global Shortcut** pickers in Settings show the new language instead of the previous one.
 
