@@ -4,6 +4,8 @@
 
 Accepted removal. A future backup design is deferred and requires its own issue; the legacy ADR 0029 implementation is not a current capability.
 
+[ADR 0012](0012-encrypted-backup-export-and-import.md) adds encrypted backup export and merge import and amends the restore requirements below: import adds and never replaces, never widens a permission, and leaves the read-authentication setting unchanged.
+
 ## Context
 
 The maintainer judged iCloud backup and recovery not usable for v0.1. [Issue #18](https://github.com/sudoHG/AskKey/issues/18) removed that feature, its UI, recovery material, scheduling, launch compensation and entitlement requirements. Legacy ADR 0029 contains useful security constraints, but does not authorize restoring its implementation.
