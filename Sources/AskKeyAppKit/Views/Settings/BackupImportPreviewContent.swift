@@ -15,6 +15,14 @@ enum BackupImportCopy {
                                    language: AppLanguage.current)
     }
 
+    /// The count to add; renamed credentials are part of it, so it names them
+    /// instead of a separate row.
+    static func additionSummary(added: Int, renamed: Int) -> String {
+        renamed == 0
+            ? credentials(added)
+            : appLocalizedFormat("%1$@ (%2$lld renamed)", credentials(added), renamed)
+    }
+
     static func skippedCount(_ plan: BackupImportPlan) -> Int {
         plan.skippedIdentical.count + plan.skippedInRecycleBin.count + plan.skippedRecycled.count
     }
@@ -39,11 +47,12 @@ struct BackupImportPreviewContent: View {
                              isWarning: false)
             }
             GroupedList {
-                countRow(appLocalized("Will be added"), plan.additions.count)
+                countRow(appLocalized("Will be added"),
+                         BackupImportCopy.additionSummary(added: plan.additions.count, renamed: plan.renamed.count),
+                         isEmpty: plan.additions.isEmpty)
                 GroupedListSeparator()
-                countRow(appLocalized("Will be renamed"), plan.renamed.count)
-                GroupedListSeparator()
-                countRow(appLocalized("Will be skipped"), BackupImportCopy.skippedCount(plan))
+                let skipped = BackupImportCopy.skippedCount(plan)
+                countRow(appLocalized("Will be skipped"), BackupImportCopy.credentials(skipped), isEmpty: skipped == 0)
             }
             BackupNameLists(lists: lists)
             Text(appLocalized("Nothing in this library is deleted or overwritten. Credentials set to Allow arrive as Ask every time, and Hidden ones stay Hidden."))
@@ -74,15 +83,15 @@ struct BackupImportPreviewContent: View {
         ].filter { !$0.names.isEmpty }
     }
 
-    private func countRow(_ title: String, _ count: Int) -> some View {
+    private func countRow(_ title: String, _ value: String, isEmpty: Bool) -> some View {
         HStack {
             Text(title)
                 .font(Theme.Fonts.body)
                 .foregroundStyle(Theme.text)
             Spacer(minLength: Theme.Spacing.md)
-            Text(BackupImportCopy.credentials(count))
+            Text(value)
                 .font(Theme.Fonts.body)
-                .foregroundStyle(count == 0 ? Theme.textTertiary : Theme.text)
+                .foregroundStyle(isEmpty ? Theme.textTertiary : Theme.text)
                 .monospacedDigit()
         }
         .padding(.horizontal, Theme.Spacing.lg)

@@ -2607,7 +2607,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "(from backup)" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "(来自备份)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "（来自备份）" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!(from backup)!!]" } }
       }
     },
@@ -2615,7 +2615,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "(from backup %lld)" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "(来自备份 %lld)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "（来自备份 %lld）" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!(from backup %lld)!!]" } }
       }
     },
@@ -2699,12 +2699,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The backup file could not be read.!!]" } }
       }
     },
-    "This recovery key has a typo. Check each group of four characters and try again.": {
+    "This recovery key is incomplete or has a typo. Check each group of four characters and try again.": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "This recovery key has a typo. Check each group of four characters and try again." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "恢复密钥里有输错的字符。请逐组核对后重试。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This recovery key has a typo. Check each group of four characters and try again.!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "This recovery key is incomplete or has a typo. Check each group of four characters and try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "恢复密钥不完整或有输错的字符。请逐组核对后重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This recovery key is incomplete or has a typo. Check each group of four characters and try again.!!]" } }
       }
     },
     "This recovery key doesn't open this file, or the file is damaged.": {
@@ -2771,12 +2771,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Will be added!!]" } }
       }
     },
-    "Will be renamed": {
+    "%1$@ (%2$lld renamed)": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Will be renamed" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "将改名" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Will be renamed!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ (%2$lld renamed)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@（其中 %2$lld 个改名）" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ (%2$lld renamed)!!]" } }
       }
     },
     "Will be skipped": {

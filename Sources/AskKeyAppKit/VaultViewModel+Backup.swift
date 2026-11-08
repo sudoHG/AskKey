@@ -116,7 +116,7 @@ extension VaultViewModel {
     static func backupFileMessage(for error: Error) -> String? {
         switch error {
         case is BackupRecoveryKeyError:
-            return appLocalized("This recovery key has a typo. Check each group of four characters and try again.")
+            return appLocalized("This recovery key is incomplete or has a typo. Check each group of four characters and try again.")
         case BackupFileError.cannotOpen:
             return appLocalized("This recovery key doesn't open this file, or the file is damaged.")
         case BackupFileError.newerFormatVersion:

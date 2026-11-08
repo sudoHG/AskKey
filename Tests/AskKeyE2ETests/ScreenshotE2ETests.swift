@@ -335,7 +335,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         replaceText(recoveryKey, identifier: "backup-import-recovery-key")
         click("backup-import-continue")
         XCTAssertTrue(app.buttons["backup-import-confirm"].waitForExistence(timeout: 8))
-        waitForText("Staging API (", containing: true)
+        XCTAssertTrue(app.descendants(matching: .any)["backup-list-renamed"].waitForExistence(timeout: 8))
         captureSheet(name(2, "backup-import-preview"))
         click("backup-import-confirm")
         XCTAssertTrue(app.descendants(matching: .any)["backup-import-result"].waitForExistence(timeout: 8))

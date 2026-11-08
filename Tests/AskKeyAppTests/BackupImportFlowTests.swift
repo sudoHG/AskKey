@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class BackupImportFlowTests: BackupFlowTestCase {
-    private let typoMessage = "This recovery key has a typo. Check each group of four characters and try again."
+    private let typoMessage = "This recovery key is incomplete or has a typo. Check each group of four characters and try again."
     private let cannotOpenMessage = "This recovery key doesn't open this file, or the file is damaged."
     private let newerMessage = "This backup was made by a newer version of Ask Key. Update Ask Key, then try again."
 
@@ -204,6 +204,14 @@ final class BackupImportFlowTests: BackupFlowTestCase {
         XCTAssertEqual(try fixture.target.storedCredentialCount(), 3)
     }
 
+    func testThePreviewCountNamesRenamedCredentialsInsideTheCountToAdd() {
+        AppLanguage.current = "en"
+        XCTAssertEqual(BackupImportCopy.additionSummary(added: 2, renamed: 1), "2 credentials (1 renamed)")
+        XCTAssertEqual(BackupImportCopy.additionSummary(added: 2, renamed: 0), "2 credentials")
+        XCTAssertEqual(BackupImportCopy.additionSummary(added: 1, renamed: 0), "1 credential")
+        XCTAssertEqual(BackupImportCopy.additionSummary(added: 1, renamed: 1), "1 credential (1 renamed)")
+    }
+
     func testRenameSuffixFollowsTheLanguageAndNumbersLaterCandidates() {
         let english = VaultViewModel.backupRenameSuffix(language: "en")
         XCTAssertEqual(english(1), "(from backup)")
@@ -211,6 +219,7 @@ final class BackupImportFlowTests: BackupFlowTestCase {
         let chinese = VaultViewModel.backupRenameSuffix(language: "zh-Hans")
         XCTAssertEqual(chinese(1), AppLanguage.localized("(from backup)", language: "zh-Hans"))
         XCTAssertNotEqual(chinese(1), english(1))
-        XCTAssertTrue(chinese(3).hasSuffix("3)"))
+        XCTAssertTrue(chinese(3).contains("3"))
+        XCTAssertNotEqual(chinese(3), english(3))
     }
 }

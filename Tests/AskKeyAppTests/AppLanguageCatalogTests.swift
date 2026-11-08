@@ -102,8 +102,17 @@ final class AppLanguageCatalogTests: AppLanguageExperienceTestSupport {
         XCTAssertEqual(ManagementAuthenticationAction.exportBackup.reasonKey, CredentialManagementCopy.exportBackupReason)
         XCTAssertEqual(ManagementAuthenticationAction.importBackup.reasonKey, CredentialManagementCopy.importBackupReason)
         let suffix = VaultViewModel.backupRenameSuffix(language: "zh-Hans")
-        XCTAssertEqual(suffix(1), "(来自备份)")
-        XCTAssertEqual(suffix(2), "(来自备份 2)")
+        XCTAssertEqual(suffix(1), "（来自备份）")
+        XCTAssertEqual(suffix(2), "（来自备份 2）")
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        AppLanguage.current = "zh-Hans"
+        XCTAssertEqual(BackupImportCopy.additionSummary(added: 2, renamed: 1), "2 个凭证（其中 1 个改名）")
+        XCTAssertEqual(BackupImportCopy.additionSummary(added: 2, renamed: 0), "2 个凭证")
+        XCTAssertEqual(VaultViewModel.backupFileMessage(for: BackupRecoveryKeyError.malformed),
+                       "恢复密钥不完整或有输错的字符。请逐组核对后重试。")
+        XCTAssertEqual(VaultViewModel.backupFileMessage(for: BackupRecoveryKeyError.checksumMismatch),
+                       "恢复密钥不完整或有输错的字符。请逐组核对后重试。")
         XCTAssertEqual(AppLanguage.localized("Restore from Backup…", language: "zh-Hans"), "从备份恢复…")
     }
 
