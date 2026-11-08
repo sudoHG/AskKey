@@ -9,6 +9,10 @@ struct BackupSettingsSection: View {
     @State private var savedFileName: String?
 
     var body: some View {
+        // A separate view keeps its body across the parent's redraw, so it
+        // subscribes to the language itself; otherwise a switch leaves this
+        // section in the previous language.
+        let _ = AppLanguage.store.resolved
         GroupedList(header: appLocalized("Backup")) {
             BackupSettingRow(
                 title: appLocalized("Export"),
