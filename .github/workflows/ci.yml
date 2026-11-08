@@ -27,6 +27,27 @@ jobs:
           swift --version
           xcrun --sdk macosx --show-sdk-version
 
+      # Sparkle's binary archive comes from GitHub Releases. swift and
+      # xcodebuild both read it from this shared cache, so a hit never
+      # contacts GitHub Releases; a miss downloads exactly as before.
+      - name: Restore SwiftPM dependency cache
+        id: swiftpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: swiftpm-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.resolved') }}
+
+      - name: Resolve package dependencies
+        run: swift package resolve
+
+      # Saved right after resolution, so failed or cancelled runs still keep it.
+      - name: Save SwiftPM dependency cache
+        if: steps.swiftpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: ${{ steps.swiftpm-cache.outputs.cache-primary-key }}
+
       - name: Build
         run: |
           swift build
@@ -68,6 +89,20 @@ jobs:
           xcodebuild -version
           swift --version
           xcrun --sdk macosx --show-sdk-version
+      - name: Restore SwiftPM dependency cache
+        id: swiftpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: swiftpm-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.resolved') }}
+      - name: Resolve package dependencies
+        run: swift package resolve
+      - name: Save SwiftPM dependency cache
+        if: steps.swiftpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: ${{ steps.swiftpm-cache.outputs.cache-primary-key }}
       - name: Install XcodeGen
         run: brew list xcodegen || brew install xcodegen
       - name: Run required desktop flows
@@ -98,6 +133,20 @@ jobs:
           xcodebuild -version
           swift --version
           xcrun --sdk macosx --show-sdk-version
+      - name: Restore SwiftPM dependency cache
+        id: swiftpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: swiftpm-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.resolved') }}
+      - name: Resolve package dependencies
+        run: swift package resolve
+      - name: Save SwiftPM dependency cache
+        if: steps.swiftpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: ${{ steps.swiftpm-cache.outputs.cache-primary-key }}
       - name: Build and check Debug and Release SDK markers
         run: |
           swift build --product AskKeyApp
