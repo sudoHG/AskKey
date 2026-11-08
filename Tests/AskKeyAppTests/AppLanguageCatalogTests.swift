@@ -87,6 +87,35 @@ final class AppLanguageCatalogTests: AppLanguageExperienceTestSupport {
         }
     }
 
+    func testBackupPromptsAndRenameSuffixFollowTheSelectedLanguage() {
+        let prompts: [(ManagementAuthenticationAction, String)] = [
+            (.exportBackup, "确认将全部凭证导出为备份文件"),
+            (.importBackup, "确认从备份文件导入凭证"),
+        ]
+        for (action, chinese) in prompts {
+            XCTAssertTrue(ManagementAuthenticationSubprocess.accepts(reasonKey: action.reasonKey, argumentCount: 0))
+            XCTAssertEqual(ManagementAuthenticationPresentation(reasonKey: action.reasonKey, language: "zh-Hans").reason,
+                           chinese)
+            XCTAssertEqual(ManagementAuthenticationPresentation(reasonKey: action.reasonKey, language: "en").reason,
+                           action.reasonKey)
+        }
+        XCTAssertEqual(ManagementAuthenticationAction.exportBackup.reasonKey, CredentialManagementCopy.exportBackupReason)
+        XCTAssertEqual(ManagementAuthenticationAction.importBackup.reasonKey, CredentialManagementCopy.importBackupReason)
+        let suffix = VaultViewModel.backupRenameSuffix(language: "zh-Hans")
+        XCTAssertEqual(suffix(1), "（来自备份）")
+        XCTAssertEqual(suffix(2), "（来自备份 2）")
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        AppLanguage.current = "zh-Hans"
+        XCTAssertEqual(BackupImportCopy.additionSummary(added: 2, renamed: 1), "2 个凭证（其中 1 个改名）")
+        XCTAssertEqual(BackupImportCopy.additionSummary(added: 2, renamed: 0), "2 个凭证")
+        XCTAssertEqual(VaultViewModel.backupFileMessage(for: BackupRecoveryKeyError.malformed),
+                       "恢复密钥不完整或有输错的字符。请逐组核对后重试。")
+        XCTAssertEqual(VaultViewModel.backupFileMessage(for: BackupRecoveryKeyError.checksumMismatch),
+                       "恢复密钥不完整或有输错的字符。请逐组核对后重试。")
+        XCTAssertEqual(AppLanguage.localized("Restore from Backup…", language: "zh-Hans"), "从备份恢复…")
+    }
+
     func testBundleDisplayNameMatchesBrandInBothLanguages() throws {
         let resources = repoRoot().appendingPathComponent("Sources/AskKeyAppKit/Resources")
         let english = NSDictionary(

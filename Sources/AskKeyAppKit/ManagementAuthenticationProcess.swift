@@ -8,6 +8,7 @@ enum ManagementAuthenticationAction: CaseIterable {
     case clearAccessRecords, eraseLibrary, revealFrozenFile
     case approveRead, approveWrite, permanentlyDelete, replaceImportedCredential
     case disableReadAuthentication, changeTimedAllowanceEnd, legacyRelease, legacyUnlock
+    case exportBackup, importBackup
 
     var reasonKey: String {
         switch self {
@@ -26,6 +27,8 @@ enum ManagementAuthenticationAction: CaseIterable {
         case .changeTimedAllowanceEnd: "Change when timed allowances end"
         case .legacyRelease: "Release %@ (%@) in project %@ to %@"
         case .legacyUnlock: "Unlock the AskKey vault for %@"
+        case .exportBackup: CredentialManagementCopy.exportBackupReason
+        case .importBackup: CredentialManagementCopy.importBackupReason
         }
     }
 

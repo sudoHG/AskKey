@@ -25,7 +25,7 @@ extension Vault {
     /// authentication fails the export; no partial backup is produced.
     public func exportBackup(using authenticator: ManagementAuthenticator) throws -> BackupExport {
         try requireManagementSession()
-        try authorizeManagement(authenticator, reason: CredentialManagementCopy.revealReason)
+        try authorizeManagement(authenticator, reason: CredentialManagementCopy.exportBackupReason)
         let snapshot = try currentBackupSnapshot(key: requireKey())
         let recoveryKey = BackupRecoveryKey.generate()
         return BackupExport(fileBytes: try BackupFile.seal(snapshot, recoveryKey: recoveryKey),

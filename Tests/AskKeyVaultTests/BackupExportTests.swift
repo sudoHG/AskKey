@@ -138,7 +138,7 @@ final class BackupExportTests: XCTestCase {
             guard case VaultError.managementAuthenticationRequired = error else { return XCTFail("\(error)") }
         }
         XCTAssertNil(export)
-        XCTAssertEqual(prompts.reasons, [CredentialManagementCopy.revealReason])
+        XCTAssertEqual(prompts.reasons, [CredentialManagementCopy.exportBackupReason])
     }
 
     func testExportedBytesContainNoCredentialNamesOrValues() throws {

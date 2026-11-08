@@ -110,6 +110,19 @@ The optional `ScreenshotE2ETests` suite runs separately in CI and does not chang
 
 `18` and `19` are the approval prompt and the Agent access page in Simplified Chinese, used in `README.zh-CN.md`.
 
+The backup flow (#274) adds eight captures with synthetic credentials, in English (`22`–`25`) and Simplified Chinese (`26`–`29`): the first-run screen with **Restore from Backup…**, the recovery key sheet, an import preview with one renamed conflict, and the import result. They drive the real save and open panels through Go to Folder. `scripts/e2e-report.py` does not export them into `screenshots/` yet, so take them from the attachments of the artifact's `basic-flows.xcresult` with `xcrun xcresulttool export attachments --path <xcresult> --output-path <temporary-directory>`:
+
+```text
+22-en-backup-restore-welcome.png
+23-en-backup-recovery-key.png
+24-en-backup-import-preview.png
+25-en-backup-import-result.png
+26-zh-backup-restore-welcome.png
+27-zh-backup-recovery-key.png
+28-zh-backup-import-preview.png
+29-zh-backup-import-result.png
+```
+
 An optional capture failure is diagnostic: inspect the screenshot step, its log and xcresult, and the exported subset. A green required-flow job alone does not prove screenshot completeness; #146 acceptance also requires every PNG listed above in the artifact. Delete downloaded evidence after review.
 
 Desktop tests exercise shared App/Broker/helper behavior, but system authentication and external client boundaries use isolated fixtures. Passing them does not validate real Touch ID, production keychain access, a real client task, signing/notarization, or a release. Per [ADR 0006](adr/0006-release-process.md), `Local` and `Release` builds run [release-gate.py](../scripts/release-gate.py): the checkout must be clean, `HEAD` must be reachable from `origin/main` after fetching, and the latest push-to-main `CI` run for that exact commit and both required jobs (`build-and-test`, `basic-ui-flows`) must succeed. Jobs are checked for the run's latest attempt. `Release` also requires the tag `v<product version>` to point at `HEAD`; signing identities, notarization, and explicit maintainer publication approval remain required by the release process.

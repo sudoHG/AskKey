@@ -283,6 +283,158 @@ final class ScreenshotE2ETests: E2EBaseCase {
         capture(name)
     }
 
+    func testBackupScreensInEnglish() throws {
+        try captureBackupScreens(language: "en", tag: "en", firstNumber: 22)
+    }
+
+    func testBackupScreensInChinese() throws {
+        try captureBackupScreens(language: "zh-Hans", tag: "zh", firstNumber: 26)
+    }
+
+    /// Restore from Backup on the first-run screen, the recovery key sheet, an
+    /// import preview with one renamed conflict and the import result. A first
+    /// library exports one synthetic credential; a second library, in its own
+    /// run directory, holds a different credential of the same name and
+    /// imports the file from Settings. Both panels are driven through Go to Folder.
+    private func captureBackupScreens(language: String, tag: String, firstNumber: Int) throws {
+        func name(_ offset: Int, _ label: String) -> String {
+            String(format: "%02d-%@-%@", firstNumber + offset, tag, label)
+        }
+        let backupFolder = try XCTUnwrap(runtimeDirectory)
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-welcome"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
+        app.launch()
+        moveManagementAboveDock()
+        XCTAssertTrue(app.buttons["welcome-restore-backup"].waitForExistence(timeout: 8))
+        capture(name(0, "backup-restore-welcome"))
+
+        createFirstCredential(value: "synthetic-backup-exported")
+        openBackupSetting("settings-export-backup")
+        let keyText = app.descendants(matching: .any)["backup-recovery-key"].firstMatch
+        XCTAssertTrue(keyText.waitForExistence(timeout: 8))
+        let recoveryKey = try readRecoveryKey(keyText)
+        captureSheet(name(1, "backup-recovery-key"))
+        replaceText(String(recoveryKey.suffix(4)), identifier: "backup-confirm-last-group")
+        click("backup-export-save")
+        choosePath(backupFolder.path, inPanel: "backup-export-panel")
+        XCTAssertTrue(keyText.waitForNonExistence(timeout: 8), "The export sheet stayed open after saving")
+        let backupFile = backupFolder.appendingPathComponent(backupFileName(language: language))
+        app.terminate()
+
+        let secondLibrary = backupFolder.deletingLastPathComponent().appendingPathComponent(
+            UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(16).description,
+            isDirectory: true
+        )
+        app.launchEnvironment["ASKKEY_DEBUG_RUN_DIRECTORY"] = secondLibrary.path
+        app.launchEnvironment["ASKKEY_E2E_RUN_DIRECTORY"] = secondLibrary.path
+        app.launch()
+        moveManagementAboveDock()
+        createFirstCredential(value: "synthetic-backup-different")
+        openBackupSetting("settings-import-backup")
+        choosePath(backupFile.path, inPanel: "backup-import-panel")
+        replaceText(recoveryKey, identifier: "backup-import-recovery-key")
+        click("backup-import-continue")
+        XCTAssertTrue(app.buttons["backup-import-confirm"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["backup-list-renamed"].waitForExistence(timeout: 8))
+        captureSheet(name(2, "backup-import-preview"))
+        click("backup-import-confirm")
+        XCTAssertTrue(app.descendants(matching: .any)["backup-import-result"].waitForExistence(timeout: 8))
+        captureSheet(name(3, "backup-import-result"))
+        click("backup-import-done")
+    }
+
+    /// Saves "Staging API" through the first-run editor, then unlocks
+    /// management and opens Settings.
+    private func createFirstCredential(value: String) {
+        click("welcome-create-credential")
+        click("credential-template-custom")
+        replaceText("Staging API", identifier: "credential-editor-name")
+        replaceText("TOKEN", identifier: "credential-editor-component-name-0")
+        replaceText(value, identifier: "credential-editor-component-value-0")
+        click("credential-editor-save")
+        click("welcome-later")
+        click("unlock-management")
+        click("sidebar-settings")
+        XCTAssertTrue(app.buttons["settings-agent-access"].waitForExistence(timeout: 8))
+    }
+
+    /// The Backup section sits below the fold of Settings.
+    private func openBackupSetting(_ identifier: String) {
+        let button = app.buttons[identifier].firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 8), "Missing control: \(identifier)")
+        let scrollView = app.windows["settings"].scrollViews.containing(.button, identifier: identifier).firstMatch
+        for _ in 0..<6 where !button.isHittable {
+            scrollView.scroll(byDeltaX: 0, deltaY: -300)
+        }
+        click(identifier)
+    }
+
+    private func readRecoveryKey(_ element: XCUIElement) throws -> String {
+        let pattern = #"[0-9A-Z]{4}(-[0-9A-Z]{4}){6}"#
+        for text in [element.label, element.value as? String ?? ""] {
+            if let range = text.range(of: pattern, options: .regularExpression) { return String(text[range]) }
+        }
+        XCTFail("The recovery key sheet shows no recovery key")
+        throw NSError(domain: "AskKeyE2E", code: 2)
+    }
+
+    /// The default name the App gives a backup made today.
+    private func backupFileName(language: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "yyyy-MM-dd"
+        let prefix = language == "en" ? "Ask Key Backup" : "\u{8BF7}\u{65E8}\u{5907}\u{4EFD}"
+        return "\(prefix) \(formatter.string(from: Date())).askkeybackup"
+    }
+
+    /// Types a folder (save panel) or file (open panel) into Go to Folder and
+    /// confirms the panel with Return, whatever language its buttons are in.
+    private func choosePath(_ path: String, inPanel identifier: String) {
+        let identified = app.descendants(matching: .any)[identifier].firstMatch
+        let panel = identified.waitForExistence(timeout: 8) ? identified : app.dialogs.firstMatch
+        XCTAssertTrue(panel.exists, "Missing panel: \(identifier)")
+        app.typeKey("g", modifierFlags: [.command, .shift])
+        Thread.sleep(forTimeInterval: 1.5)
+        let clipboard = NSPasteboard.general
+        let previous = (clipboard.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                if let data = item.data(forType: type) { copy.setData(data, forType: type) }
+            }
+            return copy
+        }
+        clipboard.clearContents()
+        clipboard.setString(path, forType: .string)
+        app.typeKey("v", modifierFlags: .command)
+        Thread.sleep(forTimeInterval: 1)
+        clipboard.clearContents()
+        clipboard.writeObjects(previous)
+        // Return closes Go to Folder; the next Return presses the panel's
+        // default button. A slow panel gets up to two more tries.
+        app.typeKey(XCUIKeyboardKey.return.rawValue, modifierFlags: [])
+        for _ in 0..<3 where !panel.waitForNonExistence(timeout: 2) {
+            app.typeKey(XCUIKeyboardKey.return.rawValue, modifierFlags: [])
+        }
+        if !panel.waitForNonExistence(timeout: 5) {
+            let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            screen.name = "Panel still open — \(identifier)"
+            screen.lifetime = .keepAlways
+            add(screen)
+            XCTFail("The \(identifier) did not close after choosing \(path)")
+        }
+    }
+
+    /// The sheet over the management window, which shows the backup flows.
+    private func captureSheet(_ name: String) {
+        let sheet = app.windows["settings"].sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 8), "Missing sheet for \(name)")
+        let attachment = XCTAttachment(screenshot: sheet.screenshot())
+        attachment.name = name + ".png"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     private func capture(_ name: String, approval: Bool = false) {
         // AppKit's floating approval NSPanel is exposed as a dialog, while the
         // management scene is a window. Query both before taking a window crop.

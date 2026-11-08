@@ -16,7 +16,7 @@
 
 **[Download for Mac](https://github.com/sudoHG/AskKey/releases/latest/download/AskKey.dmg)** (free, notarized, Apple silicon, macOS 14 or later) · [Website](https://askkey.sudohg.com/)
 
-> Ask Key has no backup or recovery yet, so keep the originals of your credentials somewhere else.
+> **Settings → Export Backup…** saves every credential to one encrypted file that only its recovery key opens. See [Backup](#backup).
 
 <p align="center">
   <img src="assets/readme/approval-prompt.png" width="300" alt="Ask Key approval prompt: Claude Code wants to use Staging API to run ./deploy.sh, with the buttons Allow once, Allow for 30 minutes and Deny">
@@ -135,11 +135,21 @@ What Ask Key does not guarantee:
 - Another process running as the same macOS user may be able to read material after an approved delivery. Hidden keeps a credential out of the agent catalog but does not defend against that.
 - A timed allowance covers one credential or the explicitly approved group snapshot for the whole local user, not one agent client. Later group additions are excluded; writes still need separate approval.
 
+## Backup
+
+**Export Backup…** in Settings → Backup writes the whole credential library to one `.askkeybackup` file: every credential, including Hidden ones and those in the Recycle Bin, with usage instructions, private notes, groups and expiry dates. Exporting needs system authentication. Ask Key then shows a newly generated recovery key once; type its last group to confirm you saved it, then choose where the file goes.
+
+The file is encrypted with AES-256-GCM under a key derived from the recovery key, and its name and unencrypted bytes reveal no credential names, so it can live in iCloud Drive, on a NAS or on a USB disk. Its protection rests entirely on the recovery key: anyone with both the file and the key can read every credential in it, and without the key nobody can open it, Ask Key included. Ask Key never stores the key, so keep it apart from the file, for example in a password manager.
+
+**Import Backup…** in the same section, or **Restore from Backup…** on the first-run screen of a new Mac, opens a backup with its recovery key and shows what it will add, rename and skip before anything is written. Importing needs system authentication and only adds: nothing in the library is deleted or overwritten, a credential that is already there with the same contents is skipped, and one whose name is taken by different contents arrives as "*name* (from backup)" so you can compare the two. Credentials that were Allow arrive as Ask every time, and Hidden ones stay Hidden. To combine two Macs' libraries, import each Mac's backup on the other. Agents cannot export, inspect or import backups. The design is recorded in [ADR 0012](docs/adr/0012-encrypted-backup-export-and-import.md).
+
+Ask Key 0.6.0 and earlier have no backup, so keep the originals of your credentials elsewhere while you use those versions.
+
 ## Upgrade
 
 Before updating to 0.6.0, quit Ask Key. Download and verify the new DMG as described in [Install](#install), replace `/Applications/Ask Key.app` with the app from the new DMG, then open Ask Key from Applications.
 
-Upgrading from 0.5.0 does not migrate the library or require a library backup for this upgrade. Credentials, permissions, Agent access settings and **End Timed Allow on Lock** are kept without a Resume step. Version 0.5.0 has no updater, so install 0.6.0 by hand as described above; later releases arrive through [in-app updates](#in-app-updates). Ask Key has no built-in backup or recovery; keep the originals of your credentials elsewhere as well.
+Upgrading from 0.5.0 does not migrate the library or require a library backup for this upgrade. Credentials, permissions, Agent access settings and **End Timed Allow on Lock** are kept without a Resume step. Version 0.5.0 has no updater, so install 0.6.0 by hand as described above; later releases arrive through [in-app updates](#in-app-updates).
 
 Downgrading to 0.5.0 keeps the library and settings; 0.5.0 ignores the updater's preferences and has no updater.
 
@@ -157,7 +167,7 @@ Version 0.5.0 and earlier have no updater: watch [GitHub Releases](https://githu
 
 Quit Ask Key and delete `/Applications/Ask Key.app`. For each connected client, remove only the Ask Key entries and owned files listed in [What setup writes](docs/client-integrations.md#what-setup-writes), including MCP configuration, discovery Hooks and Ask Key-specific Hook trust settings (for example, for Claude Code, run `claude mcp remove askkey --scope user` and remove Ask Key handlers from `~/.claude/settings.json`). Preserve unrelated client settings and Hooks. There is no in-app way to disconnect a client.
 
-You can optionally erase the local credential library as well. **This permanently destroys all stored credentials and cannot be undone; Ask Key has no backup or recovery.** To do so, delete `~/Library/Application Support/AskKey` and use Keychain Access to delete the keychain item with service `com.sudohg.askkey.vault`.
+You can optionally erase the local credential library as well. **This permanently destroys all stored credentials and cannot be undone.** Export a backup first if you may want them back. To do so, delete `~/Library/Application Support/AskKey` and use Keychain Access to delete the keychain item with service `com.sudohg.askkey.vault`.
 
 ## Build from source
 
