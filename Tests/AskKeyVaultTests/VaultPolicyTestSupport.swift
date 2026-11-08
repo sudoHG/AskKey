@@ -29,12 +29,13 @@ final class AgentAccessPolicyLibrary {
     let manager: FileDeliveryManager
     var store: VaultStore { get throws { try vault.store } }
 
-    init(open: Bool = true, approvals: BrokerApprovalStateMachine = .init()) throws {
+    init(open: Bool = true, approvals: BrokerApprovalStateMachine = .init(),
+         now: @escaping () -> Date = Date.init) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyPolicy-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         paths = .init(directory: root.appendingPathComponent("library"))
         manager = try FileDeliveryManager(rootURL: root.appendingPathComponent("deliveries"))
-        vault = Vault(paths: paths, keyStore: keys, approvalRequests: approvals, fileDeliveryManager: manager)
+        vault = Vault(paths: paths, keyStore: keys, approvalRequests: approvals, fileDeliveryManager: manager, now: now)
         if open { try vault.unlock() }
     }
 

@@ -11,6 +11,11 @@ enum SyntheticBackupLibrary {
     static let fileBytes = Data("synthetic-deploy-key-bytes".utf8)
     static let certificateBytes = Data("synthetic-certificate-bytes".utf8)
     static let expiry = Date(timeIntervalSince1970: 1_700_000_000)
+    /// With a `BackupTestClock`, every credential is created at `createdAt`
+    /// and the recycled one is deleted at `recycledAt`.
+    static let createdAt = Date(timeIntervalSince1970: 1_767_323_045) // 2026-01-02T03:04:05Z
+    // Within the five-minute management session, which the test clock does not renew.
+    static let recycledAt = createdAt.addingTimeInterval(60)
 
     /// Names and values that must never appear in a backup file's bytes.
     static let plaintextMarkers = [
@@ -25,7 +30,8 @@ enum SyntheticBackupLibrary {
     /// Text, file, multi-component, Hidden, expired and recycled credentials
     /// and an empty group, created through the normal Vault operations.
     /// Leaves an active management session.
-    static func populate(_ vault: Vault) throws {
+    static func populate(_ vault: Vault, clock: BackupTestClock? = nil) throws {
+        clock?.now = createdAt
         _ = try vault.createTextCredential(.init(
             name: "Synthetic Alpha Token", value: "synthetic-alpha-value",
             usageInstructions: "synthetic-alpha-usage", privateNotes: "synthetic-alpha-notes",
@@ -54,9 +60,17 @@ enum SyntheticBackupLibrary {
         let recycled = try vault.createTextCredential(.init(
             name: "Synthetic Recycled Token", value: "synthetic-recycled-value", groupName: "Synthetic Archive"
         ), using: .allow)
+        clock?.now = recycledAt
         try vault.deleteTextCredential(id: recycled.id, using: .allow)
         try vault.createCredentialGroup("Synthetic Empty Group", using: .allow)
     }
+}
+
+/// A clock the test sets by hand, injected through `Vault`'s `now:`.
+final class BackupTestClock {
+    var now: Date
+
+    init(_ now: Date) { self.now = now }
 }
 
 /// An independent implementation of the ADR 0012 file format, used to read
@@ -66,6 +80,10 @@ enum BackupFileForge {
     static let magic = Data("AskKeyBackup".utf8)
     static let headerByteCount = 46
     private static let alphabet = Array("0123456789ABCDEFGHJKMNPQRSTVWXYZ")
+    /// A valid recovery key that contains both `0` and `1`, computed outside
+    /// Ask Key from the secret below and its CRC-12 checksum.
+    static let fixedRecoveryKey = "W38E-HK2V-7PX0-Y8MQ-Z2SH-10P3-H412"
+    static let fixedRecoveryKeySecret = "e0d0e8cc5b3dba0f2297f8b31082c389"
 
     static func secret(of recoveryKey: String) throws -> SymmetricKey {
         let symbols = recoveryKey.uppercased().filter { $0 != "-" }
