@@ -2491,6 +2491,382 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The menu bar and system windows switch after Ask Key reopens.!!]" } }
       }
     },
+    "Export all credentials to a backup file": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Export all credentials to a backup file" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "确认将全部凭证导出为备份文件" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Export all credentials to a backup file!!]" } }
+      }
+    },
+    "Import credentials from a backup file": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Import credentials from a backup file" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "确认从备份文件导入凭证" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Import credentials from a backup file!!]" } }
+      }
+    },
+    "Backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Backup" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "备份" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Backup!!]" } }
+      }
+    },
+    "Export": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Export" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "导出" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Export!!]" } }
+      }
+    },
+    "Export Backup…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Export Backup…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "导出备份…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Export Backup…!!]" } }
+      }
+    },
+    "Enter Recovery Key": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter Recovery Key" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "输入恢复密钥" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Enter Recovery Key!!]" } }
+      }
+    },
+    "Import Backup…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Import Backup…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "导入备份…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Import Backup…!!]" } }
+      }
+    },
+    "Restore from Backup…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Restore from Backup…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "从备份恢复…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Restore from Backup…!!]" } }
+      }
+    },
+    "Writes every credential, including Hidden and recycled ones, to one encrypted file.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Writes every credential, including Hidden and recycled ones, to one encrypted file." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "把全部凭证写入一个加密文件，包括隐藏的凭证和回收站里的凭证。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Writes every credential, including Hidden and recycled ones, to one encrypted file.!!]" } }
+      }
+    },
+    "Adds the credentials in a backup file. Nothing in this library is deleted or overwritten.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Adds the credentials in a backup file. Nothing in this library is deleted or overwritten." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "添加备份文件里的凭证，不会删除或覆盖凭证库里的任何内容。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Adds the credentials in a backup file. Nothing in this library is deleted or overwritten.!!]" } }
+      }
+    },
+    "Saved “%@”. Keep its recovery key somewhere else.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Saved “%@”. Keep its recovery key somewhere else." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已保存“%@”。请把它的恢复密钥另外存放。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Saved “%@”. Keep its recovery key somewhere else.!!]" } }
+      }
+    },
+    "Keep the backup file and its recovery key in different places.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Keep the backup file and its recovery key in different places." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "备份文件和它的恢复密钥请分开存放。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Keep the backup file and its recovery key in different places.!!]" } }
+      }
+    },
+    "Choose an Ask Key backup file.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose an Ask Key backup file." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "选择一个请旨备份文件。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Choose an Ask Key backup file.!!]" } }
+      }
+    },
+    "Ask Key Backup %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key Backup %@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨备份 %@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key Backup %@!!]" } }
+      }
+    },
+    "(from backup)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "(from backup)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "(来自备份)" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!(from backup)!!]" } }
+      }
+    },
+    "(from backup %lld)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "(from backup %lld)" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "(来自备份 %lld)" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!(from backup %lld)!!]" } }
+      }
+    },
+    "Save Your Recovery Key": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save Your Recovery Key" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "保存恢复密钥" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Save Your Recovery Key!!]" } }
+      }
+    },
+    "This key opens the backup file. Ask Key doesn't keep it and can't recover it. If you lose it, nobody can open this backup, not even you.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This key opens the backup file. Ask Key doesn't keep it and can't recover it. If you lose it, nobody can open this backup, not even you." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "只有这个密钥能打开备份文件。请旨不会保存它，也无法找回。一旦丢失，任何人都打不开这个备份，包括你自己。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This key opens the backup file. Ask Key doesn't keep it and can't recover it. If you lose it, nobody can open this backup, not even you.!!]" } }
+      }
+    },
+    "Store the key in a password manager or on paper, apart from the backup file. Anyone with both can read every credential in it, including Hidden ones and private notes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Store the key in a password manager or on paper, apart from the backup file. Anyone with both can read every credential in it, including Hidden ones and private notes." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请把密钥存进密码管理器或抄在纸上，并与备份文件分开存放。同时拿到两者的人能读取其中的全部凭证，包括隐藏的凭证和私人备注。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Store the key in a password manager or on paper, apart from the backup file. Anyone with both can read every credential in it, including Hidden ones and private notes.!!]" } }
+      }
+    },
+    "Type the last group of the key to confirm you saved it": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Type the last group of the key to confirm you saved it" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "输入密钥的最后一组，确认你已保存" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Type the last group of the key to confirm you saved it!!]" } }
+      }
+    },
+    "Last group": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Last group" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "最后一组" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Last group!!]" } }
+      }
+    },
+    "Save Backup…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save Backup…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "保存备份…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Save Backup…!!]" } }
+      }
+    },
+    "The backup could not be saved there, and no file was written. Choose another location and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The backup could not be saved there, and no file was written. Choose another location and try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法在这个位置保存备份，没有写入任何文件。请换个位置重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The backup could not be saved there, and no file was written. Choose another location and try again.!!]" } }
+      }
+    },
+    "Enter the recovery key for “%@”. Ask Key showed it when the backup was made and never stored it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter the recovery key for “%@”. Ask Key showed it when the backup was made and never stored it." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "输入“%@”的恢复密钥。它在创建备份时显示过，请旨没有保存。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Enter the recovery key for “%@”. Ask Key showed it when the backup was made and never stored it.!!]" } }
+      }
+    },
+    "Recovery key": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Recovery key" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "恢复密钥" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Recovery key!!]" } }
+      }
+    },
+    "The backup file could not be read.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The backup file could not be read." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法读取这个备份文件。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The backup file could not be read.!!]" } }
+      }
+    },
+    "This recovery key has a typo. Check each group of four characters and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This recovery key has a typo. Check each group of four characters and try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "恢复密钥里有输错的字符。请逐组核对后重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This recovery key has a typo. Check each group of four characters and try again.!!]" } }
+      }
+    },
+    "This recovery key doesn't open this file, or the file is damaged.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This recovery key doesn't open this file, or the file is damaged." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这个恢复密钥打不开此文件，或者文件已损坏。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This recovery key doesn't open this file, or the file is damaged.!!]" } }
+      }
+    },
+    "This backup was made by a newer version of Ask Key. Update Ask Key, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This backup was made by a newer version of Ask Key. Update Ask Key, then try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这个备份由更新版本的请旨创建。请先更新请旨，然后重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This backup was made by a newer version of Ask Key. Update Ask Key, then try again.!!]" } }
+      }
+    },
+    "This backup contains a credential Ask Key can't import, so nothing was imported.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This backup contains a credential Ask Key can't import, so nothing was imported." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这个备份里有请旨无法导入的凭证，因此没有导入任何内容。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This backup contains a credential Ask Key can't import, so nothing was imported.!!]" } }
+      }
+    },
+    "Review Import": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Review Import" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "确认导入内容" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Review Import!!]" } }
+      }
+    },
+    "“%1$@”, made %2$@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "“%1$@”, made %2$@." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "“%1$@”，创建于 %2$@。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!“%1$@”, made %2$@.!!]" } }
+      }
+    },
+    "Your library changed after the last preview, so nothing was imported. Review this updated preview.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Your library changed after the last preview, so nothing was imported. Review this updated preview." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "凭证库在上次预览后有变化，所以没有导入任何内容。请查看更新后的预览。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Your library changed after the last preview, so nothing was imported. Review this updated preview.!!]" } }
+      }
+    },
+    "Authenticate and Import": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Authenticate and Import" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "验证并导入" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Authenticate and Import!!]" } }
+      }
+    },
+    "Will be added": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Will be added" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "将添加" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Will be added!!]" } }
+      }
+    },
+    "Will be renamed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Will be renamed" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "将改名" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Will be renamed!!]" } }
+      }
+    },
+    "Will be skipped": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Will be skipped" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "将跳过" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Will be skipped!!]" } }
+      }
+    },
+    "Everything in this backup is already in this library. There is nothing to import.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Everything in this backup is already in this library. There is nothing to import." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "备份里的内容都已在凭证库中，没有需要导入的内容。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Everything in this backup is already in this library. There is nothing to import.!!]" } }
+      }
+    },
+    "Nothing in this library is deleted or overwritten. Credentials set to Allow arrive as Ask every time, and Hidden ones stay Hidden.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Nothing in this library is deleted or overwritten. Credentials set to Allow arrive as Ask every time, and Hidden ones stay Hidden." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "导入不会删除或覆盖凭证库里的任何内容。权限为“允许”的凭证导入后改为“每次询问”，“隐藏”的凭证保持隐藏。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Nothing in this library is deleted or overwritten. Credentials set to Allow arrive as Ask every time, and Hidden ones stay Hidden.!!]" } }
+      }
+    },
+    "Renamed, because a different credential already has the name:": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Renamed, because a different credential already has the name:" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已有内容不同的同名凭证，以下凭证将改名导入：" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Renamed, because a different credential already has the name:!!]" } }
+      }
+    },
+    "Already in your Recycle Bin. Restore them there instead of importing a copy:": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Already in your Recycle Bin. Restore them there instead of importing a copy:" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "以下凭证已在回收站里。请到回收站恢复，不会另外导入一份：" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Already in your Recycle Bin. Restore them there instead of importing a copy:!!]" } }
+      }
+    },
+    "Not imported from the backup's Recycle Bin, because the name is taken or 30 days have passed:": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Not imported from the backup's Recycle Bin, because the name is taken or 30 days have passed:" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "备份回收站里的以下凭证不会导入，因为名称已被占用或已超过 30 天：" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Not imported from the backup's Recycle Bin, because the name is taken or 30 days have passed:!!]" } }
+      }
+    },
+    "New groups:": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "New groups:" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "新建分组：" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!New groups:!!]" } }
+      }
+    },
+    "Import Complete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Import Complete" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "导入完成" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Import Complete!!]" } }
+      }
+    },
+    "No credentials were added.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No credentials were added." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "没有新增凭证。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!No credentials were added.!!]" } }
+      }
+    },
+    "Added %@ to this library.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Added %@ to this library." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已向凭证库添加 %@。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Added %@ to this library.!!]" } }
+      }
+    },
+    "Renamed so you can compare them with the credentials already here:": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Renamed so you can compare them with the credentials already here:" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "以下凭证已改名导入，方便你和已有的同名凭证对比：" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Renamed so you can compare them with the credentials already here:!!]" } }
+      }
+    },
     "Data": {
       "extractionState": "manual",
       "localizations": {

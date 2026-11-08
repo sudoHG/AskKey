@@ -34,6 +34,7 @@ struct FrozenSettingsPage: View {
                 PageHeader(title: appLocalized("Settings"))
                 agentAccessSection
                 generalSection
+                BackupSettingsSection()
                 dataSection
             }
             .padding(Theme.Spacing.xxl)

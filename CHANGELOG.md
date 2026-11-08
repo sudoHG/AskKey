@@ -2,6 +2,18 @@
 
 Notable changes to AskKey are documented here, grouped by release and change type.
 
+## [Unreleased]
+
+### Added
+
+- Settings has a **Backup** section. **Export Backup…** writes every credential, including Hidden and recycled ones, with usage instructions, private notes, groups and expiry dates, to one encrypted `.askkeybackup` file after system authentication. Ask Key shows a newly generated recovery key once, asks for its last group to confirm it was saved, and never stores it. **Import Backup…** opens a backup with its recovery key, previews what it adds, renames and skips, and adds the credentials after system authentication.
+- The first-run and empty-library screen offers **Restore from Backup…**, so a new Mac restores a whole library without creating a credential first.
+
+### Security
+
+- A backup file is sealed with AES-256-GCM under a key derived from its recovery key, and its name and unencrypted bytes reveal no credential names. Anyone with both the file and its recovery key can read every credential in it; without the key nobody can open it, Ask Key included. See [ADR 0012](docs/adr/0012-encrypted-backup-export-and-import.md).
+- An import never deletes or overwrites a credential: one with the same name and contents is skipped, and one whose name is taken by different contents arrives as "*name* (from backup)". Credentials that were Allow arrive as Ask every time, and Hidden ones stay Hidden. The import is written in one transaction or not at all, and a library change after the preview shows a new preview instead of importing. Agents cannot export, inspect or import backups.
+
 ## [0.6.0] - 2026-11-07
 
 ### Added

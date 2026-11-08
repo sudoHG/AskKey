@@ -47,7 +47,7 @@ extension Vault {
                   planned.source.deletedAt.map { BackupImportPlanner.retentionEnded(deletedAt: $0, at: checkedAt) } ?? false
               }) else { throw BackupImportError.libraryChanged }
         if !library.records.isEmpty { try requireManagementSession() }
-        try authorizeManagement(authenticator, reason: CredentialManagementCopy.manageReason)
+        try authorizeManagement(authenticator, reason: CredentialManagementCopy.importBackupReason)
         let now = currentDate
         let records = try plan.credentials.map { try importedRecord($0, key: key, now: now) }
         let wasPaused = try agentAccessGate.beginExclusiveChange()

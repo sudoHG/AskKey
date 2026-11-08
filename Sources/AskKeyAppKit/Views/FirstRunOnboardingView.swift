@@ -9,6 +9,7 @@ struct FirstRunOnboardingView: View {
 
     @Environment(VaultViewModel.self) private var vault
     @State private var launchAtLoginEnabled = true
+    @State private var restoreFlow: BackupImportFlow?
     private let hasExplicitLoginChoice: Bool
 
     init(
@@ -56,6 +57,10 @@ struct FirstRunOnboardingView: View {
         }
         .onChange(of: launchAtLoginEnabled) { _, value in
             vault.onboardingLaunchAtLoginEnabled = value
+        }
+        .sheet(item: $restoreFlow) { flow in
+            BackupImportSheet(flow: flow) { restoreFlow = nil }
+                .environment(vault)
         }
     }
 
@@ -122,14 +127,23 @@ struct FirstRunOnboardingView: View {
     @ViewBuilder
     private func stepActions(_ number: Int) -> some View {
         if number == 1 {
-            HStack(spacing: Theme.Spacing.sm) {
-                Button(copy.createAction, action: onCreateCredential)
-                    .buttonStyle(FrozenPrimaryButtonStyle())
-                    .accessibilityIdentifier("welcome-create-credential")
-                BorderedActionButton(action: onImportCredential) {
-                    Text(copy.importAction)
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                HStack(spacing: Theme.Spacing.sm) {
+                    Button(copy.createAction, action: onCreateCredential)
+                        .buttonStyle(FrozenPrimaryButtonStyle())
+                        .accessibilityIdentifier("welcome-create-credential")
+                    BorderedActionButton(action: onImportCredential) {
+                        Text(copy.importAction)
+                    }
+                    .accessibilityIdentifier("welcome-import-credential")
                 }
-                .accessibilityIdentifier("welcome-import-credential")
+                // A new Mac restores the whole library from a backup without
+                // creating a credential first (ADR 0012).
+                Button(appLocalized("Restore from Backup…"), action: restoreFromBackup)
+                    .buttonStyle(.plain)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityIdentifier("welcome-restore-backup")
             }
         } else if number == 2 {
             HStack(spacing: Theme.Spacing.lg) {
@@ -148,6 +162,12 @@ struct FirstRunOnboardingView: View {
                 .accessibilityIdentifier("welcome-later")
             }
         }
+    }
+
+    private func restoreFromBackup() {
+        guard vault.beginBackupRestore() else { return }
+        let flow = BackupImportFlow(vault: vault)
+        if flow.chooseFile() { restoreFlow = flow }
     }
 
     private var launchAtLoginLine: some View {

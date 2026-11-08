@@ -190,12 +190,12 @@ final class BackupImportSafetyTests: BackupImportTestCase {
         try target.vault.beginManagementSession(using: .allow)
         let cancelled = BackupPromptRecorder()
         assertManagementRequired(try target.vault.commitBackupImport(plan, using: cancelled.authenticator(result: false)))
-        XCTAssertEqual(cancelled.reasons, [CredentialManagementCopy.manageReason])
+        XCTAssertEqual(cancelled.reasons, [CredentialManagementCopy.importBackupReason])
         XCTAssertEqual(try BackupImportLibraryView(target.vault), before)
 
         let confirmed = BackupPromptRecorder()
         XCTAssertEqual(try target.vault.commitBackupImport(plan, using: confirmed.authenticator(result: true)).additions.count, 6)
-        XCTAssertEqual(confirmed.reasons, [CredentialManagementCopy.manageReason])
+        XCTAssertEqual(confirmed.reasons, [CredentialManagementCopy.importBackupReason])
     }
 
     func testEmptyLibraryCommitStillNeedsFreshAuthentication() throws {
@@ -203,12 +203,12 @@ final class BackupImportSafetyTests: BackupImportTestCase {
         let plan = try plan(export, into: target.vault)
         let cancelled = BackupPromptRecorder()
         assertManagementRequired(try target.vault.commitBackupImport(plan, using: cancelled.authenticator(result: false)))
-        XCTAssertEqual(cancelled.reasons, [CredentialManagementCopy.manageReason])
+        XCTAssertEqual(cancelled.reasons, [CredentialManagementCopy.importBackupReason])
         XCTAssertEqual(try target.vault.storedCredentialCount(), 0)
 
         let confirmed = BackupPromptRecorder()
         _ = try target.vault.commitBackupImport(plan, using: confirmed.authenticator(result: true))
-        XCTAssertEqual(confirmed.reasons, [CredentialManagementCopy.manageReason])
+        XCTAssertEqual(confirmed.reasons, [CredentialManagementCopy.importBackupReason])
         XCTAssertEqual(try target.vault.storedCredentialCount(), 6)
         XCTAssertFalse(target.vault.hasActiveManagementSession)
     }

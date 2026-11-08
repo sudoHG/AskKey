@@ -35,6 +35,8 @@ The Chinese UI column quotes labels or relevant phrases from [Localizable.xcstri
 | Access record | 访问记录 | Encrypted operation metadata, with no credential values, viewed and cleared through authenticated App management. It is not an agent log or proof of external behavior. |
 | Credential expiry | 到期时间 | A deadline beyond which runtime use and writes fail; related approvals and temporary deliveries are invalidated. |
 | Recycle bin | 回收站 | Deleted credentials retained for 30 days and unavailable to agents. Restore and permanent deletion are App management operations. |
+| Backup file | 备份文件 | One `.askkeybackup` file holding every credential in the library, including Hidden and recycled ones, usage instructions and private notes, encrypted under its recovery key. Importing it adds credentials and never deletes or overwrites; see [ADR 0012](adr/0012-encrypted-backup-export-and-import.md). |
+| Recovery key | 恢复密钥 | The key generated for one backup file, 28 characters in seven groups of four, shown once when the backup is made. Ask Key never stores it. Nobody can open the file without it, and anyone holding both can read every credential in the file. |
 | Client adapter | — | The boundary that checks, previews, applies, verifies and rolls back a supported client's MCP configuration. Current clients are Claude Code, Codex, Cursor and Grok CLI; adapters share the Broker's security model. |
 | Discovery hook | 凭证查询 | A reminder to consult the catalog before relevant commands. Discovery does not select credentials, approve requests or bypass the Broker. |
 
@@ -49,4 +51,4 @@ Protocol and storage terms have no standalone UI labels:
 | Unknown outcome | `outcome_unknown`: AskKey cannot establish an execution outcome. Automatically repeating the operation could duplicate an external effect, so it must not retry automatically. |
 | Schema baseline | `askkey-0001-baseline`, reproducing the v15 schema. The subsequent `askkey-0002-drop-legacy-tables` migration removes only legacy tables proven to contain no user data. See [ADR 0001](adr/0001-domain-storage-and-schema.md). |
 
-Backup and recovery-key workflows were removed from v0.1. They are not current product capabilities; [ADR 0004](adr/0004-backup-removal-and-future-design.md) records the removal and constraints for a separately approved future design.
+The legacy iCloud backup and its recovery-key workflows were removed from v0.1 ([ADR 0004](adr/0004-backup-removal-and-future-design.md)). The current backup is an encrypted file export and merge import recorded in [ADR 0012](adr/0012-encrypted-backup-export-and-import.md).

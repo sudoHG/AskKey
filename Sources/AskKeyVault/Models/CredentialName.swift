@@ -70,6 +70,8 @@ public enum CredentialManagementCopy {
     public static let hidden = "Hidden"
     public static let manageReason = "Confirm credential management"
     public static let revealReason = "Reveal credential value"
+    public static let exportBackupReason = "Export all credentials to a backup file"
+    public static let importBackupReason = "Import credentials from a backup file"
     public static let pauseReason = "Pause Agent access"
     public static let resumeReason = "Resume Agent access"
     public static let usageInstructions = "Usage instructions"
