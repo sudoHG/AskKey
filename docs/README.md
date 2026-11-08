@@ -22,6 +22,7 @@ See the [changelog](../CHANGELOG.md) for release changes and known limitations.
 - [ADR 0006](adr/0006-release-process.md): locally signed, notarized DMG releases.
 - [ADR 0007](adr/0007-claude-code-integration.md): Claude Code MCP setup through its CLI and the discovery hook in its settings.
 - [ADR 0008](adr/0008-approval-shows-target.md): approvals show the command, working directory and delivered names.
+- [ADR 0012](adr/0012-encrypted-backup-export-and-import.md): encrypted backup export with a generated recovery key, and merge import that adds without replacing.
 
 ## Contributing and project rules
 
