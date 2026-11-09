@@ -190,10 +190,26 @@ final class ReviewFixTests: XCTestCase {
         try await phone.poll()
         harness.transport.interceptor = nil
         harness.clock.advance(by: 30)
-        // Pairing again while that check is still pending: only the pairing ID tells the reply apart.
+        // Pairing again while that check is still pending: the pairing ID tells the reply apart.
+        let oldPairing = try await XCTUnwrapAsync(try await mac.entry(for: phone)).pairingID
         try await harness.pair(mac, phone)
         harness.transport.releaseDelayed()
         await XCTAssertEqualAsync(try await mac.poll().refusals, [.bindingMismatch])
+
+        // A reply signed by the phone that answers the check pending now but names the earlier
+        // pairing is refused by the payload's pairing ID alone.
+        harness.transport.dropping(.deliveryCheck)
+        let currentCheck = try await mac.messenger.sendDeliveryCheck(to: phone.id)
+        harness.transport.interceptor = nil
+        let stale = DeliveryCheckReplyPayload(pairingID: oldPairing, checkMessageID: currentCheck).encoded
+        harness.transport.insert(try PairingRuleTests.seal(.deliveryCheckReply, stale, from: phone, to: mac, harness: harness),
+                                 intoInboxOf: mac.id)
+        await XCTAssertEqualAsync(try await mac.poll().refusals, [.bindingMismatch])
+        let current = try await XCTUnwrapAsync(try await mac.entry(for: phone)).pairingID
+        let genuine = DeliveryCheckReplyPayload(pairingID: current, checkMessageID: currentCheck).encoded
+        harness.transport.insert(try PairingRuleTests.seal(.deliveryCheckReply, genuine, from: phone, to: mac, harness: harness),
+                                 intoInboxOf: mac.id)
+        await XCTAssertEqualAsync(try await mac.poll().processed, 1, "the same check with the current pairing ID is answered")
     }
 
     func testAttackerCannotUseThePhonesCard() async throws {
