@@ -40,16 +40,19 @@ final class SimulatedDevice {
     let identity: SoftwareDeviceIdentity
     let store: InMemoryPairedDeviceListStore
     let platform: DevicePlatform
+    private let registryStore: any PairedDeviceListStore
     private(set) var messenger: DeviceMessenger
     private unowned let harness: DeviceHarness
 
+    /// `registryStore` replaces `store` behind the messenger when given.
     init(identity: SoftwareDeviceIdentity, store: InMemoryPairedDeviceListStore, platform: DevicePlatform,
-         harness: DeviceHarness) {
+         harness: DeviceHarness, registryStore: (any PairedDeviceListStore)? = nil) {
         self.identity = identity
         self.store = store
         self.platform = platform
         self.harness = harness
-        messenger = Self.messenger(identity, store, platform, harness)
+        self.registryStore = registryStore ?? store
+        messenger = Self.messenger(identity, self.registryStore, platform, harness)
     }
 
     var id: DeviceID { messenger.deviceID }
@@ -57,7 +60,7 @@ final class SimulatedDevice {
     /// The same keys and stored list in a new process: sessions, processed
     /// message IDs and pending checks are gone.
     func restart() {
-        messenger = Self.messenger(identity, store, platform, harness)
+        messenger = Self.messenger(identity, registryStore, platform, harness)
     }
 
     func devices() async throws -> [PairedDevice] {
@@ -89,7 +92,7 @@ final class SimulatedDevice {
         try await messenger.poll()
     }
 
-    private static func messenger(_ identity: SoftwareDeviceIdentity, _ store: InMemoryPairedDeviceListStore,
+    private static func messenger(_ identity: SoftwareDeviceIdentity, _ store: any PairedDeviceListStore,
                                   _ platform: DevicePlatform, _ harness: DeviceHarness) -> DeviceMessenger {
         DeviceMessenger(identity: identity, platform: platform, registry: PairedDeviceRegistry(store: store),
                         transport: harness.transport, clock: harness.clock)

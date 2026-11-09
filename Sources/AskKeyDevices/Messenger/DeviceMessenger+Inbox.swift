@@ -10,13 +10,14 @@ extension DeviceMessenger {
 
     static let failureLimit = 3
 
-    /// Fetches the inbox since `inboxToken` and processes every message.
-    /// Processed and refused messages are deleted. The token advances only
-    /// when every message of a fetch was processed or refused; a held or
-    /// failed message keeps the old token, so the next poll fetches it again,
-    /// and a message that fails three times is refused. An expired token
-    /// leads to one full fetch from no token. A poll that starts while
-    /// another is running returns an empty report. Throws
+    /// Fetches the inbox since `inboxToken`, page by page, and processes
+    /// every message. Processed and refused messages are deleted. The token
+    /// advances only past pages whose messages, and every earlier page's,
+    /// were all processed or refused: a held or failed message keeps the old
+    /// token, so a later poll fetches it again, and a message that fails
+    /// three times is refused. Held messages are retried as later pages
+    /// arrive. An expired token leads to one full fetch from no token. A poll
+    /// that starts while another is running returns an empty report. Throws
     /// `DeviceIdentityError` when this device's own key no longer works, and
     /// transport errors.
     public func poll() async throws -> InboxReport {
@@ -25,40 +26,52 @@ extension DeviceMessenger {
         defer { isPolling = false }
         await advanceTimers()
         var report = InboxReport()
-        var token = inboxToken
+        var cursor = inboxToken
         var restarted = false
+        var committable = true
+        var held: [DeviceEnvelope] = []
         while true {
             let changes: InboxChanges
             do {
-                changes = try await transport.fetchInboxChanges(of: deviceID, since: token)
+                changes = try await transport.fetchInboxChanges(of: deviceID, since: cursor)
             } catch DeviceTransportError.changeTokenExpired where !restarted {
-                token = nil
+                cursor = nil
                 restarted = true
+                committable = true
+                held = []
                 continue
             }
-            guard try await process(changes, into: &report) else { break }
-            token = changes.newToken
-            inboxToken = token
+            let page = try await process(changes, carrying: held, into: &report)
+            held = page.held
+            committable = committable && page.settled
+            if committable, held.isEmpty {
+                inboxToken = changes.newToken
+            }
+            cursor = changes.newToken
             guard changes.moreComing else { break }
         }
+        report.held = held.count
         await advanceTimers()
         return report
     }
 
-    /// Processes one fetch and deletes what settled. Pairing messages go
-    /// first, in kind order; held messages are retried within the fetch
-    /// after any message took effect. True when every message settled.
-    private func process(_ changes: InboxChanges, into report: inout InboxReport) async throws -> Bool {
+    /// Processes one page, with the messages still held from earlier pages,
+    /// and deletes what settled. Pairing messages go first, in kind order;
+    /// held messages are retried after any message took effect.
+    private func process(_ changes: InboxChanges, carrying carried: [DeviceEnvelope],
+                         into report: inout InboxReport) async throws -> (settled: Bool, held: [DeviceEnvelope]) {
         let fetchedAt = clock.now()
         for envelope in changes.envelopes where firstFetched[envelope.recordName] == nil {
             firstFetched[envelope.recordName] = fetchedAt
         }
         var deletable = changes.malformedRecordNames
         report.refusals += changes.malformedRecordNames.map { _ in DeviceMessageRefusal.malformed }
-        var pending = changes.envelopes.enumerated()
+        var settled = changes.failedRecordNames.isEmpty
+        report.failed += changes.failedRecordNames.count
+        let fetchedNames = Set(changes.envelopes.map(\.recordName))
+        var pending = (carried.filter { !fetchedNames.contains($0.recordName) } + changes.envelopes).enumerated()
             .sorted { (Self.rank($0.element), $0.offset) < (Self.rank($1.element), $1.offset) }
             .map(\.element)
-        var settled = true
         var progressed = true
         while progressed, !pending.isEmpty {
             progressed = false
@@ -93,8 +106,6 @@ extension DeviceMessenger {
             }
             pending = held
         }
-        report.held += pending.count
-        if !pending.isEmpty { settled = false }
         for name in deletable {
             firstFetched[name] = nil
             failureCounts[name] = nil
@@ -102,7 +113,7 @@ extension DeviceMessenger {
         if !deletable.isEmpty {
             try await transport.deleteMessages(deletable, from: deviceID)
         }
-        return settled
+        return (settled, pending)
     }
 
     private static func rank(_ envelope: DeviceEnvelope) -> Int64 {
@@ -121,23 +132,19 @@ extension DeviceMessenger {
         } catch {
             return .refused(error as? DeviceMessageRefusal ?? .malformed, authenticated: false)
         }
-        var preSharedKey: HPKEPreSharedKey?
-        if routing.kind.usesPreSharedKey {
-            guard let session, session.role == .initiator, session.isOpen(at: now) else {
+        let opened: (inner: InnerMessage, session: PairingSessionID?)
+        do {
+            guard let result = try open(envelope, routing: routing, now: now) else {
                 return .refused(.noSession, authenticated: false)
             }
-            preSharedKey = session.qr.preSharedKey
-        }
-        let inner: InnerMessage
-        do {
-            inner = try MessageCodec.open(envelope, routing: routing, ownID: deviceID, identity: identity,
-                                          preSharedKey: preSharedKey, now: now)
+            opened = result
         } catch let refusal as DeviceMessageRefusal {
             return .refused(refusal, authenticated: false)
         }
+        let inner = opened.inner
         guard !processed.contains(inner.messageID) else { return .refused(.replayed, authenticated: false) }
         let outcome = routing.kind.isPairing
-            ? try await handlePairingMessage(inner, recordName: envelope.recordName, now: now)
+            ? try await handlePairingMessage(inner, recordName: envelope.recordName, pskSession: opened.session, now: now)
             : try await handlePeerMessage(inner, now: now)
         switch outcome {
         case .processed, .refused(_, authenticated: true):
@@ -148,39 +155,36 @@ extension DeviceMessenger {
         return outcome
     }
 
-    /// Kinds 1–5 belong to the open session, which verifies the sender.
-    private func handlePairingMessage(_ inner: InnerMessage, recordName: String, now: Date) async throws -> Outcome {
-        let list = try await registry.list()
-        guard session?.isOpen(at: now) == true else { return .refused(.noSession, authenticated: false) }
-        let outcome: PairingOutcome
-        do {
-            switch inner.kind {
-            case .pairingRequest:
-                outcome = try session!.handleRequest(inner, firstFetchedAt: firstFetched[recordName] ?? now,
-                                                     now: now, list: list)
-            case .pairingWithdrawal:
-                outcome = session!.handleWithdrawal(inner, now: now)
-            default:
-                outcome = try session!.handlePeerMessage(inner, now: now, list: list)
+    /// Opens a message. PSK-mode kinds need a session that can hold them: a
+    /// request only the current initiator session, a withdrawal also a
+    /// retired one. Returns nil when no session can, and which session's
+    /// pre-shared key opened the message.
+    private func open(_ envelope: DeviceEnvelope, routing: MessageCodec.Routing,
+                      now: Date) throws -> (inner: InnerMessage, session: PairingSessionID?)? {
+        guard routing.kind.usesPreSharedKey else {
+            return (try MessageCodec.open(envelope, routing: routing, ownID: deviceID, identity: identity,
+                                          preSharedKey: nil, now: now), nil)
+        }
+        var candidates = [session].compactMap { $0 }
+        if routing.kind == .pairingWithdrawal { candidates += retiredSessions }
+        candidates = candidates.filter { $0.role == .initiator && $0.isOpen(at: now) }
+        for (index, candidate) in candidates.enumerated() {
+            do {
+                let inner = try MessageCodec.open(envelope, routing: routing, ownID: deviceID, identity: identity,
+                                                  preSharedKey: candidate.qr.preSharedKey, now: now)
+                return (inner, candidate.qr.sessionID)
+            } catch DeviceMessageRefusal.decryptionFailed where index < candidates.count - 1 {
+                continue
             }
-        } catch DeviceIdentityError.unusable {
-            session?.close(.identityUnusable)
-            throw DeviceIdentityError.unusable
         }
-        switch outcome {
-        case .accepted(let effects):
-            await perform(effects)
-            return .processed
-        case .refused(let refusal, let authenticated):
-            return .refused(refusal, authenticated: authenticated)
-        case .held:
-            return .held
-        }
+        return nil
     }
 
     /// Kinds 6–8 come from a device on the list. A message from the open
-    /// session's peer that is not on the list yet, or that is bound to the
-    /// pairing this session is replacing, is held until the session ends.
+    /// session's peer that is not on the list yet, that is bound to the
+    /// pairing this session is replacing, or that is an unpair notice, is
+    /// held until the session ends, so a notice from before a removal and a
+    /// new pairing cannot end the new pairing.
     private func handlePeerMessage(_ inner: InnerMessage, now: Date) async throws -> Outcome {
         let list = try await registry.list()
         let open = session.flatMap { $0.isOpen(at: now) && !$0.added ? $0 : nil }
@@ -194,6 +198,7 @@ extension DeviceMessenger {
         guard inner.hasValidSignature(from: entry.card.messagePublicKey) else {
             return .refused(.badSignature, authenticated: false)
         }
+        if fromSessionPeer, inner.kind == .unpairNotice { return .held }
         let outcome = try await apply(inner, from: entry, now: now)
         if case .refused(.bindingMismatch, _) = outcome, fromSessionPeer { return .held }
         return outcome
@@ -206,8 +211,10 @@ extension DeviceMessenger {
                 return .refused(.malformed, authenticated: true)
             }
             guard payload.pairingID == entry.pairingID else { return .refused(.bindingMismatch, authenticated: true) }
+            let effects = endSessions(with: entry.deviceID)
+            dropChecks(for: entry.deviceID)
             try await registry.apply(.remove(entry.deviceID, pairingID: entry.pairingID))
-            await endActivities(with: entry.deviceID)
+            await perform(effects)
             return .processed
         case .deliveryCheck:
             guard let payload = try? PairingIDPayload(decoding: inner.payload) else {

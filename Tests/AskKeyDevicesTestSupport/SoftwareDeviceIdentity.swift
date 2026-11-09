@@ -19,6 +19,7 @@ public final class SoftwareDeviceIdentity: DeviceIdentity, @unchecked Sendable {
     private var unusable = false
     private var behavior = ApprovalBehavior.sign
     private var reasons: [String] = []
+    private var promptHook: (@Sendable () -> Void)?
 
     public init() {
         messageKey = P256.Signing.PrivateKey()
@@ -51,6 +52,13 @@ public final class SoftwareDeviceIdentity: DeviceIdentity, @unchecked Sendable {
         set { lock.withLock { behavior = newValue } }
     }
 
+    /// Runs while the approval prompt is up, before the signature is made,
+    /// for example to let time pass.
+    public var duringApprovalPrompt: (@Sendable () -> Void)? {
+        get { lock.withLock { promptHook } }
+        set { lock.withLock { promptHook = newValue } }
+    }
+
     /// The prompt reason of every approval signature requested so far.
     public var approvalReasons: [String] { lock.withLock { reasons } }
 
@@ -60,10 +68,11 @@ public final class SoftwareDeviceIdentity: DeviceIdentity, @unchecked Sendable {
     }
 
     public func signWithApprovalKey(_ data: Data, reason: String) async throws -> Data {
-        let behavior: ApprovalBehavior = lock.withLock {
+        let (behavior, hook): (ApprovalBehavior, (@Sendable () -> Void)?) = lock.withLock {
             reasons.append(reason)
-            return unusable ? .fail : self.behavior
+            return (unusable ? .fail : self.behavior, promptHook)
         }
+        hook?()
         guard !isUnusable else { throw DeviceIdentityError.unusable }
         switch behavior {
         case .sign: return try approvalKey.signature(for: data).rawRepresentation

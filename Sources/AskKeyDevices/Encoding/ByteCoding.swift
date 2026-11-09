@@ -68,9 +68,11 @@ struct ByteReader {
         try readBytes(8).reduce(UInt64(0)) { $0 << 8 | UInt64($1) }
     }
 
+    /// Refuses times after the year 9999, which no layout ever needs and
+    /// which `Date` cannot carry exactly.
     mutating func readTime() throws -> Int64 {
         let value = try readUInt64()
-        guard value <= UInt64(Int64.max) else { throw MalformedEncoding() }
+        guard value <= UInt64(UnixTime.maximumSeconds) else { throw MalformedEncoding() }
         return Int64(value)
     }
 
@@ -110,8 +112,14 @@ enum DomainLabel {
 
 /// Unix seconds as the layouts carry them. Sub-second parts are dropped.
 enum UnixTime {
+    /// The last second of the year 9999.
+    static let maximumSeconds: Int64 = 253_402_300_799
+
+    /// Clamped to 0 ... `maximumSeconds`, so no date can trap the conversion.
     static func seconds(_ date: Date) -> Int64 {
-        Int64(date.timeIntervalSince1970.rounded(.down))
+        let interval = date.timeIntervalSince1970.rounded(.down)
+        guard interval.isFinite else { return interval > 0 ? maximumSeconds : 0 }
+        return Int64(min(max(interval, 0), Double(maximumSeconds)))
     }
 
     static func date(_ seconds: Int64) -> Date {
@@ -122,7 +130,7 @@ enum UnixTime {
     /// non-negative second, so it can be compared exactly with a signed time.
     static func exactSeconds(_ date: Date) -> Int64? {
         let interval = date.timeIntervalSince1970
-        guard interval >= 0, interval.rounded(.down) == interval, interval < 9.2e18 else { return nil }
+        guard interval >= 0, interval.rounded(.down) == interval, interval <= Double(maximumSeconds) else { return nil }
         return Int64(exactly: interval)
     }
 }

@@ -47,7 +47,7 @@ extension PairedDeviceList {
             guard let card = try? DeviceCard(bytes: entry.card),
                   let pairingID = PairingID(rawValue: entry.pairingID),
                   entry.displayName == DeviceDisplayName.clean(entry.displayName),
-                  entry.pairedAt >= 0, (entry.lastReachedAt ?? 0) >= 0 else {
+                  Self.isValidTime(entry.pairedAt), Self.isValidTime(entry.lastReachedAt ?? 0) else {
                 throw PairedDeviceListError.malformed
             }
             let check = try entry.lastDeliveryCheck.map(Self.decode)
@@ -63,6 +63,10 @@ extension PairedDeviceList {
         }
     }
 
+    private static func isValidTime(_ seconds: Int64) -> Bool {
+        (0...UnixTime.maximumSeconds).contains(seconds)
+    }
+
     private static func encode(_ result: DeliveryCheckResult) -> Check {
         switch result {
         case .pending(let date): return Check(state: "pending", time: UnixTime.seconds(date))
@@ -72,7 +76,7 @@ extension PairedDeviceList {
     }
 
     private static func decode(_ check: Check) throws -> DeliveryCheckResult {
-        guard check.time >= 0 else { throw PairedDeviceListError.malformed }
+        guard isValidTime(check.time) else { throw PairedDeviceListError.malformed }
         let date = UnixTime.date(check.time)
         switch check.state {
         case "pending": return .pending(sentAt: date)

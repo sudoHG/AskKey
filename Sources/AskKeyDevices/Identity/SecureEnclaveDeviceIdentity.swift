@@ -150,6 +150,8 @@ public final class SecureEnclaveDeviceIdentity: DeviceIdentity, @unchecked Senda
                     return .authenticationCancelled
                 case .authenticationFailed, .biometryLockout:
                     return .authenticationFailed
+                case .biometryNotAvailable:
+                    return .authenticationUnavailable
                 default:
                     return .unusable
                 }

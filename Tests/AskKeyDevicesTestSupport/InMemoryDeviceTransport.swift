@@ -32,6 +32,8 @@ public final class InMemoryDeviceTransport: DeviceTransport, @unchecked Sendable
     private var sent: [DeviceEnvelope] = []
     private var sendErrors: [DeviceTransportError] = []
     private var rule: (@Sendable (DeviceEnvelope) -> Disposition)?
+    private var limit: Int?
+    private var unreadable: Set<String> = []
 
     public init() {}
 
@@ -39,6 +41,17 @@ public final class InMemoryDeviceTransport: DeviceTransport, @unchecked Sendable
     public var interceptor: (@Sendable (DeviceEnvelope) -> Disposition)? {
         get { lock.withLock { rule } }
         set { lock.withLock { rule = newValue } }
+    }
+
+    /// The most records one fetch returns; nil returns them all.
+    public var pageSize: Int? {
+        get { lock.withLock { limit } }
+        set { lock.withLock { limit = newValue } }
+    }
+
+    /// Makes fetches report these records as failed to fetch.
+    public func failFetches(of recordNames: Set<String>) {
+        lock.withLock { unreadable = recordNames }
     }
 
     /// Every envelope passed to `send`, in order, as the sender produced it.
@@ -83,8 +96,13 @@ public final class InMemoryDeviceTransport: DeviceTransport, @unchecked Sendable
             let changed = (inboxes[device.text] ?? [:]).values
                 .filter { $0.sequence > after }
                 .sorted { $0.sequence < $1.sequence }
-                .map(\.envelope)
-            return InboxChanges(envelopes: changed, newToken: Self.token(generation: generation, sequence: sequence))
+            let page = limit.map { Array(changed.prefix($0)) } ?? changed
+            let moreComing = page.count < changed.count
+            let position = moreComing ? page.last!.sequence : sequence
+            let failed = page.map(\.envelope.recordName).filter { unreadable.contains($0) }
+            return InboxChanges(envelopes: page.map(\.envelope).filter { !unreadable.contains($0.recordName) },
+                                failedRecordNames: failed,
+                                newToken: Self.token(generation: generation, sequence: position), moreComing: moreComing)
         }
     }
 

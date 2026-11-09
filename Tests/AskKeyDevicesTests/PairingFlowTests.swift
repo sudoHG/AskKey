@@ -287,6 +287,52 @@ final class PairingFlowTests: XCTestCase {
         try await assertNoTrust(mac, phone)
     }
 
+    func testPhoneThatAddedTheMacRemovesItWhenTheMacCancels() async throws {
+        let harness = DeviceHarness()
+        let mac = harness.makeDevice(.macOS)
+        let phone = harness.makeDevice(.iOS)
+        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        try await mac.poll()
+        try await phone.poll()
+        harness.transport.delaying(.pairingConfirmation, from: phone.id)
+        try await mac.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.poll()
+        guard case .paired = await phone.phase() else { return XCTFail("the phone holds both confirmations") }
+        await mac.messenger.cancelPairing()
+        harness.transport.releaseDelayed()
+        try await mac.poll()
+        try await phone.poll()
+        await XCTAssertEqualAsync(await phone.phase()?.endReason, .undoneByPeer)
+        try await assertNoTrust(mac, phone)
+    }
+
+    func testAnyoneWithTheQRCodeCanUndoTheResultButNotRestoreAReplacedEntry() async throws {
+        let harness = DeviceHarness()
+        let mac = harness.makeDevice(.macOS)
+        let phone = harness.makeDevice(.iOS)
+        try await harness.pair(mac, phone)
+        harness.clock.advance(by: 11 * 60)
+        // Pairing again replaces the entry; a QR holder then withdraws within the new session.
+        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        try await mac.poll()
+        try await phone.poll()
+        try await mac.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.poll()
+        guard case .paired = await mac.phase() else { return XCTFail("the Mac added the phone again") }
+        let onlooker = harness.makeDevice(.iOS)
+        try await onlooker.messenger.joinPairing(scannedText: qr.text, displayName: "Onlooker")
+        await onlooker.messenger.cancelPairing()
+        let report = try await mac.poll()
+        XCTAssertEqual(report.refusals, [.bindingMismatch], "a second request after the peer was added is ignored")
+        await XCTAssertEqualAsync(await mac.phase()?.endReason, .undoneByPeer)
+        let macEntry = try await mac.entry(for: phone)
+        XCTAssertNil(macEntry, "the entry the first pairing wrote is not restored")
+    }
+
     func testEarlyDeliveryCheckFromTheSessionPeerIsHeldUntilThePeerIsAdded() async throws {
         let harness = DeviceHarness()
         let mac = harness.makeDevice(.macOS)

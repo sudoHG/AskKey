@@ -32,16 +32,21 @@ public struct InboxChangeToken: Hashable, Sendable {
 public struct InboxChanges: Sendable {
     /// Messages added or changed since the token.
     public var envelopes: [DeviceEnvelope]
-    /// Records that could not be read as envelopes; they are refused and deleted.
+    /// Records whose fields do not form an envelope (the schema is broken);
+    /// they are refused and deleted.
     public var malformedRecordNames: [String]
+    /// Records that failed to fetch; the token stays behind them so the next
+    /// poll fetches them again, and they are not deleted.
+    public var failedRecordNames: [String]
     public var newToken: InboxChangeToken
     /// More changes follow; fetch again from `newToken`.
     public var moreComing: Bool
 
-    public init(envelopes: [DeviceEnvelope], malformedRecordNames: [String] = [], newToken: InboxChangeToken,
-                moreComing: Bool = false) {
+    public init(envelopes: [DeviceEnvelope], malformedRecordNames: [String] = [], failedRecordNames: [String] = [],
+                newToken: InboxChangeToken, moreComing: Bool = false) {
         self.envelopes = envelopes
         self.malformedRecordNames = malformedRecordNames
+        self.failedRecordNames = failedRecordNames
         self.newToken = newToken
         self.moreComing = moreComing
     }

@@ -54,6 +54,10 @@ public enum DeviceIdentityError: Error, Equatable, Sendable {
     case authenticationCancelled
     /// Face ID, Touch ID or the system prompt did not succeed.
     case authenticationFailed
+    /// Face ID or Touch ID cannot be used right now, for example because the
+    /// person turned it off for the app. The key still exists; this is not a
+    /// reason to reset the identity.
+    case authenticationUnavailable
     /// The Secure Enclave did not create a key.
     case keyCreationFailed
 }

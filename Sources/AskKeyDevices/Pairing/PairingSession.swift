@@ -9,8 +9,9 @@ enum PairingEffect {
     /// Both confirmations are held: add `entry(pairedAt:)` to the list.
     case addPeer
     /// Undo this session's result: remove the entry if it still has this
-    /// session's pairing ID. An entry the pairing replaced is not restored.
-    case removeEntry(DeviceID, PairingID)
+    /// session's pairing ID, then `close(.undoneByPeer)`. An entry the
+    /// pairing replaced is not restored.
+    case undo(DeviceID, PairingID)
 }
 
 enum PairingOutcome {
@@ -276,6 +277,7 @@ struct PairingSession {
     /// approval key's signature over `confirmationBytes`.
     mutating func confirm(approvalSignature: Data, now: Date) throws -> [PairingEffect] {
         guard let transcriptHash, let peer, confirmationBytes != nil else { throw DeviceMessengerError.notComparing }
+        guard isOpen(at: now) else { throw DeviceMessengerError.sessionEnded }
         localConfirmed = true
         let payload = PairingConfirmationPayload.encode(role: role, signer: ownCard.deviceID,
                                                         transcriptHash: transcriptHash, signature: approvalSignature)
@@ -338,12 +340,12 @@ struct PairingSession {
     }
 
     /// A cancellation or withdrawal for this session: before this side added
-    /// the peer it ends the session; afterwards it undoes the result.
+    /// the peer it ends the session; afterwards it asks its owner to undo the
+    /// result, and stays open until the entry is removed.
     private mutating func endByPeer(sender: DeviceID, now: Date) -> [PairingEffect] {
         if added {
             guard let peer, let pairingID else { return [] }
-            close(.undoneByPeer)
-            return [.removeEntry(peer.card.deviceID, pairingID)]
+            return [.undo(peer.card.deviceID, pairingID)]
         }
         return end(.cancelledByPeer, now: now, tellPeer: sender != peerID)
     }

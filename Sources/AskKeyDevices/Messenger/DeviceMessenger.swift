@@ -55,14 +55,18 @@ public actor DeviceMessenger {
     var session: PairingSession?
     /// Changes whenever `session` is replaced, so work that awaited can tell.
     var sessionGeneration = 0
+    /// Sessions that added their peer and were replaced before they expired.
+    /// They take only cancellations and withdrawals, so each can still undo
+    /// its result until its expiry.
+    var retiredSessions: [PairingSession] = []
     var processed = ProcessedMessageIDs()
     var pendingChecks: [MessageID: PendingCheck] = [:]
     /// When each record was first fetched, for the 30-second freezing rule.
     var firstFetched: [String: Date] = [:]
     var failureCounts: [String: Int] = [:]
-    /// Undo removals whose store write failed; retried by `advanceTimers()`.
-    var pendingRemovals: [DeviceID: PairingID] = [:]
     var isPolling = false
+    /// Whether the delivery checks an earlier run left pending were adopted.
+    var adoptedStoredChecks = false
     /// The inbox change token after the last fully processed fetch.
     public internal(set) var inboxToken: InboxChangeToken?
 
@@ -82,8 +86,9 @@ public actor DeviceMessenger {
     /// The current or last session's phase, or nil before any session.
     public var pairingPhase: PairingPhase? { session?.phase }
 
-    /// Initiator, step 1: ends any open session, then starts a new one and
-    /// returns the QR payload to show. Throws `DeviceIdentityError`.
+    /// Initiator, step 1: ends any open session that has not added its peer,
+    /// then starts a new one and returns the QR payload to show. Throws
+    /// `DeviceIdentityError`.
     public func startPairing(displayName: String) async throws -> PairingQRPayload {
         let now = clock.now()
         let card = try DeviceCard.make(identity: identity, platform: platform, createdAt: now)
@@ -113,6 +118,7 @@ public actor DeviceMessenger {
     /// or Touch ID; a cancelled prompt sends nothing. The peer is added once
     /// its verified confirmation is also held.
     public func confirmPairing(approvalReason: String) async throws {
+        await perform(session?.tick(now: clock.now()) ?? [])
         guard let bytes = session?.confirmationBytes else { throw DeviceMessengerError.notComparing }
         let generation = sessionGeneration
         let signature: Data
@@ -122,6 +128,8 @@ public actor DeviceMessenger {
             if generation == sessionGeneration { await perform(session?.cancel(.identityUnusable, now: clock.now()) ?? []) }
             throw DeviceIdentityError.unusable
         }
+        // The prompt may have outlasted the session or seen it end.
+        await perform(session?.tick(now: clock.now()) ?? [])
         guard generation == sessionGeneration, session?.confirmationBytes == bytes else {
             throw DeviceMessengerError.sessionEnded
         }
@@ -152,8 +160,22 @@ public actor DeviceMessenger {
     }
 
     func replaceSession(with new: PairingSession) {
+        if let old = session, old.added, old.isOpen(at: clock.now()) {
+            retiredSessions.append(old)
+        }
         session = new
         sessionGeneration += 1
+    }
+
+    /// Ends every session with a peer the person removed or that removed
+    /// this device, before any suspension, so that no session can add the
+    /// peer back afterwards. Returns the effects that still need sending.
+    func endSessions(with peer: DeviceID) -> [PairingEffect] {
+        retiredSessions.removeAll { $0.peerID == peer }
+        guard let current = session, current.peerID == peer, current.isOpen(at: clock.now()) else { return [] }
+        let effects = session?.cancel(.peerRemoved, now: clock.now()) ?? []
+        session?.close(.peerRemoved)
+        return effects
     }
 
     // MARK: Timers
@@ -166,11 +188,10 @@ public actor DeviceMessenger {
     public func advanceTimers() async {
         let now = clock.now()
         processed.prune(now: now)
+        await adoptStoredChecks()
+        retiredSessions.removeAll { !$0.isOpen(at: now) }
         await perform(session?.tick(now: now) ?? [])
         if session?.needsAdd == true { await perform([.addPeer]) }
-        for (id, pairingID) in pendingRemovals {
-            await removeEntry(id, pairingID: pairingID)
-        }
         for (id, check) in pendingChecks where check.expiresAt <= now {
             pendingChecks[id] = nil
             _ = try? await registry.apply(.recordDeliveryCheck(check.peer, pairingID: check.pairingID,
@@ -178,8 +199,23 @@ public actor DeviceMessenger {
         }
     }
 
+    /// A check recorded as pending by an earlier run cannot be answered in
+    /// this one; it becomes unanswered when its lifetime ends.
+    private func adoptStoredChecks() async {
+        guard !adoptedStoredChecks, let list = try? await registry.list() else { return }
+        adoptedStoredChecks = true
+        for device in list.devices {
+            guard case .pending(let sentAt) = device.lastDeliveryCheck,
+                  !pendingChecks.values.contains(where: { $0.peer == device.deviceID && $0.sentAt == sentAt }) else { continue }
+            pendingChecks[.random()] = PendingCheck(peer: device.deviceID, pairingID: device.pairingID, sentAt: sentAt,
+                                                    expiresAt: sentAt.addingTimeInterval(MessageKind.deliveryCheckLifetime))
+        }
+    }
+
     // MARK: Effects
 
+    /// Performs the current session's effects. An undo is performed by the
+    /// inbox, which can report a failed removal.
     func perform(_ effects: [PairingEffect]) async {
         let generation = sessionGeneration
         for effect in effects {
@@ -189,8 +225,8 @@ public actor DeviceMessenger {
                 session?.outbox.append(envelope)
             case .addPeer:
                 await addSessionPeer(generation: generation)
-            case .removeEntry(let id, let pairingID):
-                await removeEntry(id, pairingID: pairingID)
+            case .undo:
+                assertionFailure("undo effects are performed by the inbox")
             }
         }
         await flushOutbox()
@@ -198,16 +234,17 @@ public actor DeviceMessenger {
 
     private func addSessionPeer(generation: Int) async {
         let now = clock.now()
-        guard let current = session, current.needsAdd, let entry = current.entry(pairedAt: now) else { return }
+        guard let current = session, current.needsAdd, current.isOpen(at: now),
+              let entry = current.entry(pairedAt: now) else { return }
         do {
             guard entry.card.compressedPublicKeys.isDisjoint(with: identity.compressedPublicKeys) else {
                 throw PairedDeviceListError.keyConflict
             }
             try await registry.apply(.add(entry))
             // The session may have ended while the list was written, for
-            // example by Cancel or a cancellation; then it stores nothing.
-            guard generation == sessionGeneration, let current = session, current.endReason == nil else {
-                await removeEntry(entry.deviceID, pairingID: entry.pairingID)
+            // example by Cancel, a cancellation or a removal; then it stores nothing.
+            guard generation == sessionGeneration, let current = session, current.isOpen(at: clock.now()) else {
+                _ = try? await registry.apply(.remove(entry.deviceID, pairingID: entry.pairingID))
                 return
             }
             session?.peerAdded()
@@ -241,16 +278,6 @@ public actor DeviceMessenger {
             } catch {
                 continue
             }
-        }
-    }
-
-    private func removeEntry(_ id: DeviceID, pairingID: PairingID) async {
-        dropChecks(for: id)
-        do {
-            try await registry.apply(.remove(id, pairingID: pairingID))
-            pendingRemovals[id] = nil
-        } catch {
-            pendingRemovals[id] = pairingID
         }
     }
 

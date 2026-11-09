@@ -35,13 +35,16 @@ extension DeviceMessenger {
     /// notice was sent; the local removal holds either way.
     @discardableResult
     public func removeDevice(_ id: DeviceID) async throws -> Bool {
+        // End the sessions first, so that none can add the device back while
+        // the list is being written.
+        let effects = endSessions(with: id)
+        dropChecks(for: id)
         var removed: PairedDevice?
-        while removed == nil {
-            guard let entry = try await registry.list().device(id) else { throw DeviceMessengerError.unknownDevice }
+        while let entry = try await registry.list().device(id) {
             if try await registry.apply(.remove(id, pairingID: entry.pairingID)) == .applied { removed = entry }
         }
-        guard let entry = removed else { return false }
-        await endActivities(with: id)
+        await perform(effects)
+        guard let entry = removed else { throw DeviceMessengerError.unknownDevice }
         do {
             let sealed = try seal(.unpairNotice, PairingIDPayload(pairingID: entry.pairingID).encoded, to: entry.card,
                                   lifetime: MessageKind.unpairNoticeLifetime, now: clock.now())
@@ -57,15 +60,6 @@ extension DeviceMessenger {
               try await registry.apply(.rename(id, pairingID: entry.pairingID, displayName: displayName)) == .applied else {
             throw DeviceMessengerError.unknownDevice
         }
-    }
-
-    /// Ends any delivery check and pairing session with a removed peer, so
-    /// only a new pairing can add it back.
-    func endActivities(with peer: DeviceID) async {
-        dropChecks(for: peer)
-        guard let current = session, current.peerID == peer, current.isOpen(at: clock.now()) else { return }
-        await perform(session?.cancel(.peerRemoved, now: clock.now()) ?? [])
-        session?.close(.peerRemoved)
     }
 
     func seal(_ kind: MessageKind, _ payload: Data, to card: DeviceCard, lifetime: TimeInterval,

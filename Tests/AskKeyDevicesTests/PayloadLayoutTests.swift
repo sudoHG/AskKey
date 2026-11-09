@@ -51,7 +51,7 @@ final class PayloadLayoutTests: XCTestCase {
         XCTAssertEqual(decodedChallenge.nonce, nonce)
         XCTAssertEqual(try PairingWithdrawalPayload(decoding: sessionID.rawValue + card.bytes).card, card)
         var damaged = request
-        damaged[20] ^= 1 // the card's creation time
+        damaged[25] ^= 1 // the low byte of the card's creation time
         XCTAssertThrowsError(try PairingRequestPayload(decoding: damaged)) {
             XCTAssertEqual($0 as? DeviceMessageRefusal, .badSignature)
         }
