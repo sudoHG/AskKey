@@ -3,9 +3,11 @@
 # release workflow (xcodebuild + manual bundle assembly + local sign). Useful
 # for testing the daemon / auto-launch without cutting a real release.
 #
-# Usage: scripts/build-app.sh [Release|Debug|Local]   (default: Debug)
+# Usage: scripts/build-app.sh [Release|Debug|Local|E2E]   (default: Debug)
 #   Release -> prod vault/keychain/socket (com.sudohg.askkey.vault)
 #   Debug   -> dev  vault/keychain/socket (com.sudohg.askkey.vault.dev)
+# ASKKEY_PROVISIONING_PROFILE=<Developer ID .provisionprofile> adds CloudKit and
+# push to a Local build (ADR 0013); every other mode refuses it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -14,6 +16,17 @@ CONFIG="$MODE"
 case "$MODE" in Debug|Release|Local|E2E) ;; *) echo "Usage: $0 [Debug|Release|Local|E2E]" >&2; exit 1;; esac
 if [ "$MODE" = Local ]; then CONFIG=Release; fi
 if [ "$MODE" = E2E ]; then CONFIG=Debug; fi
+# The CloudKit option embeds the profile, declares the container in Info.plist
+# and signs only the App with entitlements generated from ASKKEY_APPLE_TEAM_ID.
+CLOUDKIT_CONTAINER="iCloud.com.sudohg.askkey"
+CLOUDKIT_DIR=""
+if [ -n "${ASKKEY_PROVISIONING_PROFILE+set}" ]; then
+  case "$MODE" in
+    Release) echo "ASKKEY_PROVISIONING_PROFILE is refused in Release builds: they get no CloudKit entitlement until #269 stage 4 ships the iPhone app." >&2; exit 1 ;;
+    Debug|E2E) echo "ASKKEY_PROVISIONING_PROFILE is refused in $MODE builds: they are signed ad hoc, which cannot carry the CloudKit and push entitlements. Use Local." >&2; exit 1 ;;
+  esac
+  CLOUDKIT_DIR=".build/cloudkit-signing"
+fi
 if [ "$MODE" = Local ]; then
   python3 scripts/release-gate.py
 fi
@@ -42,6 +55,17 @@ if [ "$MODE" = Local ]; then
   [ "$ASKKEY_CODESIGN_IDENTITY" != - ] || exit 1
   SIGN_IDENTITY="$ASKKEY_CODESIGN_IDENTITY"
   BUNDLE_ID="com.sudohg.askkey.app"
+fi
+# Check the profile before building: a Developer ID profile for this App ID and
+# team, not expired, listing the signing certificate and granting every
+# entitlement. Signing then uses that certificate's hash.
+if [ -n "$CLOUDKIT_DIR" ]; then
+  echo "==> Checking the provisioning profile…"
+  rm -rf "$CLOUDKIT_DIR"
+  mkdir -p "$CLOUDKIT_DIR"
+  python3 scripts/cloudkit-signing.py prepare --profile "$ASKKEY_PROVISIONING_PROFILE" \
+    --identity "$SIGN_IDENTITY" --team "$ASKKEY_APPLE_TEAM_ID" --output "$CLOUDKIT_DIR"
+  SIGN_IDENTITY="$(cat "$CLOUDKIT_DIR/signing-certificate")"
 fi
 # Release builds ship the updater, which needs the committed EdDSA public key.
 # Without it they fail closed, so no release ships an updater without a key.
@@ -149,6 +173,11 @@ if [ "$MODE" = Release ]; then
 fi
 cp LICENSE "$APP/Contents/Resources/LICENSE"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+# Declare the container and embed the checked profile before any signing.
+if [ -n "$CLOUDKIT_DIR" ]; then
+  /usr/libexec/PlistBuddy -c "Add :AskKeyCloudKitContainer string $CLOUDKIT_CONTAINER" "$APP/Contents/Info.plist"
+  cp "$CLOUDKIT_DIR/embedded.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+fi
 
 # Embed Sparkle in every mode so the executable always finds the framework it
 # links. The app is not sandboxed, so Sparkle's XPC services are not needed.
@@ -185,6 +214,13 @@ fi
 echo "==> Signing with $SIGN_IDENTITY …"
 SIGN_OPTIONS=(--force)
 if [ "$CONFIG" = Release ]; then SIGN_OPTIONS=(--force --options runtime --timestamp); fi
+# Only the App itself carries entitlements; nested code gets none.
+APP_SIGN_OPTIONS=("${SIGN_OPTIONS[@]}")
+if [ -n "$CLOUDKIT_DIR" ]; then
+  python3 scripts/cloudkit-signing.py entitlements --team "$ASKKEY_APPLE_TEAM_ID" \
+    --output "$CLOUDKIT_DIR/AskKeyApp.entitlements"
+  APP_SIGN_OPTIONS+=(--entitlements "$CLOUDKIT_DIR/AskKeyApp.entitlements")
+fi
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$CLI"
 # Sign nested code inside out; --deep is used only for verification.
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$EMBEDDED_SPARKLE/Versions/B/Autoupdate"
@@ -192,7 +228,10 @@ codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$EMBEDDED_SPARKLE/Version
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$EMBEDDED_SPARKLE"
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP/Contents/Helpers/askkey"
 codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP/Contents/Helpers/AskKey_AskKeyHelper.bundle"
-codesign "${SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP"
+codesign "${APP_SIGN_OPTIONS[@]}" --sign "$SIGN_IDENTITY" "$APP"
+if [ -n "$CLOUDKIT_DIR" ]; then
+  python3 scripts/cloudkit-signing.py verify --app "$APP" --team "$ASKKEY_APPLE_TEAM_ID" --work "$CLOUDKIT_DIR"
+fi
 codesign --verify --strict --deep "$APP"
 if [ "$CONFIG" = Release ]; then
   ACTUAL_TEAM="$(codesign -dv --verbose=4 "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
