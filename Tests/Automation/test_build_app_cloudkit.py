@@ -93,7 +93,7 @@ class BuildAppCloudKitTests(unittest.TestCase):
         return self.root / APP / "Contents" / Path(*parts)
 
     def assertNoSecrets(self, result):
-        for secret in (fixtures.TEAM, fixtures.IDENTITY_NAME):
+        for secret in (fixtures.TEAM, fixtures.IDENTITY_NAME, fixtures.CERTIFICATE_SHA1):
             self.assertNotIn(secret, result.stdout + result.stderr)
 
     def test_option_is_refused_outside_local_before_any_work(self):
@@ -108,7 +108,20 @@ class BuildAppCloudKitTests(unittest.TestCase):
                 self.assertEqual(self.calls(), [])
                 self.assertFalse((self.root / APP).exists())
                 self.assertFalse((self.root / ".build/cloudkit-signing").exists())
-        self.assertEqual(self.run_build("Debug", ASKKEY_PROVISIONING_PROFILE="").returncode, 1)
+        result = self.run_build("Debug", profile=False, ASKKEY_PROVISIONING_PROFILE="")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("ASKKEY_PROVISIONING_PROFILE is refused in Debug builds", result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_empty_or_relative_profile_path_in_local(self):
+        result = self.run_build("Local", profile=False, ASKKEY_PROVISIONING_PROFILE="")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("must name a provisioning profile file", result.stderr)
+        self.assertFalse([call for call in self.calls() if call[0] in ("swift", "xcodebuild", "codesign")])
+        # run_build starts the script outside the checkout, so a relative path resolves against that directory.
+        result = self.run_build("Local", profile=False, ASKKEY_PROVISIONING_PROFILE=self.profile.name)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.app("embedded.provisionprofile").read_bytes(), self.profile.read_bytes())
 
     def test_local_build_embeds_and_declares_before_signing_and_reads_back(self):
         result = self.run_build("Local")

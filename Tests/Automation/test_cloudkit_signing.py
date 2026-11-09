@@ -106,6 +106,14 @@ def read_trace(trace):
     return [json.loads(line) for line in trace.read_text().splitlines()] if trace.exists() else []
 
 
+def package_release_tests():
+    spec = importlib.util.spec_from_file_location("package_release_mounting",
+                                                  ROOT / "Tests/Automation/test_package_release.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class ProfileCheckTests(unittest.TestCase):
     def problems(self, profile, certificate=CERTIFICATE_SHA1):
         return signing.profile_problems(profile, TEAM, certificate)
@@ -130,8 +138,9 @@ class ProfileCheckTests(unittest.TestCase):
                 self.assertRefused(synthetic_profile(**{"com.apple.application-identifier": app_id}), "App ID")
 
     def test_wrong_team_is_refused(self):
-        self.assertRefused(synthetic_profile(TeamIdentifier=[OTHER_TEAM]), "team")
-        self.assertRefused(synthetic_profile(**{"com.apple.developer.team-identifier": OTHER_TEAM}), "team")
+        message = "its team is not the one in ASKKEY_APPLE_TEAM_ID"
+        self.assertRefused(synthetic_profile(TeamIdentifier=[OTHER_TEAM]), message)
+        self.assertRefused(synthetic_profile(**{"com.apple.developer.team-identifier": OTHER_TEAM}), message)
 
     def test_wrong_profile_type_is_refused(self):
         development = synthetic_profile(ProvisionsAllDevices=None, ProvisionedDevices=["00008103-SYNTHETIC"])
@@ -155,7 +164,7 @@ class ProfileCheckTests(unittest.TestCase):
     def test_each_missing_entitlement_is_refused(self):
         cases = {
             "com.apple.application-identifier": "App ID",
-            "com.apple.developer.team-identifier": "team",
+            "com.apple.developer.team-identifier": "its team is not the one in ASKKEY_APPLE_TEAM_ID",
             "com.apple.developer.icloud-services": "CloudKit service",
             "com.apple.developer.icloud-container-identifiers": f"container {CONTAINER}",
             "com.apple.developer.icloud-container-environment": "Production environment",
@@ -312,13 +321,14 @@ class PackageReleaseProfileTests(unittest.TestCase):
         image = self.output / f"AskKey-{self.version}-unnotarized.dmg"
         mountpoint = self.directory / "mounted"
         mountpoint.mkdir()
-        subprocess.run(["hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint", str(mountpoint), str(image)],
-                       check=True, capture_output=True)
+        # Mount the way test_package_release does, with its diskutil-then-hdiutil fallbacks.
+        packaging = package_release_tests().PackageReleaseTests
+        packaging.attach_image(self, image, mountpoint)
         try:
             kept = mountpoint / "Ask Key.app/Contents/embedded.provisionprofile"
             self.assertEqual(kept.read_bytes(), (self.app / "Contents/embedded.provisionprofile").read_bytes())
         finally:
-            subprocess.run(["hdiutil", "detach", str(mountpoint)], check=True, capture_output=True)
+            packaging.eject_image(self, mountpoint)
 
     def test_expired_or_mismatched_profile_is_refused(self):
         cases = (

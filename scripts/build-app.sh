@@ -7,8 +7,11 @@
 #   Release -> prod vault/keychain/socket (com.sudohg.askkey.vault)
 #   Debug   -> dev  vault/keychain/socket (com.sudohg.askkey.vault.dev)
 # ASKKEY_PROVISIONING_PROFILE=<Developer ID .provisionprofile> adds CloudKit and
-# push to a Local build (ADR 0013); every other mode refuses it.
+# push to a Local build (ADR 0013); every other mode refuses it. Setting it,
+# even to an empty value, turns the option on.
 set -euo pipefail
+# Resolve a relative profile path against the caller's directory before cd.
+case "${ASKKEY_PROVISIONING_PROFILE-/}" in /*) ;; *) ASKKEY_PROVISIONING_PROFILE="$PWD/$ASKKEY_PROVISIONING_PROFILE" ;; esac
 cd "$(dirname "$0")/.."
 
 MODE="${1:-Debug}"
@@ -211,7 +214,8 @@ if ! list_rpaths "$EXECUTABLE" | grep -Fxq '@executable_path/../Frameworks'; the
   install_name_tool -add_rpath @executable_path/../Frameworks "$EXECUTABLE"
 fi
 
-echo "==> Signing with $SIGN_IDENTITY …"
+if [ -n "$CLOUDKIT_DIR" ]; then echo "==> Signing with the certificate the provisioning profile lists…"
+else echo "==> Signing with $SIGN_IDENTITY …"; fi
 SIGN_OPTIONS=(--force)
 if [ "$CONFIG" = Release ]; then SIGN_OPTIONS=(--force --options runtime --timestamp); fi
 # Only the App itself carries entitlements; nested code gets none.
