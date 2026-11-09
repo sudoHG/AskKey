@@ -16,10 +16,11 @@ This guide describes the modules after Phase 6. The authorities for their bounda
 | `AskKeyAppKit` | SwiftUI/AppKit views, management sessions and authentication, approval presentation, client onboarding, and application services. Start with [AskKeyApp](../Sources/AskKeyAppKit/App/AskKeyApp.swift), [AppDelegate](../Sources/AskKeyAppKit/App/AppDelegate.swift), and [VaultViewModel](../Sources/AskKeyAppKit/VaultViewModel.swift). The localization catalog is [Localizable.xcstrings](../Sources/AskKeyAppKit/Resources/Localizable.xcstrings). The updater interface and its policies live in [SoftwareUpdate](../Sources/AskKeyAppKit/SoftwareUpdate). |
 | `AskKeyApp` | Production executable entry point, delegating to `AskKeyAppKit`: [AskKeyAppEntry](../Sources/AskKeyApp/AskKeyAppEntry.swift). It is the only target that links Sparkle, through [SparkleSoftwareUpdater](../Sources/AskKeyApp/SparkleSoftwareUpdater.swift). |
 | `AskKeyHelper` | The `askkey` executable: CLI parsing, MCP stdio, discovery Hooks, and Broker forwarding. Start with [main.swift](../Sources/AskKeyHelper/main.swift) and [AgentUsageGuide](../Sources/AskKeyHelper/AgentUsageGuide.swift). It has no Vault dependency. |
+| `AskKeyDevices` | Platform-neutral device identity and pairing for the multi-device roadmap (ADR 0013, [#291](https://github.com/sudoHG/AskKey/pull/291)): the Secure Enclave device identity, device cards, HPKE-sealed and signed messages, the pairing state machine, the paired-device list model and the transport interface. It has no local dependencies, stores nothing, and CI also builds it for the iOS Simulator. Start with [DeviceMessenger](../Sources/AskKeyDevices/Messenger/DeviceMessenger.swift), [PairingSession](../Sources/AskKeyDevices/Pairing/PairingSession.swift), [SealedMessage](../Sources/AskKeyDevices/Messages/SealedMessage.swift), and [PairedDeviceList](../Sources/AskKeyDevices/PairedDevices/PairedDeviceList.swift). |
 | `AskKeyTestSupport` | Test-only E2E runtime configuration, synthetic fixtures, and UI observers under [Tests/AskKeyTestSupport](../Tests/AskKeyTestSupport). It is linked by tests and the E2E application. |
 | `AskKeyE2EApp` | Test-only executable that configures the isolated runtime before entering the shared application code: [AskKeyE2EAppEntry](../Tests/AskKeyE2EApp/AskKeyE2EAppEntry.swift). |
 
-The manifest also defines `AskKeyUnitTestSupport` under [Tests/AskKeyUnitTestSupport](../Tests/AskKeyUnitTestSupport) for shared unit-test environment setup. Test support belongs under `Tests`; production targets must not depend on it.
+The manifest also defines `AskKeyUnitTestSupport` under [Tests/AskKeyUnitTestSupport](../Tests/AskKeyUnitTestSupport) for shared unit-test environment setup, and `AskKeyDevicesTestSupport` under [Tests/AskKeyDevicesTestSupport](../Tests/AskKeyDevicesTestSupport) with software device keys, an in-memory transport, a manual clock and an in-memory list store; shipped builds never use software keys. Test support belongs under `Tests`; production targets must not depend on it.
 
 ## Allowed dependency directions
 
@@ -28,17 +29,18 @@ The table lists allowed direct dependencies on other local targets. External lib
 | Production target | Allowed local dependencies |
 | --- | --- |
 | `AskKeySystem` | None |
+| `AskKeyDevices` | None |
 | `AskKeyBrokerC` | None |
 | `AskKeyBroker` | `AskKeyBrokerC` |
-| `AskKeyVault` | `AskKeySystem`, `AskKeyBroker` |
+| `AskKeyVault` | `AskKeySystem`, `AskKeyBroker`, `AskKeyDevices` |
 | `AskKeyIntegrations` | `AskKeySystem`, `AskKeyBroker` |
-| `AskKeyAppKit` | `AskKeyVault`, `AskKeySystem`, `AskKeyIntegrations`, `AskKeyBroker` |
+| `AskKeyAppKit` | `AskKeyVault`, `AskKeySystem`, `AskKeyIntegrations`, `AskKeyBroker`, `AskKeyDevices` |
 | `AskKeyApp` | `AskKeyAppKit` |
 | `AskKeyHelper` | `AskKeyBroker` |
 
-The checker evaluates the SwiftPM manifest with `swift package dump-package` and scans Swift imports, ignoring comments and string literals. It rejects forbidden edges, missing direct dependencies for local imports, unknown local modules, missing production targets, and unowned source files. Test-only targets rooted under `Tests` are outside its production graph, but importing one from a production target is still forbidden. `AskKeyVault` uses GRDB and `AskKeyApp` uses Sparkle; the table describes local target edges only.
+The checker evaluates the SwiftPM manifest with `swift package dump-package` and scans Swift imports, ignoring comments and string literals. It rejects forbidden edges, missing direct dependencies for local imports, unknown local modules, missing production targets, and unowned source files. Test-only targets rooted under `Tests` are outside its production graph, but importing one from a production target is still forbidden. `AskKeyVault` uses GRDB and `AskKeyApp` uses Sparkle; the table describes local target edges only. The `AskKeyVault` and `AskKeyAppKit` edges to `AskKeyDevices` are allowed for the Mac device services; `AskKeyBroker` and `AskKeyHelper` never depend on it.
 
-In the test graph, `AskKeyTestSupport` depends on `AskKeyAppKit`, `AskKeyVault`, `AskKeySystem`, and `AskKeyBroker`. `AskKeyE2EApp` depends on `AskKeyAppKit` and `AskKeyTestSupport`. [The release-symbol check](../scripts/check_release_symbols.sh) verifies that the production application binary contains no forbidden E2E symbols or strings.
+In the test graph, `AskKeyTestSupport` depends on `AskKeyAppKit`, `AskKeyVault`, `AskKeySystem`, and `AskKeyBroker`, and `AskKeyDevicesTestSupport` depends on `AskKeyDevices`. `AskKeyE2EApp` depends on `AskKeyAppKit` and `AskKeyTestSupport`. [The release-symbol check](../scripts/check_release_symbols.sh) verifies that the production application binary contains no forbidden E2E symbols or strings.
 
 ## Management and storage
 

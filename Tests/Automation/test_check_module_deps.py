@@ -18,6 +18,7 @@ spec.loader.exec_module(checker)
 
 TARGETS = {
     "AskKeySystem": set(),
+    "AskKeyDevices": set(),
     "AskKeyVault": {"AskKeySystem", "AskKeyBroker"},
     "AskKeyIntegrations": {"AskKeySystem", "AskKeyBroker"},
     "AskKeyAppKit": {"AskKeyVault", "AskKeySystem", "AskKeyIntegrations", "AskKeyBroker"},
@@ -80,6 +81,24 @@ class ModuleDependencyTests(unittest.TestCase):
         self.write("AskKeyApp", "import AskKeyAppKit\n")
         result = self.run_check()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_devices_module_has_no_local_dependencies_and_two_allowed_dependents(self):
+        targets = {name: set(dependencies) for name, dependencies in TARGETS.items()}
+        targets["AskKeyVault"].add("AskKeyDevices")
+        targets["AskKeyAppKit"].add("AskKeyDevices")
+        targets["AskKeyHelper"].add("AskKeyDevices")
+        targets["AskKeyDevices"].add("AskKeySystem")
+        (self.root / "Package.swift").write_text(manifest(targets), encoding="utf-8")
+        self.write("AskKeyVault", "import AskKeyDevices\n")
+        self.write("AskKeyAppKit", "import AskKeyDevices\n")
+        self.write("AskKeyBroker", "import AskKeyDevices\n")
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("forbidden dependency AskKeyHelper -> AskKeyDevices", result.stdout)
+        self.assertIn("forbidden dependency AskKeyDevices -> AskKeySystem", result.stdout)
+        self.assertIn("forbidden import AskKeyBroker -> AskKeyDevices", result.stdout)
+        self.assertNotIn("AskKeyVault -> AskKeyDevices", result.stdout)
+        self.assertNotIn("AskKeyAppKit -> AskKeyDevices", result.stdout)
 
     def test_forbidden_manifest_edge_fails(self):
         targets = {name: set(dependencies) for name, dependencies in TARGETS.items()}
