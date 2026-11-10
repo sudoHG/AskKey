@@ -14,7 +14,7 @@ import Observation
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "ax-walk", "resign-focus"]
+    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "ax-walk", "resign-focus", "inject-click"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -48,10 +48,11 @@ enum E2EDeviceScenario {
                 for command in commands {
                     let file = control.appendingPathComponent("command-\(command).txt")
                     guard FileManager.default.fileExists(atPath: file.path) else { continue }
+                    let argument = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
                     try? FileManager.default.removeItem(at: file)
                     var report: [String: Any] = ["command": command]
                     do {
-                        try await run(command)
+                        try await run(command, argument: argument)
                         report["ok"] = true
                     } catch {
                         report["ok"] = false
@@ -110,7 +111,7 @@ enum E2EDeviceScenario {
         }
     }
 
-    private static func run(_ command: String) async throws {
+    private static func run(_ command: String, argument: String) async throws {
         guard let coordinator = DeviceServicesHost.coordinator, let phone, let backend else {
             throw E2EDeviceScenarioError.notInstalled
         }
@@ -162,6 +163,14 @@ enum E2EDeviceScenario {
             transitions.append("\(Date().timeIntervalSince1970) resign focus: key=\(window.map { String(describing: type(of: $0)) } ?? "none") "
                 + "firstResponder=\(window?.firstResponder.map { String(describing: type(of: $0)) } ?? "none") "
                 + "resigned=\(window?.makeFirstResponder(nil) ?? false)")
+            if let control { writeTransitions(control: control) }
+        case "inject-click":
+            // Diagnostic only (#298): a click the App posts to itself at a point in the runner's
+            // screen coordinates, beside XCTest's synthesized one.
+            let values = argument.split(whereSeparator: \.isWhitespace).compactMap { Double($0) }
+            guard values.count == 2 else { throw E2EDeviceScenarioError.unknownCommand }
+            let outcome = await E2EDeviceDiagnostics.postClick(atRunnerPoint: NSPoint(x: values[0], y: values[1]))
+            transitions.append("\(Date().timeIntervalSince1970) posted click: \(outcome)")
             if let control { writeTransitions(control: control) }
         case "account-signed-out":
             backend.accountState = .noAccount

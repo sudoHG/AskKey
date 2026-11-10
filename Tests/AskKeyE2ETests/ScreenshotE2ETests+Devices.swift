@@ -46,19 +46,39 @@ extension ScreenshotE2ETests {
         XCTAssertTrue(pair.waitForExistence(timeout: 8))
         for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
         try walkAccessibility()
-        // #298 diagnostics: ways of clicking Pair a Device…, while the fixture records the mouse
-        // events the App receives; the fixture starts the session if none opened the sheet.
+        // #298 diagnostics: whether another button in the same page opens its sheet in this
+        // scenario, then XCTest's clicks on Pair a Device… and a click the App posts to itself,
+        // while the fixture records the mouse events the App receives. The fixture starts the
+        // session if none of them opened the sheet.
+        let export = app.buttons["settings-export-backup"].firstMatch
+        notes.append("export: hittable=\(export.isHittable) frame=\(export.frame)")
+        export.click()
+        if sheet.waitForExistence(timeout: 5) {
+            notes.append("export sheet")
+            click("backup-export-cancel")
+            notes.append("export sheet closed=\(sheet.waitForNonExistence(timeout: 5))")
+        } else {
+            notes.append("export: no sheet, alerts=\(app.alerts.count)")
+            if app.alerts.firstMatch.exists { app.alerts.firstMatch.buttons.firstMatch.click() }
+        }
         let clicks: [(String, () -> Void)] = [
             ("click", { pair.click() }),
-            ("coordinate click", { pair.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click() }),
-            ("hover, then press", { pair.hover(); pair.press(forDuration: 0.2) }),
-            ("click near the leading edge", { pair.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).click() })
+            ("hover, then press", { pair.hover(); pair.press(forDuration: 0.2) })
         ]
+        var clickOpened: [Bool] = []
         for (label, perform) in clicks where !sheet.exists {
             try fixture("snapshot")
             notes.append("\(label): enabled=\(pair.isEnabled) hittable=\(pair.isHittable) frame=\(pair.frame)")
             perform()
-            notes.append(sheet.waitForExistence(timeout: 3) ? "sheet" : "no sheet")
+            clickOpened.append(sheet.waitForExistence(timeout: 3))
+            notes.append(clickOpened.last == true ? "sheet" : "no sheet")
+        }
+        if !sheet.exists {
+            let centre = CGPoint(x: pair.frame.midX, y: pair.frame.midY)
+            try? FileManager.default.removeItem(at: runDirectory.appendingPathComponent("device-inject-click.json"))
+            try "\(centre.x) \(centre.y)\n".write(to: runDirectory.appendingPathComponent("command-inject-click.txt"), atomically: true, encoding: .utf8)
+            _ = try waitForEvidence("device-inject-click.json")
+            notes.append("posted click at \(centre): " + (sheet.waitForExistence(timeout: 3) ? "sheet" : "no sheet"))
         }
         if !sheet.exists { notes.append("fixture start"); try fixture("start-pairing") }
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "No pairing sheet")
@@ -71,30 +91,30 @@ extension ScreenshotE2ETests {
         try fixture("phone-reveal")
         XCTAssertTrue(app.textFields["devices-pairing-code"].waitForExistence(timeout: 8))
         captureSheet(name(3, "devices-pairing-code-entry"))
-        // #298 diagnostics: the English run drops the code field's focus before the field goes
-        // away; the Chinese run keeps it until after the sheet has closed.
-        if language == "en" { try fixture("resign-focus") }
         try fixture("phone-complete")
         click("devices-pairing-done")
         try fixture("phone-poll")
         try walkAccessibility()
+        // #298 diagnostics: the same text query in the Settings window, then in the whole App.
         let lastReached = language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}"
-        let reached = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", lastReached, lastReached)
-        timed("text query after Done") { app.descendants(matching: .any).matching(reached).firstMatch.waitForExistence(timeout: 2) }
-        if language != "en" {
-            try fixture("resign-focus")
-            try walkAccessibility()
-            timed("text query after dropping focus") { app.descendants(matching: .any).matching(reached).firstMatch.waitForExistence(timeout: 2) }
+        let settings = app.windows["settings"].firstMatch
+        func textQuery(_ text: String, in root: XCUIElement) -> XCUIElement {
+            root.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)).firstMatch
         }
+        timed("Settings window text query after Done") { textQuery(lastReached, in: settings).waitForExistence(timeout: 8) }
         attachDeviceDiagnostics(notes)
         let row = app.buttons["devices-rename"].firstMatch
         for _ in 0..<6 where !row.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
-        waitForText(lastReached, containing: true)
-        capture(name(0, "devices-list"))
+        XCTAssertTrue(textQuery(lastReached, in: settings).waitForExistence(timeout: 8))
+        captureSettingsWindow(name(0, "devices-list"))
         try fixture("account-signed-out")
-        waitForText(language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}", containing: true)
-        capture(name(4, "devices-icloud-signed-out"))
-        XCTAssertEqual(notes.first { $0.hasSuffix("sheet") || $0 == "fixture start" }, "sheet", "Pair a Device…: \(notes)")
+        let signedOut = language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}"
+        XCTAssertTrue(textQuery(signedOut, in: settings).waitForExistence(timeout: 8))
+        captureSettingsWindow(name(4, "devices-icloud-signed-out"))
+        // Last, as it may time out: the same text query over the whole App.
+        timed("App text query after pairing") { textQuery(signedOut, in: app).waitForExistence(timeout: 2) }
+        attachDeviceDiagnostics(notes)
+        XCTAssertEqual(clickOpened.first, true, "Pair a Device…: \(notes)")
     }
 
     /// The fixture's record (the coordinator's states, the App's mouse events and accessibility
@@ -103,6 +123,14 @@ extension ScreenshotE2ETests {
         let record = (try? String(contentsOf: runDirectory.appendingPathComponent("device-transitions.json"), encoding: .utf8)) ?? "none"
         let attachment = XCTAttachment(string: notes.joined(separator: "\n") + "\n\n" + record)
         attachment.name = "device-diagnostics"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// The Settings window alone: the App-wide window list can include system text-input windows.
+    private func captureSettingsWindow(_ name: String) {
+        let attachment = XCTAttachment(screenshot: app.windows["settings"].firstMatch.screenshot())
+        attachment.name = name + ".png"
         attachment.lifetime = .keepAlways
         add(attachment)
     }

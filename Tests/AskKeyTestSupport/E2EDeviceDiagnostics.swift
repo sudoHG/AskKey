@@ -18,9 +18,10 @@ enum E2EDeviceDiagnostics {
         }
     }
 
-    /// Walks every window's accessibility tree in the App's process, writes the listing to
-    /// `device-ax-walk-<n>.txt` and returns a summary: the element count, any cycle, the slowest
-    /// elements, the first responder, and the AppKit views under the Pair a Device… button.
+    /// Walks every window's accessibility tree in the App's process and writes the listing,
+    /// with each visible window's AppKit views and their frames, to `device-ax-walk-<n>.txt`.
+    /// Returns a summary: the element count, any cycle, the slowest elements, the first
+    /// responder, and the AppKit views under the Pair a Device… button.
     static func walkAccessibility(control: URL) -> String {
         walks += 1
         var lines: [String] = [], slow: [String] = []
@@ -63,9 +64,41 @@ enum E2EDeviceDiagnostics {
             + "firstResponder=\(NSApp.keyWindow?.firstResponder.map { String(describing: type(of: $0)) } ?? "none") "
             + "windows=\(NSApp.windows.map { "\(name($0)) visible=\($0.isVisible) sheet=\($0.attachedSheet != nil)" }) "
             + "pair=\(pairFrame.map(viewsUnder) ?? "absent")"
-        let listing = ([summary] + slow.map { "SLOW " + $0 } + lines).joined(separator: "\n")
+        var views: [String] = []
+        func dump(_ view: NSView, depth: Int) {
+            guard views.count < 2_000 else { return }
+            let frame = view.window.map { _ in view.convert(view.bounds, to: nil) } ?? view.frame
+            views.append("\(String(repeating: " ", count: depth))\(type(of: view)) window-frame=\(frame) hidden=\(view.isHidden) "
+                + "alpha=\(view.alphaValue) layer=\(view.wantsLayer)")
+            for subview in view.subviews { dump(subview, depth: depth + 1) }
+        }
+        for window in NSApp.windows where window.isVisible {
+            views.append("VIEWS \(name(window)) frame=\(window.frame)")
+            if let frameView = window.contentView?.superview { dump(frameView, depth: 1) }
+        }
+        let listing = ([summary] + slow.map { "SLOW " + $0 } + views + lines).joined(separator: "\n")
         try? listing.write(to: control.appendingPathComponent("device-ax-walk-\(walks).txt"), atomically: true, encoding: .utf8)
         return summary
+    }
+
+    /// Posts a left mouse down and up to the App's own event queue at a point in XCTest's screen
+    /// coordinates (top-left origin), as AppKit would queue a hardware click. Both are queued
+    /// together, so a view that tracks the mouse after the down finds the up.
+    static func postClick(atRunnerPoint point: NSPoint) async -> String {
+        guard let screen = NSScreen.screens.first else { return "no screen" }
+        let screenPoint = NSPoint(x: point.x, y: screen.frame.maxY - point.y)
+        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.level == .normal && $0.frame.contains(screenPoint) }) else {
+            return "no window at \(screenPoint)"
+        }
+        let location = window.convertPoint(fromScreen: screenPoint)
+        let now = ProcessInfo.processInfo.systemUptime
+        let events = [(NSEvent.EventType.leftMouseDown, now, Float(1)), (.leftMouseUp, now + 0.1, Float(0))].compactMap { type, time, pressure in
+            NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: time, windowNumber: window.windowNumber,
+                               context: nil, eventNumber: 0, clickCount: 1, pressure: pressure)
+        }
+        events.forEach { NSApp.postEvent($0, atStart: false) }
+        try? await Task.sleep(for: .milliseconds(500))
+        return "posted \(events.count) events at \(location) in \(name(window))"
     }
 
     /// The AppKit views under the centre of a screen rectangle, in each visible window containing it.
