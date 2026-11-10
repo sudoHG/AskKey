@@ -358,6 +358,7 @@ public final class Vault {
         stateLock.lock()
         _managementSessionExpiresAt = nil
         stateLock.unlock()
+        deviceState.authorize(nil)
     }
 
     func requireManagementSession() throws {

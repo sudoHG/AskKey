@@ -160,6 +160,27 @@ final class DeviceStorageTests: XCTestCase {
         XCTAssertTrue(remaining.isEmpty)
     }
 
+    func testAnAuthorizationEndsWithItsManagementSessionEvenWithoutACheckInBetween() async throws {
+        let library = try makeLibrary()
+        let vault = library.vault
+        try vault.saveDeviceIdentityKeyBlobs(syntheticBlobs())
+        let registry = try vault.pairedDeviceRegistry()
+        let device = try syntheticDevice()
+        try vault.authorizeDevicePairing(with: device.deviceID, using: .allow)
+        vault.endManagementSession()
+        try vault.beginManagementSession(using: .allow)
+        await assertRefused(try await registry.apply(.add(device)), .pairingNotAuthorized,
+                            "a new management session does not inherit the old authorization")
+        XCTAssertNil(library.keys.deviceItems[.pairedDevices])
+
+        try vault.authorizeDevicePairing(with: device.deviceID, using: .allow)
+        vault.lock()
+        try library.reopen()
+        try vault.beginManagementSession(using: .allow)
+        await assertRefused(try await vault.pairedDeviceRegistry().apply(.add(device)), .pairingNotAuthorized,
+                            "locking ends the authorization too")
+    }
+
     func testListChangePreparedBeforeARemovalDoesNotRestoreTheDevice() async throws {
         let library = try makeLibrary()
         try library.vault.saveDeviceIdentityKeyBlobs(syntheticBlobs())
