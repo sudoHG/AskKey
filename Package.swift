@@ -54,6 +54,7 @@ let package = Package(
             dependencies: [
                 "AskKeySystem",
                 "AskKeyBroker",
+                "AskKeyDevices",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
             path: "Sources/AskKeyVault",
@@ -73,6 +74,7 @@ let package = Package(
                 "AskKeyVault",
                 "AskKeySystem",
                 "AskKeyIntegrations",
+                "AskKeyDevices",
             ],
             path: "Sources/AskKeyAppKit",
             resources: [
@@ -97,7 +99,8 @@ let package = Package(
         ),
         .target(
             name: "AskKeyTestSupport",
-            dependencies: ["AskKeyAppKit", "AskKeyVault", "AskKeySystem", "AskKeyBroker"],
+            dependencies: ["AskKeyAppKit", "AskKeyVault", "AskKeySystem", "AskKeyBroker", "AskKeyDevices",
+                           "AskKeyDevicesTestSupport"],
             path: "Tests/AskKeyTestSupport",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -138,14 +141,16 @@ let package = Package(
         ),
         .testTarget(
             name: "AskKeyVaultTests",
-            dependencies: ["AskKeyBroker", "AskKeyVault", "AskKeyHelper", "AskKeyUnitTestSupport"],
+            dependencies: ["AskKeyBroker", "AskKeyVault", "AskKeyHelper", "AskKeyUnitTestSupport", "AskKeyDevices",
+                           "AskKeyDevicesTestSupport"],
             path: "Tests/AskKeyVaultTests",
             resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
             name: "AskKeyAppTests",
-            dependencies: ["AskKeyAppKit", "AskKeyVault", "AskKeySystem", "AskKeyIntegrations", "AskKeyTestSupport"],
+            dependencies: ["AskKeyAppKit", "AskKeyVault", "AskKeySystem", "AskKeyIntegrations", "AskKeyTestSupport",
+                           "AskKeyDevices", "AskKeyDevicesTestSupport"],
             path: "Tests/AskKeyAppTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

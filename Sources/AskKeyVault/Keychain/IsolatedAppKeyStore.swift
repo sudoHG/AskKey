@@ -46,8 +46,23 @@ final class IsolatedAppKeyStore: AppKeyStore {
 
     private var policyService: String { appService + "\0agent-access-policy" }
 
-    func loadAgentAccessPolicy() throws -> Data? {
-        let url = file(policyService)
+    private func deviceService(_ account: DeviceKeychainAccount) -> String { appService + "\0" + account.rawValue }
+
+    func loadAgentAccessPolicy() throws -> Data? { try readItem(policyService) }
+
+    func saveAgentAccessPolicy(_ data: Data) throws { try writeItem(data, service: policyService) }
+
+    func loadDeviceItem(_ account: DeviceKeychainAccount) throws -> Data? { try readItem(deviceService(account)) }
+
+    func saveDeviceItem(_ data: Data, account: DeviceKeychainAccount) throws {
+        try writeItem(data, service: deviceService(account))
+    }
+
+    func deleteDeviceItem(_ account: DeviceKeychainAccount) throws { try delete(deviceService(account)) }
+
+    /// Reads an item of up to 64 KiB, or nil when none is stored.
+    private func readItem(_ service: String) throws -> Data? {
+        let url = file(service)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         try verifyFile(directory, isDirectory: true)
         try verifyFile(url)
@@ -69,16 +84,17 @@ final class IsolatedAppKeyStore: AppKeyStore {
         return Data(bytes.prefix(count))
     }
 
-    func saveAgentAccessPolicy(_ data: Data) throws {
+    /// Replaces an item of up to 64 KiB with a new file renamed into place.
+    private func writeItem(_ data: Data, service: String) throws {
         guard data.count <= 65_536 else { throw AppKeyStoreError.conflictingKey }
         if !FileManager.default.fileExists(atPath: directory.path) {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
                                                    attributes: [.posixPermissions: 0o700])
         }
         try verifyFile(directory, isDirectory: true)
-        let target = file(policyService)
+        let target = file(service)
         if FileManager.default.fileExists(atPath: target.path) { try verifyFile(target) }
-        let temporary = directory.appendingPathComponent("policy-\(UUID().uuidString).creating")
+        let temporary = directory.appendingPathComponent("item-\(UUID().uuidString).creating")
         let descriptor = temporary.path.withCString {
             Darwin.open($0, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
         }

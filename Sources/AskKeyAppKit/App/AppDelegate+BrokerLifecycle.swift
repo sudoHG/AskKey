@@ -38,6 +38,7 @@ extension AppDelegate {
             setupApprovalQueue()
             AppRuntimeState.configuration.prepareServices?()
             startBroker()
+            setupDeviceServices()
             didStart()
             return
         }
@@ -61,6 +62,7 @@ extension AppDelegate {
         setupWindowBehavior()
         setupStatusItemMenu()
         setupSoftwareUpdates()
+        setupDeviceServices()
         NotificationCenter.default.addObserver(
             forName: .hotkeyShortcutChanged, object: nil, queue: .main
         ) { [weak self] note in

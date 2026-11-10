@@ -480,6 +480,17 @@ final class MemoryAppKeyStore: AppKeyStore {
         policy = data
     }
     func deleteAgentAccessPolicy() throws { policyDeletes += 1; policy = nil }
+    var deviceItems: [DeviceKeychainAccount: Data] = [:]
+    var deviceItemFailure: Error?
+    func loadDeviceItem(_ account: DeviceKeychainAccount) throws -> Data? {
+        if let deviceItemFailure { throw deviceItemFailure }
+        return deviceItems[account]
+    }
+    func saveDeviceItem(_ data: Data, account: DeviceKeychainAccount) throws {
+        if let deviceItemFailure { throw deviceItemFailure }
+        deviceItems[account] = data
+    }
+    func deleteDeviceItem(_ account: DeviceKeychainAccount) throws { deviceItems[account] = nil }
 }
 
 func directoryBytes(_ directory: URL) throws -> [String: Data] {

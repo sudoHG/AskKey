@@ -16,6 +16,7 @@ extension AppDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         guard !ManagementAuthenticationSubprocess.isActive else { return }
         AppRuntimeState.configuration.willStop?()
+        stopDeviceServices()
         brokerServer?.stop()
         recycleBinCleanupTimer?.invalidate()
         timedAllowanceSessionObserver = nil

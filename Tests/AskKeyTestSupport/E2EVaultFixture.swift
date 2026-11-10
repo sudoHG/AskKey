@@ -90,4 +90,22 @@ private final class E2EPolicyStore: AppKeyStore {
     func deleteLegacyKey() throws { }
     func deletePendingKey() throws { }
     func deleteAppKey() throws { }
+    // Device items: synthetic files beside the policy fixture, one per account.
+    private func deviceURL(_ account: DeviceKeychainAccount) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent("\(account.rawValue).fixture")
+    }
+    func loadDeviceItem(_ account: DeviceKeychainAccount) throws -> Data? {
+        let file = deviceURL(account)
+        guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+        return try Data(contentsOf: file)
+    }
+    func saveDeviceItem(_ data: Data, account: DeviceKeychainAccount) throws {
+        let file = deviceURL(account)
+        try data.write(to: file, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+    }
+    func deleteDeviceItem(_ account: DeviceKeychainAccount) throws {
+        let file = deviceURL(account)
+        if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
+    }
 }

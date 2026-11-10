@@ -50,6 +50,8 @@ public final class Vault {
     private var _policyKeyStore: AppKeyStore?
     private var _agentAccessPolicyLatches = AgentAccessPolicyLatches()
     let agentAccessPolicyOwnership = AgentAccessPolicyOwnership()
+    /// Device services the local erase stops first (ADR 0013 → Local erase).
+    let deviceState = VaultDeviceState()
     private let pathsOverride: VaultBootstrapPaths?
     private let keyStoreOverride: AppKeyStore?
     var legacyAgentAccessRowsRemoved = false
@@ -528,6 +530,7 @@ public final class Vault {
             )]
         }
         for store in stores {
+            try deleteDeviceItems(from: store)
             try store.deleteAgentAccessPolicy()
             try store.deleteLegacyKey()
             try store.deletePendingKey()
@@ -569,6 +572,7 @@ public final class Vault {
     }
 
     func finishLocalErase() {
+        deviceState.finishLocalErase()
         stateLock.lock()
         _key = nil
         _store?.bindCredentialAuthenticationKey(nil)

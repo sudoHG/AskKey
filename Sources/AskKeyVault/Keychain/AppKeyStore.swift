@@ -65,15 +65,15 @@ final class AppBoundKeyStore: AppKeyStore {
                 try verify(data, service: appService, account: Self.account, context: context)
                 try verify(data, service: pendingService, account: Self.account, context: context)
             } catch {
-                try delete(service: appService)
+                try delete(service: appService, account: Self.account)
                 throw error
             }
         }
     }
     func loadAppKey() throws -> Data { try load(service: appService, missing: .missingAppKey) }
-    func deleteLegacyKey() throws { try delete(service: legacyService) }
-    func deletePendingKey() throws { try delete(service: pendingService) }
-    func deleteAppKey() throws { try delete(service: appService) }
+    func deleteLegacyKey() throws { try delete(service: legacyService, account: Self.account) }
+    func deletePendingKey() throws { try delete(service: pendingService, account: Self.account) }
+    func deleteAppKey() throws { try delete(service: appService, account: Self.account) }
 
     func loadAgentAccessPolicy() throws -> Data? {
         try withKeychain { context in
@@ -116,6 +116,35 @@ final class AppBoundKeyStore: AppKeyStore {
 
     func deleteAgentAccessPolicy() throws { try delete(service: appService, account: Self.policyAccount) }
 
+    // Device items live under the App service with the same App-only access
+    // as the vault key (ADR 0013); none of these touches the vault-key item.
+
+    func loadDeviceItem(_ account: DeviceKeychainAccount) throws -> Data? {
+        try withKeychain { context in
+            guard let item = try findItem(service: appService, account: account.rawValue, context: context) else {
+                return nil
+            }
+            return try context.read(item)
+        }
+    }
+
+    func saveDeviceItem(_ data: Data, account: DeviceKeychainAccount) throws {
+        guard data.count <= DeviceKeychainAccount.maximumItemSize else { throw AppKeyStoreError.conflictingKey }
+        try withKeychain { context in
+            // Never update an existing item's value or access: only an item
+            // this save creates, with App-only access, receives the value.
+            if let existing = try findItem(service: appService, account: account.rawValue, context: context) {
+                try context.delete(existing)
+            }
+            try add(data, service: appService, account: account.rawValue, context: context)
+            try verify(data, service: appService, account: account.rawValue, context: context)
+        }
+    }
+
+    func deleteDeviceItem(_ account: DeviceKeychainAccount) throws {
+        try delete(service: appService, account: account.rawValue)
+    }
+
     private func saveAppBound(_ data: Data, service: String) throws {
         try withKeychain { context in
             if try findItem(service: service, account: Self.account, context: context) != nil {
@@ -151,7 +180,7 @@ final class AppBoundKeyStore: AppKeyStore {
         }
     }
 
-    private func delete(service: String, account: String = AppBoundKeyStore.account) throws {
+    private func delete(service: String, account: String) throws {
         try withKeychain { context in
             if let item = try findItem(service: service, account: account, context: context) { try context.delete(item) }
         }
@@ -164,6 +193,7 @@ final class AppBoundKeyStore: AppKeyStore {
 
     private func kind(service: String, account: String) -> AppKeychainItemKind {
         if account == Self.policyAccount { return .agentAccessPolicy }
+        if let device = DeviceKeychainAccount(rawValue: account) { return device.itemKind }
         if service == pendingService { return .pendingKey }
         if service == legacyService { return .legacyKey }
         return .vaultKey
@@ -188,4 +218,9 @@ package protocol AppKeyStore: AnyObject {
     func loadAgentAccessPolicy() throws -> Data?
     func saveAgentAccessPolicy(_ data: Data) throws
     func deleteAgentAccessPolicy() throws
+    /// The device item, or nil when none is stored.
+    func loadDeviceItem(_ account: DeviceKeychainAccount) throws -> Data?
+    /// Replaces the device item with a new App-only item holding `data`.
+    func saveDeviceItem(_ data: Data, account: DeviceKeychainAccount) throws
+    func deleteDeviceItem(_ account: DeviceKeychainAccount) throws
 }
