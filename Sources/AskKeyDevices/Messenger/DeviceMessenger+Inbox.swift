@@ -56,8 +56,9 @@ extension DeviceMessenger {
     }
 
     /// Processes one page, with the messages still held from earlier pages,
-    /// and deletes what settled. Pairing messages go first, in kind order;
-    /// held messages are retried after any message took effect.
+    /// and deletes what settled. Pairing messages go first, in protocol
+    /// order (a reveal before a confirmation); held messages are retried
+    /// after any message took effect.
     private func process(_ changes: InboxChanges, carrying carried: [DeviceEnvelope],
                          into report: inout InboxReport) async throws -> (settled: Bool, held: [DeviceEnvelope]) {
         let fetchedAt = clock.now()
@@ -116,8 +117,10 @@ extension DeviceMessenger {
         return (settled, pending)
     }
 
-    private static func rank(_ envelope: DeviceEnvelope) -> Int64 {
-        (1...5).contains(envelope.kind) ? envelope.kind : 100
+    static func rank(_ envelope: DeviceEnvelope) -> Int {
+        let order: [MessageKind] = [.pairingRequest, .pairingChallenge, .pairingReveal, .pairingConfirmation,
+                                    .pairingCancellation, .pairingWithdrawal]
+        return order.firstIndex { Int64($0.rawValue) == envelope.kind } ?? order.count
     }
 
     /// Applies the refusal rules of ADR 0013 → Sealed messages in order: the

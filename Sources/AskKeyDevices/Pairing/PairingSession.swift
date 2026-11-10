@@ -68,12 +68,14 @@ struct PairingSession {
     /// Both sides: the responder's commitment, from its own request or the
     /// frozen one.
     private var commitment: Data?
-    /// Initiator: the nonce and the digest of the challenge it sent.
+    /// Initiator: the nonce of the challenge it sent.
     private var nonce: Data?
+    /// The digest of the challenge's inner message: the one the initiator
+    /// sent, or the first one the responder verified, which it freezes.
     private var challengeDigest: Data?
-    /// Responder: the reveal's record name, and whether the transport
-    /// accepted it; the code is shown only afterwards.
-    private var revealRecordName: String?
+    /// Responder: its reveal, and whether the transport accepted it; the
+    /// code is shown only afterwards.
+    private var reveal: DeviceEnvelope?
     private(set) var revealSent = false
 
     private(set) var peer: Peer?
@@ -293,21 +295,32 @@ struct PairingSession {
     }
 
     /// Responder, step 3: checks the challenge against its own request and
-    /// the keys in the QR code, computes the code, and queues the reveal.
-    /// The code is shown once the transport accepted the reveal.
+    /// the keys in the QR code, freezes it, computes the code, and queues
+    /// the reveal; the code is shown once the transport accepted the
+    /// reveal. The same challenge again only resends the same reveal; a
+    /// verified challenge with other bytes ends the session, because the
+    /// secret is revealed for one challenge only.
     private mutating func handleChallenge(_ inner: InnerMessage, now: Date, list: PairedDeviceList) throws -> PairingOutcome {
         guard role == .responder else { return .refused(.unexpectedKind, authenticated: true) }
         let payload: PairingChallengePayload
         do { payload = try PairingChallengePayload(decoding: inner.payload) } catch {
             return .refused(Self.refusal(error), authenticated: true)
         }
-        guard transcriptHash == nil, payload.sessionID == qr.sessionID, let requestDigest,
-              payload.requestDigest == requestDigest,
+        guard payload.sessionID == qr.sessionID, let requestDigest, payload.requestDigest == requestDigest,
               payload.card.messagePublicKey.compressedRepresentation == qr.initiatorMessageKey.compressedRepresentation,
               payload.card.agreementPublicKey.compressedRepresentation == qr.initiatorAgreementKey.compressedRepresentation else {
             return .refused(.bindingMismatch, authenticated: true)
         }
+        if let challengeDigest {
+            guard inner.digest != challengeDigest else {
+                guard let reveal, !outbox.contains(where: { $0.recordName == reveal.recordName }) else { return .accepted([]) }
+                return .accepted([.send(reveal)])
+            }
+            guard !added else { return .refused(.bindingMismatch, authenticated: true) }
+            return .accepted(end(.conflictingChallenge, now: now))
+        }
         guard !conflicts(payload.card, list: list) else { return .refused(.keyConflict, authenticated: true) }
+        challengeDigest = inner.digest
         peer = Peer(card: payload.card, displayName: payload.displayName)
         if list.devices.count >= PairedDeviceList.maximumCount, list.device(payload.card.deviceID) == nil {
             return .accepted(end(.deviceLimitReached, now: now))
@@ -315,10 +328,11 @@ struct PairingSession {
         guard let commitment, let revealSecret else { return .refused(.bindingMismatch, authenticated: true) }
         derive(responderCard: ownCard, initiatorCard: payload.card, commitment: commitment, nonce: payload.nonce,
                revealedSecret: revealSecret)
-        let reveal = PairingRevealPayload(sessionID: qr.sessionID, challengeDigest: inner.digest, secret: revealSecret)
-        guard let sealed = try seal(.pairingReveal, reveal.encoded, to: payload.card.deviceID,
+        let revealPayload = PairingRevealPayload(sessionID: qr.sessionID, challengeDigest: inner.digest,
+                                                 secret: revealSecret)
+        guard let sealed = try seal(.pairingReveal, revealPayload.encoded, to: payload.card.deviceID,
                                     key: payload.card.agreementPublicKey, now: now) else { return .accepted([]) }
-        revealRecordName = sealed.envelope.recordName
+        reveal = sealed.envelope
         return .accepted([.send(sealed.envelope)])
     }
 
@@ -431,7 +445,7 @@ struct PairingSession {
 
     /// The transport accepted a queued message.
     mutating func messageSent(_ recordName: String) {
-        if recordName == revealRecordName { revealSent = true }
+        if recordName == reveal?.recordName { revealSent = true }
     }
 
     mutating func addFailed(_ reason: PairingEndReason, now: Date) -> [PairingEffect] { end(reason, now: now) }

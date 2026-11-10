@@ -55,6 +55,9 @@ public enum PairingEndReason: Hashable, Sendable {
     /// Initiator: the responder revealed a secret that does not match the
     /// commitment in its request.
     case commitmentMismatch
+    /// Responder: a second verified challenge with different bytes arrived
+    /// for this session.
+    case conflictingChallenge
     /// A cancellation or withdrawal for this session arrived before this
     /// side added the peer.
     case cancelledByPeer

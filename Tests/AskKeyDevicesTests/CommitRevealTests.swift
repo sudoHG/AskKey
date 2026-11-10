@@ -199,6 +199,64 @@ final class CommitRevealTests: XCTestCase {
         await XCTAssertEqualAsync(await mac.derivedCode(), await phone.code())
     }
 
+    func testAVerifiedChallengeWithOtherBytesEndsTheResponderSession() async throws {
+        let harness = DeviceHarness()
+        let mac = harness.makeDevice(.macOS)
+        let phone = harness.makeDevice(.iOS)
+        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        try await mac.poll()
+        try await phone.poll()
+        guard case .showingCode = await phone.phase() else { return XCTFail("the phone froze the first challenge") }
+        // The Mac's key signs a second challenge with another nonce for the same request.
+        let request = try PairingRuleTests.open(try XCTUnwrap(harness.transport.lastSent(.pairingRequest, from: phone.id)),
+                                                with: mac, preSharedKey: qr.preSharedKey)
+        let macCard = try DeviceCard.make(identity: mac.identity, platform: .macOS, createdAt: harness.clock.now())
+        let second = PairingChallengePayload(sessionID: qr.sessionID, requestDigest: request.digest, card: macCard,
+                                             nonce: RandomBytes.make(32), displayName: "Studio Mac")
+        harness.transport.insert(try PairingRuleTests.seal(.pairingChallenge, second.encoded, from: mac, to: phone,
+                                                           harness: harness), intoInboxOf: phone.id)
+        try await phone.poll()
+        await XCTAssertEqualAsync(await phone.phase()?.endReason, .conflictingChallenge)
+        await XCTAssertNilAsync(await phone.code())
+        XCTAssertNotNil(harness.transport.lastSent(.pairingCancellation, from: phone.id), "a signed cancellation")
+        try await mac.poll()
+        await XCTAssertEqualAsync(await mac.phase()?.endReason, .cancelledByPeer)
+    }
+
+    func testTheSameChallengeAgainOnlyResendsTheSameReveal() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let macIdentity = SoftwareDeviceIdentity()
+        let phoneIdentity = SoftwareDeviceIdentity()
+        var mac = PairingSession.initiate(identity: macIdentity, card: try DeviceCard.make(identity: macIdentity,
+                                          platform: .macOS, createdAt: now), displayName: "Studio Mac", now: now)
+        var phone = try PairingSession.respond(to: mac.qr, identity: phoneIdentity,
+                                               card: try DeviceCard.make(identity: phoneIdentity, platform: .iOS, createdAt: now),
+                                               displayName: "Pocket Phone", now: now, list: PairedDeviceList())
+        let request = try Self.open(try XCTUnwrap(phone.outbox.first), by: macIdentity, preSharedKey: mac.qr.preSharedKey,
+                                    now: now)
+        guard case .accepted(let challengeEffects) = try mac.handleRequest(request, firstFetchedAt: now, now: now,
+                                                                           list: PairedDeviceList()),
+              case .send(let challengeEnvelope)? = challengeEffects.first else { return XCTFail("a challenge") }
+        let challenge = try Self.open(challengeEnvelope, by: phoneIdentity, preSharedKey: nil, now: now)
+        guard case .accepted(let first) = try phone.handlePeerMessage(challenge, now: now, list: PairedDeviceList()),
+              case .send(let reveal)? = first.first else { return XCTFail("a reveal") }
+        guard case .accepted(let again) = try phone.handlePeerMessage(challenge, now: now, list: PairedDeviceList()),
+              case .send(let resent)? = again.first else { return XCTFail("the same reveal again") }
+        XCTAssertEqual(resent, reveal, "same message ID and bytes")
+        XCTAssertNil(phone.phase.endReason)
+    }
+
+    func testRevealsAreProcessedBeforeConfirmationsWithinAFetch() {
+        let kinds: [Int64] = [7, 3, 9, 4, 1, 2, 5, 6, 8]
+        let envelopes = kinds.map {
+            DeviceEnvelope(recordType: .quiet, recordName: "\($0)", sender: "", recipient: "", kind: $0,
+                           sentAt: Date(), expiresAt: Date(), body: Data())
+        }
+        let sorted = envelopes.sorted { DeviceMessenger.rank($0) < DeviceMessenger.rank($1) }
+        XCTAssertEqual(sorted.prefix(6).map(\.kind), [1, 2, 9, 3, 4, 5])
+    }
+
     // MARK: Helpers
 
     /// A Mac that sent its challenge and a phone that verified it, whose
@@ -226,6 +284,14 @@ final class CommitRevealTests: XCTestCase {
     private func challengeDigest(_ harness: DeviceHarness, _ mac: SimulatedDevice, _ phone: SimulatedDevice) throws -> Data {
         try PairingRuleTests.open(try XCTUnwrap(harness.transport.lastSent(.pairingChallenge, from: mac.id)), with: phone)
             .digest
+    }
+
+    private static func open(_ envelope: DeviceEnvelope, by identity: SoftwareDeviceIdentity,
+                             preSharedKey: HPKEPreSharedKey?, now: Date) throws -> InnerMessage {
+        let ownID = DeviceID(messagePublicKey: identity.messagePublicKey)
+        let routing = try MessageCodec.routing(of: envelope, ownID: ownID, now: now)
+        return try MessageCodec.open(envelope, routing: routing, ownID: ownID, identity: identity,
+                                     preSharedKey: preSharedKey, now: now)
     }
 
     private static func wrong(_ code: PairingCode) -> String {
