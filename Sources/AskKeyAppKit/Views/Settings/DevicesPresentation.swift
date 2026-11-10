@@ -133,7 +133,7 @@ enum DevicesPresentation {
     }
 
     static func removalWarning(_ name: String) -> String {
-        appLocalizedFormat("This Mac stops trusting “%@” at once. The device learns about it the next time it connects and removes this Mac. If it still shows this Mac later, remove this Mac on that device too.", name)
+        appLocalizedFormat("This Mac stops trusting “%@” at once. Ask Key tries to tell the device, which then removes this Mac the next time it connects. If it still lists this Mac later, remove this Mac on that device too.", name)
     }
 
     static func date(_ date: Date, time: Bool) -> String {

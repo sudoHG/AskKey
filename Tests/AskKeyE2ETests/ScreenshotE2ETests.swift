@@ -371,6 +371,20 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("unlock-management")
         click("sidebar-settings")
         openBackupSetting("settings-pair-device")
+        // Diagnose a click that opens no sheet instead of stopping there:
+        // click again, then start pairing through the fixture, and fail at
+        // the end so the captures and device-transitions.json still exist.
+        let sheet = app.windows["settings"].sheets.firstMatch
+        var startPath = "first click"
+        if !sheet.waitForExistence(timeout: 5) {
+            startPath = "second click"
+            click("settings-pair-device")
+            if !sheet.waitForExistence(timeout: 5) {
+                startPath = "fixture"
+                try fixture("start-pairing")
+            }
+        }
+        XCTAssertTrue(sheet.waitForExistence(timeout: 8), "No pairing sheet")
         XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
         captureSheet(name(1, "devices-pairing-qr-code"))
         try fixture("phone-scan")
@@ -390,6 +404,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         waitForText(language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}",
                     containing: true)
         capture(name(4, "devices-icloud-signed-out"))
+        XCTAssertEqual(startPath, "first click", "Pair a Device… needed: \(startPath)")
     }
 
     /// Saves "Staging API" through the first-run editor, then unlocks

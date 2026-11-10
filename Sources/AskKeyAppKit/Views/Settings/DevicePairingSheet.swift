@@ -170,9 +170,11 @@ struct DevicePairingSheet: View {
                 .disabled(!model.canConfirm)
                 .accessibilityIdentifier("devices-pairing-confirm")
         case .qrCode(_, let expiresAt):
-            cancelButton
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                if context.date >= expiresAt { pairAgainButton }
+                HStack(spacing: Theme.Spacing.sm) {
+                    cancelButton
+                    if context.date >= expiresAt { pairAgainButton }
+                }
             }
         case .preparing, .waitingForIPhone, .waitingForIPhoneConfirmation:
             cancelButton

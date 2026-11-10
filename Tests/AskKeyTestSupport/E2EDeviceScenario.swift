@@ -13,7 +13,7 @@ import Observation
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
+    static let commands = ["start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -64,24 +64,42 @@ enum E2EDeviceScenario {
         task = nil
     }
 
-    /// Writes `device-transitions.json` with each pairing state the sheet
-    /// reads, by case name only (the QR payload holds the pairing secret),
-    /// so a failed capture shows where the session went.
-    private static func recordPairingTransitions(control: URL) {
+    /// A pairing state by case name; the end and start-failure reasons in
+    /// full, which carry no code, QR payload or name.
+    private static func describe(_ state: PairingSheetState) -> String {
+        switch state {
+        case .ended, .failed: return String(describing: state)
+        default: return String(String(describing: state).prefix { $0 != "(" })
+        }
+    }
+
+    /// Writes `device-transitions.json` with the coordinator's state at
+    /// launch and after each change the Devices section reads: pairing by
+    /// case name only (the QR payload holds the pairing secret),
+    /// availability, account, identity and the number of devices. A failed
+    /// capture then shows where the session went.
+    private static func recordPairingTransitions(control: URL, reason: String = "launch") {
+        guard let coordinator = DeviceServicesHost.coordinator else {
+            transitions.append("\(Date().timeIntervalSince1970) no device coordinator")
+            writeTransitions(control: control)
+            return
+        }
+        let state = coordinator.pairing.map(describe) ?? "none"
+        transitions.append("\(Date().timeIntervalSince1970) \(reason): pairing=\(state) availability=\(coordinator.availability) "
+            + "account=\(coordinator.account) identity=\(coordinator.hasIdentity) devices=\(coordinator.devices.count)")
+        writeTransitions(control: control)
         withObservationTracking {
-            _ = DeviceServicesHost.coordinator?.pairing
+            _ = (coordinator.pairing, coordinator.availability, coordinator.account, coordinator.hasIdentity,
+                 coordinator.devices.count)
         } onChange: {
-            Task { @MainActor in
-                if let coordinator = DeviceServicesHost.coordinator {
-                    let state = coordinator.pairing.map { String(describing: $0).prefix { $0 != "(" } } ?? "none"
-                    transitions.append("\(Date().timeIntervalSince1970) \(state) \(coordinator.availability) \(coordinator.account)")
-                    let report = ["transitions": transitions]
-                    if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted]) {
-                        try? data.write(to: control.appendingPathComponent("device-transitions.json"), options: .atomic)
-                    }
-                }
-                recordPairingTransitions(control: control)
-            }
+            Task { @MainActor in recordPairingTransitions(control: control, reason: "change") }
+        }
+    }
+
+    private static func writeTransitions(control: URL) {
+        let report = ["transitions": transitions]
+        if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted]) {
+            try? data.write(to: control.appendingPathComponent("device-transitions.json"), options: .atomic)
         }
     }
 
@@ -90,6 +108,9 @@ enum E2EDeviceScenario {
             throw E2EDeviceScenarioError.notInstalled
         }
         switch command {
+        case "start-pairing":
+            // Diagnostic only: what Pair a Device… does, for a run in which the click did not start it.
+            await coordinator.startPairing()
         case "phone-scan":
             guard case .showingQRCode(let text, _) = coordinator.pairing else { throw E2EDeviceScenarioError.noQRCode }
             try await phone.scan(text, name: phoneName)

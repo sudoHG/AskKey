@@ -99,7 +99,6 @@ struct PairingSheetPresentation: Equatable {
         self.feedbackIsWarning = feedbackIsWarning
     }
 
-
     static var codeInstruction: String {
         appLocalized("Enter the code shown on the iPhone's Ask Key pairing screen. Never enter a code from a notification or a message. If that screen shows no code, cancel.")
     }
