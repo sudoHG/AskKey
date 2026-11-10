@@ -109,6 +109,15 @@ STAGING="$WORK_DIR/contents"
 mkdir "$STAGING"
 STAGED_APP="$STAGING/Ask Key.app"
 ditto "$APP" "$STAGED_APP" || fail "Cannot stage the app"
+# A CloudKit build (ADR 0013) keeps its embedded profile. Before notarizing,
+# check that the profile is still valid and is the one the signature sealed,
+# and that the signed entitlements are the CloudKit ones.
+STAGED_PROFILE="$STAGED_APP/Contents/embedded.provisionprofile"
+if [[ -e "$STAGED_PROFILE" || -L "$STAGED_PROFILE" ]]; then
+  [[ -n "${ASKKEY_APPLE_TEAM_ID:-}" ]] || fail "ASKKEY_APPLE_TEAM_ID is required to check the embedded provisioning profile"
+  python3 "$ROOT_DIR/scripts/cloudkit-signing.py" check-app --app "$STAGED_APP" --team "$ASKKEY_APPLE_TEAM_ID" \
+    || fail "The embedded provisioning profile or the signed entitlements are not valid"
+fi
 
 notarize() {
   local artifact="$1" response="$WORK_DIR/notary-result.json" completed=true
