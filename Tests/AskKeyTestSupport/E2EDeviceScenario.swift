@@ -14,7 +14,7 @@ import Observation
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "ax-walk", "resign-focus", "inject-click", "ax-press", "ax-scan"]
+    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "ax-walk", "resign-focus", "inject-click", "write-log"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -38,6 +38,7 @@ enum E2EDeviceScenario {
     /// and writes `device-<command>.json` with the outcome.
     static func start(control: URL) {
         self.control = control
+        E2EDeviceDiagnostics.captureStandardError(control: control)
         recordPairingTransitions(control: control)
         E2EDeviceDiagnostics.recordMouseEvents { event in
             transitions.append("\(Date().timeIntervalSince1970) \(event)")
@@ -172,20 +173,11 @@ enum E2EDeviceScenario {
             let outcome = await E2EDeviceDiagnostics.postClick(atRunnerPoint: NSPoint(x: values[0], y: values[1]))
             transitions.append("\(Date().timeIntervalSince1970) posted click: \(outcome)")
             if let control { writeTransitions(control: control) }
-        case "ax-press":
-            // Diagnostic only (#298): the accessibility press of the element at a runner point.
-            let values = argument.split(whereSeparator: \.isWhitespace).compactMap { Double($0) }
-            guard values.count == 2 else { throw E2EDeviceScenarioError.unknownCommand }
-            let outcome = await E2EDeviceDiagnostics.pressAccessibilityElement(atRunnerPoint: NSPoint(x: values[0], y: values[1]))
-            transitions.append("\(Date().timeIntervalSince1970) accessibility press: \(outcome)")
-            if let control { writeTransitions(control: control) }
-        case "ax-scan":
-            // Diagnostic only (#298): accessibility hit tests around a runner point.
-            let values = argument.split(whereSeparator: \.isWhitespace).compactMap { Double($0) }
-            guard values.count == 2 else { throw E2EDeviceScenarioError.unknownCommand }
-            transitions.append("\(Date().timeIntervalSince1970) accessibility scan around \(values): "
-                + E2EDeviceDiagnostics.scanAccessibility(aroundRunnerPoint: NSPoint(x: values[0], y: values[1])))
-            if let control { writeTransitions(control: control) }
+        case "write-log":
+            // Diagnostic only (#298): the App's own log and standard error so far.
+            guard let control else { throw E2EDeviceScenarioError.notInstalled }
+            transitions.append("\(Date().timeIntervalSince1970) \(E2EDeviceDiagnostics.writeLog(control: control))")
+            writeTransitions(control: control)
         case "account-signed-out":
             backend.accountState = .noAccount
             backend.signalAccountChange()

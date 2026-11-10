@@ -52,8 +52,6 @@ extension ScreenshotE2ETests {
         // session if none of them opened the sheet.
         let export = app.buttons["settings-export-backup"].firstMatch
         notes.append("export: hittable=\(export.isHittable) frame=\(export.frame)")
-        try fixture("ax-scan", "\(export.frame.midX) \(export.frame.midY)")
-        try fixture("ax-scan", "\(pair.frame.midX) \(pair.frame.midY)")
         export.click()
         if sheet.waitForExistence(timeout: 5) {
             notes.append("export sheet")
@@ -76,10 +74,13 @@ extension ScreenshotE2ETests {
             notes.append(clickOpened.last == true ? "sheet" : "no sheet")
         }
         let centre = "\(pair.frame.midX) \(pair.frame.midY)"
-        for command in ["inject-click", "ax-press"] where !sheet.exists {
+        for command in ["inject-click"] where !sheet.exists {
             try fixture(command, centre)
             notes.append("\(command) at \(centre): " + (sheet.waitForExistence(timeout: 3) ? "sheet" : "no sheet"))
         }
+        try fixture("write-log")
+        attachDeviceFile("device-log.txt")
+        attachDeviceFile("device-stderr.txt")
         if !sheet.exists { notes.append("fixture start"); try fixture("start-pairing") }
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "No pairing sheet")
         attachDeviceDiagnostics(notes)
@@ -103,7 +104,9 @@ extension ScreenshotE2ETests {
         }
         let rename = app.buttons["devices-rename"].firstMatch
         XCTAssertTrue(rename.waitForExistence(timeout: 8))
-        try fixture("ax-scan", "\(rename.frame.midX) \(rename.frame.midY)")
+        try fixture("write-log")
+        attachDeviceFile("device-log.txt")
+        attachDeviceFile("device-stderr.txt")
         attachDeviceDiagnostics(notes)
         let sidebar = app.buttons["sidebar-settings"].firstMatch
         timed("sidebar text query after Done") { textQuery("Settings", in: sidebar).waitForExistence(timeout: 2) }

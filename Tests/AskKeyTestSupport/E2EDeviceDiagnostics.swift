@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 
 /// Diagnostics for #298, in the E2E App only: XCTest's click on Pair a Device… opened no sheet,
 /// and full-tree queries timed out after a pairing. They record which window and views receive
@@ -8,6 +9,38 @@ import AppKit
 enum E2EDeviceDiagnostics {
     private static var monitor: Any?
     private static var walks = 0
+
+    /// Sends the App's standard error to `device-stderr.txt`, where SwiftUI and AttributeGraph
+    /// print some of their runtime warnings.
+    static func captureStandardError(control: URL) {
+        let path = control.appendingPathComponent("device-stderr.txt").path
+        guard FileManager.default.createFile(atPath: path, contents: nil),
+              let handle = FileHandle(forWritingAtPath: path) else { return }
+        dup2(handle.fileDescriptor, STDERR_FILENO)
+    }
+
+    /// Writes the App's own unified log since launch to `device-log.txt` and returns how many
+    /// entries came from SwiftUI, AppKit and AttributeGraph, or mention a cycle.
+    static func writeLog(control: URL) -> String {
+        do {
+            let store = try OSLogStore(scope: .currentProcessIdentifier)
+            var lines: [String] = []
+            var frameworks = 0, cycles = 0
+            for case let entry as OSLogEntryLog in try store.getEntries() {
+                let subsystem = entry.subsystem
+                let message = entry.composedMessage
+                let framework = subsystem.hasPrefix("com.apple.SwiftUI") || subsystem.hasPrefix("com.apple.AppKit")
+                    || subsystem.lowercased().contains("attributegraph") || message.contains("AttributeGraph")
+                if framework { frameworks += 1 }
+                if message.lowercased().contains("cycle") { cycles += 1 }
+                lines.append("\(entry.date.timeIntervalSince1970) [\(subsystem)/\(entry.category)] \(message)")
+            }
+            try lines.suffix(5_000).joined(separator: "\n").write(to: control.appendingPathComponent("device-log.txt"), atomically: true, encoding: .utf8)
+            return "log entries=\(lines.count) framework=\(frameworks) cycle=\(cycles)"
+        } catch {
+            return "log unavailable: \(error)"
+        }
+    }
 
     /// Reports each left mouse down and up the App receives.
     static func recordMouseEvents(_ report: @escaping @MainActor (String) -> Void) {
@@ -99,52 +132,6 @@ enum E2EDeviceDiagnostics {
         events.forEach { NSApp.postEvent($0, atStart: false) }
         try? await Task.sleep(for: .milliseconds(500))
         return "posted \(events.count) events at \(location) in \(name(window))"
-    }
-
-    /// The accessibility element at a point in XCTest's screen coordinates, then its press action,
-    /// which runs a button's action without any mouse event.
-    static func pressAccessibilityElement(atRunnerPoint point: NSPoint) async -> String {
-        guard let screen = NSScreen.screens.first else { return "no screen" }
-        let screenPoint = NSPoint(x: point.x, y: screen.frame.maxY - point.y)
-        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.level == .normal && $0.frame.contains(screenPoint) }) else {
-            return "no window at \(screenPoint)"
-        }
-        guard let element = window.accessibilityHitTest(screenPoint) as? NSObject else { return "no element at \(screenPoint)" }
-        let role = element.accessibilityAttributeValue(.role) as? String ?? "-"
-        let identifier = element.accessibilityAttributeValue(.identifier) as? String ?? ""
-        let actions = element.accessibilityActionNames()
-        element.accessibilityPerformAction(.press)
-        try? await Task.sleep(for: .milliseconds(500))
-        return "pressed \(type(of: element)) role=\(role) id=\(identifier) actions=\(actions.map(\.rawValue))"
-    }
-
-    /// Accessibility hit tests along a vertical and a horizontal line through a point in XCTest's
-    /// screen coordinates: which element SwiftUI reports at each offset, runs of the same merged.
-    static func scanAccessibility(aroundRunnerPoint point: NSPoint) -> String {
-        guard let screen = NSScreen.screens.first else { return "no screen" }
-        func element(at offset: CGSize) -> String {
-            let screenPoint = NSPoint(x: point.x + offset.width, y: screen.frame.maxY - point.y - offset.height)
-            guard let window = NSApp.windows.first(where: { $0.isVisible && $0.level == .normal && $0.frame.contains(screenPoint) }),
-                  let hit = window.accessibilityHitTest(screenPoint) as? NSObject else { return "none" }
-            let role = hit.accessibilityAttributeValue(.role) as? String ?? "-"
-            let identifier = hit.accessibilityAttributeValue(.identifier) as? String ?? ""
-            let label = hit.accessibilityAttributeValue(NSAccessibility.Attribute(rawValue: "AXDescription")) as? String
-                ?? hit.accessibilityAttributeValue(.value) as? String ?? ""
-            return "\(role) \(identifier.isEmpty ? String(label.prefix(24)) : identifier)"
-        }
-        func scan(_ offsets: [CGSize], _ axis: KeyPath<CGSize, CGFloat>) -> String {
-            var runs: [(from: CGFloat, to: CGFloat, what: String)] = []
-            for offset in offsets {
-                let what = element(at: offset)
-                if let last = runs.last, last.what == what { runs[runs.count - 1].to = offset[keyPath: axis] }
-                else { runs.append((offset[keyPath: axis], offset[keyPath: axis], what)) }
-            }
-            return runs.map { "\(Int($0.from))…\(Int($0.to)): \($0.what)" }.joined(separator: " | ")
-        }
-        // Down the screen is positive, as in XCTest's coordinates.
-        let vertical = scan(stride(from: -200, through: 200, by: 4).map { CGSize(width: 0, height: CGFloat($0)) }, \.height)
-        let horizontal = scan(stride(from: -240, through: 120, by: 8).map { CGSize(width: CGFloat($0), height: 0) }, \.width)
-        return "vertical [\(vertical)] horizontal [\(horizontal)]"
     }
 
     /// The AppKit views under the centre of a screen rectangle, in each visible window containing it.
