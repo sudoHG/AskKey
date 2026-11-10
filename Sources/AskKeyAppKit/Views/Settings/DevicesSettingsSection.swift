@@ -29,6 +29,10 @@ struct DevicesSettingsSection: View {
 
 private struct DevicesSectionContent: View {
     @Bindable var model: DevicesSettingsModel
+    /// Whether the pairing sheet shows: follows the session, see `presentation`.
+    @State private var sheetShown = false
+    // T6 TEMP #298 diagnostics, revert before merge.
+    private let withoutSheet = ProcessInfo.processInfo.environment["ASKKEY_T6_VARIANT"] == "no-sheet"
 
     var body: some View {
         let _ = Self._printChanges() // T6 TEMP #298, revert before merge
@@ -49,18 +53,6 @@ private struct DevicesSectionContent: View {
                         .dimmedAndDisabled(!model.canPair)
                         .accessibilityIdentifier("settings-pair-device")
                 }
-            }
-            // The session decides whether the sheet shows. A live session ends
-            // only through the sheet's buttons or the end of the management
-            // session, so a dismissal reported by SwiftUI alone never cancels
-            // a pairing; it only clears a session that has already finished.
-            .sheet(isPresented: Binding(
-                get: { model.isSheetPresented },
-                set: { presented in
-                    if !presented, model.coordinator.pairing?.isActive != true { Task { await model.closeSheet() } }
-                }
-            )) {
-                DevicePairingSheet(model: model)
             }
             if model.confirmingReset {
                 GroupedListSeparator()
@@ -88,11 +80,49 @@ private struct DevicesSectionContent: View {
                     .accessibilityIdentifier("settings-devices-issue")
             }
         }
+        .modifier(presentation)
         .onAppear { Task { await model.sectionOpened() } }
+    }
+
+    /// The pairing sheet, bound to view state that follows the session. On
+    /// macOS 26 a sheet bound to a `Binding(get:set:)` over the model left
+    /// the row it was attached to deaf to clicks until the section redrew.
+    /// The session decides whether the sheet shows. A live session ends only
+    /// through the sheet's buttons or the end of the management session, so
+    /// a dismissal reported by SwiftUI alone never cancels a pairing; it only
+    /// clears a session that has already finished.
+    private var presentation: some ViewModifier {
+        PairingSheetPresentationModifier(model: model, shown: $sheetShown, enabled: !withoutSheet)
     }
 
     private func pairDevice() {
         Task { await model.pairDevice() }
+    }
+}
+
+private struct PairingSheetPresentationModifier: ViewModifier {
+    let model: DevicesSettingsModel
+    @Binding var shown: Bool
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .sheet(isPresented: $shown) { DevicePairingSheet(model: model) }
+                .onChange(of: model.isSheetPresented) { _, presented in
+                    if shown != presented { shown = presented }
+                }
+                .onChange(of: shown) { _, isShown in
+                    guard !isShown, model.isSheetPresented else { return }
+                    if model.coordinator.pairing?.isActive == true {
+                        shown = true
+                    } else {
+                        Task { await model.closeSheet() }
+                    }
+                }
+        } else {
+            content
+        }
     }
 }
 

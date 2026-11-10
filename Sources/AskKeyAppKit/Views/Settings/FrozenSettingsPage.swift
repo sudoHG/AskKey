@@ -33,12 +33,10 @@ struct FrozenSettingsPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                 PageHeader(title: appLocalized("Settings"))
-                // T6 TEMP #298 diagnostics, revert before merge: the Devices section first.
-                if ProcessInfo.processInfo.environment["ASKKEY_T6_VARIANT"] == "devices-first" { DevicesSettingsSection() }
                 agentAccessSection
                 generalSection
                 BackupSettingsSection()
-                if ProcessInfo.processInfo.environment["ASKKEY_T6_VARIANT"] != "devices-first" { DevicesSettingsSection() }
+                DevicesSettingsSection()
                 dataSection
             }
             .padding(Theme.Spacing.xxl)

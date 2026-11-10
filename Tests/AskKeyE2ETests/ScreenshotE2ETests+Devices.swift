@@ -30,8 +30,8 @@ extension ScreenshotE2ETests {
         }
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
-        // #298 (temporary): the Chinese run shows the Devices section first in Settings.
-        if language != "en" { app.launchEnvironment["ASKKEY_T6_VARIANT"] = "devices-first" }
+        // #298 (temporary): the English run has no pairing sheet; its click is seen in the session.
+        if language == "en" { app.launchEnvironment["ASKKEY_T6_VARIANT"] = "no-sheet" }
         app.launch()
         addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
         addTeardownBlock { // runs first: the App's log up to a failure
@@ -68,26 +68,25 @@ extension ScreenshotE2ETests {
             ("click", { pair.click() }),
             ("hover, then press", { pair.hover(); pair.press(forDuration: 0.2) })
         ]
+        func sessionsStarted() -> Int {
+            let record = (try? String(contentsOf: runDirectory.appendingPathComponent("device-transitions.json"), encoding: .utf8)) ?? ""
+            return record.components(separatedBy: "change: pairing=preparing").count - 1
+        }
         var clickOpened: [Bool] = []
         for (label, perform) in clicks where !sheet.exists {
             try fixture("snapshot")
             notes.append("\(label): enabled=\(pair.isEnabled) hittable=\(pair.isHittable) frame=\(pair.frame)")
+            let before = sessionsStarted()
             perform()
             clickOpened.append(sheet.waitForExistence(timeout: 3))
-            notes.append(clickOpened.last == true ? "sheet" : "no sheet")
+            notes.append((clickOpened.last == true ? "sheet" : "no sheet") + ", sessions started \(sessionsStarted() - before)")
+            if language == "en" {
+                // #298 (temporary): without a sheet, the click shows in the session alone.
+                attachDeviceDiagnostics(notes)
+                XCTAssertGreaterThan(sessionsStarted(), before, "Pair a Device… without a sheet: \(notes)")
+                return
+            }
         }
-        // #298: whether a button below the Devices section, Erase…, takes its first click.
-        let erase = app.buttons.matching(NSPredicate(format: "label == %@", language == "en" ? "Erase\u{2026}" : "\u{62B9}\u{9664}\u{2026}")).firstMatch
-        if erase.waitForExistence(timeout: 3) {
-            for _ in 0..<6 where !erase.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
-            notes.append("erase: enabled=\(erase.isEnabled) hittable=\(erase.isHittable) frame=\(erase.frame)")
-            erase.click()
-            let disabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == false"), object: erase)
-            notes.append("erase after click: " + (XCTWaiter.wait(for: [disabled], timeout: 3) == .completed ? "opened its confirmation" : "nothing"))
-        } else {
-            notes.append("erase: not found")
-        }
-        for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: 300) }
         let centre = "\(pair.frame.midX) \(pair.frame.midY)"
         for command in ["inject-click"] where !sheet.exists {
             try fixture(command, centre)
