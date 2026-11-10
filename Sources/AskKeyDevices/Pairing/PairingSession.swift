@@ -297,9 +297,8 @@ struct PairingSession {
     /// Responder, step 3: checks the challenge against its own request and
     /// the keys in the QR code, freezes it, computes the code, and queues
     /// the reveal; the code is shown once the transport accepted the
-    /// reveal. The same challenge again only resends the same reveal; a
-    /// verified challenge with other bytes ends the session, because the
-    /// secret is revealed for one challenge only.
+    /// reveal. A verified challenge with other bytes ends the session,
+    /// because the secret is revealed for one challenge only.
     private mutating func handleChallenge(_ inner: InnerMessage, now: Date, list: PairedDeviceList) throws -> PairingOutcome {
         guard role == .responder else { return .refused(.unexpectedKind, authenticated: true) }
         let payload: PairingChallengePayload
@@ -312,26 +311,30 @@ struct PairingSession {
             return .refused(.bindingMismatch, authenticated: true)
         }
         if let challengeDigest {
-            guard inner.digest != challengeDigest else {
-                guard let reveal, !outbox.contains(where: { $0.recordName == reveal.recordName }) else { return .accepted([]) }
-                return .accepted([.send(reveal)])
-            }
+            // A resent challenge has the same message ID and is ignored as
+            // processed before it gets here; the same bytes change nothing.
+            guard inner.digest != challengeDigest else { return .accepted([]) }
             guard !added else { return .refused(.bindingMismatch, authenticated: true) }
             return .accepted(end(.conflictingChallenge, now: now))
         }
         guard !conflicts(payload.card, list: list) else { return .refused(.keyConflict, authenticated: true) }
-        challengeDigest = inner.digest
-        peer = Peer(card: payload.card, displayName: payload.displayName)
         if list.devices.count >= PairedDeviceList.maximumCount, list.device(payload.card.deviceID) == nil {
+            challengeDigest = inner.digest
+            peer = Peer(card: payload.card, displayName: payload.displayName)
             return .accepted(end(.deviceLimitReached, now: now))
         }
         guard let commitment, let revealSecret else { return .refused(.bindingMismatch, authenticated: true) }
-        derive(responderCard: ownCard, initiatorCard: payload.card, commitment: commitment, nonce: payload.nonce,
-               revealedSecret: revealSecret)
+        // Seal the reveal before changing any state, so that a failure leaves
+        // the challenge to be processed again as the first one.
         let revealPayload = PairingRevealPayload(sessionID: qr.sessionID, challengeDigest: inner.digest,
                                                  secret: revealSecret)
-        guard let sealed = try seal(.pairingReveal, revealPayload.encoded, to: payload.card.deviceID,
-                                    key: payload.card.agreementPublicKey, now: now) else { return .accepted([]) }
+        let sealed = try seal(.pairingReveal, revealPayload.encoded, to: payload.card.deviceID,
+                              key: payload.card.agreementPublicKey, now: now)
+        challengeDigest = inner.digest
+        peer = Peer(card: payload.card, displayName: payload.displayName)
+        derive(responderCard: ownCard, initiatorCard: payload.card, commitment: commitment, nonce: payload.nonce,
+               revealedSecret: revealSecret)
+        guard let sealed else { return .accepted([]) }
         reveal = sealed.envelope
         return .accepted([.send(sealed.envelope)])
     }

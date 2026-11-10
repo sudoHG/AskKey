@@ -7,7 +7,7 @@ public enum PairingPhase: Hashable, Sendable {
     /// Responder: the request is sent, and no verified challenge has arrived
     /// or its reveal has not been sent yet.
     case waitingForChallenge
-    /// Initiator: the request is frozen and the challenge sent; the
+    /// Initiator: the request is frozen and the challenge queued; the
     /// responder's verified reveal has not arrived, so there is no code to
     /// enter yet.
     case waitingForResponder(peer: PairingPeer)

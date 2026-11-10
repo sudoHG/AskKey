@@ -3,8 +3,8 @@ import Foundation
 
 public enum DeviceMessengerError: Error, Equatable, Sendable {
     /// No pairing session waits for this side's confirmation: none is open
-    /// or it ended, it has no code yet (the initiator froze no request, or
-    /// the responder has no verified challenge), or this side already confirmed.
+    /// or it ended, it has no code yet (the initiator has no verified reveal,
+    /// or the responder has not sent its reveal), or this side already confirmed.
     case notAwaitingConfirmation
     /// This side's approval prompt is still open; the call counts nothing.
     case confirmationInProgress
@@ -150,7 +150,9 @@ public actor DeviceMessenger {
 
     /// Initiator, step 5: the person typed the code the responder shows.
     /// White space is removed; anything but six ASCII digits throws
-    /// `invalidCodeFormat` at once, without counting. A match accepts the
+    /// `invalidCodeFormat` at once, without counting; before a verified
+    /// reveal there is no code, so any entry throws `notAwaitingConfirmation`
+    /// without counting. A match accepts the
     /// entry: the phase becomes `codeAccepted`, the session takes no further
     /// entry (`codeAlreadyAccepted`), and the person confirms with
     /// `confirmPairing(approvalReason:)`. A wrong code throws `wrongCode`

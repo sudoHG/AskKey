@@ -305,26 +305,17 @@ final class CodeEntryTests: XCTestCase {
     }
 
     func testMalformedCodeFailsBeforeAnyNetworkWork() async throws {
-        let harness = DeviceHarness()
-        let mac = harness.makeDevice(.macOS)
-        let phone = harness.makeDevice(.iOS)
-        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
-        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
-        harness.transport.failNextSends(with: [.networkUnavailable, .networkUnavailable])
-        try await mac.poll()
-        guard case .waitingForResponder = await mac.phase() else {
-            return XCTFail("frozen; the challenge waits in the outbox")
-        }
+        let (harness, mac, _) = try await startedSession()
+        // A message still waits in the outbox, which the timers would send first.
+        var queued = try XCTUnwrap(harness.transport.lastSent(.pairingChallenge, from: mac.id))
+        queued.recordName = MessageID.random().text
+        await mac.messenger.testingQueue(queued)
         let attempts = harness.transport.sentEnvelopes.count
         do {
             try await mac.messenger.enterPairingCode("12a456")
             XCTFail("not six ASCII digits")
         } catch DeviceMessengerError.invalidCodeFormat {}
-        XCTAssertEqual(harness.transport.sentEnvelopes.count, attempts, "refused before the queued challenge is resent")
-        harness.clock.advance(by: 5)
-        try await mac.poll()
-        try await phone.poll()
-        try await mac.poll()
+        XCTAssertEqual(harness.transport.sentEnvelopes.count, attempts, "refused before the queued message is sent")
         guard case .enteringCode(_, attemptsRemaining: 3) = await mac.phase() else { return XCTFail("not counted") }
     }
 

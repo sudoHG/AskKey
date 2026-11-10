@@ -224,7 +224,7 @@ final class CommitRevealTests: XCTestCase {
         await XCTAssertEqualAsync(await mac.phase()?.endReason, .cancelledByPeer)
     }
 
-    func testTheSameChallengeAgainOnlyResendsTheSameReveal() throws {
+    func testTheSameChallengeAgainChangesNothing() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let macIdentity = SoftwareDeviceIdentity()
         let phoneIdentity = SoftwareDeviceIdentity()
@@ -240,11 +240,67 @@ final class CommitRevealTests: XCTestCase {
               case .send(let challengeEnvelope)? = challengeEffects.first else { return XCTFail("a challenge") }
         let challenge = try Self.open(challengeEnvelope, by: phoneIdentity, preSharedKey: nil, now: now)
         guard case .accepted(let first) = try phone.handlePeerMessage(challenge, now: now, list: PairedDeviceList()),
-              case .send(let reveal)? = first.first else { return XCTFail("a reveal") }
-        guard case .accepted(let again) = try phone.handlePeerMessage(challenge, now: now, list: PairedDeviceList()),
-              case .send(let resent)? = again.first else { return XCTFail("the same reveal again") }
-        XCTAssertEqual(resent, reveal, "same message ID and bytes")
+              case .send? = first.first else { return XCTFail("a reveal") }
+        let derived = phone.code
+        guard case .accepted(let again) = try phone.handlePeerMessage(challenge, now: now, list: PairedDeviceList()) else {
+            return XCTFail("the same bytes are no conflict")
+        }
+        XCTAssertTrue(again.isEmpty)
+        XCTAssertEqual(phone.code, derived)
         XCTAssertNil(phone.phase.endReason)
+
+        // Through the inbox, the resent challenge has the same message ID and is a replay.
+        let harness = DeviceHarness()
+        let macDevice = harness.makeDevice(.macOS)
+        let phoneDevice = harness.makeDevice(.iOS)
+        let qr = try await macDevice.messenger.startPairing(displayName: "Studio Mac")
+        try await phoneDevice.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        try await macDevice.poll()
+        try await phoneDevice.poll()
+        let shown = try await XCTUnwrapAsync(await phoneDevice.code())
+        let reveals = harness.transport.sentEnvelopes.filter { $0.kind == Int64(MessageKind.pairingReveal.rawValue) }.count
+        harness.transport.insert(try XCTUnwrap(harness.transport.lastSent(.pairingChallenge, from: macDevice.id)),
+                                 intoInboxOf: phoneDevice.id)
+        await XCTAssertEqualAsync(try await phoneDevice.poll().refusals, [.replayed])
+        await XCTAssertEqualAsync(await phoneDevice.code(), shown)
+        XCTAssertEqual(harness.transport.sentEnvelopes.filter { $0.kind == Int64(MessageKind.pairingReveal.rawValue) }.count,
+                       reveals, "no second reveal")
+    }
+
+    func testRevealFromAReplacedSessionIsRefusedByTheNewOne() async throws {
+        let (harness, mac, phone, _) = try await sessionWithTheRevealDropped()
+        let late = try XCTUnwrap(harness.transport.lastSent(.pairingReveal, from: phone.id))
+        let second = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        let tablet = harness.makeDevice(.iOS)
+        try await tablet.messenger.joinPairing(scannedText: second.text, displayName: "Tablet")
+        try await mac.poll()
+        guard case .waitingForResponder(let peer) = await mac.phase(), peer.deviceID == tablet.id else {
+            return XCTFail("the new session froze the tablet")
+        }
+        harness.transport.insert(late, intoInboxOf: mac.id)
+        await XCTAssertEqualAsync(try await mac.poll().refusals, [.unknownSender])
+        guard case .waitingForResponder = await mac.phase() else { return XCTFail("the new session is untouched") }
+        try await tablet.poll()
+        try await mac.poll()
+        await XCTAssertEqualAsync(await mac.derivedCode(), await tablet.code())
+    }
+
+    func testResponderCancellingBeforeItsRevealIsSentSendsACancellation() async throws {
+        let harness = DeviceHarness()
+        let mac = harness.makeDevice(.macOS)
+        let phone = harness.makeDevice(.iOS)
+        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        try await mac.poll()
+        harness.transport.failNextSends(with: [.networkUnavailable, .networkUnavailable, .networkUnavailable])
+        try await phone.poll()
+        harness.transport.failNextSends(with: [])
+        await XCTAssertEqualAsync(await phone.phase(), .waitingForChallenge, "the reveal is not sent")
+        await phone.messenger.cancelPairing()
+        XCTAssertNotNil(harness.transport.lastSent(.pairingCancellation, from: phone.id), "the phone knows the Mac")
+        XCTAssertNil(harness.transport.lastSent(.pairingWithdrawal, from: phone.id))
+        try await mac.poll()
+        await XCTAssertEqualAsync(await mac.phase()?.endReason, .cancelledByPeer)
     }
 
     func testRevealsAreProcessedBeforeConfirmationsWithinAFetch() {
