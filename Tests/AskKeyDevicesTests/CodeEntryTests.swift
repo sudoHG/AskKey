@@ -214,6 +214,63 @@ final class CodeEntryTests: XCTestCase {
         XCTAssertTrue(mac.identity.approvalReasons.isEmpty)
     }
 
+    func testMalformedCodeFailsBeforeAnyNetworkWork() async throws {
+        let harness = DeviceHarness()
+        let mac = harness.makeDevice(.macOS)
+        let phone = harness.makeDevice(.iOS)
+        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        harness.transport.failNextSends(with: [.networkUnavailable, .networkUnavailable])
+        try await mac.poll()
+        guard case .enteringCode = await mac.phase() else { return XCTFail("frozen; the challenge waits in the outbox") }
+        let attempts = harness.transport.sentEnvelopes.count
+        do {
+            try await mac.messenger.confirmPairing(enteredCode: "12a456", approvalReason: "Pair")
+            XCTFail("not six ASCII digits")
+        } catch DeviceMessengerError.invalidCodeFormat {}
+        XCTAssertEqual(harness.transport.sentEnvelopes.count, attempts, "refused before the queued challenge is resent")
+        guard case .enteringCode(_, attemptsRemaining: 3) = await mac.phase() else { return XCTFail("not counted") }
+    }
+
+    func testCodeTypedForAReplacedSessionCountsNothingInTheNewOne() async throws {
+        let harness = DeviceHarness()
+        let transport = SuspendingTransport(harness.transport)
+        let mac = DeviceMessenger(identity: SoftwareDeviceIdentity(), platform: .macOS,
+                                  registry: PairedDeviceRegistry(store: InMemoryPairedDeviceListStore()),
+                                  transport: transport, clock: harness.clock)
+        let phone = harness.makeDevice(.iOS)
+        let first = try await mac.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: first.text, displayName: "Pocket Phone")
+        harness.transport.failNextSends(with: [.networkUnavailable, .networkUnavailable])
+        _ = try await mac.poll()
+        let firstCode = try await XCTUnwrapAsync(await mac.testingSessionCode())
+        // The person types the code; the timers resend the queued challenge first, and that send stalls.
+        transport.holdNextSend()
+        let typing = Task { try await mac.confirmPairing(enteredCode: firstCode.digits, approvalReason: "Pair") }
+        for _ in 0..<10_000 where !transport.isHolding { await Task.yield() }
+        XCTAssertTrue(transport.isHolding)
+        // Meanwhile the person starts over and a phone joins the new session.
+        let second = try await mac.startPairing(displayName: "Studio Mac")
+        let tablet = harness.makeDevice(.iOS)
+        try await tablet.messenger.joinPairing(scannedText: second.text, displayName: "Tablet")
+        _ = try await mac.poll()
+        guard case .enteringCode(_, attemptsRemaining: 3) = await mac.pairingPhase else {
+            return XCTFail("the new session asks for its own code")
+        }
+        transport.release()
+        do {
+            try await typing.value
+            XCTFail("the code was typed for the replaced session")
+        } catch DeviceMessengerError.sessionEnded {}
+        guard case .enteringCode(_, attemptsRemaining: 3) = await mac.pairingPhase else {
+            return XCTFail("the replaced session's code counts nothing in the new one")
+        }
+        try await tablet.poll()
+        let secondCode = try await XCTUnwrapAsync(await tablet.code())
+        try await mac.confirmPairing(enteredCode: secondCode.digits, approvalReason: "Pair")
+        guard case .waitingForPeer = await mac.pairingPhase else { return XCTFail("the new session still confirms") }
+    }
+
     // MARK: Helpers
 
     /// A Mac asking for the code and a phone showing it.
@@ -247,5 +304,46 @@ final class CodeEntryTests: XCTestCase {
     private static func containsCode(_ value: Any) -> Bool {
         if value is ComparisonCode { return true }
         return Mirror(reflecting: value).children.contains { containsCode($0.value) }
+    }
+}
+
+/// Forwards to the in-memory transport; the next send can be held until released.
+private final class SuspendingTransport: DeviceTransport, @unchecked Sendable {
+    private let inner: InMemoryDeviceTransport
+    private let lock = NSLock()
+    private var holdsNext = false
+    private var held: CheckedContinuation<Void, Never>?
+
+    init(_ inner: InMemoryDeviceTransport) { self.inner = inner }
+
+    var isHolding: Bool { lock.withLock { held != nil } }
+
+    func holdNextSend() { lock.withLock { holdsNext = true } }
+
+    func release() {
+        let continuation = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+            defer { held = nil }
+            return held
+        }
+        continuation?.resume()
+    }
+
+    func send(_ envelope: DeviceEnvelope) async throws {
+        let mustHold = lock.withLock { () -> Bool in
+            defer { holdsNext = false }
+            return holdsNext
+        }
+        if mustHold {
+            await withCheckedContinuation { continuation in lock.withLock { held = continuation } }
+        }
+        try await inner.send(envelope)
+    }
+
+    func fetchInboxChanges(of device: DeviceID, since token: InboxChangeToken?) async throws -> InboxChanges {
+        try await inner.fetchInboxChanges(of: device, since: token)
+    }
+
+    func deleteMessages(_ recordNames: [String], from device: DeviceID) async throws {
+        try await inner.deleteMessages(recordNames, from: device)
     }
 }

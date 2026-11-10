@@ -53,8 +53,8 @@ public enum PairingEndReason: Hashable, Sendable {
     case secondRequest
     case expired
     /// Responder: no challenge arrived within 60 seconds of the request, so
-    /// the request was withdrawn. Tell the person that pairing failed and
-    /// not to confirm a code the Mac may show.
+    /// the request was withdrawn. Tell the person that pairing failed, that
+    /// they should cancel on the Mac, and not to enter any code there.
     case noChallenge
     case deviceLimitReached
     case keyConflict

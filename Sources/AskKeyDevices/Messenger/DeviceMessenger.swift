@@ -125,14 +125,16 @@ public actor DeviceMessenger {
 
     /// Initiator, step 5: the person typed the code the responder shows.
     /// Spaces are removed; anything but six ASCII digits throws
-    /// `invalidCodeFormat` without counting. A wrong code throws
+    /// `invalidCodeFormat` at once, without counting. A wrong code throws
     /// `wrongCode` with the attempts left, and the third ends the session
-    /// and tells the responder. Only a matching code lets the approval key
-    /// sign; a cancelled prompt sends nothing and the person may try again.
-    /// The responder is added once its verified confirmation is also held.
+    /// and tells the responder. Only a matching code reaches the approval
+    /// signature, so the App's system authentication on the Mac belongs
+    /// inside the identity's `signWithApprovalKey`; a cancelled prompt sends
+    /// nothing, counts nothing, and the person may try again. The responder
+    /// is added once its verified confirmation is also held.
     public func confirmPairing(enteredCode: String, approvalReason: String) async throws {
-        try await prepareConfirmation(as: .initiator)
         guard let entered = EnteredPairingCode(enteredCode) else { throw DeviceMessengerError.invalidCodeFormat }
+        let generation = try await prepareConfirmation(as: .initiator)
         guard let check = try session?.checkEnteredCode(entered, now: clock.now()) else {
             throw DeviceMessengerError.notAwaitingConfirmation
         }
@@ -140,7 +142,7 @@ public actor DeviceMessenger {
             await perform(effects)
             throw DeviceMessengerError.wrongCode(attemptsRemaining: remaining)
         }
-        try await signAndConfirm(approvalReason: approvalReason)
+        try await signAndConfirm(approvalReason: approvalReason, generation: generation)
     }
 
     /// Responder, step 5: the person confirms on the device that shows the
@@ -149,22 +151,27 @@ public actor DeviceMessenger {
     /// prompt sends nothing. The initiator is added once its verified
     /// confirmation is also held.
     public func confirmPairing(approvalReason: String) async throws {
-        try await prepareConfirmation(as: .responder)
-        try await signAndConfirm(approvalReason: approvalReason)
+        let generation = try await prepareConfirmation(as: .responder)
+        try await signAndConfirm(approvalReason: approvalReason, generation: generation)
     }
 
-    /// Applies the timers, then checks that the current session waits for
-    /// this side's confirmation in `role`.
-    private func prepareConfirmation(as role: PairingRole) async throws {
+    /// Applies the timers, then checks that the session the person saw is
+    /// still current and waits for this side's confirmation in `role`.
+    /// Returns that session's generation.
+    private func prepareConfirmation(as role: PairingRole) async throws -> Int {
+        let generation = sessionGeneration
         await perform(session?.tick(now: clock.now()) ?? [])
+        // Sending while the timers ran may have let another session replace it.
+        guard generation == sessionGeneration else { throw DeviceMessengerError.sessionEnded }
         guard let current = session else { throw DeviceMessengerError.notAwaitingConfirmation }
         guard current.role == role else { throw DeviceMessengerError.wrongRole }
         guard current.awaitsConfirmation else { throw DeviceMessengerError.notAwaitingConfirmation }
+        return generation
     }
 
-    private func signAndConfirm(approvalReason: String) async throws {
+    private func signAndConfirm(approvalReason: String, generation: Int) async throws {
+        guard generation == sessionGeneration else { throw DeviceMessengerError.sessionEnded }
         guard let bytes = session?.confirmationBytes else { throw DeviceMessengerError.notAwaitingConfirmation }
-        let generation = sessionGeneration
         let signature: Data
         do {
             signature = try await identity.signWithApprovalKey(bytes, reason: approvalReason)
