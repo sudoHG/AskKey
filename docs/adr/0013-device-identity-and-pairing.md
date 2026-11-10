@@ -36,7 +36,7 @@ The cross review of #282 found that decision 4, taken literally, makes every mes
 |---|---|
 | CloudKit container | `iCloud.com.sudohg.askkey` |
 | iPhone app bundle ID | `com.sudohg.askkey.ios` (stage 4 adds `com.sudohg.askkey.ios.notification-service`) |
-| Info.plist key declaring the container | `AskKeyCloudKitContainer` |
+| Info.plist key declaring the container | `CloudKitContainerIdentifier` |
 | Mac keychain accounts (existing App service) | `device-message-key`, `device-agreement-key`, `device-approval-key`, `paired-devices` |
 | iPhone keychain access group | `$(AppIdentifierPrefix)com.sudohg.askkey.ios.shared` |
 | Inbox zone name | `inbox_<device ID>` |
@@ -46,7 +46,7 @@ The cross review of #282 found that decision 4, taken literally, makes every mes
 | Alert localization keys | `push.message.title`, `push.message.body` |
 | QR payload prefix | `ASKKEY-PAIR1:` |
 
-The Mac bundle ID `com.sudohg.askkey.app` and the other product identifiers in `AGENTS.md` do not change. The probe container from #281 is not used.
+The Mac bundle ID `com.sudohg.askkey.app` and the other product identifiers in `AGENTS.md` do not change. The probe container from #281 is not used. Custom Info.plist keys the App adds must not start with `AskKey`: the updater treats any such key as a testing flag and turns itself off (`SoftwareUpdateAvailability.testingFlagPrefix`), so a stage 4 Release that carried one would silently stop updating.
 
 ### Device identity
 
@@ -109,7 +109,7 @@ The Mac bundle ID `com.sudohg.askkey.app` and the other product identifiers in `
 - **Change tokens.** A device saves the new token only after every message the fetch returned has been processed and its effect committed. If any message could not be processed, it keeps the old token, so the next fetch returns that message again; no retry queue is needed. A message that fails three times is treated as refused and deleted, so one bad record cannot hold the token back forever. When CloudKit reports the token expired, the device fetches its whole inbox again from no token; the list and the processed-message IDs are kept. A record that fails to fetch is retried at the next poll.
 - **Retention.** The recipient deletes a message after processing it, and deletes at once a message it refuses for good (wrong recipient, bad signature or decryption, unknown sender outside a session, a mismatched binding). Every device deletes expired messages in its own inbox when it polls. Within one fetch, pairing messages are processed before the others. A message from the peer of an open pairing session that arrives before that peer is on the list, such as a delivery check that overtakes the confirmation, is kept for a retry until the session ends rather than refused. Lifetimes: pairing messages (kinds 1–5) expire with their session, at most 10 minutes; a delivery check and its reply live 10 minutes; an unpair notice lives 30 days, so a device that stays offline for weeks still learns of the removal.
 - The schema is committed as `CloudKit/schema.ckdb`. The maintainer imports it into the Development environment and deploys it to Production in #290; record type and field names are final from then on.
-- Debug, E2E and CI builds never create a `CKContainer`, which terminates an app that lacks the entitlement. The App creates the CloudKit transport only when its Info.plist has `AskKeyCloudKitContainer` and its signed entitlements contain that container.
+- Debug, E2E and CI builds never create a `CKContainer`, which terminates an app that lacks the entitlement. The App creates the CloudKit transport only when its Info.plist has `CloudKitContainerIdentifier` and its signed entitlements contain that container.
 - Anyone who can write to the account's private database, any app build or device signed in to that Apple ID included, can:
   - read every record, which holds only routing data and ciphertext;
   - delete records, zones and subscriptions, which only stops delivery until the device notices and creates them again;
@@ -195,7 +195,7 @@ The code is needed because anyone who sees the QR code, through a screen capture
 
 ### Build and release
 
-- `scripts/build-app.sh` gains a CloudKit option, accepted only for `Local` builds. Before signing, it embeds a Developer ID provisioning profile and adds `AskKeyCloudKitContainer` to the Info.plist; it then signs the App with `com.apple.application-identifier`, `com.apple.developer.team-identifier`, `com.apple.developer.icloud-services = [CloudKit]`, `com.apple.developer.icloud-container-identifiers = [iCloud.com.sudohg.askkey]`, `com.apple.developer.icloud-container-environment = Production` and `com.apple.developer.aps-environment = production`, and reads back the profile and the signed entitlements. Team-dependent values come from the environment at build time; no Team ID, signing identity or profile is committed. Without the option, every build is the same as before.
+- `scripts/build-app.sh` gains a CloudKit option, accepted only for `Local` builds. Before signing, it embeds a Developer ID provisioning profile and adds `CloudKitContainerIdentifier` to the Info.plist; it then signs the App with `com.apple.application-identifier`, `com.apple.developer.team-identifier`, `com.apple.developer.icloud-services = [CloudKit]`, `com.apple.developer.icloud-container-identifiers = [iCloud.com.sudohg.askkey]`, `com.apple.developer.icloud-container-environment = Production` and `com.apple.developer.aps-environment = production`, and reads back the profile and the signed entitlements. Team-dependent values come from the environment at build time; no Team ID, signing identity or profile is committed. Without the option, every build is the same as before.
 - `Release` refuses the option until stage 4 ships the iPhone app. README, `SECURITY.md` ("update checks are the only outbound network requests") and the feature inventory therefore stay true for every release until then, and change in the stage that ships pairing in a Release build.
 
 ### Out of scope
