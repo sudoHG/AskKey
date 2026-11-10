@@ -80,8 +80,8 @@ public actor CloudKitDeviceTransport: DeviceTransport {
     /// is saved correctly once. Any other answer saves nothing and leaves the
     /// subscription pending for a later preparation. Each save is logged
     /// with its subscription ID and time. Once a preparation completes, later
-    /// calls in this process return at once, until `accountState` reports
-    /// another account or none. Throws `DeviceTransportError` when the zone
+    /// calls in this process return at once, until `accountState` finds
+    /// another account signed in than it found before. Throws `DeviceTransportError` when the zone
     /// check or save, or the subscription fetch as a whole, fails.
     public func prepareInbox() async throws -> InboxPreparation {
         guard !inboxReady else { return InboxPreparation() }
@@ -169,22 +169,22 @@ public actor CloudKitDeviceTransport: DeviceTransport {
         return report
     }
 
-    /// Maps a preparation error and pushes the next automatic attempt back
-    /// when CloudKit asks to wait longer than the usual interval; with
-    /// several such answers the latest time wins.
+    /// Maps a preparation error and, when CloudKit asks to wait, keeps the
+    /// next automatic attempt at least that long after the answer; the
+    /// latest of the usual interval and every requested time wins.
     private func failure(_ error: Error) -> Error {
         let mapped = CloudKitErrorMapping.transportError(for: error)
-        if case DeviceTransportError.rateLimited(let retryAfter?) = mapped, retryAfter > Self.preparationRetryInterval {
+        if case DeviceTransportError.rateLimited(let retryAfter?) = mapped {
             let requested = clock.now().addingTimeInterval(retryAfter)
             nextPreparation = max(nextPreparation ?? requested, requested)
         }
         return mapped
     }
 
-    /// The signed-in account changed or went away: the inbox has to be
-    /// prepared again in whatever account is signed in next.
-    func accountDidChange(to userRecordName: String?) {
-        if userRecordName == nil || userRecordName != observedUserRecordName {
+    /// `accountState` found `userRecordName` signed in. When an earlier call
+    /// found another account, the inbox has to be prepared again in this one.
+    func accountIsSignedIn(_ userRecordName: String) {
+        if let observedUserRecordName, observedUserRecordName != userRecordName {
             inboxReady = false
             nextPreparation = nil
         }

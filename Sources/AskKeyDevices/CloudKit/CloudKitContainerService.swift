@@ -25,7 +25,7 @@ final class CloudKitContainerService: CloudKitInboxService, @unchecked Sendable 
         do {
             _ = try await database.recordZone(for: zoneID)
             return true
-        } catch let error where CloudKitErrorMapping.isZoneMissing(error) {
+        } catch let error where CloudKitErrorMapping.isZoneMissing(error) || CloudKitErrorMapping.isUnknownItem(error) {
             return false
         }
     }

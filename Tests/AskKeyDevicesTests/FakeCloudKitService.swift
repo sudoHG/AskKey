@@ -38,6 +38,8 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     var status: CKAccountStatus { get { locked { _status } } set { locked { _status = newValue } } }
     var statusError: Error? { get { locked { _statusError } } set { locked { _statusError = newValue } } }
     var userRecordNameValue: String { get { locked { _userRecordName } } set { locked { _userRecordName = newValue } } }
+    /// Runs at the start of each subscription fetch, for example to let time pass.
+    var duringSubscriptionFetch: (@Sendable () -> Void)? { get { locked { _duringSubscriptionFetch } } set { locked { _duringSubscriptionFetch = newValue } } }
 
     private var _subscriptionFetchError: Error?
     private var _subscriptionAnswers: [CKSubscription.ID: Error] = [:]
@@ -50,6 +52,7 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     private var _status: CKAccountStatus = .available
     private var _statusError: Error?
     private var _userRecordName = "_4d1f0c2a"
+    private var _duringSubscriptionFetch: (@Sendable () -> Void)?
 
     private func locked<T>(_ body: () throws -> T) rethrows -> T {
         try lock.withLock(body)
@@ -142,7 +145,8 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     }
 
     func fetchSubscriptions(_ ids: [CKSubscription.ID]) async throws -> [CKSubscription.ID: Result<CKSubscription, Error>] {
-        try locked {
+        duringSubscriptionFetch?()
+        return try locked {
             subscriptionFetches += 1
             if let _subscriptionFetchError { throw _subscriptionFetchError }
             var results: [CKSubscription.ID: Result<CKSubscription, Error>] = [:]

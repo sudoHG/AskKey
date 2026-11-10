@@ -268,8 +268,41 @@ final class CloudKitSubscriptionTests: XCTestCase {
         service.status = .available
         _ = await transport.accountState(storedUserRecordName: "_second")
         _ = try await transport.prepareInbox()
-        XCTAssertEqual(service.subscriptionFetchCount, fetches + 1, "signing back in checks the inbox again")
-        XCTAssertEqual(service.savedSubscriptionIDs.count, 4, "without saving matching subscriptions")
+        XCTAssertEqual(service.subscriptionFetchCount, fetches, "signing back in to the same account changes nothing")
+        XCTAssertEqual(service.savedSubscriptionIDs.count, 4)
+    }
+
+    func testTheFirstAccountStateAfterAPreparationKeepsIt() async throws {
+        let transport = launch()
+        _ = try await transport.prepareInbox()
+        _ = await transport.accountState(storedUserRecordName: nil)
+        let fetches = service.subscriptionFetchCount
+        _ = try await transport.prepareInbox()
+        XCTAssertEqual(service.subscriptionFetchCount, fetches)
+    }
+
+    func testAFailedZoneSaveTouchesNoSubscription() async throws {
+        service.zoneSaveError = CKError(.networkUnavailable)
+        await XCTAssertThrowsErrorAsync(try await launch().prepareInbox()) {
+            XCTAssertEqual($0 as? DeviceTransportError, .networkUnavailable)
+        }
+        XCTAssertEqual(service.subscriptionFetchCount, 0)
+        XCTAssertEqual(service.savedSubscriptionIDs, [])
+    }
+
+    func testAShortRetryAfterCountsFromTheAnswerOfASlowRequest() async throws {
+        let transport = launch()
+        service.duringSubscriptionFetch = { [clock] in clock.advance(by: 45) }
+        service.subscriptionFetchError = CKError(.requestRateLimited, userInfo: [CKErrorRetryAfterKey: 30.0])
+        await XCTAssertThrowsErrorAsync(try await transport.prepareInbox())
+        service.duringSubscriptionFetch = nil
+        service.subscriptionFetchError = nil
+        clock.advance(by: 15)
+        _ = try await transport.fetchInboxChanges(of: device, since: nil)
+        XCTAssertEqual(service.savedSubscriptionIDs, [], "a minute after the start, but only 15 s after the answer")
+        clock.advance(by: 15)
+        _ = try await transport.fetchInboxChanges(of: device, since: nil)
+        XCTAssertEqual(service.savedSubscriptionIDs, [alertID, quietID], "30 s after the answer")
     }
 
     func testConcurrentPreparationsSaveEachSubscriptionOnce() async throws {

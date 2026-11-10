@@ -13,7 +13,6 @@ public protocol CloudKitInboxService: Sendable {
 
     /// Whether the zone exists; false when CloudKit answers that it does not.
     func zoneExists(_ zoneID: CKRecordZone.ID) async throws -> Bool
-    /// Saves the zone; saving one that exists changes nothing.
     func saveZone(_ zoneID: CKRecordZone.ID) async throws
     func deleteZone(_ zoneID: CKRecordZone.ID) async throws
 
