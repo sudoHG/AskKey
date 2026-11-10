@@ -54,6 +54,7 @@ extension Vault {
     }
 
     private func quiesceForLocalErase() throws {
+        stopDeviceServicesForLocalErase()
         _ = try agentAccessGate.beginExclusiveChange()
         quiesceAgentAccess()
         agentAccessGate.endExclusiveChange(paused: true)

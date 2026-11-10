@@ -82,6 +82,10 @@ final class AppPolicyMemoryStore: AppKeyStore {
         policy = data
     }
     func deleteAgentAccessPolicy() throws { policy = nil }
+    var deviceItems: [DeviceKeychainAccount: Data] = [:]
+    func loadDeviceItem(_ account: DeviceKeychainAccount) throws -> Data? { deviceItems[account] }
+    func saveDeviceItem(_ data: Data, account: DeviceKeychainAccount) throws { deviceItems[account] = data }
+    func deleteDeviceItem(_ account: DeviceKeychainAccount) throws { deviceItems[account] = nil }
 }
 
 extension Vault {

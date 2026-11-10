@@ -57,6 +57,10 @@ final class KeychainNativeTestSupport {
                 permissive: permissive)
     }
 
+    func addItem(_ data: Data, account: String, outside: Bool = false, permissive: Bool = false) throws -> NativeItem {
+        try add(data, service: service, account: account, outside: outside, permissive: permissive)
+    }
+
     func addVaultKey(_ data: Data, suffix: String = "", outside: Bool = false) throws {
         _ = try add(data, service: service + suffix, account: "vault-key", outside: outside)
     }
@@ -71,10 +75,11 @@ final class KeychainNativeTestSupport {
         return try XCTUnwrap(result as? Data)
     }
 
-    func assertOldItemReplaced(_ item: NativeItem, file: StaticString = #filePath, line: UInt = #line) throws {
+    func assertOldItemReplaced(_ item: NativeItem, account: String = "agent-access-policy",
+                               file: StaticString = #filePath, line: UInt = #line) throws {
         // File-keychain references may resolve the new item by its primary key.
         // A new item loses this unrelated attribute; a data/ACL update keeps it.
-        var query = query(service: service, account: "agent-access-policy", outside: false)
+        var query = query(service: service, account: account, outside: false)
         query[kSecReturnAttributes as String] = true
         var result: AnyObject?
         try check(SecItemCopyMatching(query as CFDictionary, &result))
@@ -95,7 +100,11 @@ final class KeychainNativeTestSupport {
     }
 
     func assertAppOnlyPolicy(file: StaticString = #filePath, line: UInt = #line) throws {
-        var query = query(service: service, account: "agent-access-policy", outside: false)
+        try assertAppOnlyItem(account: "agent-access-policy", file: file, line: line)
+    }
+
+    func assertAppOnlyItem(account: String, file: StaticString = #filePath, line: UInt = #line) throws {
+        var query = query(service: service, account: account, outside: false)
         query[kSecReturnRef as String] = true
         var result: AnyObject?
         try check(SecItemCopyMatching(query as CFDictionary, &result))

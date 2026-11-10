@@ -12,6 +12,10 @@ package struct AppRuntimeConfiguration {
     /// Only the production executable passes one; the App still creates the
     /// updater only when `SoftwareUpdateAvailability` allows it.
     package let makeSoftwareUpdater: SoftwareUpdaterFactory?
+    /// The device services' backend (ADR 0013). The production executable
+    /// passes none: the App then creates the CloudKit backend only when
+    /// `CloudKitGate` allows it. The E2E App passes a fake.
+    package let makeDeviceServices: DeviceServicesFactory?
 
     package init(
         makeViewModel: (() -> VaultViewModel)? = nil,
@@ -19,7 +23,8 @@ package struct AppRuntimeConfiguration {
         didStart: (() -> Void)? = nil,
         willStop: (() -> Void)? = nil,
         startClient: (() -> Bool)? = nil,
-        makeSoftwareUpdater: SoftwareUpdaterFactory? = nil
+        makeSoftwareUpdater: SoftwareUpdaterFactory? = nil,
+        makeDeviceServices: DeviceServicesFactory? = nil
     ) {
         self.makeViewModel = makeViewModel
         self.prepareServices = prepareServices
@@ -27,10 +32,13 @@ package struct AppRuntimeConfiguration {
         self.willStop = willStop
         self.startClient = startClient
         self.makeSoftwareUpdater = makeSoftwareUpdater
+        self.makeDeviceServices = makeDeviceServices
     }
 
     package static var production: Self { Self() }
 }
+
+package typealias DeviceServicesFactory = @MainActor () -> any DeviceServicesBackend
 
 extension VaultViewModel {
     package static func configured(
