@@ -343,7 +343,7 @@ package final class DeviceCoordinator {
                 if account != .accountChanged { environment.log(.accountChanged) }
                 account = .accountChanged
             }
-            await use(account: name, state: state)
+            await use(account: name, state: state, check: check)
         case .noAccount:
             account = .noAccount
         case .restricted:
@@ -357,10 +357,15 @@ package final class DeviceCoordinator {
     /// Points the messenger at `name`'s inbox with that account's stored
     /// token, and prepares the inbox there. A pairing session started under
     /// another account ends: its messages are in the other account.
-    func use(account name: String, state: DeviceInboxState) async {
+    func use(account name: String, state: DeviceInboxState, check: Int? = nil) async {
         guard let services, services.messengerAccount != name, let backend = environment.backend else { return }
         if services.messengerAccount != nil, pairing?.isActive == true {
+            let lifecycle = self.lifecycle
             await cancelPairing()
+            // A newer account check may have switched the messenger, and a new
+            // session started on it, while the cancellation was sent.
+            guard lifecycle == self.lifecycle, check.map({ $0 == accountCheck }) ?? true,
+                  self.services === services, services.messengerAccount != name else { return }
         }
         let token = state.tokenAccount == name ? state.inboxToken.map(InboxChangeToken.init(data:)) : nil
         services.messenger = DeviceMessenger(identity: services.identity, platform: .macOS, registry: services.registry,

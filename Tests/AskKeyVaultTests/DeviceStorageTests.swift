@@ -211,7 +211,12 @@ final class DeviceStorageTests: XCTestCase {
         XCTAssertEqual(Data(item.suffix(32)), Data(expected))
 
         let stored = library.keys.deviceItems
-        let foreignTag = Data(HMAC<SHA256>.authenticationCode(for: blob, using: SymmetricKey(size: .bits256)))
+        let foreignKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: SymmetricKey(size: .bits256), salt: Data(),
+                                                info: Data("AskKey device key blob key v1".utf8) + Data([0]),
+                                                outputByteCount: 32)
+        let foreignTag = Data(HMAC<SHA256>.authenticationCode(
+            for: Data("AskKey device key blob v1".utf8) + Data([0]) + Data("device-agreement-key".utf8) + Data([0]) + blob,
+            using: foreignKey))
         // A planted raw blob, a blob tagged under another key, and items moved between accounts.
         for (account, planted) in [(DeviceKeychainAccount.messageKey, Data("synthetic-planted-blob".utf8)),
                                    (.agreementKey, blob + foreignTag),
