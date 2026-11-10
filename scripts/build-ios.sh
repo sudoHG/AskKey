@@ -69,20 +69,24 @@ PY
 
 xcodegen generate --spec "$ROOT/iOS/project.yml" --quiet
 
+# The newest iPhone simulator whose runtime's major version the selected Xcode's SDK supports.
 pick_simulator() {
+  local sdk
+  sdk="$(xcrun --sdk iphonesimulator --show-sdk-version)"
   xcrun simctl list devices available -j | python3 -c '
 import json, re, sys
 devices = json.load(sys.stdin)["devices"]
+sdk_major = int(sys.argv[1].split(".")[0])
 def version(runtime):
     match = re.search(r"iOS-(\d+)-(\d+)", runtime)
     return tuple(map(int, match.groups())) if match else None
-runtimes = sorted((r for r in devices if version(r)), key=version, reverse=True)
+runtimes = sorted((r for r in devices if version(r) and version(r)[0] <= sdk_major), key=version, reverse=True)
 for runtime in runtimes:
     for device in devices[runtime]:
         if device["name"].startswith("iPhone"):
             print(device["udid"], device["state"])
             sys.exit(0)
-sys.exit("No available iPhone simulator.")'
+sys.exit("No available iPhone simulator for this Xcode.")' "$sdk"
 }
 
 case "$MODE" in

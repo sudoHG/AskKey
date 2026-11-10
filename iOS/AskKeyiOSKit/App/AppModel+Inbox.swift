@@ -6,6 +6,8 @@ extension AppModel {
     static let deliveryRecordLimit = 50
     /// How long the app looks for the message a push pointed to.
     static let pushHintLifetime = MessageKind.deliveryCheckLifetime + 5 * 60
+    /// The most pushes kept while the app launches.
+    static let earlyPushLimit = 20
     /// How long a reset waits for CloudKit to delete the inbox.
     static let inboxRemovalTimeout: TimeInterval = 10
 
@@ -21,12 +23,29 @@ extension AppModel {
     /// only a hint: the app fetches its inbox and acts on what it verifies,
     /// never on the notification's text, category or action.
     public func receivedPush(userInfo: [AnyHashable: Any], arrivedAt: Date, notificationIdentifier: String?) async {
-        guard let services else { return }
+        guard let services else {
+            // Opening a notification launched the app, and the identity is
+            // not restored yet: keep the push until it is.
+            if stage == .starting, earlyPushes.count < Self.earlyPushLimit {
+                earlyPushes.append(EarlyPush(userInfo: userInfo, arrivedAt: arrivedAt, identifier: notificationIdentifier))
+            }
+            return
+        }
         guard let hint = PushHintReader.hint(userInfo: userInfo, arrivedAt: arrivedAt,
                                              notificationIdentifier: notificationIdentifier,
                                              for: services.deviceID) else { return }
         remember([hint])
         await processInbox()
+    }
+
+    /// Turns the pushes kept during launch into hints for this device.
+    func adoptEarlyPushes(for device: DeviceID) {
+        let pushes = earlyPushes
+        earlyPushes = []
+        remember(pushes.compactMap {
+            PushHintReader.hint(userInfo: $0.userInfo, arrivedAt: $0.arrivedAt, notificationIdentifier: $0.identifier,
+                                for: device)
+        })
     }
 
     func remember(_ hints: [PushHint]) {

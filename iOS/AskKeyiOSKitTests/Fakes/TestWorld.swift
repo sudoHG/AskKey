@@ -39,6 +39,25 @@ final class TestWorld {
         get throws { try XCTUnwrap(identities.latest) }
     }
 
+    /// A CloudKit query notification's payload, as the system delivers it.
+    nonisolated static func pushPayload(subscription: String, zone: String, record: String) -> [AnyHashable: Any] {
+        [
+            "aps": ["alert": ["title-loc-key": "push.message.title", "loc-key": "push.message.body"], "mutable-content": 1],
+            "ck": [
+                "ce": 2,
+                "cid": "iCloud.com.sudohg.askkey",
+                "nid": UUID().uuidString,
+                "qry": ["dbs": 1, "fo": 1, "rid": record, "sid": subscription, "zid": zone, "zoid": "_defaultOwner"],
+            ] as [String: Any],
+        ]
+    }
+
+    /// The payload of the alert push for a message in `device`'s inbox.
+    nonisolated static func alertPush(for device: DeviceID, record: String) -> [AnyHashable: Any] {
+        let zone = CloudKitInboxLayout.zoneName(for: device)
+        return pushPayload(subscription: zone + "_alert", zone: zone, record: record)
+    }
+
     /// Launches the app and passes the welcome checks.
     func setUpPhone(file: StaticString = #filePath, line: UInt = #line) async {
         await model.start()

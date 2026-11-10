@@ -92,13 +92,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "iCloud isn't available right now, so your Macs can't reach this iPhone."
+            "value": "Ask Key can't reach iCloud right now, so your Macs can't reach this iPhone. Check the connection and that Ask Key may use wireless data."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "iCloud 暂时不可用，Mac 无法联系这台 iPhone。"
+            "value": "请旨暂时无法连接 iCloud，Mac 也无法联系这台 iPhone。请检查网络，并确认已允许请旨使用无线数据。"
           }
         }
       }
@@ -1299,13 +1299,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "iCloud isn't available right now. Check your Apple Account in Settings, then try again."
+            "value": "Ask Key couldn't reach iCloud. Check the connection. If your iPhone asked about wireless data, allow WLAN & Cellular Data in Settings → Ask Key → Wireless Data. Also check your Apple Account in Settings, then try again."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "iCloud 暂时不可用。请在“设置”中检查你的 Apple 账户，然后重试。"
+            "value": "请旨无法连接 iCloud。请检查网络。如果 iPhone 询问过无线数据权限，请在“设置”→“请旨”→“无线数据”中选择“无线局域网与蜂窝网络”。另请在“设置”中检查你的 Apple 账户，然后重试。"
           }
         }
       }

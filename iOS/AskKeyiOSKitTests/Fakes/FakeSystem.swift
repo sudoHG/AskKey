@@ -6,8 +6,15 @@ final class InMemoryKeychain: SecureItemStore, @unchecked Sendable {
     private let lock = NSLock()
     private var items: [String: Data] = [:]
     private var failWrites = false
+    private var failReads: Set<String> = []
 
     var accounts: Set<String> { lock.withLock { Set(items.keys) } }
+
+    /// Reading these accounts fails, as when the keychain cannot answer.
+    var unreadableAccounts: Set<String> {
+        get { lock.withLock { failReads } }
+        set { lock.withLock { failReads = newValue } }
+    }
 
     var writesFail: Bool {
         get { lock.withLock { failWrites } }
@@ -15,7 +22,10 @@ final class InMemoryKeychain: SecureItemStore, @unchecked Sendable {
     }
 
     func data(for account: String) throws -> Data? {
-        lock.withLock { items[account] }
+        try lock.withLock {
+            if failReads.contains(account) { throw KeychainError(status: errSecInteractionNotAllowed) }
+            return items[account]
+        }
     }
 
     func setData(_ data: Data, for account: String) throws {

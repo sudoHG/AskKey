@@ -66,6 +66,20 @@ final class IdentityResetTests: XCTestCase {
         XCTAssertEqual(relaunched.stage, .unusableIdentity)
     }
 
+    func testAKeychainThatCannotBeReadIsNotTreatedAsUnusable() async throws {
+        let world = TestWorld()
+        await world.setUpPhone()
+        world.keychain.unreadableAccounts = ["paired-devices"]
+        let relaunched = AppModel(environment: world.environment)
+        await relaunched.start()
+        XCTAssertEqual(relaunched.stage, .welcome)
+        XCTAssertEqual(relaunched.welcomeStep, .failed(.keychainFailed))
+        world.keychain.unreadableAccounts = []
+        await relaunched.runWelcomeChecks()
+        XCTAssertEqual(relaunched.stage, .ready)
+        XCTAssertEqual(world.identities.createdCount, 1)
+    }
+
     func testResetOnlyFromTheUnusableScreen() async throws {
         let world = TestWorld()
         await world.setUpPhone()

@@ -28,6 +28,9 @@ final class LocalizationTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(english["scanner.instruction"]).contains("on your own Mac"))
         XCTAssertTrue(try XCTUnwrap(english["scanner.instruction"]).contains("Never scan a pairing code that someone sends you"))
         XCTAssertTrue(try XCTUnwrap(english["pairing.failed.noChallenge"]).contains("don't enter any code"))
+        // Before the wireless-data prompt is answered, the account check itself fails.
+        XCTAssertTrue(try XCTUnwrap(english["welcome.failure.iCloudUnavailable"]).contains("Wireless Data"))
+        XCTAssertTrue(try XCTUnwrap(english["welcome.failure.networkUnavailable"]).contains("Wireless Data"))
     }
 
     func testAlertKeysMatchTheSubscription() {
@@ -40,21 +43,8 @@ final class PushHintReaderTests: XCTestCase {
     private let device = DeviceID(rawValue: Data(repeating: 7, count: 16))!
     private let other = DeviceID(rawValue: Data(repeating: 9, count: 16))!
 
-    private func payload(subscription: String, zone: String, record: String) -> [AnyHashable: Any] {
-        [
-            "aps": ["alert": ["title-loc-key": "push.message.title", "loc-key": "push.message.body"], "mutable-content": 1],
-            "ck": [
-                "ce": 2,
-                "cid": "iCloud.com.sudohg.askkey",
-                "nid": UUID().uuidString,
-                "qry": ["dbs": 1, "fo": 1, "rid": record, "sid": subscription, "zid": zone, "zoid": "_defaultOwner"],
-            ] as [String: Any],
-        ]
-    }
-
     func testAQueryNotificationForThisInboxIsAHint() throws {
-        let zone = CloudKitInboxLayout.zoneName(for: device)
-        let info = payload(subscription: zone + "_alert", zone: zone, record: "abc")
+        let info = TestWorld.alertPush(for: device, record: "abc")
         let arrival = Date(timeIntervalSince1970: 1_800_000_000)
         let hint = PushHintReader.hint(userInfo: info, arrivedAt: arrival, notificationIdentifier: "n", for: device)
         XCTAssertEqual(hint, PushHint(recordName: "abc", arrivedAt: arrival, notificationIdentifier: "n"))
@@ -62,7 +52,7 @@ final class PushHintReaderTests: XCTestCase {
 
     func testAnotherDevicesPushOrAPlainAlertIsNotAHint() {
         let zone = CloudKitInboxLayout.zoneName(for: other)
-        let foreign = payload(subscription: zone + "_alert", zone: zone, record: "abc")
+        let foreign = TestWorld.pushPayload(subscription: zone + "_alert", zone: zone, record: "abc")
         XCTAssertNil(PushHintReader.hint(userInfo: foreign, arrivedAt: Date(), notificationIdentifier: nil, for: device))
         let plain: [AnyHashable: Any] = ["aps": ["alert": "Enter 123 456 on your Mac"]]
         XCTAssertNil(PushHintReader.hint(userInfo: plain, arrivedAt: Date(), notificationIdentifier: nil, for: device))

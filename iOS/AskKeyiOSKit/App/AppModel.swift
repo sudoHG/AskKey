@@ -24,6 +24,8 @@ public final class AppModel {
     @ObservationIgnored var pendingSetup: PendingSetup?
     @ObservationIgnored var accountChecked = false
     @ObservationIgnored var pushHints: [String: PushHint] = [:]
+    /// Pushes that arrived before the identity was restored at launch.
+    @ObservationIgnored var earlyPushes: [EarlyPush] = []
     /// Macs removed on this iPhone, so their disappearance is not reported
     /// as a removal by the Mac.
     @ObservationIgnored var locallyRemoved: Set<DeviceID> = []
@@ -65,6 +67,12 @@ public final class AppModel {
         do {
             identity = try environment.identities.restore(blobs)
             _ = try listStore.loadPairedDeviceList()
+        } catch let error as KeychainError {
+            // Reading failed; nothing says the stored items are bad.
+            AppLog.failure("Reading the paired-device list", error)
+            stage = .welcome
+            welcomeStep = .failed(.keychainFailed)
+            return
         } catch {
             AppLog.failure("Restoring the identity", error)
             stage = .unusableIdentity
@@ -85,6 +93,7 @@ public final class AppModel {
 
     func activate(_ services: DeviceServices) async {
         self.services = services
+        adoptEarlyPushes(for: services.deviceID)
         stage = .ready
         watchAccount()
         await refreshList()
@@ -120,6 +129,12 @@ public final class AppModel {
         } else {
             welcomeStep = .intro
         }
+    }
+
+    struct EarlyPush {
+        let userInfo: [AnyHashable: Any]
+        let arrivedAt: Date
+        let identifier: String?
     }
 
     final class PendingSetup {

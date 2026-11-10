@@ -79,9 +79,10 @@ public final class PairingFlowModel: Identifiable {
         do {
             try await messenger.joinPairing(scannedText: text, displayName: deviceName)
             joined = true
-            // Cancel was chosen while the request was being created.
+            // Cancel was chosen while the request was being created. A newer
+            // pairing that started meanwhile already replaced this session.
             guard !finished else {
-                await messenger.cancelPairing()
+                if host?.pairing == nil { await messenger.cancelPairing() }
                 return
             }
             stage = .waitingForCode

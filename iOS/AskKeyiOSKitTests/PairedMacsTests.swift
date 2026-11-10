@@ -65,6 +65,31 @@ final class PairedMacsTests: XCTestCase {
         XCTAssertEqual(world.cloud.sent(.deliveryCheckReply, from: phoneID).count, 1)
     }
 
+    func testOpeningANotificationThatLaunchesTheAppRecordsItAsPush() async throws {
+        let phoneID = try world.phone.deviceID
+        let check = try await world.mac.sendDeliveryCheck(to: phoneID)
+        let arrival = world.clock.now().addingTimeInterval(2)
+        world.clock.advance(by: 20)
+        let launched = AppModel(environment: world.environment)
+        // The system reports the opened notification before the identity is restored.
+        await launched.receivedPush(userInfo: TestWorld.alertPush(for: phoneID, record: check.text), arrivedAt: arrival,
+                                    notificationIdentifier: "opened")
+        await launched.start()
+        await launched.becameActive()
+        XCTAssertEqual(launched.deliveryRecords, [DeliveryRecord(recordName: check.text, arrivedAt: arrival, source: .push)])
+        XCTAssertEqual(world.cloud.sent(.deliveryCheckReply, from: phoneID).count, 1)
+    }
+
+    func testPushReceivedWhileRunningIsRecordedAsPush() async throws {
+        let phoneID = try world.phone.deviceID
+        let check = try await world.mac.sendDeliveryCheck(to: phoneID)
+        let arrival = world.clock.now()
+        await world.model.receivedPush(userInfo: TestWorld.alertPush(for: phoneID, record: check.text), arrivedAt: arrival,
+                                       notificationIdentifier: "front")
+        XCTAssertEqual(world.model.deliveryRecords,
+                       [DeliveryRecord(recordName: check.text, arrivedAt: arrival, source: .push)])
+    }
+
     func testPushReceivedWhileRunningForAnotherDeviceIsIgnored() async throws {
         let phoneID = try world.phone.deviceID
         let check = try await world.mac.sendDeliveryCheck(to: phoneID)
