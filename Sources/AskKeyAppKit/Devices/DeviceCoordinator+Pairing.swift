@@ -99,7 +99,7 @@ extension DeviceCoordinator {
         }
         try vault.saveDeviceIdentityKeyBlobs(created.blobs)
         let state = DeviceInboxState(listAccount: name)
-        try? environment.inboxState.save(state)
+        try environment.inboxState.save(state)
         guard openServices(identity: created.identity, inbox: inbox) else {
             failPairing(.storageUnavailable)
             return false
@@ -171,8 +171,17 @@ extension DeviceCoordinator {
 
     /// The management session ended (locked, expired or its window closed).
     package func managementSessionEnded() async {
-        guard pairing?.isActive == true else { return }
+        guard pairingIsLive else { return }
         await cancelPairing()
+    }
+
+    /// Whether the sheet's session is still open: before the device was
+    /// added, or after it, until the session expires, because the iPhone may
+    /// still cancel and so undo the pairing (ADR 0013 → Pairing, step 7).
+    var pairingIsLive: Bool {
+        if pairing?.isActive == true { return true }
+        guard case .paired = pairing, let expiry = pairingExpiresAt else { return false }
+        return now < expiry
     }
 
     /// Runs inside the approval signature: system authentication for the
@@ -218,6 +227,7 @@ extension DeviceCoordinator {
             if case .paired = current, phase == .ended(.undoneByPeer) {
                 pairing = .ended(.undoneByPeer)
                 environment.log(.pairingEnded(.undoneByPeer))
+                finishPairingSession()
             }
             return
         }
@@ -238,7 +248,11 @@ extension DeviceCoordinator {
             pairing = .paired(peer: peer)
             pairingFeedback = nil
             environment.log(.devicePaired)
-            finishPairingSession()
+            // The add used the authorization. Polling and the hold on idle
+            // expiry go on while the sheet is open and the session can still
+            // be undone.
+            isAuthenticatingPairing = false
+            vault.endDevicePairingAuthorization()
             deliveryCheckAfterPairing = peer.deviceID
         case .ended(let reason):
             pairing = .ended(reason)
@@ -277,17 +291,22 @@ extension DeviceCoordinator {
         let sleep = environment.sleep
         pairingPollTask = Task { [weak self] in
             while !Task.isCancelled {
-                guard let self, self.pairing?.isActive == true else { return }
+                guard let self else { return }
                 await self.pairingTick()
+                guard !Task.isCancelled, self.pairingIsLive else { return }
                 try? await sleep(Self.pairingPollInterval)
             }
         }
     }
 
     /// One tick of an open pairing sheet: keeps the management session open
-    /// for idleness, or cancels the session when it is gone, then polls.
+    /// for idleness, or cancels the session when it is gone, then polls. Once
+    /// the session can no longer change, its polling and hold end.
     func pairingTick() async {
-        guard pairing?.isActive == true else { return }
+        guard pairingIsLive else {
+            finishPairingSession()
+            return
+        }
         guard managementSessionIsOpen() else {
             await managementSessionEnded()
             return

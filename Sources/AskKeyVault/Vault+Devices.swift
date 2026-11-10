@@ -8,6 +8,10 @@ public enum DeviceStorageError: Error, Equatable, Sendable {
     /// Some but not all of the three key items exist. The identity is
     /// unusable; resetting it deletes the keys and the list.
     case incompleteIdentity
+    /// A key item failed authentication: this library did not store it, for
+    /// example because another App planted it. The identity is refused, not
+    /// used; resetting it deletes the keys and the list.
+    case identityRefused
     /// A device identity is already stored. It is never replaced, only reset.
     case identityExists
     /// The stored paired-device list failed authentication or does not
@@ -150,6 +154,42 @@ enum PairedDeviceListAuthentication {
     }
 }
 
+/// A key item: the Secure Enclave blob followed by an HMAC-SHA256 tag over
+/// `AskKey device key blob v1` (with its NUL), the account name (with a NUL)
+/// and the blob, under a key derived from the vault key with HKDF-SHA256,
+/// an empty salt and the info `AskKey device key blob key v1` (with its NUL).
+/// Any process on this Mac can use a blob it holds, so an identity whose
+/// items this library did not write, such as blobs another App planted
+/// before the first pairing while keeping copies, is refused.
+enum DeviceKeyBlobAuthentication {
+    static let tagLength = 32
+    static let tagLabel = Data("AskKey device key blob v1\0".utf8)
+    static let keyInfo = Data("AskKey device key blob key v1\0".utf8)
+
+    static func seal(_ blob: Data, account: DeviceKeychainAccount, using vaultKey: SymmetricKey) -> Data {
+        blob + Data(HMAC<SHA256>.authenticationCode(for: authenticated(blob, account), using: key(vaultKey)))
+    }
+
+    static func open(_ item: Data, account: DeviceKeychainAccount, using vaultKey: SymmetricKey) throws -> Data {
+        guard item.count > tagLength else { throw DeviceStorageError.identityRefused }
+        let blob = Data(item.prefix(item.count - tagLength))
+        guard HMAC<SHA256>.isValidAuthenticationCode(Data(item.suffix(tagLength)),
+                                                     authenticating: authenticated(blob, account),
+                                                     using: key(vaultKey)) else {
+            throw DeviceStorageError.identityRefused
+        }
+        return blob
+    }
+
+    private static func authenticated(_ blob: Data, _ account: DeviceKeychainAccount) -> Data {
+        tagLabel + Data(account.rawValue.utf8) + Data([0]) + blob
+    }
+
+    private static func key(_ vaultKey: SymmetricKey) -> SymmetricKey {
+        HKDF<SHA256>.deriveKey(inputKeyMaterial: vaultKey, salt: Data(), info: keyInfo, outputByteCount: 32)
+    }
+}
+
 extension Vault {
     /// The reason shown with the system authentication that adds a device.
     /// The App's authentication prompt accepts only the reasons of its action
@@ -184,15 +224,20 @@ extension Vault {
     // MARK: Identity
 
     /// The stored key blobs, or nil when this Mac has no identity. Needs no
-    /// management session: messages are verified in the background.
+    /// management session: messages are verified in the background. Each
+    /// item's tag is checked before its blob is returned.
     public func storedDeviceIdentityKeyBlobs() throws -> DeviceIdentityKeyBlobs? {
         try withDeviceStorage { keys in
-            let blobs = try Self.deviceKeyAccounts.map { try keys.loadDeviceItem($0) }
-            if blobs.allSatisfy({ $0 == nil }) { return nil }
-            guard let message = blobs[0], let agreement = blobs[1], let approval = blobs[2] else {
+            let items = try Self.deviceKeyAccounts.map { try keys.loadDeviceItem($0) }
+            if items.allSatisfy({ $0 == nil }) { return nil }
+            guard let message = items[0], let agreement = items[1], let approval = items[2] else {
                 throw DeviceStorageError.incompleteIdentity
             }
-            return DeviceIdentityKeyBlobs(message: message, agreement: agreement, approval: approval)
+            let vaultKey = try requireKey()
+            return DeviceIdentityKeyBlobs(
+                message: try DeviceKeyBlobAuthentication.open(message, account: .messageKey, using: vaultKey),
+                agreement: try DeviceKeyBlobAuthentication.open(agreement, account: .agreementKey, using: vaultKey),
+                approval: try DeviceKeyBlobAuthentication.open(approval, account: .approvalKey, using: vaultKey))
         }
     }
 
@@ -205,12 +250,15 @@ extension Vault {
             for account in Self.deviceKeyAccounts where try keys.loadDeviceItem(account) != nil {
                 throw DeviceStorageError.identityExists
             }
+            let vaultKey = try requireKey()
             try keys.deleteDeviceItem(.pairedDevices)
             try removeDeviceInboxStateFile()
             do {
-                try keys.saveDeviceItem(blobs.message, account: .messageKey)
-                try keys.saveDeviceItem(blobs.agreement, account: .agreementKey)
-                try keys.saveDeviceItem(blobs.approval, account: .approvalKey)
+                for (blob, account) in [(blobs.message, DeviceKeychainAccount.messageKey), (blobs.agreement, .agreementKey),
+                                        (blobs.approval, .approvalKey)] {
+                    try keys.saveDeviceItem(DeviceKeyBlobAuthentication.seal(blob, account: account, using: vaultKey),
+                                            account: account)
+                }
             } catch {
                 for account in Self.deviceKeyAccounts { try? keys.deleteDeviceItem(account) }
                 throw error
@@ -258,7 +306,17 @@ extension Vault {
     /// Renaming and removing a device need the management session; an open
     /// pairing sheet also uses this to keep it from expiring for idleness.
     public func requireDeviceManagementSession() throws {
-        try requireManagementSession()
+        try requireDeviceManagementSessionDroppingAuthorization()
+    }
+
+    /// A management session that has ended also ends any pairing authorization.
+    private func requireDeviceManagementSessionDroppingAuthorization() throws {
+        do {
+            try requireManagementSession()
+        } catch {
+            deviceState.authorize(nil)
+            throw error
+        }
     }
 
     func loadPairedDevices(epoch: Int) throws -> PairedDeviceList {
@@ -279,7 +337,7 @@ extension Vault {
                 !stored.devices.contains { $0.deviceID == device.deviceID && $0.pairingID == device.pairingID }
             }
             if !added.isEmpty {
-                try requireManagementSession()
+                try requireDeviceManagementSessionDroppingAuthorization()
                 guard added.count == 1, deviceState.isAuthorized(added[0].deviceID) else {
                     throw DeviceStorageError.pairingNotAuthorized
                 }

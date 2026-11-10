@@ -121,6 +121,8 @@ package final class DeviceCoordinator {
     /// The open system authentication prompt for the pairing confirmation;
     /// it is cancelled when the session ends or is left.
     @ObservationIgnored var pairingAuthentication: Task<ManagementAuthenticationResult, Never>?
+    /// Changes with every account check, so only the latest one applies.
+    @ObservationIgnored var accountCheck = 0
 
     package init(environment: DeviceCoordinatorEnvironment) {
         self.environment = environment
@@ -233,8 +235,8 @@ package final class DeviceCoordinator {
         let blobs: DeviceIdentityKeyBlobs?
         do {
             blobs = try vault.storedDeviceIdentityKeyBlobs()
-        } catch DeviceStorageError.incompleteIdentity {
-            availability = .identityUnusable
+        } catch DeviceStorageError.incompleteIdentity, DeviceStorageError.identityRefused {
+            identityBecameUnusable()
             return false
         } catch {
             storageUnavailable(error)
@@ -307,29 +309,34 @@ package final class DeviceCoordinator {
     /// belongs to.
     func refreshAccount() async {
         guard let services, availability == .ready else { return }
+        accountCheck += 1
+        let check = accountCheck
         let lifecycle = self.lifecycle
         let stored = (try? environment.inboxState.load()) ?? DeviceInboxState()
         let answer = await services.inbox.accountState(storedUserRecordName: stored.listAccount)
-        guard lifecycle == self.lifecycle else { return }
-        await apply(answer, stored: stored)
+        // A check that started earlier and answered later describes an older account.
+        guard lifecycle == self.lifecycle, check == accountCheck else { return }
+        await apply(answer, stored: stored, check: check)
     }
 
-    func apply(_ answer: CloudKitAccountState, stored: DeviceInboxState) async {
+    func apply(_ answer: CloudKitAccountState, stored: DeviceInboxState, check: Int) async {
         var state = stored
         switch answer {
-        case .available(let name):
-            if state.listAccount == nil {
-                state.listAccount = name
-                try? environment.inboxState.save(state)
+        case .available(let name), .accountChanged(let name):
+            var isListAccount = true
+            if case .accountChanged = answer { isListAccount = false }
+            if state.listAccount == nil || !isListAccount {
+                // No account recorded, or another one: this account becomes the
+                // list's only while nothing is paired.
+                let list = try? await services?.registry.list()
+                guard check == accountCheck else { return }
+                isListAccount = list?.devices.isEmpty == true
+                if isListAccount {
+                    state.listAccount = name
+                    try? environment.inboxState.save(state)
+                }
             }
-            account = .available
-            await use(account: name, state: state)
-        case .accountChanged(let name):
-            let list = try? await services?.registry.list()
-            if list?.devices.isEmpty == true {
-                // Nothing was paired in the other account: this one is the list's now.
-                state.listAccount = name
-                try? environment.inboxState.save(state)
+            if isListAccount {
                 account = .available
             } else {
                 if account != .accountChanged { environment.log(.accountChanged) }

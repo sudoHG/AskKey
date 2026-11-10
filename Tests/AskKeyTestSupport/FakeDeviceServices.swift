@@ -18,6 +18,7 @@ package final class FakeDeviceServicesBackend: DeviceServicesBackend, @unchecked
     private var prepared: [DeviceID] = []
     private var removed: [DeviceID] = []
     private var checks = 0
+    private var answerGate: (@Sendable () async -> Void)?
     private var preparationError: DeviceTransportError?
     private var continuations: [UUID: AsyncStream<Void>.Continuation] = [:]
 
@@ -60,6 +61,13 @@ package final class FakeDeviceServicesBackend: DeviceServicesBackend, @unchecked
     package var removedInboxes: [DeviceID] { lock.withLock { removed } }
     /// How many account checks were made.
     package var accountChecks: Int { lock.withLock { checks } }
+
+    /// Runs after an account check read its answer and before it returns it,
+    /// so a test can let a later check overtake an earlier one.
+    package var accountAnswerGate: (@Sendable () async -> Void)? {
+        get { lock.withLock { answerGate } }
+        set { lock.withLock { answerGate = newValue } }
+    }
 
     package var registersForRemoteNotifications: Bool { false }
 
@@ -161,6 +169,7 @@ final class FakeDeviceInbox: DeviceInbox, @unchecked Sendable {
 
     func accountState(storedUserRecordName: String?) async -> CloudKitAccountState {
         let state = backend.recordAccountCheck()
+        await backend.accountAnswerGate?()
         if case .available(let current) = state, let storedUserRecordName, storedUserRecordName != current {
             return .accountChanged(userRecordName: current)
         }

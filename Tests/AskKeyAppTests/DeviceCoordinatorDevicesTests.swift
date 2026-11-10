@@ -152,6 +152,41 @@ final class DeviceCoordinatorDevicesTests: AskKeyAppTestCase {
         XCTAssertEqual(try harness.library.vault.loadDeviceInboxState().listAccount, "_synthetic-account-2")
     }
 
+    func testPlantedKeyItemsAreRefusedAndOfferTheReset() async throws {
+        try await harness.pairPhone()
+        // Another App replaced a key item with a blob of its own.
+        harness.library.keys.deviceItems[.messageKey] = try harness.backend.createIdentity().blobs.message
+        await harness.relaunch()
+        XCTAssertEqual(harness.coordinator.availability, .identityUnusable)
+        XCTAssertFalse(harness.coordinator.hasIdentity)
+        XCTAssertTrue(harness.backend.restoredIdentities.isEmpty, "the planted blob was never restored")
+        let reset = await harness.coordinator.resetIdentity()
+        XCTAssertTrue(reset)
+        XCTAssertTrue(harness.library.keys.deviceItems.isEmpty)
+    }
+
+    func testAnOlderAccountAnswerDoesNotOverwriteANewerAccountChange() async throws {
+        try await harness.pairPhone()
+        let coordinator = harness.coordinator
+        let gate = AccountGate()
+        let before = harness.backend.accountChecks
+        harness.backend.accountAnswerGate = { await gate.wait() }
+        let older = Task { await coordinator.accountMayHaveChanged() }
+        let backend = harness.backend
+        try await harness.waitUntil { backend.accountChecks > before }
+
+        // The account changes while the older check is still out.
+        harness.backend.accountAnswerGate = nil
+        harness.backend.accountState = .available(userRecordName: "_synthetic-account-2")
+        await coordinator.accountMayHaveChanged()
+        XCTAssertEqual(coordinator.account, .accountChanged)
+
+        gate.release()
+        await older.value
+        XCTAssertEqual(coordinator.account, .accountChanged, "the older answer describes the old account")
+        XCTAssertEqual(coordinator.devices.map(\.reachability), [.unreachable])
+    }
+
     func testUnusableIdentityAtLaunchOffersTheResetThatDeletesKeysAndList() async throws {
         try await harness.pairPhone()
         harness.backend.restoreFails = true
@@ -201,11 +236,13 @@ final class DeviceCoordinatorDevicesTests: AskKeyAppTestCase {
 
         harness.coordinator.handleRemoteNotification(FakeDeviceServicesBackend.pushHint(for: harness.phone.deviceID))
         harness.coordinator.handleRemoteNotification(["aps": ["content-available": 1]])
-        for _ in 0..<20 { await Task.yield() }
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertNil(harness.coordinator.pollTask, "no poll started")
         XCTAssertEqual(harness.transport.records(in: mac).count, 1, "a hint for another inbox does nothing")
 
         harness.coordinator.handleRemoteNotification(FakeDeviceServicesBackend.pushHint(for: mac))
-        for _ in 0..<200 where !harness.transport.records(in: mac).isEmpty { await Task.yield() }
+        let transport = harness.transport
+        try await harness.waitUntil { transport.records(in: mac).isEmpty }
         XCTAssertTrue(harness.transport.records(in: mac).isEmpty, "the hint made the Mac fetch and process")
     }
 
@@ -241,7 +278,36 @@ final class DeviceCoordinatorDevicesTests: AskKeyAppTestCase {
         XCTAssertTrue(coordinator.devices.isEmpty)
         XCTAssertFalse(SessionPolicy.isIdleExpiryHeld)
         XCTAssertTrue(harness.library.keys.deviceItems.isEmpty)
-        for _ in 0..<200 where harness.backend.removedInboxes.isEmpty { await Task.yield() }
+        let backend = harness.backend
+        try await harness.waitUntil { !backend.removedInboxes.isEmpty }
         XCTAssertEqual(harness.backend.removedInboxes, [mac], "the inbox is deleted on a best-effort basis")
+    }
+}
+
+
+/// Holds account checks until the test releases them.
+private final class AccountGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var released = false
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            let resumeNow = lock.withLock {
+                if released { return true }
+                waiting.append(continuation)
+                return false
+            }
+            if resumeNow { continuation.resume() }
+        }
+    }
+
+    func release() {
+        let continuations = lock.withLock {
+            released = true
+            defer { waiting = [] }
+            return waiting
+        }
+        continuations.forEach { $0.resume() }
     }
 }

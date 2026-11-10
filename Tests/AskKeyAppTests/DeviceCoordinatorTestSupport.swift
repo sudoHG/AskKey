@@ -87,6 +87,14 @@ final class DeviceCoordinatorHarness {
 
     /// A complete pairing with the simulated iPhone, its delivery check answered.
     func pairPhone() async throws {
+        try await pairPhoneLeavingSheetOpen()
+        await coordinator.cancelPairing()
+        try await phone.poll()
+        await coordinator.refresh()
+    }
+
+    /// A complete pairing; the sheet stays open on the paired state.
+    func pairPhoneLeavingSheetOpen() async throws {
         let code = try await reachCodeEntry()
         await coordinator.enterPairingCode(code)
         await coordinator.confirmPairing()
@@ -97,9 +105,6 @@ final class DeviceCoordinatorHarness {
             XCTFail("the Mac paired, not \(String(describing: coordinator.pairing))")
             throw DeviceMessengerError.notAwaitingConfirmation
         }
-        await coordinator.cancelPairing()
-        try await phone.poll()
-        await coordinator.refresh()
     }
 
     /// Every confirmation the Mac sent.
@@ -117,6 +122,19 @@ final class DeviceCoordinatorHarness {
     func publishedState() -> String {
         [String(reflecting: coordinator.pairing), String(reflecting: coordinator.pairingFeedback),
          String(reflecting: coordinator.devices), String(reflecting: coordinator.availability)].joined(separator: "\n")
+    }
+
+    /// Waits, for at most five seconds, until work on other executors made
+    /// `condition` true.
+    func waitUntil(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+        let deadline = Date().addingTimeInterval(5)
+        while !condition() {
+            guard Date() < deadline else {
+                XCTFail("timed out", file: file, line: line)
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     /// Opens a message addressed to `identity`, as that device would.

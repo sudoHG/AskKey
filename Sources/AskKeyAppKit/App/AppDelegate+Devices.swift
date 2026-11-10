@@ -59,10 +59,11 @@ extension AppDelegate {
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                // Observe again first: cancelling sends a message and suspends.
+                self.observeManagementSessionForDevices()
                 if !self.vault.hasManagementSession || self.vault.isLocked {
                     await DeviceServicesHost.coordinator?.managementSessionEnded()
                 }
-                self.observeManagementSessionForDevices()
             }
         }
     }

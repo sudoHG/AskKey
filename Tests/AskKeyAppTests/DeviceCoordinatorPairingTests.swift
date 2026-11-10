@@ -63,7 +63,7 @@ final class DeviceCoordinatorPairingTests: AskKeyAppTestCase {
         await coordinator.refresh()
         XCTAssertEqual(coordinator.pairing, .paired(peer: peer))
         XCTAssertEqual(harness.script.authenticationReasons.count, 1)
-        XCTAssertFalse(SessionPolicy.isIdleExpiryHeld, "the hold ends with the session")
+        XCTAssertTrue(SessionPolicy.isIdleExpiryHeld, "the open sheet's session can still be undone until it expires")
         let row = try XCTUnwrap(coordinator.devices.first)
         XCTAssertEqual(row.id, harness.phone.deviceID)
         XCTAssertEqual(row.displayName, "Synthetic Phone")
@@ -75,6 +75,37 @@ final class DeviceCoordinatorPairingTests: AskKeyAppTestCase {
         for text in [code, code.replacingOccurrences(of: " ", with: "")] {
             XCTAssertFalse(harness.publishedState().contains(text), "the coordinator never exposes the code")
         }
+        await coordinator.cancelPairing()
+        XCTAssertFalse(SessionPolicy.isIdleExpiryHeld, "closing the sheet ends the hold")
+        XCTAssertEqual(coordinator.devices.count, 1, "closing the sheet keeps the added device")
+    }
+
+    func testAfterPairingTheOpenSheetKeepsPollingUntilTheSessionExpires() async throws {
+        let coordinator = harness.coordinator
+        let code = try await harness.reachCodeEntry()
+        await coordinator.enterPairingCode(code)
+        await coordinator.confirmPairing()
+        try await harness.phone.confirm()
+        await coordinator.refresh()
+        guard case .paired = coordinator.pairing else { return XCTFail("the Mac added the iPhone") }
+
+        // The iPhone cancels two minutes later; the sheet's polling finds it.
+        harness.clock.advance(by: 120)
+        await harness.phone.cancel()
+        await coordinator.pairingTick()
+        XCTAssertEqual(coordinator.pairing, .ended(.undoneByPeer))
+        XCTAssertTrue(coordinator.devices.isEmpty)
+        XCTAssertFalse(SessionPolicy.isIdleExpiryHeld)
+    }
+
+    func testAfterPairingPollingAndTheHoldEndWhenTheSessionExpires() async throws {
+        try await harness.pairPhoneLeavingSheetOpen()
+        XCTAssertTrue(SessionPolicy.isIdleExpiryHeld)
+        harness.clock.advance(by: 11 * 60)
+        await harness.coordinator.pairingTick()
+        XCTAssertFalse(SessionPolicy.isIdleExpiryHeld)
+        guard case .paired = harness.coordinator.pairing else { return XCTFail("the sheet still shows the pairing") }
+        XCTAssertEqual(harness.coordinator.devices.count, 1)
     }
 
     func testNoCodeEntryBeforeTheRevealAndAMismatchedRevealStoresNothing() async throws {

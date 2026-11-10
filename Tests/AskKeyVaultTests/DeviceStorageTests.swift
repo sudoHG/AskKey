@@ -135,8 +135,10 @@ final class DeviceStorageTests: XCTestCase {
         XCTAssertThrowsError(try vault.authorizeDevicePairing(with: device.deviceID, using: .allow),
                              "authorizing needs the management session")
         XCTAssertNil(library.keys.deviceItems[.pairedDevices])
-
         try vault.beginManagementSession(using: .allow)
+        await assertRefused(try await registry.apply(.add(device)), .pairingNotAuthorized,
+                            "an authorization from an ended management session is gone")
+
         try vault.authorizeDevicePairing(with: device.deviceID, using: .allow)
         try await registry.apply(.add(device))
         let second = try syntheticDevice(name: "Synthetic Second Phone")
@@ -171,6 +173,50 @@ final class DeviceStorageTests: XCTestCase {
         XCTAssertEqual(reached, .dropped)
         let remaining = try await registry.list().devices
         XCTAssertTrue(remaining.isEmpty)
+    }
+
+    func testKeyItemsCarryATagOverTheAccountAndBlobAndForeignItemsAreRefused() throws {
+        let library = try makeLibrary()
+        try library.vault.saveDeviceIdentityKeyBlobs(syntheticBlobs())
+        let item = try XCTUnwrap(library.keys.deviceItems[.agreementKey])
+        let blob = Data("synthetic-agreement-blob".utf8)
+        XCTAssertEqual(item.prefix(item.count - 32), blob)
+        let key = HKDF<SHA256>.deriveKey(inputKeyMaterial: try library.key, salt: Data(),
+                                         info: Data("AskKey device key blob key v1".utf8) + Data([0]),
+                                         outputByteCount: 32)
+        let expected = HMAC<SHA256>.authenticationCode(
+            for: Data("AskKey device key blob v1".utf8) + Data([0]) + Data("device-agreement-key".utf8) + Data([0]) + blob,
+            using: key)
+        XCTAssertEqual(Data(item.suffix(32)), Data(expected))
+
+        let stored = library.keys.deviceItems
+        let foreignTag = Data(HMAC<SHA256>.authenticationCode(for: blob, using: SymmetricKey(size: .bits256)))
+        // A planted raw blob, a blob tagged under another key, and items moved between accounts.
+        for (account, planted) in [(DeviceKeychainAccount.messageKey, Data("synthetic-planted-blob".utf8)),
+                                   (.agreementKey, blob + foreignTag),
+                                   (.approvalKey, try XCTUnwrap(stored[.messageKey]))] {
+            library.keys.deviceItems = stored
+            library.keys.deviceItems[account] = planted
+            XCTAssertThrowsError(try library.vault.storedDeviceIdentityKeyBlobs(), "\(account)") {
+                XCTAssertEqual($0 as? DeviceStorageError, .identityRefused)
+            }
+        }
+        library.keys.deviceItems = stored
+        XCTAssertEqual(try library.vault.storedDeviceIdentityKeyBlobs(), syntheticBlobs())
+    }
+
+    func testAnOpenPairingSheetsCheckRenewsTheManagementSession() throws {
+        let clock = DeviceTestClock()
+        let library = try AgentAccessPolicyLibrary(now: { clock.now })
+        libraries.append(library)
+        try library.vault.beginManagementSession(using: .allow)
+        for _ in 0..<3 {
+            clock.now = clock.now.addingTimeInterval(Vault.managementSessionIdleLimit - 30)
+            XCTAssertNoThrow(try library.vault.requireDeviceManagementSession())
+        }
+        try library.vault.authorizeDevicePairing(with: try syntheticDevice().deviceID, using: .allow)
+        clock.now = clock.now.addingTimeInterval(Vault.managementSessionIdleLimit + 1)
+        XCTAssertThrowsError(try library.vault.requireDeviceManagementSession(), "idle expiry still applies without checks")
     }
 
     func testIdentityIsNeverReplacedAndAPartialIdentityIsUnusable() throws {
@@ -320,6 +366,15 @@ final class DeviceStorageTests: XCTestCase {
         } catch {
             XCTAssertEqual(error as? DeviceStorageError, expected, message, file: file, line: line)
         }
+    }
+}
+
+private final class DeviceTestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current = Date(timeIntervalSince1970: 1_800_000_000)
+    var now: Date {
+        get { lock.withLock { current } }
+        set { lock.withLock { current = newValue } }
     }
 }
 
