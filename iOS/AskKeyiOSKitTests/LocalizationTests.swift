@@ -26,11 +26,22 @@ final class LocalizationTests: XCTestCase {
         let english = try table("en")
         XCTAssertTrue(try XCTUnwrap(english["pairing.code.onlyHere"]).contains("never sends it in a notification or a message"))
         XCTAssertTrue(try XCTUnwrap(english["scanner.instruction"]).contains("on your own Mac"))
-        XCTAssertTrue(try XCTUnwrap(english["scanner.instruction"]).contains("Never scan a pairing code that someone sends you"))
+        XCTAssertTrue(try XCTUnwrap(english["scanner.instruction"]).contains("Never scan a QR code that someone sends you"))
         XCTAssertTrue(try XCTUnwrap(english["pairing.failed.noChallenge"]).contains("don't enter any code"))
         // Before the wireless-data prompt is answered, the account check itself fails.
         XCTAssertTrue(try XCTUnwrap(english["welcome.failure.iCloudUnavailable"]).contains("Wireless Data"))
         XCTAssertTrue(try XCTUnwrap(english["welcome.failure.networkUnavailable"]).contains("Wireless Data"))
+    }
+
+    /// "Pairing code" means only the six digits; the scanner speaks of the QR code.
+    func testScannerTextsNeverCallTheQRCodeAPairingCode() throws {
+        let english = try table("en")
+        let chinese = try table("zh-Hans")
+        let chinesePairingCode = "\u{914D}\u{5BF9}\u{7801}"
+        for key in english.keys where key.hasPrefix("scanner.") {
+            XCTAssertFalse(try XCTUnwrap(english[key]).localizedCaseInsensitiveContains("pairing code"), key)
+            XCTAssertFalse(try XCTUnwrap(chinese[key]).contains(chinesePairingCode), key)
+        }
     }
 
     func testAlertKeysMatchTheSubscription() {

@@ -200,7 +200,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "尚未联系"
+            "value": "还没联系上"
           }
         }
       }
@@ -857,13 +857,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan only the QR code that Ask Key shows on your own Mac. Never scan a pairing code that someone sends you."
+            "value": "Scan only the QR code that Ask Key shows on your own Mac. Never scan a QR code that someone sends you."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "只扫描你自己的 Mac 上请旨显示的二维码。别人发给你的配对码，一律不要扫。"
+            "value": "只扫描你自己的 Mac 上请旨显示的二维码。别人发给你的二维码，一律不要扫。"
           }
         }
       }
@@ -908,13 +908,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This pairing code has expired. On your Mac, start pairing again and scan the new code."
+            "value": "This QR code has expired. On your Mac, start pairing again and scan the new QR code."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个配对码已过期。请在 Mac 上重新开始配对，然后扫描新的二维码。"
+            "value": "这个二维码已过期。请在 Mac 上重新开始配对，然后扫描新的二维码。"
           }
         }
       }
@@ -942,13 +942,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This pairing code can't be read. On your Mac, start pairing again and scan the new code."
+            "value": "This QR code can't be read. On your Mac, start pairing again and scan the new QR code."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法读取这个配对码。请在 Mac 上重新开始配对，然后扫描新的二维码。"
+            "value": "无法读取这个二维码。请在 Mac 上重新开始配对，然后扫描新的二维码。"
           }
         }
       }
@@ -959,13 +959,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This pairing code can't be used with this iPhone."
+            "value": "This QR code can't be used with this iPhone."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个配对码不能用于这台 iPhone。"
+            "value": "这个二维码不能用于这台 iPhone。"
           }
         }
       }
@@ -976,13 +976,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This isn't an Ask Key pairing code. Scan the QR code in Ask Key on your own Mac."
+            "value": "This isn't an Ask Key pairing QR code. Scan the QR code in Ask Key on your own Mac."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这不是请旨的配对码。请扫描你自己的 Mac 上请旨显示的二维码。"
+            "value": "这不是请旨的配对二维码。请扫描你自己的 Mac 上请旨显示的二维码。"
           }
         }
       }
