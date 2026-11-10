@@ -42,7 +42,7 @@ Never, unless an issue labeled `ready-for-human` is being done by the maintainer
 
 ## Product identifiers (do not change)
 
-Bundle ID `com.sudohg.askkey.app`, keychain service `com.sudohg.askkey.vault`, data directory `AskKey`, command `askkey`, MCP server name `askkey`, URL scheme `askkey://` (reserved: not registered or handled by the app yet; implementing it needs its own issue), broker protocol version, update feed URL `https://askkey.sudohg.com/appcast.xml` (every installed copy keeps requesting it; see [ADR 0011](docs/adr/0011-in-app-updates.md)). Official install path is `/Applications/Ask Key.app` with the helper at `Contents/Helpers/askkey`.
+Bundle ID `com.sudohg.askkey.app`, keychain service `com.sudohg.askkey.vault`, data directory `AskKey`, command `askkey`, MCP server name `askkey`, URL scheme `askkey://` (reserved: not registered or handled by the app yet; implementing it needs its own issue), broker protocol version, update feed URL `https://askkey.sudohg.com/appcast.xml` (every installed copy keeps requesting it; see [ADR 0011](docs/adr/0011-in-app-updates.md)), CloudKit container `iCloud.com.sudohg.askkey` and iPhone app bundle ID `com.sudohg.askkey.ios` (neither can be renamed once created; see [ADR 0013](docs/adr/0013-device-identity-and-pairing.md)). Official install path is `/Applications/Ask Key.app` with the helper at `Contents/Helpers/askkey`.
 
 Releases follow [ADR 0006](docs/adr/0006-release-process.md): signed and notarized on the maintainer's Mac, and each tag push and publication needs the maintainer's explicit approval. Do not add Sparkle, Homebrew, App Store or CI signing configuration unless an issue asks for it. Never reuse Lokalite's signing team, Sparkle keys or release entries.
 
