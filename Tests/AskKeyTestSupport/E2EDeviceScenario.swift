@@ -13,12 +13,13 @@ import Observation
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
+    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
     private static var task: Task<Void, Never>?
     private static var transitions: [String] = []
+    private static var control: URL?
 
     static func isRequested(_ scenario: String) -> Bool {
         scenario.hasPrefix(scenarioPrefix)
@@ -35,6 +36,7 @@ enum E2EDeviceScenario {
     /// Runs each command once when its file appears, then removes the file
     /// and writes `device-<command>.json` with the outcome.
     static func start(control: URL) {
+        self.control = control
         recordPairingTransitions(control: control)
         task = Task { @MainActor in
             while !Task.isCancelled {
@@ -108,6 +110,12 @@ enum E2EDeviceScenario {
             throw E2EDeviceScenarioError.notInstalled
         }
         switch command {
+        case "snapshot":
+            // What Pair a Device… checks before it starts, at the moment the runner clicks.
+            transitions.append("\(Date().timeIntervalSince1970) snapshot before a click: secureEnclave=\(backend.isSecureEnclaveAvailable) "
+                + "pairing=\(coordinator.pairing.map(describe) ?? "none") availability=\(coordinator.availability) "
+                + "account=\(coordinator.account) identity=\(coordinator.hasIdentity) devices=\(coordinator.devices.count)")
+            if let control { writeTransitions(control: control) }
         case "start-pairing":
             // Diagnostic only: what Pair a Device… does, for a run in which the click did not start it.
             await coordinator.startPairing()

@@ -351,14 +351,11 @@ final class ScreenshotE2ETests: E2EBaseCase {
         try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35)
     }
 
-    /// Settings → Devices on the E2E App's fake device services (#288): the
-    /// list with one paired iPhone, the pairing sheet's QR code, waiting and
-    /// code entry steps, and iCloud signed out. The fixture plays the iPhone,
-    /// including the person typing its code, which never leaves the App.
+    /// Settings → Devices on the E2E App's fake device services (#288): the list with one paired
+    /// iPhone, the pairing sheet's QR code, waiting and code entry steps, and iCloud signed out. The
+    /// fixture plays the iPhone, including the person typing its code, which never leaves the App.
     private func captureDevicesScreens(language: String, tag: String, firstNumber: Int) throws {
-        func name(_ offset: Int, _ label: String) -> String {
-            String(format: "%02d-%@-%@", firstNumber + offset, tag, label)
-        }
+        func name(_ offset: Int, _ label: String) -> String { String(format: "%02d-%@-%@", firstNumber + offset, tag, label) }
         func fixture(_ command: String) throws {
             try sendFixtureCommand(command)
             let report = try waitForEvidence("device-\(command).json")
@@ -367,25 +364,28 @@ final class ScreenshotE2ETests: E2EBaseCase {
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
         app.launch()
+        addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
         moveManagementAboveDock()
         click("unlock-management")
         click("sidebar-settings")
-        openBackupSetting("settings-pair-device")
-        // Diagnose a click that opens no sheet instead of stopping there:
-        // click again, then start pairing through the fixture, and fail at
-        // the end so the captures and device-transitions.json still exist.
+        // Diagnostics for a click that opened no sheet (#298): the button's state at each click, a second
+        // click with the button scrolled higher, then the fixture; the test fails at the end if needed.
+        let pair = app.buttons["settings-pair-device"].firstMatch
+        let page = app.windows["settings"].scrollViews.containing(.button, identifier: "settings-pair-device").firstMatch
         let sheet = app.windows["settings"].sheets.firstMatch
-        var startPath = "first click"
-        if !sheet.waitForExistence(timeout: 5) {
-            startPath = "second click"
-            click("settings-pair-device")
-            if !sheet.waitForExistence(timeout: 5) {
-                startPath = "fixture"
-                try fixture("start-pairing")
-            }
+        var clicks: [String] = []
+        for extraScrolls in [0, 3] where !sheet.exists {
+            XCTAssertTrue(pair.waitForExistence(timeout: 8))
+            for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+            for _ in 0..<extraScrolls { page.scroll(byDeltaX: 0, deltaY: -300) }
+            try fixture("snapshot")
+            clicks.append("click: enabled=\(pair.isEnabled) hittable=\(pair.isHittable) frame=\(pair.frame)")
+            pair.click()
+            clicks.append(sheet.waitForExistence(timeout: 5) ? "sheet" : "no sheet")
         }
+        if !sheet.exists { clicks.append("fixture start"); try fixture("start-pairing") }
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "No pairing sheet")
-        attachDeviceTransitions()
+        attachDeviceDiagnostics(clicks)
         XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
         captureSheet(name(1, "devices-pairing-qr-code"))
         try fixture("phone-scan")
@@ -397,17 +397,16 @@ final class ScreenshotE2ETests: E2EBaseCase {
         try fixture("phone-complete")
         click("devices-pairing-done")
         try fixture("phone-poll")
-        attachDeviceTransitions()
+        Thread.sleep(forTimeInterval: 8) // the state record then shows what changes after the sheet closed
+        attachDeviceDiagnostics(clicks)
         let row = app.buttons["devices-rename"].firstMatch
-        let settings = app.windows["settings"].scrollViews.containing(.button, identifier: "devices-rename").firstMatch
-        for _ in 0..<6 where !row.isHittable { settings.scroll(byDeltaX: 0, deltaY: -300) }
+        for _ in 0..<6 where !row.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
         waitForText(language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}", containing: true)
         capture(name(0, "devices-list"))
         try fixture("account-signed-out")
-        waitForText(language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}",
-                    containing: true)
+        waitForText(language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}", containing: true)
         capture(name(4, "devices-icloud-signed-out"))
-        XCTAssertEqual(startPath, "first click", "Pair a Device… needed: \(startPath)")
+        XCTAssertEqual(clicks.filter { $0.hasSuffix("sheet") || $0 == "fixture start" }, ["sheet"], "Pair a Device…: \(clicks)")
     }
 
     /// Saves "Staging API" through the first-run editor, then unlocks
@@ -425,12 +424,12 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(app.buttons["settings-agent-access"].waitForExistence(timeout: 8))
     }
 
-    /// The fixture's record of the device coordinator's states, attached at
-    /// once so it survives a later query timeout.
-    private func attachDeviceTransitions() {
-        guard let data = try? Data(contentsOf: runDirectory.appendingPathComponent("device-transitions.json")) else { return }
-        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
-        attachment.name = "device-transitions.json"
+    /// The fixture's record of the device coordinator's states and the clicks so far, attached
+    /// at once so they survive a later query timeout.
+    private func attachDeviceDiagnostics(_ clicks: [String]) {
+        let record = (try? String(contentsOf: runDirectory.appendingPathComponent("device-transitions.json"), encoding: .utf8)) ?? "none"
+        let attachment = XCTAttachment(string: clicks.joined(separator: "\n") + "\n\n" + record)
+        attachment.name = "device-diagnostics"
         attachment.lifetime = .keepAlways
         add(attachment)
     }
