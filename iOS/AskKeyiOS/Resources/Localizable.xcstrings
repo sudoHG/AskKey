@@ -1,0 +1,22 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "push.message.body": {
+      "comment": "Body of the alert CloudKit shows for a message in this iPhone's inbox. Neutral: Ask Key never asks the person to act on a notification's text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A paired device sent a message." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "一台已配对的设备发来一条消息。" } }
+      }
+    },
+    "push.message.title": {
+      "comment": "Title of the alert CloudKit shows for a message in this iPhone's inbox.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨" } }
+      }
+    }
+  },
+  "version": "1.0"
+}

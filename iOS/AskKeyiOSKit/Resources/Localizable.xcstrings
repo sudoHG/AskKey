@@ -1,0 +1,1570 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "common.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
+          }
+        }
+      }
+    },
+    "common.dismiss": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭"
+          }
+        }
+      }
+    },
+    "common.done": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "list.account.restricted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud is restricted on this iPhone, so your Macs can't reach it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 的 iCloud 受到限制，Mac 无法联系它。"
+          }
+        }
+      }
+    },
+    "list.account.signedOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud is signed out, so your Macs can't reach this iPhone. Sign in with the same Apple Account as your Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 已退出登录，Mac 无法联系这台 iPhone。请用与 Mac 相同的 Apple 账户登录。"
+          }
+        }
+      }
+    },
+    "list.account.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud isn't available right now, so your Macs can't reach this iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 暂时不可用，Mac 无法联系这台 iPhone。"
+          }
+        }
+      }
+    },
+    "list.deliveries.polling %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · found when Ask Key checked its inbox"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 请旨检查收件箱时发现"
+          }
+        }
+      }
+    },
+    "list.deliveries.push %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · arrived through a notification"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 通过通知送达"
+          }
+        }
+      }
+    },
+    "list.deliveries.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delivery Checks"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送达检查"
+          }
+        }
+      }
+    },
+    "list.empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No paired Macs yet. On your Mac, open Ask Key's Settings, choose Devices, then Pair a Device."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有配对的 Mac。请在 Mac 上打开请旨的“设置”，选择“设备”，再选择“配对设备”。"
+          }
+        }
+      }
+    },
+    "list.lastReached %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last reached %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次联系：%@"
+          }
+        }
+      }
+    },
+    "list.notReached": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not reached yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未联系"
+          }
+        }
+      }
+    },
+    "list.notice.removalFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Mac couldn't be removed. Try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法移除这台 Mac。请重试。"
+          }
+        }
+      }
+    },
+    "list.notice.removedAndTold %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removed “%@”. Ask Key told the Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已移除“%@”，并已通知这台 Mac。"
+          }
+        }
+      }
+    },
+    "list.notice.removedByMac %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” removed this iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”已移除这台 iPhone。"
+          }
+        }
+      }
+    },
+    "list.notice.removedNotTold %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removed “%@”, but the Mac couldn't be told. Remove this iPhone in Ask Key on the Mac too."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已移除“%@”，但没能通知这台 Mac。请也在 Mac 上的请旨中移除这台 iPhone。"
+          }
+        }
+      }
+    },
+    "list.pair": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair a Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对 Mac"
+          }
+        }
+      }
+    },
+    "list.pairedOn %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paired %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对于 %@"
+          }
+        }
+      }
+    },
+    "list.remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除"
+          }
+        }
+      }
+    },
+    "list.remove.confirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除"
+          }
+        }
+      }
+    },
+    "list.remove.confirmMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone stops trusting this Mac at once. Ask Key also tells the Mac, which removes this iPhone when it next checks."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 会立即不再信任这台 Mac。请旨也会通知 Mac，Mac 下次检查时会移除这台 iPhone。"
+          }
+        }
+      }
+    },
+    "list.remove.confirmTitle %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove “%@”?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除“%@”？"
+          }
+        }
+      }
+    },
+    "list.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paired Macs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已配对的 Mac"
+          }
+        }
+      }
+    },
+    "pairing.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel Pairing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消配对"
+          }
+        }
+      }
+    },
+    "pairing.code.instruction %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter this code in Ask Key on “%@”."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在“%@”上的请旨中输入这个配对码。"
+          }
+        }
+      }
+    },
+    "pairing.code.onlyHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pairing code appears only on this screen. Ask Key never sends it in a notification or a message."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对码只会显示在这个页面上。请旨绝不会通过通知或消息发送配对码。"
+          }
+        }
+      }
+    },
+    "pairing.confirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm Pairing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认配对"
+          }
+        }
+      }
+    },
+    "pairing.confirm.cancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Face ID or Touch ID was cancelled. Nothing was sent; you can confirm again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面容 ID 或触控 ID 已取消，没有发送任何内容。你可以再次确认。"
+          }
+        }
+      }
+    },
+    "pairing.confirm.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Face ID or Touch ID didn't succeed. Nothing was sent; you can confirm again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面容 ID 或触控 ID 验证未通过，没有发送任何内容。你可以再次确认。"
+          }
+        }
+      }
+    },
+    "pairing.confirm.footnote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirming asks for Face ID or Touch ID."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认时需要面容 ID 或触控 ID。"
+          }
+        }
+      }
+    },
+    "pairing.confirm.reason %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm pairing with “%@”"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认与“%@”配对"
+          }
+        }
+      }
+    },
+    "pairing.confirm.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Face ID or Touch ID isn't available to Ask Key right now. Check Settings → Ask Key. Nothing was sent."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨暂时无法使用面容 ID 或触控 ID。请检查“设置”→“请旨”。没有发送任何内容。"
+          }
+        }
+      }
+    },
+    "pairing.confirmed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmed on this iPhone. Enter the code on your Mac to finish pairing."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在这台 iPhone 上确认。请在 Mac 上输入配对码以完成配对。"
+          }
+        }
+      }
+    },
+    "pairing.failed.cancelledByMac": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing was cancelled on the Mac. Nothing was stored."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对已在 Mac 上取消，没有保存任何内容。"
+          }
+        }
+      }
+    },
+    "pairing.failed.conflictingChallenge": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing stopped because a different answer arrived for this pairing. Nothing was stored. Cancel on your Mac and start again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这次配对收到了另一个不同的回应，配对已停止，没有保存任何内容。请在 Mac 上取消后重新开始。"
+          }
+        }
+      }
+    },
+    "pairing.failed.deviceLimitReached": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone is already paired with 8 Macs. Remove one, then pair again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 已与 8 台 Mac 配对。请先移除一台，再重新配对。"
+          }
+        }
+      }
+    },
+    "pairing.failed.ended": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing ended. Nothing was stored."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对已结束，没有保存任何内容。"
+          }
+        }
+      }
+    },
+    "pairing.failed.expired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pairing session expired. Nothing was stored. Start again on your Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对已超时，没有保存任何内容。请在 Mac 上重新开始。"
+          }
+        }
+      }
+    },
+    "pairing.failed.keyConflict": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac's keys conflict with a device that is already paired. Nothing was stored."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 Mac 的密钥与已配对的设备冲突，没有保存任何内容。"
+          }
+        }
+      }
+    },
+    "pairing.failed.noChallenge": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac didn't answer within 60 seconds, so this iPhone withdrew its request. Cancel pairing on your Mac, and don't enter any code there."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 在 60 秒内没有回应，这台 iPhone 已撤回请求。请在 Mac 上取消配对，不要在 Mac 上输入任何配对码。"
+          }
+        }
+      }
+    },
+    "pairing.failed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing Failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对失败"
+          }
+        }
+      }
+    },
+    "pairing.noCode.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for your Mac to answer. Don't enter any code on your Mac until it appears here."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在等待 Mac 回应。配对码出现在这里之前，不要在 Mac 上输入任何配对码。"
+          }
+        }
+      }
+    },
+    "pairing.noCode.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No code yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有配对码"
+          }
+        }
+      }
+    },
+    "pairing.paired.detail %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone and “%@” are paired."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 已与“%@”配对。"
+          }
+        }
+      }
+    },
+    "pairing.paired.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paired"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已配对"
+          }
+        }
+      }
+    },
+    "pairing.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing Code"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对码"
+          }
+        }
+      }
+    },
+    "scanner.camera.denied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera access is off for Ask Key. Allow it in Settings to scan the QR code."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨的相机权限已关闭。请在“设置”中允许，才能扫描二维码。"
+          }
+        }
+      }
+    },
+    "scanner.camera.notDetermined": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key needs the camera to scan the QR code."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨需要用相机扫描二维码。"
+          }
+        }
+      }
+    },
+    "scanner.camera.restricted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera access is restricted on this iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 的相机访问受到限制。"
+          }
+        }
+      }
+    },
+    "scanner.camera.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No camera is available on this device."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台设备没有可用的相机。"
+          }
+        }
+      }
+    },
+    "scanner.instruction": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan only the QR code that Ask Key shows on your own Mac. Never scan a pairing code that someone sends you."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只扫描你自己的 Mac 上请旨显示的二维码。别人发给你的配对码，一律不要扫。"
+          }
+        }
+      }
+    },
+    "scanner.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开“设置”"
+          }
+        }
+      }
+    },
+    "scanner.problem.deviceLimitReached": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone is already paired with 8 Macs. Remove one before pairing another."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 已与 8 台 Mac 配对。请先移除一台，再配对新的。"
+          }
+        }
+      }
+    },
+    "scanner.problem.expired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This pairing code has expired. On your Mac, start pairing again and scan the new code."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个配对码已过期。请在 Mac 上重新开始配对，然后扫描新的二维码。"
+          }
+        }
+      }
+    },
+    "scanner.problem.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing couldn't start. Try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法开始配对。请重试。"
+          }
+        }
+      }
+    },
+    "scanner.problem.invalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This pairing code can't be read. On your Mac, start pairing again and scan the new code."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取这个配对码。请在 Mac 上重新开始配对，然后扫描新的二维码。"
+          }
+        }
+      }
+    },
+    "scanner.problem.keyConflict": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This pairing code can't be used with this iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个配对码不能用于这台 iPhone。"
+          }
+        }
+      }
+    },
+    "scanner.problem.notAPairingCode": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This isn't an Ask Key pairing code. Scan the QR code in Ask Key on your own Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这不是请旨的配对码。请扫描你自己的 Mac 上请旨显示的二维码。"
+          }
+        }
+      }
+    },
+    "scanner.scanAgain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan Again"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新扫描"
+          }
+        }
+      }
+    },
+    "scanner.sending": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending the pairing request…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在发送配对请求…"
+          }
+        }
+      }
+    },
+    "scanner.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan the QR Code"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扫描二维码"
+          }
+        }
+      }
+    },
+    "unusable.confirmTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this iPhone's keys and its paired Macs?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除这台 iPhone 的密钥和已配对的 Mac？"
+          }
+        }
+      }
+    },
+    "unusable.consequence": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset deletes this iPhone's keys and its list of paired Macs. Then remove this iPhone in Ask Key on each Mac and pair again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重置会删除这台 iPhone 的密钥和已配对 Mac 的列表。之后请在每台 Mac 上的请旨中移除这台 iPhone，再重新配对。"
+          }
+        }
+      }
+    },
+    "unusable.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key can't use this iPhone's keys anymore. This happens after Face ID or Touch ID changes, such as adding a new appearance or finger."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨无法再使用这台 iPhone 的密钥。更改面容 ID 或触控 ID（例如添加新的外貌或指纹）后会出现这种情况。"
+          }
+        }
+      }
+    },
+    "unusable.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The keys couldn't be deleted. Try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法删除密钥。请重试。"
+          }
+        }
+      }
+    },
+    "unusable.reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重置"
+          }
+        }
+      }
+    },
+    "unusable.resetting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resetting…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在重置…"
+          }
+        }
+      }
+    },
+    "unusable.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone's Keys No Longer Work"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 的密钥已失效"
+          }
+        }
+      }
+    },
+    "welcome.checking": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查…"
+          }
+        }
+      }
+    },
+    "welcome.continue": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续"
+          }
+        }
+      }
+    },
+    "welcome.failure.biometryDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Face ID is turned off for Ask Key. Turn it on in Settings → Ask Key, then try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨的面容 ID 权限已关闭。请在“设置”→“请旨”中打开，然后重试。"
+          }
+        }
+      }
+    },
+    "welcome.failure.cloudNotConfigured": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build of Ask Key isn't set up for iCloud, so it can't pair."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个版本的请旨没有配置 iCloud，因此不能配对。"
+          }
+        }
+      }
+    },
+    "welcome.failure.faceIDNotEnrolled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up Face ID in Settings first. Ask Key confirms every pairing with Face ID."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先在“设置”中设置面容 ID。请旨每次配对都要用面容 ID 确认。"
+          }
+        }
+      }
+    },
+    "welcome.failure.iCloudFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud didn't finish setting up Ask Key's inbox. Try again in a moment."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 没能完成请旨收件箱的设置。请稍后重试。"
+          }
+        }
+      }
+    },
+    "welcome.failure.iCloudRestricted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud is restricted on this iPhone, for example by Screen Time or a device management profile."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 的 iCloud 受到限制，例如被“屏幕使用时间”或设备管理描述文件限制。"
+          }
+        }
+      }
+    },
+    "welcome.failure.iCloudSignedOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to iCloud in Settings with the same Apple Account as your Mac, then try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在“设置”中用与 Mac 相同的 Apple 账户登录 iCloud，然后重试。"
+          }
+        }
+      }
+    },
+    "welcome.failure.iCloudUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud isn't available right now. Check your Apple Account in Settings, then try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 暂时不可用。请在“设置”中检查你的 Apple 账户，然后重试。"
+          }
+        }
+      }
+    },
+    "welcome.failure.keyCreationFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Secure Enclave didn't create the keys. Try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安全隔区没有生成密钥。请重试。"
+          }
+        }
+      }
+    },
+    "welcome.failure.keychainFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key couldn't read or save its keys on this iPhone. Try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨无法在这台 iPhone 上读取或保存密钥。请重试。"
+          }
+        }
+      }
+    },
+    "welcome.failure.networkUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key couldn't reach iCloud. Check the connection. If your iPhone asked about wireless data, allow WLAN & Cellular Data in Settings → Ask Key → Wireless Data, then try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨无法连接 iCloud。请检查网络。如果 iPhone 询问过无线数据权限，请在“设置”→“请旨”→“无线数据”中选择“无线局域网与蜂窝网络”，然后重试。"
+          }
+        }
+      }
+    },
+    "welcome.failure.noBiometry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone has neither Face ID nor Touch ID, so it can't confirm a pairing."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 没有面容 ID 或触控 ID，无法确认配对。"
+          }
+        }
+      }
+    },
+    "welcome.failure.noSecureEnclave": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone has no Secure Enclave, so it can't keep Ask Key's keys safe and can't pair."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 没有安全隔区，无法安全地保存请旨的密钥，因此不能配对。"
+          }
+        }
+      }
+    },
+    "welcome.failure.passcodeNotSet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a passcode and Face ID or Touch ID in Settings first."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先在“设置”中设置密码以及面容 ID 或触控 ID。"
+          }
+        }
+      }
+    },
+    "welcome.failure.touchIDNotEnrolled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up Touch ID in Settings first. Ask Key confirms every pairing with Touch ID."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先在“设置”中设置触控 ID。请旨每次配对都要用触控 ID 确认。"
+          }
+        }
+      }
+    },
+    "welcome.requirement.biometry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You confirm every pairing with Face ID or Touch ID. The passcode alone is not enough."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每次配对都要用面容 ID 或触控 ID 确认，只用密码不行。"
+          }
+        }
+      }
+    },
+    "welcome.requirement.icloud": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac and this iPhone exchange encrypted messages through iCloud, so both must use the same Apple Account."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 与这台 iPhone 通过 iCloud 交换加密消息，所以两台设备必须登录同一个 Apple 账户。"
+          }
+        }
+      }
+    },
+    "welcome.requirement.notifications": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key asks to send notifications, so you see when your Mac checks that it can reach this iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨会请求发送通知，这样 Mac 检查能否联系到这台 iPhone 时，你能看到提示。"
+          }
+        }
+      }
+    },
+    "welcome.requirement.secureEnclave": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone's keys are created in its Secure Enclave and never leave it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 的密钥在它的安全隔区中生成，永远不会离开它。"
+          }
+        }
+      }
+    },
+    "welcome.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key on this iPhone pairs with Ask Key on your Mac. First it checks that this iPhone can keep the pairing safe."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone 上的请旨会与 Mac 上的请旨配对。开始前，它会先检查这台 iPhone 能否安全地保存配对。"
+          }
+        }
+      }
+    },
+    "welcome.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair This iPhone with Your Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将这台 iPhone 与你的 Mac 配对"
+          }
+        }
+      }
+    },
+    "welcome.tryAgain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        }
+      }
+    },
+    "welcome.wirelessData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some iPhones ask whether Ask Key may use wireless data the first time it goes online. Choose WLAN & Cellular Data, or Ask Key can't reach iCloud."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "部分 iPhone 会在请旨首次联网时询问是否允许使用无线数据。请选择“无线局域网与蜂窝网络”，否则请旨无法连接 iCloud。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -173,6 +173,23 @@ Before building, [cloudkit-signing.py](../scripts/cloudkit-signing.py) copies th
 
 When the App carries `Contents/embedded.provisionprofile`, `package-release.sh` checks the staged copy before notarizing, also with `--no-notarize`: `ASKKEY_APPLE_TEAM_ID` is then required, the profile must still pass the checks above for the App's leaf certificate and be the one the signature sealed, the Info.plist must declare the container, and the signed entitlements must be exactly the set above. The DMG keeps the profile.
 
+## iPhone app
+
+The pairing-only iPhone app (#289, ADR 0013 → iPhone app) lives in `iOS/`. [build-ios.sh](../scripts/build-ios.sh) generates `iOS/AskKeyiOS.xcodeproj` from `iOS/project.yml` with XcodeGen (the project is never committed), checks that both String Catalogs have English and Simplified Chinese with matching placeholders and that every key the kit uses exists, and keeps its build output in `.build/ios`. It needs XcodeGen, an iOS Simulator runtime and at least 80 GiB free:
+
+```bash
+bash scripts/build-ios.sh build
+bash scripts/build-ios.sh test
+```
+
+| Mode | Coverage and limits |
+| --- | --- |
+| `build` | Builds the app target `AskKeyiOS` for the iOS Simulator, unsigned. The build has no CloudKit container in its Info.plist, so it never creates one. |
+| `test` | Runs `AskKeyiOSKitTests` on the newest available iPhone simulator, without an app host, and writes the rendered screens to `.build/ios/screens` (each screen state in English and Simplified Chinese). The tests drive the real `DeviceMessenger` with software keys, an in-memory keychain and an in-memory account; the Mac side is a second messenger. They do not run the Secure Enclave, Face ID, the keychain, CloudKit or push. |
+| `export` | The maintainer's Ad Hoc build for #290: `ASKKEY_APPLE_TEAM_ID=<team> bash scripts/build-ios.sh export` archives with automatic signing for that team (`-allowProvisioningUpdates`), puts `CloudKitContainerIdentifier` in the Info.plist, exports with the Production CloudKit environment, and reads back the signed entitlements (application identifier, team, `aps-environment = production`, the container and CloudKit service, the keychain access group) and the Info.plist. Agents do not run it. |
+
+The CI job `ios-app` runs `build` and `test` on `macos-latest` and uploads the screens as the `askkey-ios-screens` artifact; `release-gate.py` does not require it, but a PR that changes the app needs it green and the maintainer reviews the English and Chinese screens before merge. Do not launch the app in a simulator on the maintainer's Mac. Signing, the Secure Enclave, Face ID, the keychain access group, CloudKit and push are verified on a real iPhone in #290.
+
 ## Pre-release checks on the maintainer's Mac
 
 CI cannot check focus, Touch ID or real clients. Before notarizing, review the release diff for these behaviors, then install the signed `Release` build at `/Applications/Ask Key.app` and walk through this list once with the maintainer. The planner triggers agent requests itself (for example `askkey run --wait-for-approval` with a harmless command that prints no values, or a Codex session), one request at a time with explicit instructions; delay requests that coincide with screen lock so the maintainer never waits at the lock screen. The maintainer only touches the sensor, clicks decisions and reports what they see. Notarize the same build afterwards; its signature hash must match the one tested. Device checks remain `NOT_VERIFIED` until performed; passing synthetic tests or CI is not device verification.
