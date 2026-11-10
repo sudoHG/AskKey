@@ -59,6 +59,8 @@ final class CodeEntryTests: XCTestCase {
         }
         XCTAssertEqual(remaining, [2, 1, 0])
         await XCTAssertEqualAsync(await mac.phase()?.endReason, .codeMismatch)
+        let endedPhase = await mac.phase()
+        XCTAssertFalse(Self.contains(code, in: endedPhase as Any), "the ended session shows no code")
         XCTAssertNotNil(harness.transport.lastSent(.pairingCancellation, from: mac.id), "a signed cancellation")
         XCTAssertTrue(mac.identity.approvalReasons.isEmpty)
         do {
@@ -96,12 +98,13 @@ final class CodeEntryTests: XCTestCase {
 
     func testSpacesInTheTypedCodeAreIgnored() async throws {
         let digits = "012345"
-        for text in ["012 345", " 012345 ", "0 1 2 3 4 5", "012\t345", "012\u{00A0}345"] {
+        for text in ["012 345", " 012345 ", "0 1 2 3 4 5", "012\u{00A0}345", "012\u{202F}345", "012\u{3000}345"] {
             let entered = try XCTUnwrap(EnteredPairingCode(text), text.debugDescription)
-            XCTAssertTrue(ComparisonCode(value: 12345).matches(entered), text.debugDescription)
+            XCTAssertTrue(PairingCode(value: 12345).matches(entered), text.debugDescription)
         }
-        XCTAssertFalse(ComparisonCode(value: 12346).matches(try XCTUnwrap(EnteredPairingCode(digits))))
-        XCTAssertFalse(ComparisonCode(value: 12345).matches(try XCTUnwrap(EnteredPairingCode("12345 0"))))
+        XCTAssertNil(EnteredPairingCode("012\t345"), "a tab is not a space")
+        XCTAssertFalse(PairingCode(value: 12346).matches(try XCTUnwrap(EnteredPairingCode(digits))))
+        XCTAssertFalse(PairingCode(value: 12345).matches(try XCTUnwrap(EnteredPairingCode("12345 0"))))
 
         let (_, mac, phone) = try await startedSession()
         let code = try await XCTUnwrapAsync(await phone.code())
@@ -136,11 +139,11 @@ final class CodeEntryTests: XCTestCase {
         XCTAssertEqual(macPhases.compactMap { $0.map(Self.caseName) },
                        ["showingQRCode", "enteringCode", "enteringCode", "waitingForPeer", "paired"])
         for phase in macPhases {
-            XCTAssertFalse(Self.containsCode(phase as Any), "\(String(describing: phase)) carries no code")
+            XCTAssertFalse(Self.contains(code, in: phase as Any), "\(String(describing: phase)) carries no code")
         }
         let phonePhase = await phone.phase()
         guard case .paired = phonePhase else { return XCTFail("the phone paired") }
-        XCTAssertFalse(Self.containsCode(phonePhase as Any), "the paired phone no longer shows it")
+        XCTAssertFalse(Self.contains(code, in: phonePhase as Any), "the paired phone no longer shows it")
     }
 
     func testThePhoneConfirmsWithoutACodeAndEachSideKeepsItsOwnCall() async throws {
@@ -182,6 +185,7 @@ final class CodeEntryTests: XCTestCase {
         guard case .enteringCode(_, attemptsRemaining: 3) = await mac.phase() else {
             return XCTFail("a cancelled prompt is not a wrong code")
         }
+        await XCTAssertFalseAsync(await mac.messenger.testingCanSign(), "the next signature needs the code again")
         mac.identity.approvalBehavior = .sign
         try await mac.messenger.confirmPairing(enteredCode: code.digits, approvalReason: "Pair")
         XCTAssertEqual(mac.identity.approvalReasons.count, 2)
@@ -271,6 +275,39 @@ final class CodeEntryTests: XCTestCase {
         guard case .waitingForPeer = await mac.pairingPhase else { return XCTFail("the new session still confirms") }
     }
 
+    func testConfirmationsWhileAnApprovalPromptIsOpenAreRefusedWithoutCounting() async throws {
+        let (_, mac, phone) = try await startedSession()
+        let code = try await XCTUnwrapAsync(await phone.code())
+        for device in [mac, phone] {
+            // Only the first prompt waits, so a second prompt fails the test instead of hanging it.
+            let gate = DispatchSemaphore(value: 0)
+            let firstPrompt = OnceFlag()
+            device.identity.duringApprovalPrompt = { if firstPrompt.claim() { gate.wait() } }
+            let first = Task { try await device.confirm(typing: code) }
+            for _ in 0..<10_000 where device.identity.approvalReasons.isEmpty { await Task.yield() }
+            XCTAssertEqual(device.identity.approvalReasons.count, 1, "the first prompt is open")
+            var texts = [code.digits]
+            if device === mac { texts.append(Self.wrong(code)) }
+            for text in texts {
+                do {
+                    if device === mac {
+                        try await mac.messenger.confirmPairing(enteredCode: text, approvalReason: "Pair")
+                    } else {
+                        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+                    }
+                    XCTFail("the first prompt is still open")
+                } catch DeviceMessengerError.confirmationInProgress {}
+            }
+            gate.signal()
+            try await first.value
+            device.identity.duringApprovalPrompt = nil
+            XCTAssertEqual(device.identity.approvalReasons.count, 1, "one prompt for one confirmation")
+        }
+        try await mac.poll()
+        try await phone.poll()
+        try await assertPaired(mac, phone)
+    }
+
     // MARK: Helpers
 
     /// A Mac asking for the code and a phone showing it.
@@ -293,17 +330,35 @@ final class CodeEntryTests: XCTestCase {
         await XCTAssertEqualAsync(try await phone.entry(for: mac)?.pairingID, macPairing, file: file, line: line)
     }
 
-    private static func wrong(_ code: ComparisonCode) -> String {
-        ComparisonCode(value: (code.value + 1) % 1_000_000).digits
+    private static func wrong(_ code: PairingCode) -> String {
+        PairingCode(value: (code.value + 1) % 1_000_000).digits
     }
 
     private static func caseName(_ phase: PairingPhase) -> String {
         String(String(describing: phase).prefix { $0 != "(" })
     }
 
-    private static func containsCode(_ value: Any) -> Bool {
-        if value is ComparisonCode { return true }
-        return Mirror(reflecting: value).children.contains { containsCode($0.value) }
+    /// Whether `value` carries the code in any form: the type, its digits,
+    /// its formatted text or its number.
+    private static func contains(_ code: PairingCode, in value: Any) -> Bool {
+        if value is PairingCode { return true }
+        if let text = value as? String, text.contains(code.digits) || text.contains(code.formatted) { return true }
+        if let number = value as? UInt32, number == code.value { return true }
+        if let number = value as? Int, number == Int(code.value) { return true }
+        return Mirror(reflecting: value).children.contains { contains(code, in: $0.value) }
+    }
+}
+
+private final class OnceFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var claimed = false
+
+    /// True for the first caller only.
+    func claim() -> Bool {
+        lock.withLock {
+            defer { claimed = true }
+            return !claimed
+        }
     }
 }
 

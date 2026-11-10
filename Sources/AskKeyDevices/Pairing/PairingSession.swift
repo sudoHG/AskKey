@@ -30,8 +30,7 @@ enum PairingOutcome {
 /// the code and the person types it on the initiator, which never exposes
 /// it. The initiator checks the typed code before it lets the approval key
 /// sign; a wrong code counts as an attempt, and the third ends the session.
-/// The responder confirms without typing. This choice lives only in this
-/// type and in the messenger's two confirmation calls.
+/// The responder confirms without typing.
 struct PairingSession {
     static let qrLifetime: TimeInterval = 5 * 60
     /// A session ends 5 minutes after the QR expiry, so at most 10 minutes.
@@ -62,13 +61,17 @@ struct PairingSession {
     private(set) var peer: Peer?
     private(set) var transcriptHash: Data?
     /// Never shown on the initiator; there it only checks the typed code.
-    private(set) var code: ComparisonCode?
+    private(set) var code: PairingCode?
     private(set) var pairingID: PairingID?
     /// Initiator: wrong codes typed in this session.
     private var wrongCodeAttempts = 0
-    /// Initiator: the person typed the matching code, so the approval key
-    /// may sign. Never set on the responder.
+    /// Initiator: the code typed for the confirmation in progress matched.
+    /// Cleared when that confirmation fails, so each signature needs its
+    /// own matching code. Never set on the responder.
     private var codeVerified = false
+    /// An approval prompt for this side's confirmation is open; further
+    /// confirmations are refused until it ends, without counting.
+    private(set) var confirmationPending = false
     private(set) var localConfirmed = false
     private(set) var peerConfirmed = false
     private(set) var added = false
@@ -297,6 +300,7 @@ struct PairingSession {
     /// and the third ends the session with a cancellation to the peer.
     mutating func checkEnteredCode(_ entered: EnteredPairingCode, now: Date) throws -> CodeCheck {
         guard role == .initiator else { throw DeviceMessengerError.wrongRole }
+        guard !confirmationPending else { throw DeviceMessengerError.confirmationInProgress }
         guard awaitsConfirmation, let code else { throw DeviceMessengerError.notAwaitingConfirmation }
         guard isOpen(at: now) else { throw DeviceMessengerError.sessionEnded }
         if code.matches(entered) {
@@ -315,6 +319,21 @@ struct PairingSession {
         return PairingConfirmationPayload.signedBytes(role: role, signer: ownCard.deviceID, transcriptHash: transcriptHash)
     }
 
+    /// Starts this side's confirmation: returns the bytes to sign and
+    /// refuses further confirmations until it is confirmed or abandoned.
+    mutating func beginConfirmation() -> Data? {
+        guard !confirmationPending, let bytes = confirmationBytes else { return nil }
+        confirmationPending = true
+        return bytes
+    }
+
+    /// The approval prompt failed or the session moved on: the next
+    /// confirmation starts over, and an initiator needs the code again.
+    mutating func abandonConfirmation() {
+        confirmationPending = false
+        codeVerified = false
+    }
+
     /// The person confirmed; `signature` is the approval key's signature
     /// over `confirmationBytes`.
     mutating func confirm(approvalSignature: Data, now: Date) throws -> [PairingEffect] {
@@ -323,6 +342,7 @@ struct PairingSession {
         }
         guard isOpen(at: now) else { throw DeviceMessengerError.sessionEnded }
         localConfirmed = true
+        confirmationPending = false
         let payload = PairingConfirmationPayload.encode(role: role, signer: ownCard.deviceID,
                                                         transcriptHash: transcriptHash, signature: approvalSignature)
         var effects: [PairingEffect] = []

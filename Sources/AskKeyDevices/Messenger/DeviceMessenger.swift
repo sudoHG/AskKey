@@ -2,9 +2,12 @@ import CryptoKit
 import Foundation
 
 public enum DeviceMessengerError: Error, Equatable, Sendable {
-    /// No pairing session waits for this side's confirmation: none is open,
-    /// no verified challenge has arrived, or this side already confirmed.
+    /// No pairing session waits for this side's confirmation: none is open
+    /// or it ended, it has no code yet (the initiator froze no request, or
+    /// the responder has no verified challenge), or this side already confirmed.
     case notAwaitingConfirmation
+    /// This side's approval prompt is still open; the call counts nothing.
+    case confirmationInProgress
     /// The call belongs to the other role: the initiator confirms with the
     /// code the responder shows, the responder without typing one.
     case wrongRole
@@ -165,13 +168,23 @@ public actor DeviceMessenger {
         guard generation == sessionGeneration else { throw DeviceMessengerError.sessionEnded }
         guard let current = session else { throw DeviceMessengerError.notAwaitingConfirmation }
         guard current.role == role else { throw DeviceMessengerError.wrongRole }
+        guard !current.confirmationPending else { throw DeviceMessengerError.confirmationInProgress }
         guard current.awaitsConfirmation else { throw DeviceMessengerError.notAwaitingConfirmation }
         return generation
     }
 
     private func signAndConfirm(approvalReason: String, generation: Int) async throws {
         guard generation == sessionGeneration else { throw DeviceMessengerError.sessionEnded }
-        guard let bytes = session?.confirmationBytes else { throw DeviceMessengerError.notAwaitingConfirmation }
+        guard let bytes = session?.beginConfirmation() else { throw DeviceMessengerError.notAwaitingConfirmation }
+        do {
+            try await sign(bytes, approvalReason: approvalReason, generation: generation)
+        } catch {
+            if generation == sessionGeneration { session?.abandonConfirmation() }
+            throw error
+        }
+    }
+
+    private func sign(_ bytes: Data, approvalReason: String, generation: Int) async throws {
         let signature: Data
         do {
             signature = try await identity.signWithApprovalKey(bytes, reason: approvalReason)

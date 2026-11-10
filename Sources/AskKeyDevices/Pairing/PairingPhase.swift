@@ -17,7 +17,7 @@ public enum PairingPhase: Hashable, Sendable {
     /// ask the person to confirm on this device. `confirmed` tells whether
     /// this side has confirmed; the code stays on screen until the session
     /// ends or the peer is added, because the Mac may still need it.
-    case showingCode(ComparisonCode, peer: PairingPeer, confirmed: Bool)
+    case showingCode(PairingCode, peer: PairingPeer, confirmed: Bool)
     /// Both confirmations are held and the peer is on the list.
     case paired(peer: PairingPeer, pairingID: PairingID)
     case ended(PairingEndReason)

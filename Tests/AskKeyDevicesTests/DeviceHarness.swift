@@ -18,7 +18,7 @@ final class DeviceHarness {
     /// Mac and confirms on both devices. Returns the code the phone showed.
     @discardableResult
     func pair(_ mac: SimulatedDevice, _ phone: SimulatedDevice, file: StaticString = #filePath,
-              line: UInt = #line) async throws -> ComparisonCode {
+              line: UInt = #line) async throws -> PairingCode {
         let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         _ = try await mac.messenger.poll()
@@ -78,7 +78,7 @@ final class SimulatedDevice {
     }
 
     /// The code this device shows; only a responder shows one.
-    func code() async -> ComparisonCode? {
+    func code() async -> PairingCode? {
         if case .showingCode(let code, _, _) = await phase() { return code }
         return nil
     }
@@ -86,13 +86,13 @@ final class SimulatedDevice {
     /// The code this device derived, read from inside the module. Tests use
     /// it where the person would read the code off the other device before
     /// the test delivered it there.
-    func derivedCode() async -> ComparisonCode? {
+    func derivedCode() async -> PairingCode? {
         await messenger.testingSessionCode()
     }
 
     /// Confirms as the person would: an initiator types `code` (by default
     /// the code it derived), a responder confirms without typing.
-    func confirm(typing code: ComparisonCode? = nil) async throws {
+    func confirm(typing code: PairingCode? = nil) async throws {
         guard await messenger.testingSessionRole() == .initiator else {
             return try await messenger.confirmPairing(approvalReason: "Pair")
         }
@@ -119,8 +119,9 @@ final class SimulatedDevice {
 }
 
 extension DeviceMessenger {
-    func testingSessionCode() -> ComparisonCode? { session?.code }
+    func testingSessionCode() -> PairingCode? { session?.code }
     func testingSessionRole() -> PairingRole? { session?.role }
+    func testingCanSign() -> Bool { session?.confirmationBytes != nil }
 }
 
 extension PairingPhase {

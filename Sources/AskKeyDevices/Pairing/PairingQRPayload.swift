@@ -121,11 +121,11 @@ public enum PairingDerivation {
     /// The first 4 bytes of HKDF-SHA256 over the pairing secret, with the
     /// transcript hash as salt and `AskKey comparison code v1\0` as info,
     /// read as a big-endian integer modulo 1,000,000.
-    public static func comparisonCode(secret: Data, transcriptHash: Data) -> ComparisonCode {
+    public static func comparisonCode(secret: Data, transcriptHash: Data) -> PairingCode {
         let key = HKDF<SHA256>.deriveKey(inputKeyMaterial: SymmetricKey(data: secret), salt: transcriptHash,
                                          info: DomainLabel.comparisonCode, outputByteCount: 4)
         let value = key.withUnsafeBytes { $0.reduce(UInt32(0)) { $0 << 8 | UInt32($1) } }
-        return ComparisonCode(value: value % 1_000_000)
+        return PairingCode(value: value % 1_000_000)
     }
 
     /// The first 16 bytes of SHA-256 over `AskKey pairing id v1\0` and the

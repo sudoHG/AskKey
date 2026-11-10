@@ -3,7 +3,7 @@ import Foundation
 /// The six-digit pairing code of ADR 0013 → Pairing, step 4. Only the
 /// responder shows it, as `123 456`; the initiator never exposes it and
 /// only checks the code the person types against it.
-public struct ComparisonCode: Hashable, Sendable, CustomStringConvertible {
+public struct PairingCode: Hashable, Sendable, CustomStringConvertible {
     /// 0 ..< 1,000,000.
     public let value: UInt32
 
@@ -37,13 +37,15 @@ public struct ComparisonCode: Hashable, Sendable, CustomStringConvertible {
 }
 
 /// The code a person typed on the initiator: exactly six ASCII digits once
-/// spaces are removed. Anything else is refused before it is compared, so
-/// it does not count as an attempt.
+/// spaces are removed. Spaces are the Unicode space separators, such as
+/// U+0020, U+00A0 and the ideographic space U+3000 that a Chinese input
+/// method types; tabs and line breaks are not spaces. Anything else is
+/// refused before it is compared, so it does not count as an attempt.
 struct EnteredPairingCode {
     let asciiDigits: [UInt8]
 
     init?(_ text: String) {
-        let scalars = text.unicodeScalars.filter { !CharacterSet.whitespaces.contains($0) }
+        let scalars = text.unicodeScalars.filter { $0.properties.generalCategory != .spaceSeparator }
         guard scalars.count == 6, scalars.allSatisfy({ (0x30...0x39).contains($0.value) }) else {
             return nil
         }

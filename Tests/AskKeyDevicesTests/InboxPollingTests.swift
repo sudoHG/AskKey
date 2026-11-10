@@ -58,7 +58,7 @@ final class InboxPollingTests: XCTestCase {
         let later = try await phone.poll()
         XCTAssertEqual(later.processed, 2)
         guard case .showingCode = await phone.phase() else {
-            return XCTFail("the held confirmation counts once the challenge arrives; the phone still compares")
+            return XCTFail("the held confirmation counts once the challenge arrives; the phone still shows the code")
         }
         try await phone.confirm()
         guard case .paired = await phone.phase() else { return XCTFail("both confirmations are held") }
