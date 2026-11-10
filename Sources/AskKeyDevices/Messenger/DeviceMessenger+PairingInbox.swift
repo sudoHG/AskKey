@@ -1,10 +1,10 @@
 import Foundation
 
 extension DeviceMessenger {
-    /// Kinds 1–5 belong to a session, which verifies the sender. Requests,
-    /// challenges and confirmations go to the current session; cancellations
-    /// and withdrawals go to the session they name, which may be a retired
-    /// one that can still undo its result.
+    /// Kinds 1–5 and 9 belong to a session, which verifies the sender.
+    /// Requests, challenges, reveals and confirmations go to the current
+    /// session; cancellations and withdrawals go to the session they name,
+    /// which may be a retired one that can still undo its result.
     func handlePairingMessage(_ inner: InnerMessage, recordName: String, pskSession: PairingSessionID?,
                               now: Date) async throws -> Outcome {
         let list = try await registry.list()

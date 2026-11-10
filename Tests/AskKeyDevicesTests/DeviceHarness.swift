@@ -23,6 +23,7 @@ final class DeviceHarness {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         _ = try await mac.messenger.poll()
         _ = try await phone.messenger.poll()
+        _ = try await mac.messenger.poll()
         let macPhase = await mac.phase()
         guard case .enteringCode = macPhase else {
             XCTFail("the Mac asks for the code, not \(String(describing: macPhase))", file: file, line: line)
@@ -103,6 +104,16 @@ final class SimulatedDevice {
         try await messenger.confirmPairing(approvalReason: "Pair")
     }
 
+    /// The initiator's frozen responder, once it sent its challenge.
+    func frozenPeer() async -> PairingPeer? {
+        switch await phase() {
+        case .waitingForResponder(let peer), .enteringCode(let peer, _), .codeAccepted(let peer), .waitingForPeer(let peer):
+            return peer
+        default:
+            return nil
+        }
+    }
+
     func pairingID() async -> PairingID? {
         if case .paired(_, let pairingID) = await phase() { return pairingID }
         return nil
@@ -124,6 +135,7 @@ extension DeviceMessenger {
     func testingSessionCode() -> PairingCode? { session?.code }
     func testingSessionRole() -> PairingRole? { session?.role }
     func testingCodeAccepted() -> Bool { session?.codeAccepted == true }
+    func testingQueue(_ envelope: DeviceEnvelope) { session?.outbox.append(envelope) }
 }
 
 extension PairingPhase {

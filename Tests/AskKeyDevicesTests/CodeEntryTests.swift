@@ -135,6 +135,8 @@ final class CodeEntryTests: XCTestCase {
         try await mac.poll()
         macPhases.append(await mac.phase())
         try await phone.poll()
+        try await mac.poll()
+        macPhases.append(await mac.phase())
         let code = try await XCTUnwrapAsync(await phone.code())
         let showing = await phone.phase()
         do {
@@ -152,7 +154,8 @@ final class CodeEntryTests: XCTestCase {
         macPhases.append(await mac.phase())
 
         XCTAssertEqual(macPhases.compactMap { $0.map(Self.caseName) },
-                       ["showingQRCode", "enteringCode", "enteringCode", "codeAccepted", "waitingForPeer", "paired"])
+                       ["showingQRCode", "waitingForResponder", "enteringCode", "enteringCode", "codeAccepted",
+                        "waitingForPeer", "paired"])
         for phase in macPhases {
             XCTAssertFalse(Self.contains(code, in: phase as Any), "\(String(describing: phase)) carries no code")
         }
@@ -258,6 +261,7 @@ final class CodeEntryTests: XCTestCase {
         } catch DeviceMessengerError.notAwaitingConfirmation {}
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         let code = try await XCTUnwrapAsync(await phone.code())
         try await mac.messenger.enterPairingCode(code.digits)
         harness.clock.advance(by: 10 * 60)
@@ -308,13 +312,19 @@ final class CodeEntryTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         harness.transport.failNextSends(with: [.networkUnavailable, .networkUnavailable])
         try await mac.poll()
-        guard case .enteringCode = await mac.phase() else { return XCTFail("frozen; the challenge waits in the outbox") }
+        guard case .waitingForResponder = await mac.phase() else {
+            return XCTFail("frozen; the challenge waits in the outbox")
+        }
         let attempts = harness.transport.sentEnvelopes.count
         do {
             try await mac.messenger.enterPairingCode("12a456")
             XCTFail("not six ASCII digits")
         } catch DeviceMessengerError.invalidCodeFormat {}
         XCTAssertEqual(harness.transport.sentEnvelopes.count, attempts, "refused before the queued challenge is resent")
+        harness.clock.advance(by: 5)
+        try await mac.poll()
+        try await phone.poll()
+        try await mac.poll()
         guard case .enteringCode(_, attemptsRemaining: 3) = await mac.phase() else { return XCTFail("not counted") }
     }
 
@@ -327,10 +337,15 @@ final class CodeEntryTests: XCTestCase {
         let phone = harness.makeDevice(.iOS)
         let first = try await mac.startPairing(displayName: "Studio Mac")
         try await phone.messenger.joinPairing(scannedText: first.text, displayName: "Pocket Phone")
-        harness.transport.failNextSends(with: [.networkUnavailable, .networkUnavailable])
         _ = try await mac.poll()
-        let firstCode = try await XCTUnwrapAsync(await mac.testingSessionCode())
-        // The person enters the code; the timers resend the queued challenge first, and that send stalls.
+        try await phone.poll()
+        _ = try await mac.poll()
+        let firstCode = try await XCTUnwrapAsync(await phone.code())
+        // A message still waits in the outbox; the person enters the code, the timers send that
+        // message first, and the send stalls.
+        var queued = try XCTUnwrap(harness.transport.lastSent(.pairingChallenge, from: mac.deviceID))
+        queued.recordName = MessageID.random().text
+        await mac.testingQueue(queued)
         transport.holdNextSend()
         let typing = Task { try await mac.enterPairingCode(firstCode.digits) }
         for _ in 0..<10_000 where !transport.isHolding { await Task.yield() }
@@ -339,6 +354,8 @@ final class CodeEntryTests: XCTestCase {
         let second = try await mac.startPairing(displayName: "Studio Mac")
         let tablet = harness.makeDevice(.iOS)
         try await tablet.messenger.joinPairing(scannedText: second.text, displayName: "Tablet")
+        _ = try await mac.poll()
+        try await tablet.poll()
         _ = try await mac.poll()
         guard case .enteringCode(_, attemptsRemaining: 3) = await mac.pairingPhase else {
             return XCTFail("the new session asks for its own code")
@@ -351,7 +368,6 @@ final class CodeEntryTests: XCTestCase {
         guard case .enteringCode(_, attemptsRemaining: 3) = await mac.pairingPhase else {
             return XCTFail("the replaced session's code counts nothing in the new one")
         }
-        try await tablet.poll()
         let secondCode = try await XCTUnwrapAsync(await tablet.code())
         try await mac.enterPairingCode(secondCode.digits)
         try await mac.confirmPairing(approvalReason: "Pair")
@@ -393,7 +409,8 @@ final class CodeEntryTests: XCTestCase {
 
     // MARK: Helpers
 
-    /// A Mac asking for the code and a phone showing it.
+    /// A Mac asking for the code and a phone showing it: request,
+    /// challenge, reveal.
     private func startedSession() async throws -> (DeviceHarness, SimulatedDevice, SimulatedDevice) {
         let harness = DeviceHarness()
         let mac = harness.makeDevice(.macOS)
@@ -402,6 +419,7 @@ final class CodeEntryTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         return (harness, mac, phone)
     }
 

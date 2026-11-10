@@ -106,15 +106,26 @@ public enum PairingDerivation {
                                info: DomainLabel.pairingPreSharedKey, outputByteCount: 32)
     }
 
+    /// The responder's commitment: SHA-256 over
+    /// `AskKey pairing commitment v1\0`, the session ID and the 32-byte
+    /// secret it reveals after the challenge.
+    public static func commitment(sessionID: PairingSessionID, secret: Data) -> Data {
+        Data(SHA256.hash(data: DomainLabel.pairingCommitment + sessionID.rawValue + secret))
+    }
+
     /// SHA-256 over `AskKey pairing transcript v1\0`, the binary QR payload,
-    /// the responder's card, the initiator's card and the nonce.
-    public static func transcriptHash(qrPayload: Data, responderCard: Data, initiatorCard: Data, nonce: Data) -> Data {
+    /// the responder's card, its commitment, the initiator's card, the nonce
+    /// and the revealed secret.
+    public static func transcriptHash(qrPayload: Data, responderCard: Data, commitment: Data, initiatorCard: Data,
+                                      nonce: Data, revealedSecret: Data) -> Data {
         var hash = SHA256()
         hash.update(data: DomainLabel.pairingTranscript)
         hash.update(data: qrPayload)
         hash.update(data: responderCard)
+        hash.update(data: commitment)
         hash.update(data: initiatorCard)
         hash.update(data: nonce)
+        hash.update(data: revealedSecret)
         return Data(hash.finalize())
     }
 

@@ -99,6 +99,7 @@ enum DomainLabel {
     static let message = label("AskKey message v1")
     static let hpkeInfo = label("AskKey HPKE v1")
     static let pairingPreSharedKey = label("AskKey pairing psk v1")
+    static let pairingCommitment = label("AskKey pairing commitment v1")
     static let pairingTranscript = label("AskKey pairing transcript v1")
     static let comparisonCode = label("AskKey comparison code v1")
     static let pairingConfirmation = label("AskKey pairing confirmation v1")

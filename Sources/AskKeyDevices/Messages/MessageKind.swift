@@ -18,6 +18,7 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
     case unpairNotice = 6
     case deliveryCheck = 7
     case deliveryCheckReply = 8
+    case pairingReveal = 9
 
     /// Pairing messages live at most as long as a session.
     public static let pairingLifetime: TimeInterval = 10 * 60
@@ -34,11 +35,21 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
         self == .pairingRequest || self == .pairingWithdrawal
     }
 
-    public var isPairing: Bool { rawValue <= MessageKind.pairingWithdrawal.rawValue }
+    /// Kinds 1–5 and 9, which belong to a pairing session.
+    public var isPairing: Bool {
+        switch self {
+        case .pairingRequest, .pairingChallenge, .pairingConfirmation, .pairingCancellation, .pairingWithdrawal,
+             .pairingReveal:
+            return true
+        case .unpairNotice, .deliveryCheck, .deliveryCheckReply:
+            return false
+        }
+    }
 
     public var maximumLifetime: TimeInterval {
         switch self {
-        case .pairingRequest, .pairingChallenge, .pairingConfirmation, .pairingCancellation, .pairingWithdrawal:
+        case .pairingRequest, .pairingChallenge, .pairingConfirmation, .pairingCancellation, .pairingWithdrawal,
+             .pairingReveal:
             return Self.pairingLifetime
         case .deliveryCheck, .deliveryCheckReply:
             return Self.deliveryCheckLifetime

@@ -32,13 +32,25 @@ final class PayloadLayoutTests: XCTestCase {
         XCTAssertThrowsError(try PairingConfirmationPayload(decoding: confirmation.dropLast()))
         XCTAssertThrowsError(try PairingConfirmationPayload(decoding: Data([3]) + confirmation.dropFirst()))
         XCTAssertThrowsError(try PairingIDPayload(decoding: Data(0x10...0x1F) + [0]))
+
+        let reveal = PairingRevealPayload(sessionID: sessionID, challengeDigest: Data(repeating: 0x66, count: 32),
+                                          secret: Data(repeating: 0x77, count: 32)).encoded
+        XCTAssertEqual(reveal.hex, "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf" + String(repeating: "66", count: 32)
+                       + String(repeating: "77", count: 32))
+        let decodedReveal = try PairingRevealPayload(decoding: reveal)
+        XCTAssertEqual(decodedReveal.secret, Data(repeating: 0x77, count: 32))
+        XCTAssertThrowsError(try PairingRevealPayload(decoding: reveal.dropLast()))
+        XCTAssertThrowsError(try PairingRevealPayload(decoding: reveal + [0]))
     }
 
     func testCardBearingPayloadLayouts() throws {
         let card = try DeviceCard.make(identity: SoftwareDeviceIdentity(), platform: .iOS,
                                        createdAt: Date(timeIntervalSince1970: 1_800_000_000))
-        let request = PairingRequestPayload(sessionID: sessionID, card: card, displayName: "Phone").encoded
-        XCTAssertEqual(request, sessionID.rawValue + card.bytes + Data([0, 0, 0, 5]) + Data("Phone".utf8))
+        let commitment = Data(repeating: 0x88, count: 32)
+        let request = PairingRequestPayload(sessionID: sessionID, card: card, commitment: commitment,
+                                            displayName: "Phone").encoded
+        XCTAssertEqual(request, sessionID.rawValue + card.bytes + commitment + Data([0, 0, 0, 5]) + Data("Phone".utf8))
+        XCTAssertEqual(try PairingRequestPayload(decoding: request).commitment, commitment)
         let nonce = Data(repeating: 0x66, count: 32)
         let digest = Data(repeating: 0x77, count: 32)
         let challenge = PairingChallengePayload(sessionID: sessionID, requestDigest: digest, card: card, nonce: nonce,
@@ -56,7 +68,8 @@ final class PayloadLayoutTests: XCTestCase {
             XCTAssertEqual($0 as? DeviceMessageRefusal, .badSignature)
         }
         XCTAssertThrowsError(try PairingRequestPayload(decoding: request + [0]))
-        XCTAssertThrowsError(try PairingRequestPayload(decoding: sessionID.rawValue + card.bytes + Data([0, 0, 0, 2, 0xC3, 0x28]))) {
+        XCTAssertThrowsError(try PairingRequestPayload(decoding: sessionID.rawValue + card.bytes + commitment
+                                                       + Data([0, 0, 0, 2, 0xC3, 0x28]))) {
             XCTAssertEqual($0 as? DeviceMessageRefusal, .malformed, "not UTF-8")
         }
     }

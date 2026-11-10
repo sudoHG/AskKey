@@ -49,6 +49,7 @@ final class ReviewFixTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         try await mac.confirm()
         try await phone.poll()
         // The Face ID prompt stays up past the session's expiry.
@@ -85,6 +86,7 @@ final class ReviewFixTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         harness.transport.delaying(.pairingConfirmation, from: mac.id)
         try await mac.confirm()
         try await phone.confirm()
@@ -103,6 +105,7 @@ final class ReviewFixTests: XCTestCase {
         try await tablet.messenger.joinPairing(scannedText: tabletQR.text, displayName: "Tablet")
         try await mac.poll()
         try await tablet.poll()
+        try await mac.poll()
         try await mac.confirm()
         try await tablet.confirm()
         try await mac.poll()
@@ -141,20 +144,21 @@ final class ReviewFixTests: XCTestCase {
         let phone = harness.makeDevice(.iOS)
         let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
-        harness.transport.delaying(.pairingChallenge)
+        harness.transport.delaying(.pairingReveal)
         try await mac.poll()
-        try await mac.confirm()
+        try await phone.poll()
+        try await phone.confirm()
         harness.transport.releaseDelayed()
-        // The confirmation is on the first page and the challenge on the second.
+        // The phone's confirmation is on the first page and its reveal on the second.
         harness.transport.pageSize = 1
-        let report = try await phone.poll()
+        let report = try await mac.poll()
         XCTAssertEqual(report.processed, 2)
         XCTAssertEqual(report.held, 0)
-        guard case .showingCode = await phone.phase() else { return XCTFail("the challenge arrived on page two") }
-        try await phone.confirm()
-        guard case .paired = await phone.phase() else { return XCTFail("the held confirmation counted") }
+        guard case .enteringCode = await mac.phase() else { return XCTFail("the reveal arrived on page two") }
+        try await mac.confirm()
+        guard case .paired = await mac.phase() else { return XCTFail("the held confirmation counted") }
 
-        try await mac.poll()
+        try await phone.poll()
         let token = await phone.messenger.inboxToken
         try await mac.messenger.sendDeliveryCheck(to: phone.id)
         let check = try XCTUnwrap(harness.transport.lastSent(.deliveryCheck, from: mac.id))
@@ -222,7 +226,8 @@ final class ReviewFixTests: XCTestCase {
         let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
         let phoneCard = try DeviceCard.make(identity: phone.identity, platform: .iOS, createdAt: harness.clock.now())
         // The phone's card in a request the attacker signs.
-        let payload = PairingRequestPayload(sessionID: qr.sessionID, card: phoneCard, displayName: "Pocket Phone").encoded
+        let payload = PairingRequestPayload(sessionID: qr.sessionID, card: phoneCard, commitment: Data(repeating: 0, count: 32),
+                                            displayName: "Pocket Phone").encoded
         let sentAt = UnixTime.seconds(harness.clock.now())
         let forged = try MessageCodec.seal(kind: .pairingRequest, payload: payload, identity: attacker, recipient: mac.id,
                                            recipientKey: qr.initiatorAgreementKey, preSharedKey: qr.preSharedKey,
@@ -237,7 +242,7 @@ final class ReviewFixTests: XCTestCase {
             approvalKey: P256.Signing.PrivateKey()))
         try await claimant.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
-        await XCTAssertNotNilAsync(await mac.derivedCode())
+        guard case .waitingForResponder = await mac.phase() else { return XCTFail("the Mac froze the claimant's request") }
         var challenge = try XCTUnwrap(harness.transport.lastSent(.pairingChallenge, from: mac.id))
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         harness.transport.insert(challenge, intoInboxOf: phone.id)

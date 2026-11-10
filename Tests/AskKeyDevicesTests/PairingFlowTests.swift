@@ -16,15 +16,21 @@ final class PairingFlowTests: XCTestCase {
         await XCTAssertNilAsync(await phone.code(), "no code before the challenge")
 
         try await mac.poll()
-        guard case .enteringCode(let phoneSummary, attemptsRemaining: 3) = await mac.phase() else {
-            return XCTFail("the Mac hides the QR code and asks for the code once it froze the request")
+        guard case .waitingForResponder(let phoneSummary) = await mac.phase() else {
+            return XCTFail("the Mac hides the QR code and waits for the phone once it froze the request")
         }
         XCTAssertEqual(phoneSummary, PairingPeer(deviceID: phone.id, platform: .iOS, displayName: "Pocket Phone"))
+        await XCTAssertNilAsync(await mac.derivedCode(), "no code before the reveal")
         try await phone.poll()
         guard case .showingCode(let phoneCode, let macSummary, confirmed: false) = await phone.phase() else {
-            return XCTFail("the phone shows the code after a verified challenge")
+            return XCTFail("the phone shows the code once it sent its reveal")
         }
+        XCTAssertNotNil(harness.transport.lastSent(.pairingReveal, from: phone.id))
         XCTAssertEqual(macSummary, PairingPeer(deviceID: mac.id, platform: .macOS, displayName: "Studio Mac"))
+        try await mac.poll()
+        guard case .enteringCode(phoneSummary, attemptsRemaining: 3) = await mac.phase() else {
+            return XCTFail("the Mac asks for the code once the reveal matched the commitment")
+        }
         await XCTAssertEqualAsync(await mac.derivedCode(), phoneCode, "both sides derive the same code")
         XCTAssertEqual(phoneCode.formatted.count, 7)
 
@@ -91,11 +97,13 @@ final class PairingFlowTests: XCTestCase {
         // It holds the real phone's card and can open nothing the phone sealed, so it sends its own request.
         try await attacker.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
-        let macCode = try await XCTUnwrapAsync(await mac.derivedCode(), "the Mac froze the only request it saw")
+        await XCTAssertEqualAsync(await mac.frozenPeer()?.deviceID, attacker.id, "the Mac froze the only request it saw")
+        try await attacker.poll()
+        try await mac.poll()
+        let macCode = try await XCTUnwrapAsync(await mac.derivedCode())
         guard case .enteringCode = await mac.phase() else {
             return XCTFail("the Mac asks for a code and exposes none")
         }
-        try await attacker.poll()
         await XCTAssertEqualAsync(await attacker.code(), macCode, "only the device whose card was frozen gets the code")
 
         try await phone.poll()
@@ -197,6 +205,7 @@ final class PairingFlowTests: XCTestCase {
             }
             try await mac.poll()
             try await phone.poll()
+            try await mac.poll()
             if step == "mac cancels" {
                 await mac.messenger.cancelPairing()
             } else {
@@ -248,6 +257,7 @@ final class PairingFlowTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         harness.transport.dropping(.pairingConfirmation, from: mac.id)
         try await phone.confirm()
         try await mac.confirm()
@@ -284,6 +294,7 @@ final class PairingFlowTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         harness.transport.delaying(.pairingConfirmation, from: mac.id)
         try await mac.confirm()
         try await phone.confirm()
@@ -307,6 +318,7 @@ final class PairingFlowTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         harness.transport.delaying(.pairingConfirmation, from: phone.id)
         try await mac.confirm()
         try await phone.confirm()
@@ -331,6 +343,7 @@ final class PairingFlowTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         try await mac.confirm()
         try await phone.confirm()
         try await mac.poll()
@@ -353,6 +366,7 @@ final class PairingFlowTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
+        try await mac.poll()
         harness.transport.delaying(.pairingConfirmation, from: mac.id)
         try await phone.confirm()
         try await mac.confirm()

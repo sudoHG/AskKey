@@ -4,8 +4,13 @@ import Foundation
 public enum PairingPhase: Hashable, Sendable {
     /// Initiator: the QR code is shown and no request has been frozen yet.
     case showingQRCode(PairingQRPayload)
-    /// Responder: the request is sent and no verified challenge has arrived.
+    /// Responder: the request is sent, and no verified challenge has arrived
+    /// or its reveal has not been sent yet.
     case waitingForChallenge
+    /// Initiator: the request is frozen and the challenge sent; the
+    /// responder's verified reveal has not arrived, so there is no code to
+    /// enter yet.
+    case waitingForResponder(peer: PairingPeer)
     /// Initiator: ask the person to type the code the responder shows.
     /// The initiator never exposes the code. Nothing here reveals whether
     /// the responder has confirmed.
@@ -47,6 +52,9 @@ public enum PairingEndReason: Hashable, Sendable {
     case cancelled
     /// Initiator: the person typed a code that did not match three times.
     case codeMismatch
+    /// Initiator: the responder revealed a secret that does not match the
+    /// commitment in its request.
+    case commitmentMismatch
     /// A cancellation or withdrawal for this session arrived before this
     /// side added the peer.
     case cancelledByPeer

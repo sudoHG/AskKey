@@ -59,7 +59,7 @@ final class SealedMessageTests: XCTestCase {
             ("record name", .routingMismatch, { var e = $0; e.recordName = MessageID.random().text; return e }),
             ("kind", .routingMismatch, { var e = $0; e.kind = 8; e.recordType = .quiet; return e }),
             ("record type", .recordTypeMismatch, { var e = $0; e.recordType = .quiet; return e }),
-            ("unknown kind", .unknownKind, { var e = $0; e.kind = 9; return e }),
+            ("unknown kind", .unknownKind, { var e = $0; e.kind = 10; return e }),
             ("sender", .decryptionFailed, { var e = $0; e.sender = DeviceID(rawValue: Data(count: 16))!.text; return e }),
             ("non-canonical sender", .malformed, { var e = $0; e.sender = e.sender.uppercased(); return e }),
             ("fractional time", .malformed, { var e = $0; e.sentAt += 0.5; return e }),

@@ -46,21 +46,23 @@ final class InboxPollingTests: XCTestCase {
         let phone = harness.makeDevice(.iOS)
         let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
-        harness.transport.delaying(.pairingChallenge)
+        harness.transport.delaying(.pairingReveal)
         try await mac.poll()
-        try await mac.confirm()
-        // The Mac's confirmation overtakes its challenge.
-        let tokenBefore = await phone.messenger.inboxToken
-        let early = try await phone.poll()
-        XCTAssertEqual(early.held, 1)
-        await XCTAssertEqualAsync(await phone.messenger.inboxToken, tokenBefore)
-        harness.transport.releaseDelayed()
-        let later = try await phone.poll()
-        XCTAssertEqual(later.processed, 2)
-        guard case .showingCode = await phone.phase() else {
-            return XCTFail("the held confirmation counts once the challenge arrives; the phone still shows the code")
-        }
+        try await phone.poll()
         try await phone.confirm()
-        guard case .paired = await phone.phase() else { return XCTFail("both confirmations are held") }
+        // The phone's confirmation overtakes its reveal.
+        let tokenBefore = await mac.messenger.inboxToken
+        let early = try await mac.poll()
+        XCTAssertEqual(early.held, 1)
+        await XCTAssertEqualAsync(await mac.messenger.inboxToken, tokenBefore)
+        guard case .waitingForResponder = await mac.phase() else { return XCTFail("no code before the reveal") }
+        harness.transport.releaseDelayed()
+        let later = try await mac.poll()
+        XCTAssertEqual(later.processed, 2)
+        guard case .enteringCode = await mac.phase() else {
+            return XCTFail("the held confirmation counts once the reveal arrives; the Mac still asks for the code")
+        }
+        try await mac.confirm()
+        guard case .paired = await mac.phase() else { return XCTFail("both confirmations are held") }
     }
 }

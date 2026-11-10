@@ -91,21 +91,23 @@ final class EncodingTests: XCTestCase {
         let request = try XCTUnwrap(harness.transport.lastSent(.pairingRequest, from: phone.id))
         XCTAssertNil(request.body.range(of: Data("Pocket".utf8)), "no readable name leaves the device")
         try await mac.poll()
-        guard case .enteringCode(let peer, _) = await mac.phase() else { return XCTFail("entering the code") }
+        guard case .waitingForResponder(let peer) = await mac.phase() else { return XCTFail("the request is frozen") }
         XCTAssertEqual(peer.displayName, "Pocket Phone")
 
         // A name the sender did not clean is cleaned by the receiver.
         let payload = PairingRequestPayload(sessionID: qr.sessionID, card: try DeviceCard.make(identity: phone.identity, platform: .iOS, createdAt: harness.clock.now()),
-                                            displayName: "")
+                                            commitment: Data(repeating: 0x5A, count: 32), displayName: "")
         var raw = ByteWriter()
         raw.append(payload.sessionID.rawValue)
         raw.append(payload.card.bytes)
+        raw.append(payload.commitment)
         raw.appendLengthPrefixed(Data("Evil\u{202E}\u{0007}Name".utf8))
         let decoded = try PairingRequestPayload(decoding: raw.data)
         XCTAssertEqual(decoded.displayName, "EvilName")
         var oversized = ByteWriter()
         oversized.append(payload.sessionID.rawValue)
         oversized.append(payload.card.bytes)
+        oversized.append(payload.commitment)
         oversized.appendLengthPrefixed(Data(repeating: 0x61, count: 257))
         XCTAssertThrowsError(try PairingRequestPayload(decoding: oversized.data))
     }

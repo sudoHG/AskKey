@@ -77,7 +77,7 @@ final class PairingRuleTests: XCTestCase {
             harness.clock.advance(by: 10 + delay)
             let report = try await mac.poll()
             if frozen {
-                await XCTAssertNotNilAsync(await mac.derivedCode(), "fetched \(delay) s after the QR expiry")
+                await XCTAssertNotNilAsync(await mac.frozenPeer(), "fetched \(delay) s after the QR expiry")
             } else {
                 XCTAssertEqual(report.refusals, [.requestTooLate])
                 guard case .showingQRCode = await mac.phase() else { return XCTFail("nothing frozen") }

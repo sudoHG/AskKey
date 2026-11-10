@@ -41,16 +41,26 @@ final class PairingVectorTests: XCTestCase {
                        "e02532c7ca188dfd1a6281ffc65695d7c4d824eb184a70f25e0898c0114317de")
     }
 
-    func testTranscriptHashComparisonCodeAndPairingIDVectors() throws {
+    private static let revealedSecret = Data(repeating: 0x44, count: 32)
+
+    func testCommitmentVector() {
+        let commitment = PairingDerivation.commitment(sessionID: Self.sessionID, secret: Self.revealedSecret)
+        XCTAssertEqual(commitment.hex, "9ba0b946541b14a646e24e90df394088f8bdcbc28935377f000db1f1a5756432")
+    }
+
+    func testTranscriptHashPairingCodeAndPairingIDVectors() throws {
         let hash = PairingDerivation.transcriptHash(qrPayload: try Self.payload().bytes,
                                                     responderCard: Data(repeating: 0x11, count: 173),
+                                                    commitment: PairingDerivation.commitment(sessionID: Self.sessionID,
+                                                                                             secret: Self.revealedSecret),
                                                     initiatorCard: Data(repeating: 0x22, count: 173),
-                                                    nonce: Data(repeating: 0x33, count: 32))
-        XCTAssertEqual(hash.hex, "e5ffa6541e0e13c0c40f86b66ac6227e956312d5daf359cabf7a5ed0664d59b0")
+                                                    nonce: Data(repeating: 0x33, count: 32),
+                                                    revealedSecret: Self.revealedSecret)
+        XCTAssertEqual(hash.hex, "7d74817d6a3c58992a74fa9be56eae4befec50a0b867b2e2d91f8deeee84a6c9")
         let code = PairingDerivation.comparisonCode(secret: Self.secret, transcriptHash: hash)
-        XCTAssertEqual(code.digits, "517087")
-        XCTAssertEqual(code.formatted, "517 087")
-        XCTAssertEqual(PairingDerivation.pairingID(transcriptHash: hash).rawValue.hex, "43ce7440cc92be28cb3eb62b96b829a4")
+        XCTAssertEqual(code.digits, "953087")
+        XCTAssertEqual(code.formatted, "953 087")
+        XCTAssertEqual(PairingDerivation.pairingID(transcriptHash: hash).rawValue.hex, "f24718c434ec14e85740fe2b6eb03cbf")
     }
 
     func testQRPayloadHoldsNoNameAndStaysWithinTheStatedSize() async throws {

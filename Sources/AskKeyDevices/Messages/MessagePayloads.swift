@@ -4,7 +4,8 @@ import Foundation
 /// fields are written as raw bytes; display names, the only variable-length
 /// field, carry a 4-byte big-endian length prefix. IDs are 16 raw bytes.
 ///
-///     1 pairing request       session ID (16) || responder card (173) || display name
+///     1 pairing request       session ID (16) || responder card (173) || commitment (32)
+///                             || display name
 ///     2 pairing challenge     session ID (16) || request digest (32) || initiator card (173)
 ///                             || nonce (32) || display name
 ///     3 pairing confirmation  role (1) || signer ID (16) || transcript hash (32)
@@ -15,6 +16,7 @@ import Foundation
 ///     6 unpair notice         pairing ID (16)
 ///     7 delivery check        pairing ID (16)
 ///     8 delivery check reply  pairing ID (16) || the check's message ID (16)
+///     9 pairing reveal        session ID (16) || challenge digest (32) || revealed secret (32)
 enum MessagePayload {
     static func decode<T>(_ payload: Data, _ body: (inout ByteReader) throws -> T) throws -> T {
         var reader = ByteReader(payload)
@@ -66,19 +68,23 @@ enum MessagePayload {
 struct PairingRequestPayload {
     let sessionID: PairingSessionID
     let card: DeviceCard
+    /// The responder's commitment to the secret it reveals after the challenge.
+    let commitment: Data
     let displayName: String
 
     var encoded: Data {
         var writer = ByteWriter()
         writer.append(sessionID.rawValue)
         writer.append(card.bytes)
+        writer.append(commitment)
         MessagePayload.writeDisplayName(displayName, into: &writer)
         return writer.data
     }
 
-    init(sessionID: PairingSessionID, card: DeviceCard, displayName: String) {
+    init(sessionID: PairingSessionID, card: DeviceCard, commitment: Data, displayName: String) {
         self.sessionID = sessionID
         self.card = card
+        self.commitment = commitment
         self.displayName = displayName
     }
 
@@ -86,7 +92,38 @@ struct PairingRequestPayload {
         self = try MessagePayload.decode(payload) { reader in
             PairingRequestPayload(sessionID: try MessagePayload.readSessionID(&reader),
                                   card: try MessagePayload.readCard(&reader),
+                                  commitment: try reader.readBytes(32),
                                   displayName: try MessagePayload.readDisplayName(&reader))
+        }
+    }
+}
+
+/// Kind 9, from the responder once it verified the challenge: the secret
+/// its request committed to, bound to the session and the challenge.
+struct PairingRevealPayload {
+    let sessionID: PairingSessionID
+    let challengeDigest: Data
+    let secret: Data
+
+    var encoded: Data {
+        var writer = ByteWriter()
+        writer.append(sessionID.rawValue)
+        writer.append(challengeDigest)
+        writer.append(secret)
+        return writer.data
+    }
+
+    init(sessionID: PairingSessionID, challengeDigest: Data, secret: Data) {
+        self.sessionID = sessionID
+        self.challengeDigest = challengeDigest
+        self.secret = secret
+    }
+
+    init(decoding payload: Data) throws {
+        self = try MessagePayload.decode(payload) { reader in
+            PairingRevealPayload(sessionID: try MessagePayload.readSessionID(&reader),
+                                 challengeDigest: try reader.readBytes(32),
+                                 secret: try reader.readBytes(32))
         }
     }
 }

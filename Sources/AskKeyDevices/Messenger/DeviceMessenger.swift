@@ -343,6 +343,7 @@ public actor DeviceMessenger {
                 try await transport.send(envelope)
                 if generation == sessionGeneration {
                     session?.outbox.removeAll { $0.recordName == envelope.recordName }
+                    session?.messageSent(envelope.recordName)
                 }
             } catch {
                 continue
