@@ -21,7 +21,7 @@ import tempfile
 
 BUNDLE_ID = "com.sudohg.askkey.app"
 CONTAINER = "iCloud.com.sudohg.askkey"
-INFO_PLIST_KEY = "AskKeyCloudKitContainer"
+INFO_PLIST_KEY = "CloudKitContainerIdentifier"
 PROFILE_NAME = "embedded.provisionprofile"
 ENTITLEMENTS_NAME = "AskKeyApp.entitlements"
 CERTIFICATE_NAME = "signing-certificate"

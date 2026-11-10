@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import plistlib
+import re
 import shutil
 import subprocess
 import tempfile
@@ -138,7 +139,7 @@ class BuildAppCloudKitTests(unittest.TestCase):
         self.assertTrue(all({"--options", "runtime", "--timestamp"} <= set(call) for call in sign_calls))
         self.assertEqual(self.app("embedded.provisionprofile").read_bytes(), self.profile.read_bytes())
         info = plistlib.loads(self.app("Info.plist").read_bytes())
-        self.assertEqual(info["AskKeyCloudKitContainer"], fixtures.CONTAINER)
+        self.assertEqual(info["CloudKitContainerIdentifier"], fixtures.CONTAINER)
         self.assertEqual(info["CFBundleIdentifier"], fixtures.BUNDLE_ID)
         self.assertTrue(info["AskKeyLocalTesting"])
         generated = self.root / ".build/cloudkit-signing/AskKeyApp.entitlements"
@@ -222,14 +223,28 @@ class BuildAppCloudKitTests(unittest.TestCase):
                 self.assertFalse(self.app("embedded.provisionprofile").exists())
                 self.assertFalse((self.root / ".build/cloudkit-signing").exists())
                 info[mode] = plistlib.loads(self.app("Info.plist").read_bytes())
-                self.assertNotIn("AskKeyCloudKitContainer", info[mode])
+                self.assertNotIn("CloudKitContainerIdentifier", info[mode])
                 sign_calls = [call for call in self.calls() if call[0] == "codesign" and "--sign" in call]
                 identity = fixtures.IDENTITY_NAME if mode in ("Local", "Release") else "-"
                 self.assertTrue(all(call[call.index("--sign") + 1] == identity for call in sign_calls))
         self.assertEqual(self.run_build("Local").returncode, 0)
         with_option = plistlib.loads(self.app("Info.plist").read_bytes())
-        self.assertEqual(with_option.pop("AskKeyCloudKitContainer"), fixtures.CONTAINER)
+        self.assertEqual(with_option.pop("CloudKitContainerIdentifier"), fixtures.CONTAINER)
         self.assertEqual(with_option, info["Local"])
+
+    def test_added_info_plist_key_avoids_the_updater_testing_flag_prefix(self):
+        # The updater treats any Info.plist key with this prefix as a testing flag
+        # and turns itself off, so a key that a Release build may carry must not use it.
+        source = (ROOT / "Sources/AskKeyAppKit/SoftwareUpdate/SoftwareUpdateAvailability.swift").read_text(encoding="utf-8")
+        match = re.search(r'testingFlagPrefix = "([^"]+)"', source)
+        self.assertIsNotNone(match, "SoftwareUpdateAvailability no longer declares testingFlagPrefix")
+        self.assertEqual(self.run_build("Local", profile=False).returncode, 0)
+        without_option = set(plistlib.loads(self.app("Info.plist").read_bytes()))
+        result = self.run_build("Local")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        added = set(plistlib.loads(self.app("Info.plist").read_bytes())) - without_option
+        self.assertEqual(added, {"CloudKitContainerIdentifier"})
+        self.assertFalse([key for key in added if key.startswith(match.group(1))])
 
     def test_nested_code_signing_lines_carry_no_entitlements(self):
         source = (ROOT / "scripts/build-app.sh").read_text(encoding="utf-8")

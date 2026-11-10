@@ -178,7 +178,7 @@ cp LICENSE "$APP/Contents/Resources/LICENSE"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 # Declare the container and embed the checked profile before any signing.
 if [ -n "$CLOUDKIT_DIR" ]; then
-  /usr/libexec/PlistBuddy -c "Add :AskKeyCloudKitContainer string $CLOUDKIT_CONTAINER" "$APP/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Add :CloudKitContainerIdentifier string $CLOUDKIT_CONTAINER" "$APP/Contents/Info.plist"
   cp "$CLOUDKIT_DIR/embedded.provisionprofile" "$APP/Contents/embedded.provisionprofile"
 fi
 

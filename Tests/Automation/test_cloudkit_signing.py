@@ -291,7 +291,7 @@ class PackageReleaseProfileTests(unittest.TestCase):
         (contents / "Info.plist").write_bytes(plistlib.dumps({
             "CFBundleExecutable": "Fixture", "CFBundleIdentifier": BUNDLE_ID,
             "CFBundlePackageType": "APPL", "CFBundleShortVersionString": self.version,
-            "CFBundleVersion": self.version, "AskKeyCloudKitContainer": CONTAINER,
+            "CFBundleVersion": self.version, "CloudKitContainerIdentifier": CONTAINER,
         }))
         (contents / "embedded.provisionprofile").write_bytes(plistlib.dumps(profile or synthetic_profile()))
         entitlements_file = self.directory / "fixture.entitlements"

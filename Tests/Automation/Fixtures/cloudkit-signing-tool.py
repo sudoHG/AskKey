@@ -46,7 +46,7 @@ def sign(target, entitlements):
     with state("signing.jsonl").open("a", encoding="utf-8") as stream:
         stream.write(json.dumps({"target": target, "entitlements": entitlements is not None,
                                  "profile": (app / "embedded.provisionprofile").is_file(),
-                                 "container": info.get("AskKeyCloudKitContainer")}) + "\n")
+                                 "container": info.get("CloudKitContainerIdentifier")}) + "\n")
     record = stored_entitlements(target)
     record.parent.mkdir(parents=True, exist_ok=True)
     if entitlements is None:
