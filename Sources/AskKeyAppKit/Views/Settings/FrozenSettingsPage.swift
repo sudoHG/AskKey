@@ -28,6 +28,7 @@ struct FrozenSettingsPage: View {
     }
 
     var body: some View {
+        let _ = Self._printChanges() // T6 TEMP #298, revert before merge
         let _ = AppLanguage.store.resolved
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
@@ -40,6 +41,7 @@ struct FrozenSettingsPage: View {
             }
             .padding(Theme.Spacing.xxl)
         }
+        .accessibilityIdentifier("settings-page")
         .scrollPosition(id: $settingsScrollTarget, anchor: .center)
         .background(Theme.windowBackground)
         .onAppear {

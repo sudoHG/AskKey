@@ -17,6 +17,13 @@ enum E2EDeviceDiagnostics {
         guard FileManager.default.createFile(atPath: path, contents: nil),
               let handle = FileHandle(forWritingAtPath: path) else { return }
         dup2(handle.fileDescriptor, STDERR_FILENO)
+        // SwiftUI's `_printChanges` writes to standard output.
+        let outPath = control.appendingPathComponent("device-stdout.txt").path
+        guard FileManager.default.createFile(atPath: outPath, contents: nil),
+              let out = FileHandle(forWritingAtPath: outPath) else { return }
+        fflush(stdout)
+        dup2(out.fileDescriptor, STDOUT_FILENO)
+        setvbuf(stdout, nil, _IOLBF, 0)
     }
 
     /// Writes the App's own unified log since launch to `device-log.txt` and returns how many

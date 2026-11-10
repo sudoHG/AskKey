@@ -11,6 +11,7 @@ struct DevicePairingSheet: View {
     @FocusState private var codeFocused: Bool
 
     var body: some View {
+        let _ = Self._printChanges() // T6 TEMP #298, revert before merge
         let _ = AppLanguage.store.resolved
         let sheet = model.sheet ?? shown
         Group {

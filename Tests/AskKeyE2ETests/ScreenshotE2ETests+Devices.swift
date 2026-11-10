@@ -28,25 +28,24 @@ extension ScreenshotE2ETests {
             walks += 1
             attachDeviceFile("device-ax-walk-\(walks).txt")
         }
-        func timed(_ label: String, _ query: () -> Bool) {
-            let began = Date()
-            let found = query()
-            notes.append("\(label): found=\(found) in \(String(format: "%.1f", Date().timeIntervalSince(began))) s")
-        }
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
+        // #298 bisection (temporary): English moves the sheet off the row; Chinese uses plain
+        // `.disabled`, no reset branch and no task on appear.
+        app.launchEnvironment["ASKKEY_T6_VARIANT"] = language == "en" ? "outer-sheet" : "plain"
         app.launch()
         addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
         addTeardownBlock { // runs first: the App's log up to a failure
             try? fixture("write-log")
             self.attachDeviceFile("device-log.txt")
+            self.attachDeviceFile("device-stdout.txt")
             self.attachDeviceDiagnostics(notes)
         }
         moveManagementAboveDock()
         click("unlock-management")
         click("sidebar-settings")
         let pair = app.buttons["settings-pair-device"].firstMatch
-        let page = app.windows["settings"].scrollViews.containing(.button, identifier: "settings-pair-device").firstMatch
+        let page = app.scrollViews["settings-page"].firstMatch
         let sheet = app.windows["settings"].sheets.firstMatch
         XCTAssertTrue(pair.waitForExistence(timeout: 8))
         for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
@@ -83,9 +82,7 @@ extension ScreenshotE2ETests {
             try fixture(command, centre)
             notes.append("\(command) at \(centre): " + (sheet.waitForExistence(timeout: 3) ? "sheet" : "no sheet"))
         }
-        try fixture("write-log")
-        attachDeviceFile("device-log.txt")
-        attachDeviceFile("device-stderr.txt")
+        attachDeviceFile("device-stdout.txt")
         if !sheet.exists { notes.append("fixture start"); try fixture("start-pairing") }
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "No pairing sheet")
         attachDeviceDiagnostics(notes)
@@ -101,47 +98,29 @@ extension ScreenshotE2ETests {
         click("devices-pairing-done")
         try fixture("phone-poll")
         try walkAccessibility()
-        // #298 diagnostics: the same text query in the Settings window, then in the whole App.
+        // #298: after the code field had focus, snapshots of the Settings window hang on a remote
+        // text-input element in CI, so these checks find the Devices texts by identifier.
         let lastReached = language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}"
-        let settings = app.windows["settings"].firstMatch
-        func textQuery(_ text: String, in root: XCUIElement) -> XCUIElement {
-            root.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)).firstMatch
+        func shows(_ identifier: String, _ text: String) -> Bool {
+            let element = app.staticTexts[identifier].firstMatch
+            return element.exists && (element.label.contains(text) || (element.value as? String)?.contains(text) == true)
         }
+        func waitUntilShown(_ identifier: String, _ text: String) {
+            let shown = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in shows(identifier, text) }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [shown], timeout: 8), .completed,
+                           "Missing \(text): \(app.staticTexts[identifier].firstMatch.label)")
+        }
+        attachDeviceFile("device-stdout.txt")
+        attachDeviceDiagnostics(notes)
         let rename = app.buttons["devices-rename"].firstMatch
         XCTAssertTrue(rename.waitForExistence(timeout: 8))
-        try fixture("write-log")
-        attachDeviceFile("device-log.txt")
-        // #298 diagnostics: whether the Devices section takes clicks after a pairing.
         for _ in 0..<6 where !rename.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
-        rename.click()
-        notes.append("rename after pairing: field=\(app.textFields["devices-rename-field"].waitForExistence(timeout: 3))")
-        app.typeKey(.escape, modifierFlags: [])
-        notes.append("pair after pairing: hittable=\(pair.isHittable) frame=\(pair.frame)")
-        if pair.isHittable { pair.click() }
-        if sheet.waitForExistence(timeout: 3) {
-            notes.append("pair after pairing: sheet")
-            click("devices-pairing-cancel")
-            notes.append("sheet closed=\(sheet.waitForNonExistence(timeout: 5))")
-        } else {
-            notes.append("pair after pairing: no sheet")
-        }
-        attachDeviceDiagnostics(notes)
-        let sidebar = app.buttons["sidebar-settings"].firstMatch
-        timed("sidebar text query after Done") { textQuery("Settings", in: sidebar).waitForExistence(timeout: 2) }
-        attachDeviceDiagnostics(notes)
-        timed("Settings window text query after Done") { textQuery(lastReached, in: settings).waitForExistence(timeout: 8) }
-        attachDeviceDiagnostics(notes)
-        let row = app.buttons["devices-rename"].firstMatch
-        for _ in 0..<6 where !row.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
-        XCTAssertTrue(textQuery(lastReached, in: settings).waitForExistence(timeout: 8))
+        waitUntilShown("devices-row-reachability", lastReached)
         captureSettingsWindow(name(0, "devices-list"))
         try fixture("account-signed-out")
         let signedOut = language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}"
-        XCTAssertTrue(textQuery(signedOut, in: settings).waitForExistence(timeout: 8))
+        waitUntilShown("settings-devices-notice", signedOut)
         captureSettingsWindow(name(4, "devices-icloud-signed-out"))
-        // Last, as it may time out: the same text query over the whole App.
-        timed("App text query after pairing") { textQuery(signedOut, in: app).waitForExistence(timeout: 2) }
-        attachDeviceDiagnostics(notes)
         XCTAssertEqual(clickOpened.first, true, "Pair a Device…: \(notes)")
     }
 
