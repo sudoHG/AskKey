@@ -8,11 +8,16 @@ public enum DeviceMessengerError: Error, Equatable, Sendable {
     case notAwaitingConfirmation
     /// This side's approval prompt is still open; the call counts nothing.
     case confirmationInProgress
-    /// The call belongs to the other role: the initiator confirms with the
-    /// code the responder shows, the responder without typing one.
+    /// Only the initiator enters a code.
     case wrongRole
-    /// The typed code is not six ASCII digits once spaces are removed. It
+    /// The initiator has no accepted code; it confirms only after
+    /// `enterPairingCode` accepted one. Nothing was sent.
+    case codeRequired
+    /// The session already accepted a code and takes no further entry. It
     /// does not count as an attempt.
+    case codeAlreadyAccepted
+    /// The typed code is not six ASCII digits once white space is removed.
+    /// It does not count as an attempt.
     case invalidCodeFormat
     /// The typed code did not match. At 0 the session ended and the peer
     /// was told.
@@ -127,49 +132,54 @@ public actor DeviceMessenger {
     }
 
     /// Initiator, step 5: the person typed the code the responder shows.
-    /// Spaces are removed; anything but six ASCII digits throws
-    /// `invalidCodeFormat` at once, without counting. A wrong code throws
-    /// `wrongCode` with the attempts left, and the third ends the session
-    /// and tells the responder. Only a matching code reaches the approval
-    /// signature, so the App's system authentication on the Mac belongs
-    /// inside the identity's `signWithApprovalKey`; a cancelled prompt sends
-    /// nothing, counts nothing, and the person may try again. The responder
-    /// is added once its verified confirmation is also held.
-    public func confirmPairing(enteredCode: String, approvalReason: String) async throws {
-        guard let entered = EnteredPairingCode(enteredCode) else { throw DeviceMessengerError.invalidCodeFormat }
-        let generation = try await prepareConfirmation(as: .initiator)
-        guard let check = try session?.checkEnteredCode(entered, now: clock.now()) else {
+    /// White space is removed; anything but six ASCII digits throws
+    /// `invalidCodeFormat` at once, without counting. A match accepts the
+    /// entry: the phase becomes `codeAccepted`, the session takes no further
+    /// entry (`codeAlreadyAccepted`), and the person confirms with
+    /// `confirmPairing(approvalReason:)`. A wrong code throws `wrongCode`
+    /// with the attempts left, and the third ends the session and tells the
+    /// responder. Nothing here signs.
+    public func enterPairingCode(_ text: String) async throws {
+        guard let entered = EnteredPairingCode(text) else { throw DeviceMessengerError.invalidCodeFormat }
+        _ = try await currentSessionAfterTimers()
+        guard let check = try session?.acceptEnteredCode(entered, now: clock.now()) else {
             throw DeviceMessengerError.notAwaitingConfirmation
         }
         if case .wrong(let remaining, let effects) = check {
             await perform(effects)
             throw DeviceMessengerError.wrongCode(attemptsRemaining: remaining)
         }
-        try await signAndConfirm(approvalReason: approvalReason, generation: generation)
     }
 
-    /// Responder, step 5: the person confirms on the device that shows the
-    /// code, without typing it. Signs the confirmation with the approval
-    /// key, which on an iPhone asks for Face ID or Touch ID; a cancelled
-    /// prompt sends nothing. The initiator is added once its verified
-    /// confirmation is also held.
+    /// Step 5, both sides: signs this side's confirmation with the approval
+    /// key and sends it. The responder confirms on the device that shows
+    /// the code; on an iPhone the signature asks for Face ID or Touch ID.
+    /// The initiator confirms only while its session is open and holds an
+    /// accepted code, and otherwise throws `codeRequired` and sends
+    /// nothing; the Mac's system authentication belongs inside the
+    /// identity's `signWithApprovalKey`, which only this call reaches. A
+    /// cancelled or failed prompt sends nothing and counts nothing, and the
+    /// person may confirm again without typing the code again. The peer is
+    /// added once its verified confirmation is also held.
     public func confirmPairing(approvalReason: String) async throws {
-        let generation = try await prepareConfirmation(as: .responder)
+        let generation = try await currentSessionAfterTimers()
+        guard let current = session else { throw DeviceMessengerError.notAwaitingConfirmation }
+        guard !current.confirmationPending else { throw DeviceMessengerError.confirmationInProgress }
+        guard current.awaitsConfirmation, current.isOpen(at: clock.now()) else {
+            throw DeviceMessengerError.notAwaitingConfirmation
+        }
+        guard current.role == .responder || current.codeAccepted else { throw DeviceMessengerError.codeRequired }
         try await signAndConfirm(approvalReason: approvalReason, generation: generation)
     }
 
     /// Applies the timers, then checks that the session the person saw is
-    /// still current and waits for this side's confirmation in `role`.
-    /// Returns that session's generation.
-    private func prepareConfirmation(as role: PairingRole) async throws -> Int {
+    /// still current. Returns its generation.
+    private func currentSessionAfterTimers() async throws -> Int {
         let generation = sessionGeneration
         await perform(session?.tick(now: clock.now()) ?? [])
         // Sending while the timers ran may have let another session replace it.
         guard generation == sessionGeneration else { throw DeviceMessengerError.sessionEnded }
-        guard let current = session else { throw DeviceMessengerError.notAwaitingConfirmation }
-        guard current.role == role else { throw DeviceMessengerError.wrongRole }
-        guard !current.confirmationPending else { throw DeviceMessengerError.confirmationInProgress }
-        guard current.awaitsConfirmation else { throw DeviceMessengerError.notAwaitingConfirmation }
+        guard session != nil else { throw DeviceMessengerError.notAwaitingConfirmation }
         return generation
     }
 

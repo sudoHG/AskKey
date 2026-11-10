@@ -30,7 +30,8 @@ final class DeviceHarness {
         }
         let shownOnPhone = await phone.code()
         let phoneCode = try XCTUnwrap(shownOnPhone, "the phone shows a code", file: file, line: line)
-        try await mac.messenger.confirmPairing(enteredCode: phoneCode.formatted, approvalReason: "Pair with the phone")
+        try await mac.messenger.enterPairingCode(phoneCode.formatted)
+        try await mac.messenger.confirmPairing(approvalReason: "Pair with the phone")
         try await phone.messenger.confirmPairing(approvalReason: "Pair with the Mac")
         _ = try await mac.messenger.poll()
         _ = try await phone.messenger.poll()
@@ -90,15 +91,16 @@ final class SimulatedDevice {
         await messenger.testingSessionCode()
     }
 
-    /// Confirms as the person would: an initiator types `code` (by default
-    /// the code it derived), a responder confirms without typing.
+    /// Confirms as the person would: an initiator first enters `code` (by
+    /// default the code it derived) unless one was accepted; a responder
+    /// confirms without typing.
     func confirm(typing code: PairingCode? = nil) async throws {
-        guard await messenger.testingSessionRole() == .initiator else {
-            return try await messenger.confirmPairing(approvalReason: "Pair")
+        if await messenger.testingSessionRole() == .initiator, await !messenger.testingCodeAccepted() {
+            var typed = code
+            if typed == nil { typed = await derivedCode() }
+            try await messenger.enterPairingCode(typed?.formatted ?? "000000")
         }
-        var typed = code
-        if typed == nil { typed = await derivedCode() }
-        try await messenger.confirmPairing(enteredCode: typed?.formatted ?? "000000", approvalReason: "Pair")
+        try await messenger.confirmPairing(approvalReason: "Pair")
     }
 
     func pairingID() async -> PairingID? {
@@ -121,7 +123,7 @@ final class SimulatedDevice {
 extension DeviceMessenger {
     func testingSessionCode() -> PairingCode? { session?.code }
     func testingSessionRole() -> PairingRole? { session?.role }
-    func testingCanSign() -> Bool { session?.confirmationBytes != nil }
+    func testingCodeAccepted() -> Bool { session?.codeAccepted == true }
 }
 
 extension PairingPhase {

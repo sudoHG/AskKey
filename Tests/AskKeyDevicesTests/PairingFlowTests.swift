@@ -36,7 +36,10 @@ final class PairingFlowTests: XCTestCase {
         guard case .enteringCode = await mac.phase() else {
             return XCTFail("until the person confirms, the Mac does not show that the phone confirmed")
         }
-        try await mac.messenger.confirmPairing(enteredCode: phoneCode.formatted, approvalReason: "Pair with Pocket Phone")
+        try await mac.messenger.enterPairingCode(phoneCode.formatted)
+        guard case .codeAccepted = await mac.phase() else { return XCTFail("the Mac accepted the code") }
+        XCTAssertTrue(mac.identity.approvalReasons.isEmpty, "accepting the code signs nothing")
+        try await mac.messenger.confirmPairing(approvalReason: "Pair with Pocket Phone")
         try await phone.poll()
         XCTAssertEqual(phone.identity.approvalReasons, ["Pair with Studio Mac"])
         XCTAssertEqual(mac.identity.approvalReasons, ["Pair with Pocket Phone"])

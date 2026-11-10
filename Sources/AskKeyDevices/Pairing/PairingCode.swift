@@ -3,7 +3,11 @@ import Foundation
 /// The six-digit pairing code of ADR 0013 → Pairing, step 4. Only the
 /// responder shows it, as `123 456`; the initiator never exposes it and
 /// only checks the code the person types against it.
-public struct PairingCode: Hashable, Sendable, CustomStringConvertible {
+///
+/// Its description and mirror are redacted, so printing, dumping or logging
+/// a phase never reveals the code; show `formatted` on the pairing screen.
+public struct PairingCode: Hashable, Sendable, CustomStringConvertible, CustomDebugStringConvertible,
+                           CustomReflectable {
     /// 0 ..< 1,000,000.
     public let value: UInt32
 
@@ -21,7 +25,9 @@ public struct PairingCode: Hashable, Sendable, CustomStringConvertible {
     /// The digits in two groups of three, such as `012 345`.
     public var formatted: String { "\(digits.prefix(3)) \(digits.suffix(3))" }
 
-    public var description: String { formatted }
+    public var description: String { "PairingCode(redacted)" }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
 
     /// Whether the typed digits spell this code. The comparison takes the
     /// same time wherever the digits differ.
@@ -37,15 +43,14 @@ public struct PairingCode: Hashable, Sendable, CustomStringConvertible {
 }
 
 /// The code a person typed on the initiator: exactly six ASCII digits once
-/// spaces are removed. Spaces are the Unicode space separators, such as
-/// U+0020, U+00A0 and the ideographic space U+3000 that a Chinese input
-/// method types; tabs and line breaks are not spaces. Anything else is
+/// white space (the Unicode `White_Space` property, which includes tabs,
+/// line breaks and the full-width space) is removed. Anything else is
 /// refused before it is compared, so it does not count as an attempt.
 struct EnteredPairingCode {
     let asciiDigits: [UInt8]
 
     init?(_ text: String) {
-        let scalars = text.unicodeScalars.filter { $0.properties.generalCategory != .spaceSeparator }
+        let scalars = text.unicodeScalars.filter { !$0.properties.isWhitespace }
         guard scalars.count == 6, scalars.allSatisfy({ (0x30...0x39).contains($0.value) }) else {
             return nil
         }

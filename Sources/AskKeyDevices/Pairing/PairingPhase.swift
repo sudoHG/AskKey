@@ -10,8 +10,12 @@ public enum PairingPhase: Hashable, Sendable {
     /// The initiator never exposes the code. Nothing here reveals whether
     /// the responder has confirmed.
     case enteringCode(peer: PairingPeer, attemptsRemaining: Int)
-    /// Initiator: the typed code matched and this side confirmed; the
-    /// responder's verified confirmation has not arrived.
+    /// Initiator: the typed code matched and was accepted; no further entry
+    /// is taken. Confirm with system authentication, again after a
+    /// cancelled or failed one, without typing the code again.
+    case codeAccepted(peer: PairingPeer)
+    /// Initiator: this side confirmed; the responder's verified confirmation
+    /// has not arrived.
     case waitingForPeer(peer: PairingPeer)
     /// Responder: show this code, which the person types on the Mac, and
     /// ask the person to confirm on this device. `confirmed` tells whether
