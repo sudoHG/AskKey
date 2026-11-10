@@ -53,7 +53,7 @@ final class DeviceCoordinatorPairingTests: AskKeyAppTestCase {
 
         await coordinator.confirmPairing()
         XCTAssertEqual(coordinator.pairing, .waitingForIPhoneConfirmation(peer: peer))
-        XCTAssertEqual(harness.script.authenticationReasons, [Vault.devicePairingReason])
+        XCTAssertEqual(harness.script.authenticationReasons, [ManagementAuthenticationAction.pairDevice.reasonKey])
         XCTAssertEqual(harness.macConfirmations().count, 1)
         XCTAssertTrue(coordinator.devices.isEmpty, "nothing is added before the iPhone's confirmation")
 

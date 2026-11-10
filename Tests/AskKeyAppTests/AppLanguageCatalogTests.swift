@@ -87,6 +87,48 @@ final class AppLanguageCatalogTests: AppLanguageExperienceTestSupport {
         }
     }
 
+    /// Devices wording (#288): "配对码" is only the six digits the iPhone
+    /// shows, the scanned image is always "二维码", and the iPhone app's terms
+    /// are reused.
+    func testDevicesCopyUsesTheGlossaryTermsInChinese() {
+        let chinese = AppLanguage.table(language: "zh-Hans")
+        let english = AppLanguage.table(language: "en")
+        XCTAssertEqual(chinese["Not reached yet"], "还没联系上")
+        XCTAssertEqual(chinese["Devices"], "设备")
+        XCTAssertEqual(chinese["Pair a Device…"], "配对设备…")
+        XCTAssertEqual(chinese["Pairing code"], "配对码")
+        XCTAssertEqual(chinese["Test Delivery"], "测试送达")
+        XCTAssertEqual(chinese["push.message.title"], "请旨")
+        XCTAssertEqual(english["push.message.title"], "Ask Key")
+        XCTAssertEqual(chinese["push.message.body"], "一台已配对的设备发来一条消息。")
+        XCTAssertEqual(english["push.message.body"], "A paired device sent a message.")
+        let qrEntries = english.filter { $0.value.contains("QR code") }
+        XCTAssertGreaterThanOrEqual(qrEntries.count, 6)
+        for (key, value) in qrEntries {
+            let translation = chinese[key] ?? ""
+            XCTAssertTrue(translation.contains("二维码"), "\(value) → \(translation)")
+            if !value.lowercased().contains("code didn't match") {
+                XCTAssertFalse(translation.contains("配对码"), "the QR code is never a pairing code: \(translation)")
+            }
+        }
+    }
+
+    func testDeviceKeychainConflictsAreTranslated() {
+        let previous = AppLanguage.current
+        defer { AppLanguage.current = previous }
+        for kind in [AppKeychainItemKind.deviceMessageKey, .deviceAgreementKey, .deviceApprovalKey, .pairedDevices] {
+            let error = AppKeyStoreError.conflictingItem(kind)
+            AppLanguage.current = "en"
+            XCTAssertEqual(UserFacingCopy.message(for: error), kind.conflictMessage)
+            AppLanguage.current = "zh-Hans"
+            let chinese = UserFacingCopy.message(for: error)
+            XCTAssertNotEqual(chinese, kind.conflictMessage)
+            XCTAssertTrue(chinese.contains("钥匙串访问"))
+            XCTAssertTrue(chinese.contains("login.keychain-db"))
+            XCTAssertTrue(chinese.contains("请勿移除 vault-key 项目"))
+        }
+    }
+
     func testBackupPromptsAndRenameSuffixFollowTheSelectedLanguage() {
         let prompts: [(ManagementAuthenticationAction, String)] = [
             (.exportBackup, "确认将全部凭证导出为备份文件"),

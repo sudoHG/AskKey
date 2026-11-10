@@ -343,6 +343,55 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("backup-import-done")
     }
 
+    func testDevicesScreensInEnglish() throws {
+        try captureDevicesScreens(language: "en", tag: "en", firstNumber: 30)
+    }
+
+    func testDevicesScreensInChinese() throws {
+        try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35)
+    }
+
+    /// Settings → Devices on the E2E App's fake device services (#288): the
+    /// list with one paired iPhone, the pairing sheet's QR code, waiting and
+    /// code entry steps, and iCloud signed out. The fixture plays the iPhone,
+    /// including the person typing its code, which never leaves the App.
+    private func captureDevicesScreens(language: String, tag: String, firstNumber: Int) throws {
+        func name(_ offset: Int, _ label: String) -> String {
+            String(format: "%02d-%@-%@", firstNumber + offset, tag, label)
+        }
+        func fixture(_ command: String) throws {
+            try sendFixtureCommand(command)
+            let report = try waitForEvidence("device-\(command).json")
+            XCTAssertEqual(report["ok"] as? Bool, true, "\(command): \(report)")
+        }
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
+        app.launch()
+        moveManagementAboveDock()
+        click("unlock-management")
+        click("sidebar-settings")
+        openBackupSetting("settings-pair-device")
+        XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
+        captureSheet(name(1, "devices-pairing-qr-code"))
+        try fixture("phone-scan")
+        XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-waiting"].waitForExistence(timeout: 8))
+        captureSheet(name(2, "devices-pairing-waiting"))
+        try fixture("phone-reveal")
+        XCTAssertTrue(app.textFields["devices-pairing-code"].waitForExistence(timeout: 8))
+        captureSheet(name(3, "devices-pairing-code-entry"))
+        try fixture("phone-complete")
+        click("devices-pairing-done")
+        try fixture("phone-poll")
+        let settings = app.windows["settings"].scrollViews.containing(.button, identifier: "settings-pair-device").firstMatch
+        for _ in 0..<4 { settings.scroll(byDeltaX: 0, deltaY: -600) }
+        waitForText(language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}", containing: true)
+        capture(name(0, "devices-list"))
+        try fixture("account-signed-out")
+        waitForText(language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}",
+                    containing: true)
+        capture(name(4, "devices-icloud-signed-out"))
+    }
+
     /// Saves "Staging API" through the first-run editor, then unlocks
     /// management and opens Settings.
     private func createFirstCredential(value: String) {
@@ -358,7 +407,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(app.buttons["settings-agent-access"].waitForExistence(timeout: 8))
     }
 
-    /// The Backup section sits below the fold of Settings.
+    /// The Backup and Devices sections sit below the fold of Settings.
     private func openBackupSetting(_ identifier: String) {
         let button = app.buttons[identifier].firstMatch
         XCTAssertTrue(button.waitForExistence(timeout: 8), "Missing control: \(identifier)")

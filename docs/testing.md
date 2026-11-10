@@ -123,6 +123,21 @@ The backup flow (#274) adds eight captures with synthetic credentials, in Englis
 29-zh-backup-import-result.png
 ```
 
+The Devices section (#288) adds ten captures in English (`30`–`34`) and Simplified Chinese (`35`–`39`). The `screenshots-devices` scenario gives the E2E App fake device services with software keys, an in-memory transport and a simulated iPhone named "Synthetic iPhone" (`Tests/AskKeyTestSupport/E2EDeviceScenario.swift`); every other scenario keeps the build without CloudKit and shows no Devices section. The runner clicks the App's controls; fixture commands play the iPhone scanning, revealing, entering its code on the Mac and confirming, answering the delivery check, and the iCloud account signing out. The iPhone's code never leaves the App process. Like the backup captures, take them from the attachments of `basic-flows.xcresult`:
+
+```text
+30-en-devices-list.png                 the list with one paired iPhone
+31-en-devices-pairing-qr-code.png      the pairing sheet with its QR code
+32-en-devices-pairing-waiting.png      waiting for the iPhone's reveal
+33-en-devices-pairing-code-entry.png   the field for the code the iPhone shows
+34-en-devices-icloud-signed-out.png    iCloud signed out, the device unreachable
+35-zh-devices-list.png
+36-zh-devices-pairing-qr-code.png
+37-zh-devices-pairing-waiting.png
+38-zh-devices-pairing-code-entry.png
+39-zh-devices-icloud-signed-out.png
+```
+
 An optional capture failure is diagnostic: inspect the screenshot step, its log and xcresult, and the exported subset. A green required-flow job alone does not prove screenshot completeness; #146 acceptance also requires every PNG listed above in the artifact. Delete downloaded evidence after review.
 
 Desktop tests exercise shared App/Broker/helper behavior, but system authentication and external client boundaries use isolated fixtures. Passing them does not validate real Touch ID, production keychain access, a real client task, signing/notarization, or a release. Per [ADR 0006](adr/0006-release-process.md), `Local` and `Release` builds run [release-gate.py](../scripts/release-gate.py): the checkout must be clean, `HEAD` must be reachable from `origin/main` after fetching, and the latest push-to-main `CI` run for that exact commit and both required jobs (`build-and-test`, `basic-ui-flows`) must succeed. Jobs are checked for the run's latest attempt. `Release` also requires the tag `v<product version>` to point at `HEAD`; signing identities, notarization, and explicit maintainer publication approval remain required by the release process.
