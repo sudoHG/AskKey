@@ -1,6 +1,7 @@
 import AskKeyAppKit
 import AskKeyDevices
 import Foundation
+import Observation
 
 /// The other side of the Devices screenshots (#288): the E2E App's fake
 /// device services and a simulated iPhone in the same process, on the
@@ -17,6 +18,7 @@ enum E2EDeviceScenario {
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
     private static var task: Task<Void, Never>?
+    private static var transitions: [String] = []
 
     static func isRequested(_ scenario: String) -> Bool {
         scenario.hasPrefix(scenarioPrefix)
@@ -33,6 +35,7 @@ enum E2EDeviceScenario {
     /// Runs each command once when its file appears, then removes the file
     /// and writes `device-<command>.json` with the outcome.
     static func start(control: URL) {
+        recordPairingTransitions(control: control)
         task = Task { @MainActor in
             while !Task.isCancelled {
                 for command in commands {
@@ -59,6 +62,27 @@ enum E2EDeviceScenario {
     static func stop() {
         task?.cancel()
         task = nil
+    }
+
+    /// Writes `device-transitions.json` with each pairing state the sheet
+    /// reads, by case name only (the QR payload holds the pairing secret),
+    /// so a failed capture shows where the session went.
+    private static func recordPairingTransitions(control: URL) {
+        withObservationTracking {
+            _ = DeviceServicesHost.coordinator?.pairing
+        } onChange: {
+            Task { @MainActor in
+                if let coordinator = DeviceServicesHost.coordinator {
+                    let state = coordinator.pairing.map { String(describing: $0).prefix { $0 != "(" } } ?? "none"
+                    transitions.append("\(Date().timeIntervalSince1970) \(state) \(coordinator.availability) \(coordinator.account)")
+                    let report = ["transitions": transitions]
+                    if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted]) {
+                        try? data.write(to: control.appendingPathComponent("device-transitions.json"), options: .atomic)
+                    }
+                }
+                recordPairingTransitions(control: control)
+            }
+        }
     }
 
     private static func run(_ command: String) async throws {

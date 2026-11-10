@@ -151,7 +151,9 @@ final class DevicesSettingsModel {
         filter.correctionLevel = "M"
         guard let output = filter.outputImage else { return nil }
         let scaled = output.transformed(by: CGAffineTransform(scaleX: 8, y: 8))
-        guard let image = CIContext().createCGImage(scaled, from: scaled.extent) else { return nil }
+        // The software renderer needs no GPU and the image is a few hundred points.
+        let context = CIContext(options: [.useSoftwareRenderer: true, .cacheIntermediates: false])
+        guard let image = context.createCGImage(scaled, from: scaled.extent) else { return nil }
         return NSImage(cgImage: image, size: scaled.extent.size)
     }
 

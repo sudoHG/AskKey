@@ -75,12 +75,11 @@ private struct DevicesSectionContent: View {
             }
         }
         .task { await model.sectionOpened() }
-        .sheet(isPresented: Binding(
-            get: { model.isSheetPresented },
-            set: { presented in
-                if !presented { Task { await model.closeSheet() } }
-            }
-        )) {
+        // The session decides whether the sheet shows. Every way out goes
+        // through the sheet's buttons (Esc is Cancel) or the end of the
+        // management session, so a dismissal reported by SwiftUI alone never
+        // cancels a pairing.
+        .sheet(isPresented: Binding(get: { model.isSheetPresented }, set: { _ in })) {
             DevicePairingSheet(model: model)
         }
     }
