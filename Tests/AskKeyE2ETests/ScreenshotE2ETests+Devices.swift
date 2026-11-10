@@ -37,6 +37,11 @@ extension ScreenshotE2ETests {
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
         app.launch()
         addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
+        addTeardownBlock { // runs first: the App's log up to a failure
+            try? fixture("write-log")
+            self.attachDeviceFile("device-log.txt")
+            self.attachDeviceDiagnostics(notes)
+        }
         moveManagementAboveDock()
         click("unlock-management")
         click("sidebar-settings")
@@ -106,7 +111,20 @@ extension ScreenshotE2ETests {
         XCTAssertTrue(rename.waitForExistence(timeout: 8))
         try fixture("write-log")
         attachDeviceFile("device-log.txt")
-        attachDeviceFile("device-stderr.txt")
+        // #298 diagnostics: whether the Devices section takes clicks after a pairing.
+        for _ in 0..<6 where !rename.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+        rename.click()
+        notes.append("rename after pairing: field=\(app.textFields["devices-rename-field"].waitForExistence(timeout: 3))")
+        app.typeKey(.escape, modifierFlags: [])
+        notes.append("pair after pairing: hittable=\(pair.isHittable) frame=\(pair.frame)")
+        if pair.isHittable { pair.click() }
+        if sheet.waitForExistence(timeout: 3) {
+            notes.append("pair after pairing: sheet")
+            click("devices-pairing-cancel")
+            notes.append("sheet closed=\(sheet.waitForNonExistence(timeout: 5))")
+        } else {
+            notes.append("pair after pairing: no sheet")
+        }
         attachDeviceDiagnostics(notes)
         let sidebar = app.buttons["sidebar-settings"].firstMatch
         timed("sidebar text query after Done") { textQuery("Settings", in: sidebar).waitForExistence(timeout: 2) }

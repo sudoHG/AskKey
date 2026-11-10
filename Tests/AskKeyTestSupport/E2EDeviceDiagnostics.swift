@@ -26,16 +26,19 @@ enum E2EDeviceDiagnostics {
             let store = try OSLogStore(scope: .currentProcessIdentifier)
             var lines: [String] = []
             var frameworks = 0, cycles = 0
+            // XCTest's in-App automation logs every element it reads; those lines are left out.
+            let noise = ["faulted in", "Fetching AX attributes", "Got attributes", "Computed elementType", "Automation type mismatch"]
             for case let entry as OSLogEntryLog in try store.getEntries() {
                 let subsystem = entry.subsystem
                 let message = entry.composedMessage
+                if noise.contains(where: message.contains) { continue }
                 let framework = subsystem.hasPrefix("com.apple.SwiftUI") || subsystem.hasPrefix("com.apple.AppKit")
                     || subsystem.lowercased().contains("attributegraph") || message.contains("AttributeGraph")
                 if framework { frameworks += 1 }
                 if message.lowercased().contains("cycle") { cycles += 1 }
                 lines.append("\(entry.date.timeIntervalSince1970) [\(subsystem)/\(entry.category)] \(message)")
             }
-            try lines.suffix(5_000).joined(separator: "\n").write(to: control.appendingPathComponent("device-log.txt"), atomically: true, encoding: .utf8)
+            try lines.suffix(20_000).joined(separator: "\n").write(to: control.appendingPathComponent("device-log.txt"), atomically: true, encoding: .utf8)
             return "log entries=\(lines.count) framework=\(frameworks) cycle=\(cycles)"
         } catch {
             return "log unavailable: \(error)"
