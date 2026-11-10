@@ -38,17 +38,6 @@ extension ScreenshotE2ETests {
         app.launch()
         addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
         moveManagementAboveDock()
-        // #298 diagnostics: replicas of the Devices row, each without one of its differences.
-        try fixture("show-variants")
-        let variants = app.windows["devices-variants"].firstMatch
-        XCTAssertTrue(variants.waitForExistence(timeout: 8))
-        for identifier in ["full", "no-sheet", "item-sheet", "no-dimming", "disabled-only", "no-branch", "no-outer", "backup"] {
-            let button = variants.buttons["variant-\(identifier)"].firstMatch
-            notes.append("variant \(identifier): hittable=\(button.isHittable)")
-            if button.isHittable { button.click() }
-        }
-        Thread.sleep(forTimeInterval: 1)
-        try fixture("hide-variants")
         click("unlock-management")
         click("sidebar-settings")
         let pair = app.buttons["settings-pair-device"].firstMatch
@@ -63,6 +52,8 @@ extension ScreenshotE2ETests {
         // session if none of them opened the sheet.
         let export = app.buttons["settings-export-backup"].firstMatch
         notes.append("export: hittable=\(export.isHittable) frame=\(export.frame)")
+        try fixture("ax-scan", "\(export.frame.midX) \(export.frame.midY)")
+        try fixture("ax-scan", "\(pair.frame.midX) \(pair.frame.midY)")
         export.click()
         if sheet.waitForExistence(timeout: 5) {
             notes.append("export sheet")
@@ -110,6 +101,13 @@ extension ScreenshotE2ETests {
         func textQuery(_ text: String, in root: XCUIElement) -> XCUIElement {
             root.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)).firstMatch
         }
+        let rename = app.buttons["devices-rename"].firstMatch
+        XCTAssertTrue(rename.waitForExistence(timeout: 8))
+        try fixture("ax-scan", "\(rename.frame.midX) \(rename.frame.midY)")
+        attachDeviceDiagnostics(notes)
+        let sidebar = app.buttons["sidebar-settings"].firstMatch
+        timed("sidebar text query after Done") { textQuery("Settings", in: sidebar).waitForExistence(timeout: 2) }
+        attachDeviceDiagnostics(notes)
         timed("Settings window text query after Done") { textQuery(lastReached, in: settings).waitForExistence(timeout: 8) }
         attachDeviceDiagnostics(notes)
         let row = app.buttons["devices-rename"].firstMatch

@@ -118,6 +118,35 @@ enum E2EDeviceDiagnostics {
         return "pressed \(type(of: element)) role=\(role) id=\(identifier) actions=\(actions.map(\.rawValue))"
     }
 
+    /// Accessibility hit tests along a vertical and a horizontal line through a point in XCTest's
+    /// screen coordinates: which element SwiftUI reports at each offset, runs of the same merged.
+    static func scanAccessibility(aroundRunnerPoint point: NSPoint) -> String {
+        guard let screen = NSScreen.screens.first else { return "no screen" }
+        func element(at offset: CGSize) -> String {
+            let screenPoint = NSPoint(x: point.x + offset.width, y: screen.frame.maxY - point.y - offset.height)
+            guard let window = NSApp.windows.first(where: { $0.isVisible && $0.level == .normal && $0.frame.contains(screenPoint) }),
+                  let hit = window.accessibilityHitTest(screenPoint) as? NSObject else { return "none" }
+            let role = hit.accessibilityAttributeValue(.role) as? String ?? "-"
+            let identifier = hit.accessibilityAttributeValue(.identifier) as? String ?? ""
+            let label = hit.accessibilityAttributeValue(NSAccessibility.Attribute(rawValue: "AXDescription")) as? String
+                ?? hit.accessibilityAttributeValue(.value) as? String ?? ""
+            return "\(role) \(identifier.isEmpty ? String(label.prefix(24)) : identifier)"
+        }
+        func scan(_ offsets: [CGSize], _ axis: KeyPath<CGSize, CGFloat>) -> String {
+            var runs: [(from: CGFloat, to: CGFloat, what: String)] = []
+            for offset in offsets {
+                let what = element(at: offset)
+                if let last = runs.last, last.what == what { runs[runs.count - 1].to = offset[keyPath: axis] }
+                else { runs.append((offset[keyPath: axis], offset[keyPath: axis], what)) }
+            }
+            return runs.map { "\(Int($0.from))…\(Int($0.to)): \($0.what)" }.joined(separator: " | ")
+        }
+        // Down the screen is positive, as in XCTest's coordinates.
+        let vertical = scan(stride(from: -200, through: 200, by: 4).map { CGSize(width: 0, height: CGFloat($0)) }, \.height)
+        let horizontal = scan(stride(from: -240, through: 120, by: 8).map { CGSize(width: CGFloat($0), height: 0) }, \.width)
+        return "vertical [\(vertical)] horizontal [\(horizontal)]"
+    }
+
     /// The AppKit views under the centre of a screen rectangle, in each visible window containing it.
     private static func viewsUnder(_ screenFrame: NSRect) -> String {
         let point = NSPoint(x: screenFrame.midX, y: screenFrame.midY)
