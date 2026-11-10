@@ -7,6 +7,13 @@ import XCTest
 final class DeviceHarness {
     let clock = ManualDeviceClock()
     let transport = InMemoryDeviceTransport()
+    /// Builds each messenger's transport; nil gives every device the shared
+    /// in-memory transport.
+    var makeTransport: ((DeviceID, DevicePlatform) -> any DeviceTransport)?
+
+    func transport(for device: DeviceID, platform: DevicePlatform) -> any DeviceTransport {
+        makeTransport?(device, platform) ?? transport
+    }
 
     func makeDevice(_ platform: DevicePlatform, list: PairedDeviceList = PairedDeviceList(),
                     identity: SoftwareDeviceIdentity = SoftwareDeviceIdentity()) -> SimulatedDevice {
@@ -127,7 +134,7 @@ final class SimulatedDevice {
     private static func messenger(_ identity: SoftwareDeviceIdentity, _ store: any PairedDeviceListStore,
                                   _ platform: DevicePlatform, _ harness: DeviceHarness) -> DeviceMessenger {
         DeviceMessenger(identity: identity, platform: platform, registry: PairedDeviceRegistry(store: store),
-                        transport: harness.transport, clock: harness.clock)
+                        transport: harness.transport(for: identity.deviceID, platform: platform), clock: harness.clock)
     }
 }
 
