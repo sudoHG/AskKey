@@ -89,6 +89,9 @@ final class PairingFlowTests: XCTestCase {
         try await attacker.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         let macCode = try await XCTUnwrapAsync(await mac.derivedCode(), "the Mac froze the only request it saw")
+        guard case .enteringCode = await mac.phase() else {
+            return XCTFail("the Mac asks for a code and exposes none")
+        }
         try await attacker.poll()
         await XCTAssertEqualAsync(await attacker.code(), macCode, "only the device whose card was frozen gets the code")
 
