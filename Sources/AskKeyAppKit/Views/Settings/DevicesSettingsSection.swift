@@ -29,22 +29,38 @@ struct DevicesSettingsSection: View {
 
 private struct DevicesSectionContent: View {
     @Bindable var model: DevicesSettingsModel
-    // T6 TEMP #298 diagnostics, revert before merge: which half of the differences from the
-    // Backup row this run leaves out.
-    private let variant = ProcessInfo.processInfo.environment["ASKKEY_T6_VARIANT"] ?? ""
 
     var body: some View {
-        let _ = Self._printChanges()
+        let _ = Self._printChanges() // T6 TEMP #298, revert before merge
         // Each separate view subscribes to the language itself; the parent's
         // redraw does not re-run a body whose inputs are unchanged.
         let _ = AppLanguage.store.resolved
         let notice = model.notice
-        let group = GroupedList(header: appLocalized("Devices")) {
-            if variant == "outer-sheet" {
-                pairingRow(notice)
-            } else {
-                pairingRow(notice)
-                    .sheet(isPresented: sheetBinding) { DevicePairingSheet(model: model) }
+        GroupedList(header: appLocalized("Devices")) {
+            DevicesSettingRow(title: appLocalized("Pairing"), message: notice.text, isWarning: notice.isWarning) {
+                if model.offersReset {
+                    Button(appLocalized("Reset Device Identity…"), role: .destructive) { model.requestReset() }
+                        .buttonStyle(.irreversibleAction)
+                        .dimmedAndDisabled(model.confirmingReset)
+                        .accessibilityIdentifier("settings-reset-device-identity")
+                } else {
+                    Button(appLocalized("Pair a Device…"), action: pairDevice)
+                        .buttonStyle(.secondaryAction)
+                        .dimmedAndDisabled(!model.canPair)
+                        .accessibilityIdentifier("settings-pair-device")
+                }
+            }
+            // The session decides whether the sheet shows. A live session ends
+            // only through the sheet's buttons or the end of the management
+            // session, so a dismissal reported by SwiftUI alone never cancels
+            // a pairing; it only clears a session that has already finished.
+            .sheet(isPresented: Binding(
+                get: { model.isSheetPresented },
+                set: { presented in
+                    if !presented, model.coordinator.pairing?.isActive != true { Task { await model.closeSheet() } }
+                }
+            )) {
+                DevicePairingSheet(model: model)
             }
             if model.confirmingReset {
                 GroupedListSeparator()
@@ -72,49 +88,7 @@ private struct DevicesSectionContent: View {
                     .accessibilityIdentifier("settings-devices-issue")
             }
         }
-        if variant == "outer-sheet" {
-            group
-                .sheet(isPresented: sheetBinding) { DevicePairingSheet(model: model) }
-                .onAppear { Task { await model.sectionOpened() } }
-        } else if variant == "plain" {
-            group
-        } else {
-            group.onAppear { Task { await model.sectionOpened() } }
-        }
-    }
-
-    private func pairingRow(_ notice: DevicesPresentation.Notice) -> some View {
-        DevicesSettingRow(title: appLocalized("Pairing"), message: notice.text, isWarning: notice.isWarning) {
-            if variant == "plain" {
-                Button(appLocalized("Pair a Device…"), action: pairDevice)
-                    .buttonStyle(.secondaryAction)
-                    .disabled(!model.canPair)
-                    .accessibilityIdentifier("settings-pair-device")
-            } else if model.offersReset {
-                Button(appLocalized("Reset Device Identity…"), role: .destructive) { model.requestReset() }
-                    .buttonStyle(.irreversibleAction)
-                    .dimmedAndDisabled(model.confirmingReset)
-                    .accessibilityIdentifier("settings-reset-device-identity")
-            } else {
-                Button(appLocalized("Pair a Device…"), action: pairDevice)
-                    .buttonStyle(.secondaryAction)
-                    .dimmedAndDisabled(!model.canPair)
-                    .accessibilityIdentifier("settings-pair-device")
-            }
-        }
-    }
-
-    // The session decides whether the sheet shows. A live session ends
-    // only through the sheet's buttons or the end of the management
-    // session, so a dismissal reported by SwiftUI alone never cancels
-    // a pairing; it only clears a session that has already finished.
-    private var sheetBinding: Binding<Bool> {
-        Binding(
-            get: { model.isSheetPresented },
-            set: { presented in
-                if !presented, model.coordinator.pairing?.isActive != true { Task { await model.closeSheet() } }
-            }
-        )
+        .onAppear { Task { await model.sectionOpened() } }
     }
 
     private func pairDevice() {

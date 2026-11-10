@@ -30,9 +30,8 @@ extension ScreenshotE2ETests {
         }
         app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
         app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
-        // #298 bisection (temporary): English moves the sheet off the row; Chinese uses plain
-        // `.disabled`, no reset branch and no task on appear.
-        app.launchEnvironment["ASKKEY_T6_VARIANT"] = language == "en" ? "outer-sheet" : "plain"
+        // #298 (temporary): the Chinese run shows the Devices section first in Settings.
+        if language != "en" { app.launchEnvironment["ASKKEY_T6_VARIANT"] = "devices-first" }
         app.launch()
         addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
         addTeardownBlock { // runs first: the App's log up to a failure
@@ -77,6 +76,18 @@ extension ScreenshotE2ETests {
             clickOpened.append(sheet.waitForExistence(timeout: 3))
             notes.append(clickOpened.last == true ? "sheet" : "no sheet")
         }
+        // #298: whether a button below the Devices section, Erase…, takes its first click.
+        let erase = app.buttons.matching(NSPredicate(format: "label == %@", language == "en" ? "Erase\u{2026}" : "\u{62B9}\u{9664}\u{2026}")).firstMatch
+        if erase.waitForExistence(timeout: 3) {
+            for _ in 0..<6 where !erase.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+            notes.append("erase: enabled=\(erase.isEnabled) hittable=\(erase.isHittable) frame=\(erase.frame)")
+            erase.click()
+            let disabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == false"), object: erase)
+            notes.append("erase after click: " + (XCTWaiter.wait(for: [disabled], timeout: 3) == .completed ? "opened its confirmation" : "nothing"))
+        } else {
+            notes.append("erase: not found")
+        }
+        for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: 300) }
         let centre = "\(pair.frame.midX) \(pair.frame.midY)"
         for command in ["inject-click"] where !sheet.exists {
             try fixture(command, centre)
