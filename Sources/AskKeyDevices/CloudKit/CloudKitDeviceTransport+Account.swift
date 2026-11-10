@@ -22,8 +22,21 @@ public enum CloudKitAccountState: Hashable, Sendable {
 extension CloudKitDeviceTransport {
     /// The account state, compared with `storedUserRecordName`: the account
     /// the caller's stored change token belongs to, or nil when it has none.
-    /// Call it at launch and whenever `accountChanges` yields.
-    public nonisolated func accountState(storedUserRecordName: String?) async -> CloudKitAccountState {
+    /// Call it at launch and whenever `accountChanges` yields. When the
+    /// signed-in account differs from the one this transport last saw, or
+    /// none is available, the next `prepareInbox()` prepares the inbox again.
+    public func accountState(storedUserRecordName: String?) async -> CloudKitAccountState {
+        let state = await currentAccountState(storedUserRecordName: storedUserRecordName)
+        switch state {
+        case .available(let userRecordName), .accountChanged(let userRecordName):
+            accountDidChange(to: userRecordName)
+        case .noAccount, .restricted, .temporarilyUnavailable:
+            accountDidChange(to: nil)
+        }
+        return state
+    }
+
+    private nonisolated func currentAccountState(storedUserRecordName: String?) async -> CloudKitAccountState {
         let status: CKAccountStatus
         do {
             status = try await service.accountStatus()

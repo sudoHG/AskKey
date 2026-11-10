@@ -47,18 +47,46 @@ final class CloudKitPollingTests: XCTestCase {
         XCTAssertEqual(service.savedSubscriptionIDs.count, 4, "two per device, saved once")
     }
 
-    func testAnExpiredTokenLeadsToAFullFetch() async throws {
+    func testAnExpiredTokenLeadsToAFullFetchThatKeepsTheListAndProcessedIDs() async throws {
         let mac = try await makeDevice(.macOS)
         let phone = try await makeDevice(.iOS)
         try await harness.pair(mac, phone)
         let settled = try await XCTUnwrapAsync(await phone.messenger.inboxToken)
         service.expireTokens(ofZone: "inbox_" + phone.id.text)
         try await mac.messenger.sendDeliveryCheck(to: phone.id)
+        let check = try XCTUnwrap(service.records(inZone: "inbox_" + phone.id.text).first)
         let report = try await phone.poll()
         XCTAssertEqual(report.processed, 1, "the full fetch from no token found the check")
         await XCTAssertNotEqualAsync(try await XCTUnwrapAsync(await phone.messenger.inboxToken), settled)
         XCTAssertEqual(inbox(phone), [])
         await XCTAssertNotNilAsync(try await phone.entry(for: mac), "the list is kept")
+
+        // A writer puts the processed check back, and the token expires again.
+        service.insert(check)
+        service.expireTokens(ofZone: "inbox_" + phone.id.text)
+        let replay = try await phone.poll()
+        XCTAssertEqual(replay.outcomes, [check.recordID.recordName: .refused(.replayed)], "processed IDs are kept")
+        XCTAssertEqual(inbox(phone), [])
+    }
+
+    func testAFailedDeletionKeepsTheToken() async throws {
+        let mac = try await makeDevice(.macOS)
+        let phone = try await makeDevice(.iOS)
+        try await harness.pair(mac, phone)
+        let token = await phone.messenger.inboxToken
+        try await mac.messenger.sendDeliveryCheck(to: phone.id)
+        let check = try XCTUnwrap(inbox(phone).first)
+        service.recordDeleteErrors = [check: CKError(.networkFailure)]
+        await XCTAssertThrowsErrorAsync(try await phone.poll()) {
+            XCTAssertEqual($0 as? DeviceTransportError, .networkUnavailable)
+        }
+        await XCTAssertEqualAsync(await phone.messenger.inboxToken, token, "the token stays until the deletion worked")
+        XCTAssertEqual(inbox(phone), [check])
+        service.recordDeleteErrors = [:]
+        let retried = try await phone.poll()
+        XCTAssertEqual(retried.outcomes, [check: .refused(.replayed)], "processed once, then deleted")
+        XCTAssertEqual(inbox(phone), [])
+        await XCTAssertNotEqualAsync(await phone.messenger.inboxToken, token)
     }
 
     func testAPartialFetchFailureKeepsTheTokenBehindTheUnfetchedMessage() async throws {

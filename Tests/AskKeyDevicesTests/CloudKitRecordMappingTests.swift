@@ -70,6 +70,17 @@ final class CloudKitRecordMappingTests: XCTestCase {
         }
     }
 
+    func testKindAcceptsEveryIntegerEncoding() throws {
+        let good = try CloudKitMessageRecord.record(for: envelope(.deliveryCheck))
+        let encodings: [NSNumber] = [NSNumber(value: Int8(7)), NSNumber(value: Int16(7)), NSNumber(value: Int32(7)),
+                                     NSNumber(value: UInt8(7)), NSNumber(value: UInt64(7)), NSNumber(value: 7)]
+        for number in encodings {
+            let record = copy(good)
+            record["kind"] = number
+            XCTAssertEqual(CloudKitMessageRecord.envelope(from: record)?.kind, 7, String(cString: number.objCType))
+        }
+    }
+
     func testRecordTypeMustMatchTheKind() throws {
         let checkAsQuiet = try CloudKitMessageRecord.record(for: envelope(.deliveryCheck, recordType: .quiet))
         XCTAssertNil(CloudKitMessageRecord.envelope(from: checkAsQuiet))

@@ -6,7 +6,7 @@ import Foundation
 /// one. Left out: the zone's owner name, which CloudKit may return resolved
 /// to the user's record name instead of `CKCurrentUserDefaultName`; the
 /// predicate object, compared by its format; and the order of the desired
-/// keys, compared as a set.
+/// keys, compared as a set. An empty string or list counts as unset.
 struct CloudKitSubscriptionDefinition: Equatable {
     struct Notification: Equatable {
         var alertBody: String?
@@ -29,24 +29,28 @@ struct CloudKitSubscriptionDefinition: Equatable {
         var collapseIDKey: String?
 
         init(_ info: CKSubscription.NotificationInfo) {
-            alertBody = info.alertBody
-            alertLocalizationKey = info.alertLocalizationKey
-            alertLocalizationArgs = info.alertLocalizationArgs
-            title = info.title
-            titleLocalizationKey = info.titleLocalizationKey
-            titleLocalizationArgs = info.titleLocalizationArgs
-            subtitle = info.subtitle
-            subtitleLocalizationKey = info.subtitleLocalizationKey
-            subtitleLocalizationArgs = info.subtitleLocalizationArgs
-            alertActionLocalizationKey = info.alertActionLocalizationKey
-            alertLaunchImage = info.alertLaunchImage
-            soundName = info.soundName
-            desiredKeys = info.desiredKeys.map(Set.init)
+            alertBody = Self.set(info.alertBody)
+            alertLocalizationKey = Self.set(info.alertLocalizationKey)
+            alertLocalizationArgs = Self.set(info.alertLocalizationArgs)
+            title = Self.set(info.title)
+            titleLocalizationKey = Self.set(info.titleLocalizationKey)
+            titleLocalizationArgs = Self.set(info.titleLocalizationArgs)
+            subtitle = Self.set(info.subtitle)
+            subtitleLocalizationKey = Self.set(info.subtitleLocalizationKey)
+            subtitleLocalizationArgs = Self.set(info.subtitleLocalizationArgs)
+            alertActionLocalizationKey = Self.set(info.alertActionLocalizationKey)
+            alertLaunchImage = Self.set(info.alertLaunchImage)
+            soundName = Self.set(info.soundName)
+            desiredKeys = Self.set(info.desiredKeys).map(Set.init)
             shouldBadge = info.shouldBadge
             shouldSendContentAvailable = info.shouldSendContentAvailable
             shouldSendMutableContent = info.shouldSendMutableContent
-            category = info.category
-            collapseIDKey = info.collapseIDKey
+            category = Self.set(info.category)
+            collapseIDKey = Self.set(info.collapseIDKey)
+        }
+
+        private static func set<C: Collection>(_ value: C?) -> C? {
+            value.flatMap { $0.isEmpty ? nil : $0 }
         }
     }
 

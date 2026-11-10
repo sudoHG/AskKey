@@ -44,6 +44,8 @@ public actor CloudKitDeviceTransport: DeviceTransport {
     private var inboxReady = false
     private var nextPreparation: Date?
     private var runningPreparation: Task<InboxPreparation, Error>?
+    /// The account the last `accountState` call found signed in.
+    private var observedUserRecordName: String?
 
     /// A transport on the private database of the container `containerIdentifier`.
     /// Create it only in a build whose signed entitlements contain that
@@ -69,8 +71,8 @@ public actor CloudKitDeviceTransport: DeviceTransport {
 
     // MARK: Inbox and subscriptions
 
-    /// Creates this device's inbox zone (saving an existing zone changes
-    /// nothing) and makes sure its two subscriptions are the ones ADR 0013
+    /// Creates this device's inbox zone if CloudKit answers that it does not
+    /// exist, and makes sure its two subscriptions are the ones ADR 0013
     /// defines, without saving a matching subscription again: re-saving one
     /// loses about a minute of pushes (#281). It fetches the subscriptions by
     /// ID; only a "does not exist" answer leads to a save. A fetched
@@ -78,8 +80,9 @@ public actor CloudKitDeviceTransport: DeviceTransport {
     /// is saved correctly once. Any other answer saves nothing and leaves the
     /// subscription pending for a later preparation. Each save is logged
     /// with its subscription ID and time. Once a preparation completes, later
-    /// calls in this process return at once. Throws `DeviceTransportError`
-    /// when the zone save or the subscription fetch as a whole fails.
+    /// calls in this process return at once, until `accountState` reports
+    /// another account or none. Throws `DeviceTransportError` when the zone
+    /// check or save, or the subscription fetch as a whole, fails.
     public func prepareInbox() async throws -> InboxPreparation {
         guard !inboxReady else { return InboxPreparation() }
         return try await prepare()
@@ -109,16 +112,20 @@ public actor CloudKitDeviceTransport: DeviceTransport {
     /// callers never save the same subscription twice.
     private func prepare() async throws -> InboxPreparation {
         if let runningPreparation { return try await runningPreparation.value }
-        let task = Task { try await self.runPreparation() }
+        let task = Task { () -> InboxPreparation in
+            defer { runningPreparation = nil }
+            return try await runPreparation()
+        }
         runningPreparation = task
-        defer { runningPreparation = nil }
         return try await task.value
     }
 
     private func runPreparation() async throws -> InboxPreparation {
         nextPreparation = clock.now().addingTimeInterval(Self.preparationRetryInterval)
         do {
-            try await service.saveZone(ownZoneID)
+            if try await !service.zoneExists(ownZoneID) {
+                try await service.saveZone(ownZoneID)
+            }
         } catch {
             throw failure(error)
         }
@@ -139,7 +146,11 @@ public actor CloudKitDeviceTransport: DeviceTransport {
                 replaced = true
             case .failure(let error) where CloudKitErrorMapping.isUnknownItem(error):
                 replaced = false
-            case .failure, nil:
+            case .failure(let error):
+                _ = failure(error)
+                report.pending.append(id)
+                continue
+            case nil:
                 report.pending.append(id)
                 continue
             }
@@ -159,13 +170,25 @@ public actor CloudKitDeviceTransport: DeviceTransport {
     }
 
     /// Maps a preparation error and pushes the next automatic attempt back
-    /// when CloudKit asks to wait longer than the usual interval.
+    /// when CloudKit asks to wait longer than the usual interval; with
+    /// several such answers the latest time wins.
     private func failure(_ error: Error) -> Error {
         let mapped = CloudKitErrorMapping.transportError(for: error)
         if case DeviceTransportError.rateLimited(let retryAfter?) = mapped, retryAfter > Self.preparationRetryInterval {
-            nextPreparation = clock.now().addingTimeInterval(retryAfter)
+            let requested = clock.now().addingTimeInterval(retryAfter)
+            nextPreparation = max(nextPreparation ?? requested, requested)
         }
         return mapped
+    }
+
+    /// The signed-in account changed or went away: the inbox has to be
+    /// prepared again in whatever account is signed in next.
+    func accountDidChange(to userRecordName: String?) {
+        if userRecordName == nil || userRecordName != observedUserRecordName {
+            inboxReady = false
+            nextPreparation = nil
+        }
+        observedUserRecordName = userRecordName
     }
 
     /// Finishes a preparation that an earlier attempt left undone, if one is due.

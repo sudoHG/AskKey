@@ -21,6 +21,15 @@ final class CloudKitContainerService: CloudKitInboxService, @unchecked Sendable 
         try await container.userRecordID().recordName
     }
 
+    func zoneExists(_ zoneID: CKRecordZone.ID) async throws -> Bool {
+        do {
+            _ = try await database.recordZone(for: zoneID)
+            return true
+        } catch let error where CloudKitErrorMapping.isZoneMissing(error) {
+            return false
+        }
+    }
+
     func saveZone(_ zoneID: CKRecordZone.ID) async throws {
         let results = try await database.modifyRecordZones(saving: [CKRecordZone(zoneID: zoneID)], deleting: [])
         _ = try Self.answer(results.saveResults[zoneID]).get()

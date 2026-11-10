@@ -122,6 +122,10 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
         locked { _userRecordName }
     }
 
+    func zoneExists(_ zoneID: CKRecordZone.ID) async throws -> Bool {
+        locked { zones.contains(zoneID.zoneName) }
+    }
+
     func saveZone(_ zoneID: CKRecordZone.ID) async throws {
         try locked {
             savedZones.append(zoneID.zoneName)
@@ -236,7 +240,7 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     }
 
     /// A copy as a fetch returns it: the zone owner resolved, the desired
-    /// keys reordered.
+    /// keys reordered, and unset texts and lists returned empty.
     private static func asReturned(_ subscription: CKSubscription, owner: String) -> CKSubscription {
         guard let query = subscription as? CKQuerySubscription else { return subscription }
         let copy = CKQuerySubscription(recordType: query.recordType ?? "", predicate: query.predicate,
@@ -244,6 +248,8 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
         copy.zoneID = query.zoneID.map { CKRecordZone.ID(zoneName: $0.zoneName, ownerName: owner) }
         if let info = query.notificationInfo?.copy() as? CKSubscription.NotificationInfo {
             info.desiredKeys = info.desiredKeys?.reversed()
+            info.alertLocalizationArgs = info.alertLocalizationArgs ?? []
+            info.subtitle = info.subtitle ?? ""
             copy.notificationInfo = info
         }
         return copy

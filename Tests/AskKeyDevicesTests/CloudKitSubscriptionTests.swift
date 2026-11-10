@@ -106,7 +106,7 @@ final class CloudKitSubscriptionTests: XCTestCase {
             XCTAssertEqual(report, InboxPreparation())
         }
         XCTAssertEqual(service.savedSubscriptionIDs, [alertID, quietID], "launches fetch, never save, a matching subscription")
-        XCTAssertEqual(service.savedZoneNames.count, 4, "saving the existing zone is idempotent")
+        XCTAssertEqual(service.savedZoneNames.count, 1, "the zone is created once, then only checked")
         XCTAssertEqual(log.events.count, 2)
     }
 
@@ -224,6 +224,52 @@ final class CloudKitSubscriptionTests: XCTestCase {
         clock.advance(by: 180)
         _ = try await transport.fetchInboxChanges(of: device, since: nil)
         XCTAssertEqual(service.savedSubscriptionIDs, [alertID, quietID])
+    }
+
+    func testARetryAfterOnOneSubscriptionPushesTheNextAutomaticPreparationBack() async throws {
+        let transport = launch()
+        service.subscriptionAnswers = [alertID: CKError(.serviceUnavailable, userInfo: [CKErrorRetryAfterKey: 300.0])]
+        let report = try await transport.prepareInbox()
+        XCTAssertEqual(report, InboxPreparation(saved: [quietID], pending: [alertID]))
+        service.subscriptionAnswers = [:]
+        clock.advance(by: 120)
+        _ = try await transport.fetchInboxChanges(of: device, since: nil)
+        XCTAssertEqual(service.savedSubscriptionIDs, [quietID], "CloudKit asked to wait five minutes")
+        clock.advance(by: 180)
+        _ = try await transport.fetchInboxChanges(of: device, since: nil)
+        XCTAssertEqual(service.savedSubscriptionIDs, [quietID, alertID])
+    }
+
+    func testAnAccountChangeMakesTheNextPreparationRunAgain() async throws {
+        let transport = launch()
+        service.userRecordNameValue = "_first"
+        _ = await transport.accountState(storedUserRecordName: nil)
+        _ = try await transport.prepareInbox()
+        XCTAssertEqual(service.savedSubscriptionIDs, [alertID, quietID])
+
+        // The person signs in to another Apple ID while the App runs.
+        service.removeZone(named: "inbox_" + device.text)
+        service.removeSubscription(alertID)
+        service.removeSubscription(quietID)
+        service.userRecordNameValue = "_second"
+        let state = await transport.accountState(storedUserRecordName: "_first")
+        XCTAssertEqual(state, .accountChanged(userRecordName: "_second"))
+        let report = try await transport.prepareInbox()
+        XCTAssertEqual(report.saved, [alertID, quietID], "the new account gets its inbox")
+        XCTAssertTrue(service.zoneNames.contains("inbox_" + device.text))
+
+        _ = await transport.accountState(storedUserRecordName: "_second")
+        let fetches = service.subscriptionFetchCount
+        _ = try await transport.prepareInbox()
+        XCTAssertEqual(service.subscriptionFetchCount, fetches, "the same account needs no new preparation")
+
+        service.status = .noAccount
+        _ = await transport.accountState(storedUserRecordName: "_second")
+        service.status = .available
+        _ = await transport.accountState(storedUserRecordName: "_second")
+        _ = try await transport.prepareInbox()
+        XCTAssertEqual(service.subscriptionFetchCount, fetches + 1, "signing back in checks the inbox again")
+        XCTAssertEqual(service.savedSubscriptionIDs.count, 4, "without saving matching subscriptions")
     }
 
     func testConcurrentPreparationsSaveEachSubscriptionOnce() async throws {

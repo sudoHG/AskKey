@@ -71,12 +71,18 @@ public enum CloudKitMessageRecord {
                               recipient: recipient, kind: kind, sentAt: sentAt, expiresAt: expiresAt, body: body)
     }
 
-    /// An `INT64` field arrives as a signed integer `NSNumber`; a Boolean, a
-    /// floating-point number or any other value is the wrong type.
+    /// An `INT64` field arrives as an integer `NSNumber`, in whatever integer
+    /// encoding; a Boolean, a floating-point number or any other value is the
+    /// wrong type.
     private static func integer(_ value: CKRecordValue?) -> Int64? {
-        guard let number = value as? NSNumber else { return nil }
-        let signedIntegerTypes: Set<String> = ["q", "l", "i", "s"]
-        guard signedIntegerTypes.contains(String(cString: number.objCType)) else { return nil }
-        return number.int64Value
+        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        switch String(cString: number.objCType) {
+        case "f", "d":
+            return nil
+        case "Q", "L", "I", "S", "C":
+            return Int64(exactly: number.uint64Value)
+        default:
+            return number.int64Value
+        }
     }
 }

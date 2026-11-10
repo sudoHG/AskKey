@@ -117,6 +117,16 @@ final class CloudKitTransportTests: XCTestCase {
         XCTAssertEqual(next.envelopes.count, 1, "the new zone's token works")
     }
 
+    func testFetchingAnotherDevicesMissingInboxCreatesNoZone() async throws {
+        let inbox = transport(phone, .iOS)
+        await XCTAssertThrowsErrorAsync(try await inbox.fetchInboxChanges(of: mac, since: nil)) {
+            XCTAssertEqual($0 as? DeviceTransportError, .recipientUnreachable)
+        }
+        XCTAssertFalse(service.zoneNames.contains("inbox_" + mac.text))
+        XCTAssertFalse(service.savedZoneNames.contains("inbox_" + mac.text))
+        XCTAssertEqual(log.events.filter { if case .inboxZoneRecreated = $0 { return true } else { return false } }, [])
+    }
+
     func testAMissingOwnZoneKeepsSubscriptionsThatStillMatch() async throws {
         let inbox = transport(phone, .iOS)
         _ = try await inbox.prepareInbox()
@@ -180,6 +190,7 @@ final class CloudKitTransportTests: XCTestCase {
             (CKError(.userDeletedZone), .recipientUnreachable),
             (CKError(.changeTokenExpired), .changeTokenExpired),
             (CKError(.serviceUnavailable), .serviceUnavailable),
+            (CKError(.serviceUnavailable, userInfo: [CKErrorRetryAfterKey: 30.0]), .rateLimited(retryAfter: 30)),
             (CKError(.internalError), .serviceUnavailable),
             (CKError(.partialFailure, userInfo: [CKPartialErrorsByItemIDKey: ["a": CKError(.quotaExceeded)]]), .quotaExceeded),
             (DeviceTransportError.notAuthenticated, .notAuthenticated),

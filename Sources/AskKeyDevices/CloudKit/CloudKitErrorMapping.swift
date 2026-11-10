@@ -37,6 +37,9 @@ enum CloudKitErrorMapping {
             return DeviceTransportError.networkUnavailable
         case .requestRateLimited, .zoneBusy:
             return DeviceTransportError.rateLimited(retryAfter: ckError.retryAfterSeconds)
+        case .serviceUnavailable where ckError.retryAfterSeconds != nil:
+            // CloudKit also throttles with this code and a retry-after (TN3162).
+            return DeviceTransportError.rateLimited(retryAfter: ckError.retryAfterSeconds)
         case .quotaExceeded:
             return DeviceTransportError.quotaExceeded
         case .notAuthenticated, .accountTemporarilyUnavailable:
