@@ -18,14 +18,14 @@ final class ReviewFixTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.confirm()
         try await mac.poll()
         // The person removes the phone; the removal's write blocks, and the
         // person confirms the new pairing meanwhile.
         gated.closeGate()
         let removing = Task { try await mac.messenger.removeDevice(phone.id) }
         while !gated.isWaiting { await Task.yield() }
-        let confirming = Task { try await mac.messenger.confirmPairing(approvalReason: "Pair") }
+        let confirming = Task { try await mac.confirm() }
         // Wait until the confirmation waits to add the phone, or the session already ended.
         for _ in 0..<10_000 {
             let phase = await mac.phase()
@@ -49,13 +49,13 @@ final class ReviewFixTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
         try await phone.poll()
         // The Face ID prompt stays up past the session's expiry.
         let clock = harness.clock
         phone.identity.duringApprovalPrompt = { clock.advance(by: 10 * 60) }
         do {
-            try await phone.messenger.confirmPairing(approvalReason: "Pair")
+            try await phone.confirm()
             XCTFail("a confirmation after the session ended is refused")
         } catch DeviceMessengerError.sessionEnded {}
         await XCTAssertEqualAsync(await phone.phase()?.endReason, .expired)
@@ -71,9 +71,9 @@ final class ReviewFixTests: XCTestCase {
         try await other.poll()
         harness.clock.advance(by: 10 * 60)
         do {
-            try await other.messenger.confirmPairing(approvalReason: "Pair")
+            try await other.confirm()
             XCTFail("expired")
-        } catch DeviceMessengerError.notComparing {}
+        } catch DeviceMessengerError.notAwaitingConfirmation {}
         XCTAssertTrue(other.identity.approvalReasons.isEmpty, "no prompt for an expired session")
     }
 
@@ -86,8 +86,8 @@ final class ReviewFixTests: XCTestCase {
         try await mac.poll()
         try await phone.poll()
         harness.transport.delaying(.pairingConfirmation, from: mac.id)
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
+        try await phone.confirm()
         try await mac.poll()
         await XCTAssertNotNilAsync(try await mac.entry(for: phone))
         // The Mac starts another pairing, then the phone's person cancels the first one.
@@ -103,8 +103,8 @@ final class ReviewFixTests: XCTestCase {
         try await tablet.messenger.joinPairing(scannedText: tabletQR.text, displayName: "Tablet")
         try await mac.poll()
         try await tablet.poll()
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
-        try await tablet.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
+        try await tablet.confirm()
         try await mac.poll()
         await XCTAssertNotNilAsync(try await mac.entry(for: tablet))
         _ = try await mac.messenger.startPairing(displayName: "Studio Mac")
@@ -143,15 +143,15 @@ final class ReviewFixTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         harness.transport.delaying(.pairingChallenge)
         try await mac.poll()
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
         harness.transport.releaseDelayed()
         // The confirmation is on the first page and the challenge on the second.
         harness.transport.pageSize = 1
         let report = try await phone.poll()
         XCTAssertEqual(report.processed, 2)
         XCTAssertEqual(report.held, 0)
-        guard case .comparing = await phone.phase() else { return XCTFail("the challenge arrived on page two") }
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        guard case .showingCode = await phone.phase() else { return XCTFail("the challenge arrived on page two") }
+        try await phone.confirm()
         guard case .paired = await phone.phase() else { return XCTFail("the held confirmation counted") }
 
         try await mac.poll()
@@ -237,7 +237,7 @@ final class ReviewFixTests: XCTestCase {
             approvalKey: P256.Signing.PrivateKey()))
         try await claimant.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
-        await XCTAssertNotNilAsync(await mac.code())
+        await XCTAssertNotNilAsync(await mac.derivedCode())
         var challenge = try XCTUnwrap(harness.transport.lastSent(.pairingChallenge, from: mac.id))
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         harness.transport.insert(challenge, intoInboxOf: phone.id)

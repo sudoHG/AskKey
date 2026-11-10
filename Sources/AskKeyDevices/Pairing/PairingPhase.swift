@@ -6,11 +6,18 @@ public enum PairingPhase: Hashable, Sendable {
     case showingQRCode(PairingQRPayload)
     /// Responder: the request is sent and no verified challenge has arrived.
     case waitingForChallenge
-    /// Both sides: compare this code with the other device's. On the
-    /// initiator nothing here reveals whether the responder has confirmed.
-    case comparing(ComparisonCode, peer: PairingPeer)
-    /// This side confirmed; the peer's verified confirmation has not arrived.
-    case waitingForPeer(ComparisonCode, peer: PairingPeer)
+    /// Initiator: ask the person to type the code the responder shows.
+    /// The initiator never exposes the code. Nothing here reveals whether
+    /// the responder has confirmed.
+    case enteringCode(peer: PairingPeer, attemptsRemaining: Int)
+    /// Initiator: the typed code matched and this side confirmed; the
+    /// responder's verified confirmation has not arrived.
+    case waitingForPeer(peer: PairingPeer)
+    /// Responder: show this code, which the person types on the Mac, and
+    /// ask the person to confirm on this device. `confirmed` tells whether
+    /// this side has confirmed; the code stays on screen until the session
+    /// ends or the peer is added, because the Mac may still need it.
+    case showingCode(ComparisonCode, peer: PairingPeer, confirmed: Bool)
     /// Both confirmations are held and the peer is on the list.
     case paired(peer: PairingPeer, pairingID: PairingID)
     case ended(PairingEndReason)
@@ -34,8 +41,8 @@ public struct PairingPeer: Hashable, Sendable {
 public enum PairingEndReason: Hashable, Sendable {
     /// The person chose Cancel on this side.
     case cancelled
-    /// The person chose Codes Don't Match on this side.
-    case codesDidNotMatch
+    /// Initiator: the person typed a code that did not match three times.
+    case codeMismatch
     /// A cancellation or withdrawal for this session arrived before this
     /// side added the peer.
     case cancelledByPeer

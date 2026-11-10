@@ -16,24 +16,27 @@ final class PairingFlowTests: XCTestCase {
         await XCTAssertNilAsync(await phone.code(), "no code before the challenge")
 
         try await mac.poll()
-        guard case .comparing(let macCode, let phoneSummary) = await mac.phase() else {
-            return XCTFail("the Mac hides the QR code and shows the code once it froze the request")
+        guard case .enteringCode(let phoneSummary, attemptsRemaining: 3) = await mac.phase() else {
+            return XCTFail("the Mac hides the QR code and asks for the code once it froze the request")
         }
         XCTAssertEqual(phoneSummary, PairingPeer(deviceID: phone.id, platform: .iOS, displayName: "Pocket Phone"))
         try await phone.poll()
-        guard case .comparing(let phoneCode, let macSummary) = await phone.phase() else {
+        guard case .showingCode(let phoneCode, let macSummary, confirmed: false) = await phone.phase() else {
             return XCTFail("the phone shows the code after a verified challenge")
         }
         XCTAssertEqual(macSummary, PairingPeer(deviceID: mac.id, platform: .macOS, displayName: "Studio Mac"))
-        XCTAssertEqual(macCode, phoneCode)
-        XCTAssertEqual(macCode.formatted.count, 7)
+        await XCTAssertEqualAsync(await mac.derivedCode(), phoneCode, "both sides derive the same code")
+        XCTAssertEqual(phoneCode.formatted.count, 7)
 
         try await phone.messenger.confirmPairing(approvalReason: "Pair with Studio Mac")
+        guard case .showingCode(phoneCode, _, confirmed: true) = await phone.phase() else {
+            return XCTFail("the phone keeps showing the code until the Mac confirms")
+        }
         try await mac.poll()
-        guard case .comparing = await mac.phase() else {
+        guard case .enteringCode = await mac.phase() else {
             return XCTFail("until the person confirms, the Mac does not show that the phone confirmed")
         }
-        try await mac.messenger.confirmPairing(approvalReason: "Pair with Pocket Phone")
+        try await mac.messenger.confirmPairing(enteredCode: phoneCode.formatted, approvalReason: "Pair with Pocket Phone")
         try await phone.poll()
         XCTAssertEqual(phone.identity.approvalReasons, ["Pair with Studio Mac"])
         XCTAssertEqual(mac.identity.approvalReasons, ["Pair with Pocket Phone"])
@@ -85,7 +88,7 @@ final class PairingFlowTests: XCTestCase {
         // It holds the real phone's card and can open nothing the phone sealed, so it sends its own request.
         try await attacker.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
-        let macCode = try await XCTUnwrapAsync(await mac.code(), "the Mac froze the only request it saw")
+        let macCode = try await XCTUnwrapAsync(await mac.derivedCode(), "the Mac froze the only request it saw")
         try await attacker.poll()
         await XCTAssertEqualAsync(await attacker.code(), macCode, "only the device whose card was frozen gets the code")
 
@@ -153,13 +156,13 @@ final class PairingFlowTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.confirm()
         harness.clock.advance(by: 10 * 60)
         try await mac.poll()
         do {
-            try await mac.messenger.confirmPairing(approvalReason: "Pair")
+            try await mac.confirm()
             XCTFail("an expired session cannot be confirmed")
-        } catch DeviceMessengerError.notComparing {}
+        } catch DeviceMessengerError.notAwaitingConfirmation {}
         try await phone.poll()
         await XCTAssertEqualAsync(await mac.phase()?.endReason, .expired)
         await XCTAssertEqualAsync(await phone.phase()?.endReason, .expired)
@@ -172,8 +175,8 @@ final class PairingFlowTests: XCTestCase {
         } catch PairingQRPayloadError.expired {}
     }
 
-    func testCancellationOnEitherSideAndRejectedCodesLeaveBothListsUnchanged() async throws {
-        for step in ["mac cancels", "phone cancels", "mac rejects", "phone rejects", "phone cancels before challenge"] {
+    func testCancellationOnEitherSideLeavesBothListsUnchanged() async throws {
+        for step in ["mac cancels", "phone cancels", "phone cancels before challenge"] {
             let harness = DeviceHarness()
             let mac = harness.makeDevice(.macOS)
             let phone = harness.makeDevice(.iOS)
@@ -188,22 +191,21 @@ final class PairingFlowTests: XCTestCase {
             }
             try await mac.poll()
             try await phone.poll()
-            switch step {
-            case "mac cancels": await mac.messenger.cancelPairing()
-            case "phone cancels": await phone.messenger.cancelPairing()
-            case "mac rejects": await mac.messenger.rejectPairingCode()
-            default: await phone.messenger.rejectPairingCode()
+            if step == "mac cancels" {
+                await mac.messenger.cancelPairing()
+            } else {
+                await phone.messenger.cancelPairing()
             }
             // The other side confirms anyway; nothing is trusted.
             if step.hasPrefix("mac") {
-                try await phone.messenger.confirmPairing(approvalReason: "Pair")
+                try await phone.confirm()
             } else {
-                try await mac.messenger.confirmPairing(approvalReason: "Pair")
+                try await mac.confirm()
             }
             try await mac.poll()
             try await phone.poll()
             let ended = step.hasPrefix("mac") ? await mac.phase() : await phone.phase()
-            XCTAssertEqual(ended?.endReason, step.hasSuffix("rejects") ? .codesDidNotMatch : .cancelled, step)
+            XCTAssertEqual(ended?.endReason, .cancelled, step)
             let other = step.hasPrefix("mac") ? await phone.phase() : await mac.phase()
             XCTAssertEqual(other?.endReason, .cancelledByPeer, step)
             try await assertNoTrust(mac, phone)
@@ -220,13 +222,15 @@ final class PairingFlowTests: XCTestCase {
         try await phone.poll()
         phone.identity.approvalBehavior = .cancel
         do {
-            try await phone.messenger.confirmPairing(approvalReason: "Pair")
+            try await phone.confirm()
             XCTFail("a cancelled prompt throws")
         } catch DeviceIdentityError.authenticationCancelled {}
         XCTAssertNil(harness.transport.lastSent(.pairingConfirmation, from: phone.id))
-        guard case .comparing = await phone.phase() else { return XCTFail("the phone can still confirm or cancel") }
+        guard case .showingCode(_, _, confirmed: false) = await phone.phase() else {
+            return XCTFail("the phone can still confirm or cancel")
+        }
         phone.identity.approvalBehavior = .sign
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.confirm()
         XCTAssertEqual(phone.identity.approvalReasons.count, 2, "every confirmation asks again")
     }
 
@@ -239,12 +243,14 @@ final class PairingFlowTests: XCTestCase {
         try await mac.poll()
         try await phone.poll()
         harness.transport.dropping(.pairingConfirmation, from: mac.id)
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.confirm()
+        try await mac.confirm()
         try await mac.poll()
         try await phone.poll()
         guard case .paired = await mac.phase() else { return XCTFail("the Mac holds both confirmations") }
-        guard case .waitingForPeer = await phone.phase() else { return XCTFail("the phone still waits for the Mac") }
+        guard case .showingCode(_, _, confirmed: true) = await phone.phase() else {
+            return XCTFail("the phone still waits for the Mac")
+        }
         harness.clock.advance(by: 10 * 60)
         try await phone.poll()
         await XCTAssertEqualAsync(await phone.phase()?.endReason, .expired)
@@ -273,8 +279,8 @@ final class PairingFlowTests: XCTestCase {
         try await mac.poll()
         try await phone.poll()
         harness.transport.delaying(.pairingConfirmation, from: mac.id)
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
+        try await phone.confirm()
         try await mac.poll()
         await XCTAssertNotNilAsync(try await mac.entry(for: phone), "the Mac added the phone")
         // The person cancels on the phone before the Mac's confirmation arrives.
@@ -296,8 +302,8 @@ final class PairingFlowTests: XCTestCase {
         try await mac.poll()
         try await phone.poll()
         harness.transport.delaying(.pairingConfirmation, from: phone.id)
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
+        try await phone.confirm()
         try await phone.poll()
         guard case .paired = await phone.phase() else { return XCTFail("the phone holds both confirmations") }
         await mac.messenger.cancelPairing()
@@ -319,8 +325,8 @@ final class PairingFlowTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         try await mac.poll()
         try await phone.poll()
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
+        try await phone.confirm()
         try await mac.poll()
         guard case .paired = await mac.phase() else { return XCTFail("the Mac added the phone again") }
         let onlooker = harness.makeDevice(.iOS)
@@ -342,8 +348,8 @@ final class PairingFlowTests: XCTestCase {
         try await mac.poll()
         try await phone.poll()
         harness.transport.delaying(.pairingConfirmation, from: mac.id)
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.confirm()
+        try await mac.confirm()
         try await mac.poll()
         try await mac.messenger.sendDeliveryCheck(to: phone.id)
         let early = try await phone.poll()

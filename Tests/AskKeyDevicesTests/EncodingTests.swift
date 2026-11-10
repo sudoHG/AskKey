@@ -91,7 +91,7 @@ final class EncodingTests: XCTestCase {
         let request = try XCTUnwrap(harness.transport.lastSent(.pairingRequest, from: phone.id))
         XCTAssertNil(request.body.range(of: Data("Pocket".utf8)), "no readable name leaves the device")
         try await mac.poll()
-        guard case .comparing(_, let peer) = await mac.phase() else { return XCTFail("comparing") }
+        guard case .enteringCode(let peer, _) = await mac.phase() else { return XCTFail("entering the code") }
         XCTAssertEqual(peer.displayName, "Pocket Phone")
 
         // A name the sender did not clean is cleaned by the receiver.

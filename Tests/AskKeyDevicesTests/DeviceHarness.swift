@@ -1,4 +1,4 @@
-import AskKeyDevices
+@testable import AskKeyDevices
 import AskKeyDevicesTestSupport
 import XCTest
 
@@ -14,8 +14,8 @@ final class DeviceHarness {
         return SimulatedDevice(identity: identity, store: store, platform: platform, harness: self)
     }
 
-    /// Runs every pairing step with both people confirming; returns the code
-    /// both devices showed.
+    /// Runs every pairing step: the person types the phone's code on the
+    /// Mac and confirms on both devices. Returns the code the phone showed.
     @discardableResult
     func pair(_ mac: SimulatedDevice, _ phone: SimulatedDevice, file: StaticString = #filePath,
               line: UInt = #line) async throws -> ComparisonCode {
@@ -23,16 +23,18 @@ final class DeviceHarness {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         _ = try await mac.messenger.poll()
         _ = try await phone.messenger.poll()
-        let shownOnMac = await mac.code()
+        let macPhase = await mac.phase()
+        guard case .enteringCode = macPhase else {
+            XCTFail("the Mac asks for the code, not \(String(describing: macPhase))", file: file, line: line)
+            throw DeviceMessengerError.notAwaitingConfirmation
+        }
         let shownOnPhone = await phone.code()
-        let macCode = try XCTUnwrap(shownOnMac, "the Mac shows a code", file: file, line: line)
         let phoneCode = try XCTUnwrap(shownOnPhone, "the phone shows a code", file: file, line: line)
-        XCTAssertEqual(macCode, phoneCode, file: file, line: line)
-        try await mac.messenger.confirmPairing(approvalReason: "Pair with the phone")
+        try await mac.messenger.confirmPairing(enteredCode: phoneCode.formatted, approvalReason: "Pair with the phone")
         try await phone.messenger.confirmPairing(approvalReason: "Pair with the Mac")
         _ = try await mac.messenger.poll()
         _ = try await phone.messenger.poll()
-        return macCode
+        return phoneCode
     }
 }
 
@@ -75,11 +77,28 @@ final class SimulatedDevice {
         await messenger.pairingPhase
     }
 
+    /// The code this device shows; only a responder shows one.
     func code() async -> ComparisonCode? {
-        switch await phase() {
-        case .comparing(let code, _), .waitingForPeer(let code, _): return code
-        default: return nil
+        if case .showingCode(let code, _, _) = await phase() { return code }
+        return nil
+    }
+
+    /// The code this device derived, read from inside the module. Tests use
+    /// it where the person would read the code off the other device before
+    /// the test delivered it there.
+    func derivedCode() async -> ComparisonCode? {
+        await messenger.testingSessionCode()
+    }
+
+    /// Confirms as the person would: an initiator types `code` (by default
+    /// the code it derived), a responder confirms without typing.
+    func confirm(typing code: ComparisonCode? = nil) async throws {
+        guard await messenger.testingSessionRole() == .initiator else {
+            return try await messenger.confirmPairing(approvalReason: "Pair")
         }
+        var typed = code
+        if typed == nil { typed = await derivedCode() }
+        try await messenger.confirmPairing(enteredCode: typed?.formatted ?? "000000", approvalReason: "Pair")
     }
 
     func pairingID() async -> PairingID? {
@@ -97,6 +116,11 @@ final class SimulatedDevice {
         DeviceMessenger(identity: identity, platform: platform, registry: PairedDeviceRegistry(store: store),
                         transport: harness.transport, clock: harness.clock)
     }
+}
+
+extension DeviceMessenger {
+    func testingSessionCode() -> ComparisonCode? { session?.code }
+    func testingSessionRole() -> PairingRole? { session?.role }
 }
 
 extension PairingPhase {

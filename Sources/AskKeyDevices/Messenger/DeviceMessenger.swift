@@ -2,8 +2,18 @@ import CryptoKit
 import Foundation
 
 public enum DeviceMessengerError: Error, Equatable, Sendable {
-    /// No pairing session is comparing codes.
-    case notComparing
+    /// No pairing session waits for this side's confirmation: none is open,
+    /// no verified challenge has arrived, or this side already confirmed.
+    case notAwaitingConfirmation
+    /// The call belongs to the other role: the initiator confirms with the
+    /// code the responder shows, the responder without typing one.
+    case wrongRole
+    /// The typed code is not six ASCII digits once spaces are removed. It
+    /// does not count as an attempt.
+    case invalidCodeFormat
+    /// The typed code did not match. At 0 the session ended and the peer
+    /// was told.
+    case wrongCode(attemptsRemaining: Int)
     /// The session ended while the person was confirming.
     case sessionEnded
     /// The list already holds 8 devices and the other device is not on it.
@@ -113,13 +123,47 @@ public actor DeviceMessenger {
         await flushOutbox()
     }
 
-    /// Step 5: the person compared the codes and confirms. Signs the
-    /// confirmation with the approval key, which on an iPhone asks for Face ID
-    /// or Touch ID; a cancelled prompt sends nothing. The peer is added once
-    /// its verified confirmation is also held.
+    /// Initiator, step 5: the person typed the code the responder shows.
+    /// Spaces are removed; anything but six ASCII digits throws
+    /// `invalidCodeFormat` without counting. A wrong code throws
+    /// `wrongCode` with the attempts left, and the third ends the session
+    /// and tells the responder. Only a matching code lets the approval key
+    /// sign; a cancelled prompt sends nothing and the person may try again.
+    /// The responder is added once its verified confirmation is also held.
+    public func confirmPairing(enteredCode: String, approvalReason: String) async throws {
+        try await prepareConfirmation(as: .initiator)
+        guard let entered = EnteredPairingCode(enteredCode) else { throw DeviceMessengerError.invalidCodeFormat }
+        guard let check = try session?.checkEnteredCode(entered, now: clock.now()) else {
+            throw DeviceMessengerError.notAwaitingConfirmation
+        }
+        if case .wrong(let remaining, let effects) = check {
+            await perform(effects)
+            throw DeviceMessengerError.wrongCode(attemptsRemaining: remaining)
+        }
+        try await signAndConfirm(approvalReason: approvalReason)
+    }
+
+    /// Responder, step 5: the person confirms on the device that shows the
+    /// code, without typing it. Signs the confirmation with the approval
+    /// key, which on an iPhone asks for Face ID or Touch ID; a cancelled
+    /// prompt sends nothing. The initiator is added once its verified
+    /// confirmation is also held.
     public func confirmPairing(approvalReason: String) async throws {
+        try await prepareConfirmation(as: .responder)
+        try await signAndConfirm(approvalReason: approvalReason)
+    }
+
+    /// Applies the timers, then checks that the current session waits for
+    /// this side's confirmation in `role`.
+    private func prepareConfirmation(as role: PairingRole) async throws {
         await perform(session?.tick(now: clock.now()) ?? [])
-        guard let bytes = session?.confirmationBytes else { throw DeviceMessengerError.notComparing }
+        guard let current = session else { throw DeviceMessengerError.notAwaitingConfirmation }
+        guard current.role == role else { throw DeviceMessengerError.wrongRole }
+        guard current.awaitsConfirmation else { throw DeviceMessengerError.notAwaitingConfirmation }
+    }
+
+    private func signAndConfirm(approvalReason: String) async throws {
+        guard let bytes = session?.confirmationBytes else { throw DeviceMessengerError.notAwaitingConfirmation }
         let generation = sessionGeneration
         let signature: Data
         do {
@@ -141,11 +185,6 @@ public actor DeviceMessenger {
             throw DeviceIdentityError.unusable
         }
         await perform(effects)
-    }
-
-    /// Codes Don't Match.
-    public func rejectPairingCode() async {
-        await perform(session?.cancel(.codesDidNotMatch, now: clock.now()) ?? [])
     }
 
     /// Cancel, closing the pairing sheet, or locking management. It changes

@@ -48,7 +48,7 @@ final class InboxPollingTests: XCTestCase {
         try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
         harness.transport.delaying(.pairingChallenge)
         try await mac.poll()
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
         // The Mac's confirmation overtakes its challenge.
         let tokenBefore = await phone.messenger.inboxToken
         let early = try await phone.poll()
@@ -57,10 +57,10 @@ final class InboxPollingTests: XCTestCase {
         harness.transport.releaseDelayed()
         let later = try await phone.poll()
         XCTAssertEqual(later.processed, 2)
-        guard case .comparing = await phone.phase() else {
+        guard case .showingCode = await phone.phase() else {
             return XCTFail("the held confirmation counts once the challenge arrives; the phone still compares")
         }
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.confirm()
         guard case .paired = await phone.phase() else { return XCTFail("both confirmations are held") }
     }
 }

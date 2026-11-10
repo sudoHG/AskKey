@@ -35,7 +35,7 @@ final class PairingRuleTests: XCTestCase {
         try await mac.poll()
         try await phone.poll()
         harness.transport.dropping(.pairingConfirmation, from: phone.id)
-        try await phone.messenger.confirmPairing(approvalReason: "Pair")
+        try await phone.confirm()
         let genuine = try XCTUnwrap(harness.transport.lastSent(.pairingConfirmation, from: phone.id))
         let transcriptHash = try Self.open(genuine, with: mac).payload.subdata(in: 17..<49)
 
@@ -59,7 +59,7 @@ final class PairingRuleTests: XCTestCase {
                                  intoInboxOf: mac.id)
         await XCTAssertEqualAsync(try await mac.poll().refusals, [.bindingMismatch])
 
-        try await mac.messenger.confirmPairing(approvalReason: "Pair")
+        try await mac.confirm()
         guard case .waitingForPeer = await mac.phase() else { return XCTFail("no valid confirmation from the phone yet") }
         harness.transport.insert(genuine, intoInboxOf: mac.id)
         try await mac.poll()
@@ -77,7 +77,7 @@ final class PairingRuleTests: XCTestCase {
             harness.clock.advance(by: 10 + delay)
             let report = try await mac.poll()
             if frozen {
-                await XCTAssertNotNilAsync(await mac.code(), "fetched \(delay) s after the QR expiry")
+                await XCTAssertNotNilAsync(await mac.derivedCode(), "fetched \(delay) s after the QR expiry")
             } else {
                 XCTAssertEqual(report.refusals, [.requestTooLate])
                 guard case .showingQRCode = await mac.phase() else { return XCTFail("nothing frozen") }
@@ -182,7 +182,7 @@ final class PairingRuleTests: XCTestCase {
         try await phone.poll()
         phone.identity.isUnusable = true
         do {
-            try await phone.messenger.confirmPairing(approvalReason: "Pair")
+            try await phone.confirm()
             XCTFail("an unusable approval key throws")
         } catch DeviceIdentityError.unusable {}
         await XCTAssertEqualAsync(await phone.phase()?.endReason, .identityUnusable)

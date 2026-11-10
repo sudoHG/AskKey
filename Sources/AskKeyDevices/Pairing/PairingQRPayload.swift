@@ -96,28 +96,6 @@ public struct PairingQRPayload: Hashable, Sendable {
     public func hash(into hasher: inout Hasher) { hasher.combine(bytes) }
 }
 
-/// The six-digit comparison code, shown as `123 456`.
-public struct ComparisonCode: Hashable, Sendable, CustomStringConvertible {
-    /// 0 ..< 1,000,000.
-    public let value: UInt32
-
-    init(value: UInt32) {
-        precondition(value < 1_000_000)
-        self.value = value
-    }
-
-    /// Six digits with leading zeros, such as `012345`.
-    public var digits: String {
-        let text = String(value)
-        return String(repeating: "0", count: 6 - text.count) + text
-    }
-
-    /// The digits in two groups of three, such as `012 345`.
-    public var formatted: String { "\(digits.prefix(3)) \(digits.suffix(3))" }
-
-    public var description: String { formatted }
-}
-
 /// The pairing derivations of ADR 0013 → Pairing. They are pure functions,
 /// public so that their fixed test vectors can be checked.
 public enum PairingDerivation {

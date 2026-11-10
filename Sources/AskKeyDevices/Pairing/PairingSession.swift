@@ -26,17 +26,20 @@ enum PairingOutcome {
 /// The pairing state machine of ADR 0013 → Pairing, for both roles. It
 /// performs no I/O: it seals messages and returns effects for its owner.
 ///
-/// The person's confirmation is the one product choice still open (#282,
-/// decision 5): this machine implements comparing the code on both screens.
-/// Typing the iPhone's code on the Mac instead would change only this type:
-/// the initiator's `phase` would not expose the code, and `confirm` would
-/// take the typed code and check it against `code` first.
+/// The person confirms as decided in #282, decision 5: the responder shows
+/// the code and the person types it on the initiator, which never exposes
+/// it. The initiator checks the typed code before it lets the approval key
+/// sign; a wrong code counts as an attempt, and the third ends the session.
+/// The responder confirms without typing. This choice lives only in this
+/// type and in the messenger's two confirmation calls.
 struct PairingSession {
     static let qrLifetime: TimeInterval = 5 * 60
     /// A session ends 5 minutes after the QR expiry, so at most 10 minutes.
     static let sessionExtension: TimeInterval = 5 * 60
     static let lateFetchAllowance: TimeInterval = 30
     static let challengeTimeout: TimeInterval = 60
+    /// Wrong codes the initiator accepts in one session; the last ends it.
+    static let maximumCodeAttempts = 3
 
     struct Peer {
         let card: DeviceCard
@@ -58,8 +61,14 @@ struct PairingSession {
 
     private(set) var peer: Peer?
     private(set) var transcriptHash: Data?
+    /// Never shown on the initiator; there it only checks the typed code.
     private(set) var code: ComparisonCode?
     private(set) var pairingID: PairingID?
+    /// Initiator: wrong codes typed in this session.
+    private var wrongCodeAttempts = 0
+    /// Initiator: the person typed the matching code, so the approval key
+    /// may sign. Never set on the responder.
+    private var codeVerified = false
     private(set) var localConfirmed = false
     private(set) var peerConfirmed = false
     private(set) var added = false
@@ -136,7 +145,13 @@ struct PairingSession {
                                              displayName: $0.displayName) }
         if added, let summary, let pairingID { return .paired(peer: summary, pairingID: pairingID) }
         if let code, let summary {
-            return localConfirmed ? .waitingForPeer(code, peer: summary) : .comparing(code, peer: summary)
+            switch role {
+            case .initiator:
+                return localConfirmed ? .waitingForPeer(peer: summary)
+                    : .enteringCode(peer: summary, attemptsRemaining: Self.maximumCodeAttempts - wrongCodeAttempts)
+            case .responder:
+                return .showingCode(code, peer: summary, confirmed: localConfirmed)
+            }
         }
         return role == .initiator ? .showingQRCode(qr) : .waitingForChallenge
     }
@@ -266,17 +281,46 @@ struct PairingSession {
 
     // MARK: The person's actions
 
-    /// The bytes the approval key signs when the person confirms that the
-    /// codes match, or nil if the session is not comparing codes.
+    /// The code is derived and this side has not confirmed or ended.
+    var awaitsConfirmation: Bool {
+        endReason == nil && !localConfirmed && transcriptHash != nil && code != nil
+    }
+
+    enum CodeCheck {
+        case matched
+        /// At 0 attempts remaining the session ended and `effects` tell the peer.
+        case wrong(attemptsRemaining: Int, effects: [PairingEffect])
+    }
+
+    /// Initiator: checks the code the person typed, in constant time. A
+    /// match lets the approval key sign; a wrong code counts as one attempt,
+    /// and the third ends the session with a cancellation to the peer.
+    mutating func checkEnteredCode(_ entered: EnteredPairingCode, now: Date) throws -> CodeCheck {
+        guard role == .initiator else { throw DeviceMessengerError.wrongRole }
+        guard awaitsConfirmation, let code else { throw DeviceMessengerError.notAwaitingConfirmation }
+        guard isOpen(at: now) else { throw DeviceMessengerError.sessionEnded }
+        if code.matches(entered) {
+            codeVerified = true
+            return .matched
+        }
+        wrongCodeAttempts += 1
+        let remaining = Self.maximumCodeAttempts - wrongCodeAttempts
+        return .wrong(attemptsRemaining: remaining, effects: remaining > 0 ? [] : end(.codeMismatch, now: now))
+    }
+
+    /// The bytes the approval key signs when the person confirms, or nil if
+    /// this side cannot confirm now. The initiator needs the matching code first.
     var confirmationBytes: Data? {
-        guard endReason == nil, !localConfirmed, let transcriptHash, code != nil else { return nil }
+        guard awaitsConfirmation, role == .responder || codeVerified, let transcriptHash else { return nil }
         return PairingConfirmationPayload.signedBytes(role: role, signer: ownCard.deviceID, transcriptHash: transcriptHash)
     }
 
-    /// The person compared the codes and confirmed; `signature` is the
-    /// approval key's signature over `confirmationBytes`.
+    /// The person confirmed; `signature` is the approval key's signature
+    /// over `confirmationBytes`.
     mutating func confirm(approvalSignature: Data, now: Date) throws -> [PairingEffect] {
-        guard let transcriptHash, let peer, confirmationBytes != nil else { throw DeviceMessengerError.notComparing }
+        guard let transcriptHash, let peer, confirmationBytes != nil else {
+            throw DeviceMessengerError.notAwaitingConfirmation
+        }
         guard isOpen(at: now) else { throw DeviceMessengerError.sessionEnded }
         localConfirmed = true
         let payload = PairingConfirmationPayload.encode(role: role, signer: ownCard.deviceID,
@@ -289,7 +333,7 @@ struct PairingSession {
         return effects + addEffects()
     }
 
-    /// Cancel, Codes Don't Match, or a reason from the owner. Before this
+    /// Cancel, or a reason from the owner. Before this
     /// side added the peer it ends the session with nothing stored and tells
     /// the peer it knows; afterwards it changes nothing.
     mutating func cancel(_ reason: PairingEndReason, now: Date) -> [PairingEffect] {
