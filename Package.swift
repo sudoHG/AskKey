@@ -5,12 +5,13 @@ import Foundation
 let package = Package(
     name: "AskKey",
     defaultLocalization: "en",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(name: "AskKeyBroker", targets: ["AskKeyBroker"]),
         .library(name: "AskKeyVault", targets: ["AskKeyVault"]),
         .library(name: "AskKeySystem", targets: ["AskKeySystem"]),
         .library(name: "AskKeyIntegrations", targets: ["AskKeyIntegrations"]),
+        .library(name: "AskKeyDevices", targets: ["AskKeyDevices"]),
         .executable(name: "askkey", targets: ["AskKeyHelper"]),
         .executable(name: "AskKeyApp", targets: ["AskKeyApp"]),
     ],
@@ -40,6 +41,12 @@ let package = Package(
             name: "AskKeyIntegrations",
             dependencies: ["AskKeySystem", "AskKeyBroker"],
             path: "Sources/AskKeyIntegrations",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        // Platform-neutral device identity and pairing (ADR 0013); the iPhone app links it too.
+        .target(
+            name: "AskKeyDevices",
+            path: "Sources/AskKeyDevices",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
@@ -103,6 +110,18 @@ let package = Package(
         .target(
             name: "AskKeyUnitTestSupport",
             path: "Tests/AskKeyUnitTestSupport",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .target(
+            name: "AskKeyDevicesTestSupport",
+            dependencies: ["AskKeyDevices"],
+            path: "Tests/AskKeyDevicesTestSupport",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .testTarget(
+            name: "AskKeyDevicesTests",
+            dependencies: ["AskKeyDevices", "AskKeyDevicesTestSupport"],
+            path: "Tests/AskKeyDevicesTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(

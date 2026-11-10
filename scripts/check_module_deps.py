@@ -12,9 +12,11 @@ import sys
 
 ALLOWED = {
     "AskKeySystem": set(),
-    "AskKeyVault": {"AskKeySystem", "AskKeyBroker"},
+    # Platform-neutral device identity and pairing, also built for iOS (ADR 0013).
+    "AskKeyDevices": set(),
+    "AskKeyVault": {"AskKeySystem", "AskKeyBroker", "AskKeyDevices"},
     "AskKeyIntegrations": {"AskKeySystem", "AskKeyBroker"},
-    "AskKeyAppKit": {"AskKeyVault", "AskKeySystem", "AskKeyIntegrations", "AskKeyBroker"},
+    "AskKeyAppKit": {"AskKeyVault", "AskKeySystem", "AskKeyIntegrations", "AskKeyBroker", "AskKeyDevices"},
     "AskKeyHelper": {"AskKeyBroker"},
     # Existing infrastructural edges.
     "AskKeyBroker": {"AskKeyBrokerC"},

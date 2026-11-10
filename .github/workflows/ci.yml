@@ -54,6 +54,15 @@ jobs:
           BIN_DIR="$(swift build --show-bin-path)"
           python3 scripts/check_sdk_markers.py "$BIN_DIR/AskKeyApp" "$BIN_DIR/AskKeyE2EApp" "$BIN_DIR/askkey"
 
+      # The iPhone app (#289) links AskKeyDevices through Xcode, so Xcode must
+      # build it from the root package for the iOS Simulator.
+      - name: Build AskKeyDevices for the iOS Simulator
+        run: |
+          DERIVED_DATA="$RUNNER_TEMP/askkey-devices-ios"
+          xcodebuild build -scheme AskKeyDevices -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$DERIVED_DATA" CODE_SIGNING_ALLOWED=NO -quiet
+          test -f "$DERIVED_DATA/Build/Products/Debug-iphonesimulator/AskKeyDevices.o"
+
       - name: Test
         run: |
           swift test
