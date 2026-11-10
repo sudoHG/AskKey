@@ -1,3 +1,4 @@
+import AppKit
 import AskKeyAppKit
 import AskKeyDevices
 import Foundation
@@ -13,7 +14,7 @@ import Observation
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
+    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "ax-walk", "resign-focus"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -38,6 +39,10 @@ enum E2EDeviceScenario {
     static func start(control: URL) {
         self.control = control
         recordPairingTransitions(control: control)
+        E2EDeviceDiagnostics.recordMouseEvents { event in
+            transitions.append("\(Date().timeIntervalSince1970) \(event)")
+            writeTransitions(control: control)
+        }
         task = Task { @MainActor in
             while !Task.isCancelled {
                 for command in commands {
@@ -146,6 +151,18 @@ enum E2EDeviceScenario {
                 if case .reached = coordinator.devices.first?.reachability { return true }
                 return false
             }
+        case "ax-walk":
+            // Diagnostic only (#298): the App's own accessibility tree.
+            guard let control else { throw E2EDeviceScenarioError.notInstalled }
+            transitions.append("\(Date().timeIntervalSince1970) \(E2EDeviceDiagnostics.walkAccessibility(control: control))")
+            writeTransitions(control: control)
+        case "resign-focus":
+            // Diagnostic only (#298): the key window drops its first responder.
+            let window = NSApp.keyWindow
+            transitions.append("\(Date().timeIntervalSince1970) resign focus: key=\(window.map { String(describing: type(of: $0)) } ?? "none") "
+                + "firstResponder=\(window?.firstResponder.map { String(describing: type(of: $0)) } ?? "none") "
+                + "resigned=\(window?.makeFirstResponder(nil) ?? false)")
+            if let control { writeTransitions(control: control) }
         case "account-signed-out":
             backend.accountState = .noAccount
             backend.signalAccountChange()

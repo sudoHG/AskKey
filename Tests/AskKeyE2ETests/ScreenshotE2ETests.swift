@@ -343,72 +343,6 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("backup-import-done")
     }
 
-    func testDevicesScreensInEnglish() throws {
-        try captureDevicesScreens(language: "en", tag: "en", firstNumber: 30)
-    }
-
-    func testDevicesScreensInChinese() throws {
-        try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35)
-    }
-
-    /// Settings → Devices on the E2E App's fake device services (#288): the list with one paired
-    /// iPhone, the pairing sheet's QR code, waiting and code entry steps, and iCloud signed out. The
-    /// fixture plays the iPhone, including the person typing its code, which never leaves the App.
-    private func captureDevicesScreens(language: String, tag: String, firstNumber: Int) throws {
-        func name(_ offset: Int, _ label: String) -> String { String(format: "%02d-%@-%@", firstNumber + offset, tag, label) }
-        func fixture(_ command: String) throws {
-            try sendFixtureCommand(command)
-            let report = try waitForEvidence("device-\(command).json")
-            XCTAssertEqual(report["ok"] as? Bool, true, "\(command): \(report)")
-        }
-        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
-        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
-        app.launch()
-        addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
-        moveManagementAboveDock()
-        click("unlock-management")
-        click("sidebar-settings")
-        // Diagnostics for a click that opened no sheet (#298): the button's state at each click, a second
-        // click with the button scrolled higher, then the fixture; the test fails at the end if needed.
-        let pair = app.buttons["settings-pair-device"].firstMatch
-        let page = app.windows["settings"].scrollViews.containing(.button, identifier: "settings-pair-device").firstMatch
-        let sheet = app.windows["settings"].sheets.firstMatch
-        var clicks: [String] = []
-        for extraScrolls in [0, 3] where !sheet.exists {
-            XCTAssertTrue(pair.waitForExistence(timeout: 8))
-            for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
-            for _ in 0..<extraScrolls { page.scroll(byDeltaX: 0, deltaY: -300) }
-            try fixture("snapshot")
-            clicks.append("click: enabled=\(pair.isEnabled) hittable=\(pair.isHittable) frame=\(pair.frame)")
-            pair.click()
-            clicks.append(sheet.waitForExistence(timeout: 5) ? "sheet" : "no sheet")
-        }
-        if !sheet.exists { clicks.append("fixture start"); try fixture("start-pairing") }
-        XCTAssertTrue(sheet.waitForExistence(timeout: 8), "No pairing sheet")
-        attachDeviceDiagnostics(clicks)
-        XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
-        captureSheet(name(1, "devices-pairing-qr-code"))
-        try fixture("phone-scan")
-        XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-waiting"].waitForExistence(timeout: 8))
-        captureSheet(name(2, "devices-pairing-waiting"))
-        try fixture("phone-reveal")
-        XCTAssertTrue(app.textFields["devices-pairing-code"].waitForExistence(timeout: 8))
-        captureSheet(name(3, "devices-pairing-code-entry"))
-        try fixture("phone-complete")
-        click("devices-pairing-done")
-        try fixture("phone-poll")
-        Thread.sleep(forTimeInterval: 8) // the state record then shows what changes after the sheet closed
-        attachDeviceDiagnostics(clicks)
-        let row = app.buttons["devices-rename"].firstMatch
-        for _ in 0..<6 where !row.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
-        waitForText(language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}", containing: true)
-        capture(name(0, "devices-list"))
-        try fixture("account-signed-out")
-        waitForText(language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}", containing: true)
-        capture(name(4, "devices-icloud-signed-out"))
-        XCTAssertEqual(clicks.filter { $0.hasSuffix("sheet") || $0 == "fixture start" }, ["sheet"], "Pair a Device…: \(clicks)")
-    }
-
     /// Saves "Staging API" through the first-run editor, then unlocks
     /// management and opens Settings.
     private func createFirstCredential(value: String) {
@@ -422,16 +356,6 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("unlock-management")
         click("sidebar-settings")
         XCTAssertTrue(app.buttons["settings-agent-access"].waitForExistence(timeout: 8))
-    }
-
-    /// The fixture's record of the device coordinator's states and the clicks so far, attached
-    /// at once so they survive a later query timeout.
-    private func attachDeviceDiagnostics(_ clicks: [String]) {
-        let record = (try? String(contentsOf: runDirectory.appendingPathComponent("device-transitions.json"), encoding: .utf8)) ?? "none"
-        let attachment = XCTAttachment(string: clicks.joined(separator: "\n") + "\n\n" + record)
-        attachment.name = "device-diagnostics"
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 
     /// The Backup and Devices sections sit below the fold of Settings.
@@ -502,7 +426,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
     }
 
     /// The sheet over the management window, which shows the backup flows.
-    private func captureSheet(_ name: String) {
+    func captureSheet(_ name: String) {
         let sheet = app.windows["settings"].sheets.firstMatch
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "Missing sheet for \(name)")
         let attachment = XCTAttachment(screenshot: sheet.screenshot())
@@ -511,7 +435,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         add(attachment)
     }
 
-    private func capture(_ name: String, approval: Bool = false) {
+    func capture(_ name: String, approval: Bool = false) {
         // AppKit's floating approval NSPanel is exposed as a dialog, while the
         // management scene is a window. Query both before taking a window crop.
         let windows = app.windows.allElementsBoundByIndex + app.dialogs.allElementsBoundByIndex
@@ -533,7 +457,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         add(attachment)
     }
 
-    private func moveManagementAboveDock() {
+    func moveManagementAboveDock() {
         let window = app.windows["settings"].firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 8))
         let origin = window.frame.origin
@@ -552,7 +476,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         button.click()
     }
 
-    private func waitForText(_ text: String, containing: Bool = false) {
+    func waitForText(_ text: String, containing: Bool = false) {
         let predicate = NSPredicate(format: containing
             ? "label CONTAINS %@ OR value CONTAINS %@" : "label == %@ OR value == %@", text, text)
         XCTAssertTrue(app.descendants(matching: .any).matching(predicate).firstMatch
