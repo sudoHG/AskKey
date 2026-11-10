@@ -44,7 +44,7 @@ enum DevicesPresentation {
         case .unknown, .available:
             return nil
         case .noAccount:
-            return appLocalized("iCloud is signed out, so paired devices can't be reached and pairing can't start. Sign in with the same Apple Account as your iPhone.")
+            return appLocalized("iCloud is signed out, so paired devices can't be reached. To pair, sign in with the same Apple Account as your iPhone.")
         case .restricted:
             return appLocalized("iCloud is restricted on this Mac, for example by Screen Time or a device management profile, so devices can't be reached.")
         case .temporarilyUnavailable:
@@ -92,31 +92,29 @@ enum DevicesPresentation {
         appLocalizedFormat("%1$@ · Paired %2$@", platformName(row.platform), date(row.pairedAt, time: false))
     }
 
-    /// The reachability and the last delivery check, as one status line.
-    static func rowStatus(_ row: PairedDeviceRow) -> Notice {
-        var parts: [String]
-        var isWarning = false
+    /// Whether the device was reached since pairing.
+    static func rowReachability(_ row: PairedDeviceRow) -> Notice {
         switch row.reachability {
         case .notReachedYet:
-            parts = [appLocalized("Not reached yet")]
+            return Notice(text: appLocalized("Not reached yet"), isWarning: false)
         case .reached(let date):
-            parts = [appLocalizedFormat("Last reached %@", self.date(date, time: true))]
+            return Notice(text: appLocalizedFormat("Last reached %@", self.date(date, time: true)), isWarning: false)
         case .unreachable:
-            // Why is said above the list; an older check result would only contradict it.
             return Notice(text: appLocalized("Can't be reached"), isWarning: true)
         }
+    }
+
+    /// The last delivery check, or nil before the first one and while the
+    /// device can't be reached (why is said above the list; an older result
+    /// would only contradict it).
+    static func rowDeliveryCheck(_ row: PairedDeviceRow) -> Notice? {
+        guard row.reachability != .unreachable else { return nil }
         switch row.lastDeliveryCheck {
-        case .pending:
-            parts.append(appLocalized("Delivery check sent"))
-        case .replied:
-            parts.append(appLocalized("Delivery check answered"))
-        case .noReply:
-            parts.append(appLocalized("Delivery check got no reply"))
-            isWarning = true
-        case nil:
-            break
+        case .pending: return Notice(text: appLocalized("Delivery check sent"), isWarning: false)
+        case .replied: return Notice(text: appLocalized("Delivery check answered"), isWarning: false)
+        case .noReply: return Notice(text: appLocalized("Delivery check got no reply"), isWarning: true)
+        case nil: return nil
         }
-        return Notice(text: parts.joined(separator: " · "), isWarning: isWarning)
     }
 
     static func issueMessage(_ issue: DeviceActionIssue) -> String {
@@ -135,7 +133,7 @@ enum DevicesPresentation {
     }
 
     static func removalWarning(_ name: String) -> String {
-        appLocalizedFormat("This Mac stops trusting “%@” at once. Ask Key also tells the device, which removes this Mac the next time it connects.", name)
+        appLocalizedFormat("This Mac stops trusting “%@” at once. The device learns about it the next time it connects and removes this Mac. If it still shows this Mac later, remove this Mac on that device too.", name)
     }
 
     static func date(_ date: Date, time: Bool) -> String {

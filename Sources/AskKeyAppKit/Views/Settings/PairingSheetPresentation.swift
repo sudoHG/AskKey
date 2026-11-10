@@ -64,16 +64,13 @@ struct PairingSheetPresentation: Equatable {
         case .codeAccepted(let acceptedPeer):
             stage = .codeEntry(accepted: true)
             peer = acceptedPeer
-            title = appLocalized("Enter the Pairing Code")
-            message = Self.codeInstruction
+            title = appLocalized("Confirm Pairing")
+            message = appLocalized("The code matches. Confirm to finish pairing; Ask Key asks for system authentication.")
             if isAuthenticating {
                 feedbackText = appLocalized("Waiting for system authentication…")
                 feedbackIsWarning = false
-            } else if let failure = Self.authenticationFeedback(feedback) {
-                feedbackText = failure
             } else {
-                feedbackText = appLocalized("The code matches. Confirm to finish pairing; Ask Key asks for system authentication.")
-                feedbackIsWarning = false
+                feedbackText = Self.authenticationFeedback(feedback)
             }
         case .waitingForIPhoneConfirmation(let confirmingPeer):
             stage = .waitingForIPhoneConfirmation
@@ -102,12 +99,6 @@ struct PairingSheetPresentation: Equatable {
         self.feedbackIsWarning = feedbackIsWarning
     }
 
-    /// Every piece of text the sheet shows, for the check that none carries a code.
-    var shownText: [String] {
-        var texts = [title, message, notice, feedback].compactMap { $0 }
-        if let peer { texts += [peer.displayName, Self.peerPlatform(peer)] }
-        return texts
-    }
 
     static var codeInstruction: String {
         appLocalized("Enter the code shown on the iPhone's Ask Key pairing screen. Never enter a code from a notification or a message. If that screen shows no code, cancel.")

@@ -112,6 +112,8 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         XCTAssertEqual(harness.script.authenticationReasons, [ManagementAuthenticationAction.pairDevice.reasonKey],
                        "the matching code asks for system authentication with the pairing reason at once")
         XCTAssertEqual(model.sheet?.stage, .codeEntry(accepted: true))
+        XCTAssertEqual(model.sheet?.title, "Confirm Pairing")
+        XCTAssertEqual(model.sheet?.message, "The code matches. Confirm to finish pairing; Ask Key asks for system authentication.")
         XCTAssertEqual(model.sheet?.feedback, "System authentication was cancelled. Nothing was sent; you can confirm again.")
         XCTAssertEqual(model.codeEntry, "", "the accepted entry is not shown again")
         XCTAssertTrue(model.canConfirm, "confirming again needs no new entry")
@@ -209,7 +211,7 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         XCTAssertEqual(model.removalCandidate, row.id)
         XCTAssertEqual(harness.coordinator.devices.count, 1, "asking removes nothing")
         XCTAssertEqual(DevicesPresentation.removalWarning(row.displayName),
-                       "This Mac stops trusting “Synthetic Phone” at once. Ask Key also tells the device, which removes this Mac the next time it connects.")
+                       "This Mac stops trusting “Synthetic Phone” at once. The device learns about it the next time it connects and removes this Mac. If it still shows this Mac later, remove this Mac on that device too.")
         model.cancelRemoval()
         await model.confirmRemoval()
         XCTAssertEqual(harness.coordinator.devices.count, 1, "a cancelled confirmation removes nothing")
@@ -221,12 +223,26 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         XCTAssertEqual(harness.macSent(.unpairNotice).count, 1)
     }
 
+    func testRemovingTheLastDeviceAfterAnAccountChangeLetsPairingStart() async throws {
+        try await harness.pairPhone()
+        harness.backend.accountState = .available(userRecordName: "_synthetic-account-2")
+        await harness.coordinator.devicesOpened()
+        XCTAssertEqual(harness.coordinator.account, .accountChanged)
+        XCTAssertFalse(model.canPair, "pairing waits until the other account's devices are removed")
+
+        model.requestRemoval(try XCTUnwrap(harness.coordinator.devices.first))
+        await model.confirmRemoval()
+        XCTAssertTrue(harness.coordinator.devices.isEmpty)
+        XCTAssertEqual(harness.coordinator.account, .available, "the new account becomes the empty list's")
+        XCTAssertTrue(model.canPair)
+    }
+
     func testRenameTestDeliveryAndRowText() async throws {
         try await harness.pairPhone()
         let row = try XCTUnwrap(harness.coordinator.devices.first)
         XCTAssertTrue(DevicesPresentation.rowSummary(row).hasPrefix("iPhone · Paired "))
-        XCTAssertTrue(DevicesPresentation.rowStatus(row).text.hasPrefix("Last reached "))
-        XCTAssertTrue(DevicesPresentation.rowStatus(row).text.hasSuffix(" · Delivery check answered"))
+        XCTAssertTrue(DevicesPresentation.rowReachability(row).text.hasPrefix("Last reached "))
+        XCTAssertEqual(DevicesPresentation.rowDeliveryCheck(row), .init(text: "Delivery check answered", isWarning: false))
 
         model.beginRename(row)
         model.renameDraft = " \u{202E} "
@@ -239,14 +255,15 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         let checks = harness.macSent(.deliveryCheck).count
         await model.testDelivery(try XCTUnwrap(harness.coordinator.devices.first))
         XCTAssertEqual(harness.macSent(.deliveryCheck).count, checks + 1)
-        XCTAssertTrue(DevicesPresentation.rowStatus(try XCTUnwrap(harness.coordinator.devices.first)).text
-            .hasSuffix(" · Delivery check sent"))
+        XCTAssertEqual(DevicesPresentation.rowDeliveryCheck(try XCTUnwrap(harness.coordinator.devices.first)),
+                       .init(text: "Delivery check sent", isWarning: false))
 
         harness.backend.accountState = .noAccount
         await harness.coordinator.devicesOpened()
         XCTAssertFalse(model.canTestDelivery, "no delivery check without the account")
-        XCTAssertEqual(DevicesPresentation.rowStatus(try XCTUnwrap(harness.coordinator.devices.first)),
-                       .init(text: "Can't be reached", isWarning: true))
+        let unreachable = try XCTUnwrap(harness.coordinator.devices.first)
+        XCTAssertEqual(DevicesPresentation.rowReachability(unreachable), .init(text: "Can't be reached", isWarning: true))
+        XCTAssertNil(DevicesPresentation.rowDeliveryCheck(unreachable), "an older check result would contradict it")
 
         harness.script.managementActive = false
         model.beginRename(try XCTUnwrap(harness.coordinator.devices.first))
@@ -287,7 +304,7 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         harness.backend.accountState = .noAccount
         await model.pairDevice()
         XCTAssertEqual(model.sheet?.stage, .failed)
-        let signedOut = "iCloud is signed out, so paired devices can't be reached and pairing can't start. Sign in with the same Apple Account as your iPhone."
+        let signedOut = "iCloud is signed out, so paired devices can't be reached. To pair, sign in with the same Apple Account as your iPhone."
         XCTAssertEqual(model.sheet?.message, signedOut)
         XCTAssertEqual(model.notice, .init(text: signedOut, isWarning: true))
         await model.closeSheet()
@@ -295,7 +312,10 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
 
         harness.backend.isSecureEnclaveAvailable = false
         harness.backend.accountState = .available(userRecordName: "_synthetic-account-1")
-        await model.pairDevice()
+        XCTAssertEqual(model.notice.text, "This Mac has no Secure Enclave, so it can't keep device keys safe and can't pair.",
+                       "said before any attempt")
+        XCTAssertFalse(model.canPair)
+        await harness.coordinator.startPairing()
         XCTAssertEqual(model.sheet?.message, "This Mac has no Secure Enclave, so it can't keep device keys safe and can't pair.")
         await model.closeSheet()
         XCTAssertFalse(model.canPair)
@@ -358,5 +378,14 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
     private static func wrong(_ code: String) -> String {
         let digits = code.replacingOccurrences(of: " ", with: "")
         return String(format: "%06d", (Int(digits)! + 1) % 1_000_000)
+    }
+}
+
+extension PairingSheetPresentation {
+    /// Every piece of text the sheet shows, for the check that none carries a code.
+    var shownText: [String] {
+        var texts = [title, message, notice, feedback].compactMap { $0 }
+        if let peer { texts += [peer.displayName, Self.peerPlatform(peer)] }
+        return texts
     }
 }

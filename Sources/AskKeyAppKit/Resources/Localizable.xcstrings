@@ -16840,19 +16840,19 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pair Ask Key on your iPhone with this Mac. They exchange encrypted messages through iCloud, so both must use the same Apple Account.!!]" } }
       }
     },
-    "iCloud is signed out, so paired devices can't be reached and pairing can't start. Sign in with the same Apple Account as your iPhone.": {
+    "iCloud is signed out, so paired devices can't be reached. To pair, sign in with the same Apple Account as your iPhone.": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "iCloud is signed out, so paired devices can't be reached and pairing can't start. Sign in with the same Apple Account as your iPhone." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iCloud 已退出登录，无法联系已配对的设备，也无法开始配对。请用与 iPhone 相同的 Apple 账户登录。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!iCloud is signed out, so paired devices can't be reached and pairing can't start. Sign in with the same Apple Account as your iPhone.!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "iCloud is signed out, so paired devices can't be reached. To pair, sign in with the same Apple Account as your iPhone." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iCloud 已退出登录，无法联系已配对的设备。要配对，请用与 iPhone 相同的 Apple 账户登录。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!iCloud is signed out, so paired devices can't be reached. To pair, sign in with the same Apple Account as your iPhone.!!]" } }
       }
     },
     "iCloud is restricted on this Mac, for example by Screen Time or a device management profile, so devices can't be reached.": {
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "iCloud is restricted on this Mac, for example by Screen Time or a device management profile, so devices can't be reached." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 的 iCloud 受到限制，例如被“屏幕使用时间”或设备管理描述文件限制，因此无法联系设备。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 的 iCloud 受到限制（例如“屏幕使用时间”或设备管理描述文件），因此无法联系设备。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!iCloud is restricted on this Mac, for example by Screen Time or a device management profile, so devices can't be reached.!!]" } }
       }
     },
@@ -16940,7 +16940,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "This device is no longer paired." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台设备已不再配对。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台设备已不在配对列表中。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This device is no longer paired.!!]" } }
       }
     },
@@ -16968,12 +16968,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!That didn't work. Try again.!!]" } }
       }
     },
-    "This Mac stops trusting “%@” at once. Ask Key also tells the device, which removes this Mac the next time it connects.": {
+    "This Mac stops trusting “%@” at once. The device learns about it the next time it connects and removes this Mac. If it still shows this Mac later, remove this Mac on that device too.": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "This Mac stops trusting “%@” at once. Ask Key also tells the device, which removes this Mac the next time it connects." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 会立即不再信任“%@”。请旨也会通知这台设备，它下次联网时会移除这台 Mac。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac stops trusting “%@” at once. Ask Key also tells the device, which removes this Mac the next time it connects.!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "This Mac stops trusting “%@” at once. The device learns about it the next time it connects and removes this Mac. If it still shows this Mac later, remove this Mac on that device too." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 将立即停止信任“%@”。对方下次联网时会得知并移除这台 Mac；如果之后它仍显示这台 Mac，请也在那台设备上移除这台 Mac。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac stops trusting “%@” at once. The device learns about it the next time it connects and removes this Mac. If it still shows this Mac later, remove this Mac on that device too.!!]" } }
       }
     },
     "Preparing…": {
@@ -17108,7 +17108,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Enter the code shown on the iPhone's Ask Key pairing screen. Never enter a code from a notification or a message. If that screen shows no code, cancel." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请输入 iPhone 上请旨配对页面显示的配对码。绝不要输入通知或消息中出现的代码。如果那个页面没有显示配对码，请取消。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请输入 iPhone 上请旨配对页面显示的配对码。切勿输入通知或消息里的任何数字。如果那个页面没有显示配对码，请取消。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Enter the code shown on the iPhone's Ask Key pairing screen. Never enter a code from a notification or a message. If that screen shows no code, cancel.!!]" } }
       }
     },
@@ -17172,7 +17172,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "The iPhone cancelled this pairing after it finished, so the device was removed again." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iPhone 在配对完成后取消了这次配对，因此已重新移除这台设备。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iPhone 在配对完成后取消了这次配对，因此这台设备已被移除。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The iPhone cancelled this pairing after it finished, so the device was removed again.!!]" } }
       }
     },
@@ -17494,6 +17494,14 @@
         "en": { "stringUnit": { "state": "translated", "value": "A paired device sent a message." } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "一台已配对的设备发来一条消息。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!A paired device sent a message.!!]" } }
+      }
+    },
+    "Confirm Pairing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Confirm Pairing" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "确认配对" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Confirm Pairing!!]" } }
       }
     }
   },

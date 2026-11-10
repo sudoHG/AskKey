@@ -35,14 +35,22 @@ final class DevicesSettingsModel {
     var isSectionVisible: Bool { coordinator.availability != .notConfigured }
 
     var notice: DevicesPresentation.Notice {
-        DevicesPresentation.sectionNotice(availability: coordinator.availability, account: coordinator.account,
+        DevicesPresentation.sectionNotice(availability: availability, account: coordinator.account,
                                           deviceCount: coordinator.devices.count,
                                           storageFailureMessage: coordinator.storageFailureMessage)
     }
 
     var canPair: Bool {
-        DevicesPresentation.canPair(availability: coordinator.availability, account: coordinator.account,
+        DevicesPresentation.canPair(availability: availability, account: coordinator.account,
                                     deviceCount: coordinator.devices.count, isPairing: coordinator.pairing != nil)
+    }
+
+    /// The coordinator's availability, except that a Mac without a Secure
+    /// Enclave says so before the first attempt, not only after it.
+    private var availability: DeviceServicesAvailability {
+        let missingEnclave = coordinator.environment.backend?.isSecureEnclaveAvailable == false
+        if coordinator.availability == .ready, !coordinator.hasIdentity, missingEnclave { return .secureEnclaveUnavailable }
+        return coordinator.availability
     }
 
     var offersReset: Bool { DevicesPresentation.offersReset(coordinator.availability) }
@@ -121,7 +129,7 @@ final class DevicesSettingsModel {
         codeEntry = ""
         qrCache = nil
         if coordinator.pairing?.isActive == true { await coordinator.cancelPairing() }
-        guard DevicesPresentation.canPair(availability: coordinator.availability, account: coordinator.account,
+        guard DevicesPresentation.canPair(availability: availability, account: coordinator.account,
                                           deviceCount: coordinator.devices.count, isPairing: false) else {
             await coordinator.cancelPairing()
             return
@@ -193,6 +201,11 @@ final class DevicesSettingsModel {
         guard let id = removalCandidate else { return }
         removalCandidate = nil
         await coordinator.removeDevice(id)
+        // After an account change, the new account becomes the list's once
+        // the list is empty, which only an account check notices.
+        if coordinator.account == .accountChanged, coordinator.devices.isEmpty {
+            await coordinator.devicesOpened()
+        }
     }
 
     // MARK: Reset

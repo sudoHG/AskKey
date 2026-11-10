@@ -30,18 +30,21 @@ private struct DevicesSectionContent: View {
     @Bindable var model: DevicesSettingsModel
 
     var body: some View {
+        // Each separate view subscribes to the language itself; the parent's
+        // redraw does not re-run a body whose inputs are unchanged.
+        let _ = AppLanguage.store.resolved
         let notice = model.notice
         GroupedList(header: appLocalized("Devices")) {
             DevicesSettingRow(title: appLocalized("Pairing"), message: notice.text, isWarning: notice.isWarning) {
                 if model.offersReset {
                     Button(appLocalized("Reset Device Identity…"), role: .destructive) { model.requestReset() }
                         .buttonStyle(.irreversibleAction)
-                        .disabled(model.confirmingReset)
+                        .dimmedAndDisabled(model.confirmingReset)
                         .accessibilityIdentifier("settings-reset-device-identity")
                 } else {
                     Button(appLocalized("Pair a Device…")) { Task { await model.pairDevice() } }
                         .buttonStyle(.secondaryAction)
-                        .disabled(!model.canPair)
+                        .dimmedAndDisabled(!model.canPair)
                         .accessibilityIdentifier("settings-pair-device")
                 }
             }
@@ -91,8 +94,10 @@ private struct DeviceRow: View {
     @FocusState private var nameFocused: Bool
 
     var body: some View {
+        let _ = AppLanguage.store.resolved
         let isRenaming = model.renaming == row.id
-        let status = DevicesPresentation.rowStatus(row)
+        let reachability = DevicesPresentation.rowReachability(row)
+        let check = DevicesPresentation.rowDeliveryCheck(row)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: Theme.Spacing.md) {
                 Image(systemName: DevicesPresentation.platformSymbol(row.platform))
@@ -120,10 +125,12 @@ private struct DeviceRow: View {
                     Text(DevicesPresentation.rowSummary(row))
                         .font(Theme.Fonts.secondary)
                         .foregroundStyle(Theme.textSecondary)
-                    Text(status.text)
-                        .font(Theme.Fonts.secondary)
-                        .foregroundStyle(status.isWarning ? Theme.warning : Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    ForEach([reachability, check].compactMap { $0 }, id: \.text) { line in
+                        Text(line.text)
+                            .font(Theme.Fonts.secondary)
+                            .foregroundStyle(line.isWarning ? Theme.warning : Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 Spacer(minLength: Theme.Spacing.md)
                 if isRenaming {
@@ -132,7 +139,7 @@ private struct DeviceRow: View {
                         .keyboardShortcut(.cancelAction)
                     Button(appLocalized("Save")) { Task { await model.saveRename() } }
                         .buttonStyle(.secondaryAction)
-                        .disabled(!model.canSaveRename)
+                        .dimmedAndDisabled(!model.canSaveRename)
                         .accessibilityIdentifier("devices-rename-save")
                 } else {
                     Button(appLocalized("Rename")) { model.beginRename(row) }
@@ -140,11 +147,11 @@ private struct DeviceRow: View {
                         .accessibilityIdentifier("devices-rename")
                     Button(appLocalized("Test Delivery")) { Task { await model.testDelivery(row) } }
                         .buttonStyle(.secondaryAction)
-                        .disabled(!model.canTestDelivery)
+                        .dimmedAndDisabled(!model.canTestDelivery)
                         .accessibilityIdentifier("devices-test-delivery")
                     Button(appLocalized("Remove"), role: .destructive) { model.requestRemoval(row) }
                         .buttonStyle(.irreversibleAction)
-                        .disabled(model.removalCandidate == row.id)
+                        .dimmedAndDisabled(model.removalCandidate == row.id)
                         .accessibilityIdentifier("devices-remove")
                 }
             }
@@ -215,5 +222,13 @@ private struct DevicesConfirmationRow<Actions: View>: View {
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, Theme.Spacing.md)
         .background(Theme.warningSubtle)
+    }
+}
+
+private extension View {
+    /// The shared secondary button styles draw the same when disabled, so an
+    /// unavailable Devices action is also dimmed.
+    func dimmedAndDisabled(_ disabled: Bool) -> some View {
+        self.disabled(disabled).opacity(disabled ? 0.45 : 1)
     }
 }
