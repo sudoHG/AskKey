@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "请旨";
+"CFBundleName" = "请旨";
+"NSCameraUsageDescription" = "请旨只用相机扫描你自己的 Mac 上请旨显示的配对二维码。";
+"NSFaceIDUsageDescription" = "请旨用面容 ID 确认你同意这台 iPhone 与 Mac 配对。";

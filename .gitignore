@@ -38,3 +38,6 @@ reviews/
 
 # Website build tooling
 node_modules/
+
+# Generated iPhone project (scripts/build-ios.sh); build output goes to .build/ios
+iOS/*.xcodeproj/

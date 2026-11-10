@@ -130,6 +130,46 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  ios-app:
+    # The pairing-only iPhone app (#289). release-gate.py does not require
+    # this job, but a PR that changes the app needs it green.
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Report toolchain and simulators
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes
+      - name: Restore SwiftPM dependency cache
+        id: swiftpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: swiftpm-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.resolved') }}
+      - name: Resolve package dependencies
+        run: swift package resolve
+      - name: Save SwiftPM dependency cache
+        if: steps.swiftpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: ${{ steps.swiftpm-cache.outputs.cache-primary-key }}
+      - name: Install XcodeGen
+        run: brew list xcodegen || brew install xcodegen
+      - name: Build the app for the iOS Simulator
+        run: bash scripts/build-ios.sh build
+      - name: Run AskKeyiOSKitTests on a simulator and render the screens
+        run: bash scripts/build-ios.sh test
+      - name: Upload the rendered screens
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: askkey-ios-screens
+          path: .build/ios/screens/
+          if-no-files-found: error
+          retention-days: 14
+
   release-sdk-window-check:
     # The preview image is informational; the two macos-latest jobs remain required.
     runs-on: xcode-27

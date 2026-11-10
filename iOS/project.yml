@@ -1,0 +1,83 @@
+# The pairing-only iPhone app (#289, ADR 0013 → iPhone app). Generate the
+# Xcode project with `bash scripts/build-ios.sh`; it is never committed.
+name: AskKeyiOS
+options:
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+packages:
+  AskKey:
+    path: ..
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # The catalogs are maintained by hand; a build never rewrites them.
+    SWIFT_EMIT_LOC_STRINGS: NO
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  AskKeyiOSKit:
+    type: framework
+    platform: iOS
+    sources:
+      - path: AskKeyiOSKit
+    dependencies:
+      - package: AskKey
+        product: AskKeyDevices
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sudohg.askkey.ios.kit
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDevelopmentRegion: en
+        SKIP_INSTALL: YES
+        DEFINES_MODULE: YES
+  AskKeyiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: AskKeyiOS
+    dependencies:
+      - target: AskKeyiOSKit
+    settings:
+      base:
+        PRODUCT_NAME: AskKey
+        PRODUCT_BUNDLE_IDENTIFIER: com.sudohg.askkey.ios
+        INFOPLIST_FILE: AskKeyiOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AskKeyiOS/AskKeyiOS.entitlements
+        # Empty unless the Ad Hoc export of scripts/build-ios.sh sets it; the
+        # app creates a CloudKit container only when its Info.plist names one.
+        CLOUDKIT_CONTAINER_IDENTIFIER: ""
+  AskKeyiOSKitTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AskKeyiOSKitTests
+    dependencies:
+      - target: AskKeyiOSKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sudohg.askkey.ios.kit.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  AskKeyiOS:
+    build:
+      targets:
+        AskKeyiOS: all
+    archive:
+      config: Release
+  AskKeyiOSKitTests:
+    build:
+      targets:
+        AskKeyiOSKitTests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - AskKeyiOSKitTests
