@@ -132,3 +132,13 @@ final class WelcomeTests: XCTestCase {
         XCTAssertEqual(world.keychain.accounts, stored)
     }
 }
+
+final class CloudKitGateTests: XCTestCase {
+    /// A bundle without `CloudKitContainerIdentifier`, like every build but
+    /// the Ad Hoc export, never creates a container.
+    func testABuildWithoutTheContainerKeyNeverCreatesATransport() {
+        let factory = CloudKitTransportFactory(bundle: Bundle(for: CloudKitGateTests.self))
+        XCTAssertFalse(factory.isConfigured)
+        XCTAssertNil(factory.makeTransport(for: DeviceID(rawValue: Data(repeating: 1, count: 16))!))
+    }
+}

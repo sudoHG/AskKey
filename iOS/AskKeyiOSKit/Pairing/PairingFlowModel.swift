@@ -80,9 +80,10 @@ public final class PairingFlowModel: Identifiable {
             try await messenger.joinPairing(scannedText: text, displayName: deviceName)
             joined = true
             // Cancel was chosen while the request was being created. A newer
-            // pairing that started meanwhile already replaced this session.
+            // pairing whose own request is under way replaces (and cancels)
+            // this session; otherwise this session is still current.
             guard !finished else {
-                if host?.pairing == nil { await messenger.cancelPairing() }
+                if host?.pairing?.isSessionOpen != true { await messenger.cancelPairing() }
                 return
             }
             stage = .waitingForCode
