@@ -101,6 +101,23 @@ enum E2EDeviceDiagnostics {
         return "posted \(events.count) events at \(location) in \(name(window))"
     }
 
+    /// The accessibility element at a point in XCTest's screen coordinates, then its press action,
+    /// which runs a button's action without any mouse event.
+    static func pressAccessibilityElement(atRunnerPoint point: NSPoint) async -> String {
+        guard let screen = NSScreen.screens.first else { return "no screen" }
+        let screenPoint = NSPoint(x: point.x, y: screen.frame.maxY - point.y)
+        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.level == .normal && $0.frame.contains(screenPoint) }) else {
+            return "no window at \(screenPoint)"
+        }
+        guard let element = window.accessibilityHitTest(screenPoint) as? NSObject else { return "no element at \(screenPoint)" }
+        let role = element.accessibilityAttributeValue(.role) as? String ?? "-"
+        let identifier = element.accessibilityAttributeValue(.identifier) as? String ?? ""
+        let actions = element.accessibilityActionNames()
+        element.accessibilityPerformAction(.press)
+        try? await Task.sleep(for: .milliseconds(500))
+        return "pressed \(type(of: element)) role=\(role) id=\(identifier) actions=\(actions.map(\.rawValue))"
+    }
+
     /// The AppKit views under the centre of a screen rectangle, in each visible window containing it.
     private static func viewsUnder(_ screenFrame: NSRect) -> String {
         let point = NSPoint(x: screenFrame.midX, y: screenFrame.midY)

@@ -15,9 +15,9 @@ extension ScreenshotE2ETests {
     /// including the person typing its code, which never leaves the App.
     private func captureDevicesScreens(language: String, tag: String, firstNumber: Int) throws {
         func name(_ offset: Int, _ label: String) -> String { String(format: "%02d-%@-%@", firstNumber + offset, tag, label) }
-        func fixture(_ command: String) throws {
+        func fixture(_ command: String, _ argument: String = "requested") throws {
             try? FileManager.default.removeItem(at: runDirectory.appendingPathComponent("device-\(command).json"))
-            try sendFixtureCommand(command)
+            try "\(argument)\n".write(to: runDirectory.appendingPathComponent("command-\(command).txt"), atomically: true, encoding: .utf8)
             let report = try waitForEvidence("device-\(command).json")
             XCTAssertEqual(report["ok"] as? Bool, true, "\(command): \(report)")
         }
@@ -38,6 +38,17 @@ extension ScreenshotE2ETests {
         app.launch()
         addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
         moveManagementAboveDock()
+        // #298 diagnostics: replicas of the Devices row, each without one of its differences.
+        try fixture("show-variants")
+        let variants = app.windows["devices-variants"].firstMatch
+        XCTAssertTrue(variants.waitForExistence(timeout: 8))
+        for identifier in ["full", "no-sheet", "item-sheet", "no-dimming", "disabled-only", "no-branch", "no-outer", "backup"] {
+            let button = variants.buttons["variant-\(identifier)"].firstMatch
+            notes.append("variant \(identifier): hittable=\(button.isHittable)")
+            if button.isHittable { button.click() }
+        }
+        Thread.sleep(forTimeInterval: 1)
+        try fixture("hide-variants")
         click("unlock-management")
         click("sidebar-settings")
         let pair = app.buttons["settings-pair-device"].firstMatch
@@ -73,12 +84,10 @@ extension ScreenshotE2ETests {
             clickOpened.append(sheet.waitForExistence(timeout: 3))
             notes.append(clickOpened.last == true ? "sheet" : "no sheet")
         }
-        if !sheet.exists {
-            let centre = CGPoint(x: pair.frame.midX, y: pair.frame.midY)
-            try? FileManager.default.removeItem(at: runDirectory.appendingPathComponent("device-inject-click.json"))
-            try "\(centre.x) \(centre.y)\n".write(to: runDirectory.appendingPathComponent("command-inject-click.txt"), atomically: true, encoding: .utf8)
-            _ = try waitForEvidence("device-inject-click.json")
-            notes.append("posted click at \(centre): " + (sheet.waitForExistence(timeout: 3) ? "sheet" : "no sheet"))
+        let centre = "\(pair.frame.midX) \(pair.frame.midY)"
+        for command in ["inject-click", "ax-press"] where !sheet.exists {
+            try fixture(command, centre)
+            notes.append("\(command) at \(centre): " + (sheet.waitForExistence(timeout: 3) ? "sheet" : "no sheet"))
         }
         if !sheet.exists { notes.append("fixture start"); try fixture("start-pairing") }
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "No pairing sheet")

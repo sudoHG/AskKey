@@ -14,7 +14,7 @@ import Observation
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "ax-walk", "resign-focus", "inject-click"]
+    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "ax-walk", "resign-focus", "inject-click", "ax-press", "show-variants", "hide-variants"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -172,6 +172,21 @@ enum E2EDeviceScenario {
             let outcome = await E2EDeviceDiagnostics.postClick(atRunnerPoint: NSPoint(x: values[0], y: values[1]))
             transitions.append("\(Date().timeIntervalSince1970) posted click: \(outcome)")
             if let control { writeTransitions(control: control) }
+        case "ax-press":
+            // Diagnostic only (#298): the accessibility press of the element at a runner point.
+            let values = argument.split(whereSeparator: \.isWhitespace).compactMap { Double($0) }
+            guard values.count == 2 else { throw E2EDeviceScenarioError.unknownCommand }
+            let outcome = await E2EDeviceDiagnostics.pressAccessibilityElement(atRunnerPoint: NSPoint(x: values[0], y: values[1]))
+            transitions.append("\(Date().timeIntervalSince1970) accessibility press: \(outcome)")
+            if let control { writeTransitions(control: control) }
+        case "show-variants":
+            // Diagnostic only (#298): replicas of the Devices row in a separate window.
+            E2EDeviceButtonVariants.show { line in
+                transitions.append("\(Date().timeIntervalSince1970) \(line)")
+                if let control { writeTransitions(control: control) }
+            }
+        case "hide-variants":
+            E2EDeviceButtonVariants.hide()
         case "account-signed-out":
             backend.accountState = .noAccount
             backend.signalAccountChange()
