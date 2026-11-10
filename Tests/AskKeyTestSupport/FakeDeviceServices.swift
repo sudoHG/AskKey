@@ -19,6 +19,7 @@ package final class FakeDeviceServicesBackend: DeviceServicesBackend, @unchecked
     private var removed: [DeviceID] = []
     private var checks = 0
     private var answerGate: (@Sendable () async -> Void)?
+    private var fetchHook: (@Sendable () async -> Void)?
     private var preparationError: DeviceTransportError?
     private var continuations: [UUID: AsyncStream<Void>.Continuation] = [:]
 
@@ -61,6 +62,13 @@ package final class FakeDeviceServicesBackend: DeviceServicesBackend, @unchecked
     package var removedInboxes: [DeviceID] { lock.withLock { removed } }
     /// How many account checks were made.
     package var accountChecks: Int { lock.withLock { checks } }
+
+    /// Runs at the start of every inbox fetch, for example to let time pass
+    /// while a poll is out.
+    package var beforeFetch: (@Sendable () async -> Void)? {
+        get { lock.withLock { fetchHook } }
+        set { lock.withLock { fetchHook = newValue } }
+    }
 
     /// Runs after an account check read its answer and before it returns it,
     /// so a test can let a later check overtake an earlier one.
@@ -155,7 +163,8 @@ final class FakeDeviceInbox: DeviceInbox, @unchecked Sendable {
     }
 
     func fetchInboxChanges(of device: DeviceID, since token: InboxChangeToken?) async throws -> InboxChanges {
-        try await backend.transport.fetchInboxChanges(of: device, since: token)
+        await backend.beforeFetch?()
+        return try await backend.transport.fetchInboxChanges(of: device, since: token)
     }
 
     func deleteMessages(_ recordNames: [String], from device: DeviceID) async throws {

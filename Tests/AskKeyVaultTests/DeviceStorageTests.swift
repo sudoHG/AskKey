@@ -226,7 +226,7 @@ final class DeviceStorageTests: XCTestCase {
         XCTAssertEqual(try library.vault.storedDeviceIdentityKeyBlobs(), syntheticBlobs())
     }
 
-    func testAnOpenPairingSheetsCheckRenewsTheManagementSession() throws {
+    func testAnOpenPairingSheetsCheckRenewsTheManagementSession() async throws {
         let clock = DeviceTestClock()
         let library = try AgentAccessPolicyLibrary(now: { clock.now })
         libraries.append(library)
@@ -235,9 +235,14 @@ final class DeviceStorageTests: XCTestCase {
             clock.now = clock.now.addingTimeInterval(Vault.managementSessionIdleLimit - 30)
             XCTAssertNoThrow(try library.vault.requireDeviceManagementSession())
         }
-        try library.vault.authorizeDevicePairing(with: try syntheticDevice().deviceID, using: .allow)
+        try library.vault.saveDeviceIdentityKeyBlobs(syntheticBlobs())
+        let device = try syntheticDevice()
+        try library.vault.authorizeDevicePairing(with: device.deviceID, using: .allow)
         clock.now = clock.now.addingTimeInterval(Vault.managementSessionIdleLimit + 1)
         XCTAssertThrowsError(try library.vault.requireDeviceManagementSession(), "idle expiry still applies without checks")
+        try library.vault.beginManagementSession(using: .allow)
+        await assertRefused(try await library.vault.pairedDeviceRegistry().apply(.add(device)), .pairingNotAuthorized,
+                            "the failed check dropped the authorization")
     }
 
     func testIdentityIsNeverReplacedAndAPartialIdentityIsUnusable() throws {

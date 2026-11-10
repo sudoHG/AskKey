@@ -171,7 +171,10 @@ extension DeviceCoordinator {
 
     /// The management session ended (locked, expired or its window closed).
     package func managementSessionEnded() async {
-        guard pairingIsLive else { return }
+        guard pairingIsLive else {
+            finishPairingSession()
+            return
+        }
         await cancelPairing()
     }
 
@@ -291,12 +294,23 @@ extension DeviceCoordinator {
         let sleep = environment.sleep
         pairingPollTask = Task { [weak self] in
             while !Task.isCancelled {
-                guard let self else { return }
-                await self.pairingTick()
-                guard !Task.isCancelled, self.pairingIsLive else { return }
+                guard let self, await self.pairingLoopStep() else { return }
                 try? await sleep(Self.pairingPollInterval)
             }
         }
+    }
+
+    /// One turn of the sheet's polling loop. Returns whether to go on; when
+    /// the session can no longer change, also while this turn polled, its
+    /// polling and its hold on idle expiry end here.
+    func pairingLoopStep() async -> Bool {
+        await pairingTick()
+        guard !Task.isCancelled else { return false }
+        guard pairingIsLive else {
+            finishPairingSession()
+            return false
+        }
+        return true
     }
 
     /// One tick of an open pairing sheet: keeps the management session open

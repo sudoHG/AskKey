@@ -98,6 +98,25 @@ final class DeviceCoordinatorPairingTests: AskKeyAppTestCase {
         XCTAssertFalse(SessionPolicy.isIdleExpiryHeld)
     }
 
+    func testAnExpiryDuringALoopTurnsPollEndsPollingAndTheHold() async throws {
+        try await harness.pairPhoneLeavingSheetOpen()
+        XCTAssertTrue(SessionPolicy.isIdleExpiryHeld)
+        let clock = harness.clock
+        harness.backend.beforeFetch = { clock.advance(by: 11 * 60) }
+        let goOn = await harness.coordinator.pairingLoopStep()
+        harness.backend.beforeFetch = nil
+        XCTAssertFalse(goOn, "the loop stops")
+        XCTAssertFalse(SessionPolicy.isIdleExpiryHeld, "and does not leave the hold behind")
+        XCTAssertNil(harness.coordinator.pairingPollTask)
+    }
+
+    func testLockingAfterTheSessionExpiredStillEndsTheHold() async throws {
+        try await harness.pairPhoneLeavingSheetOpen()
+        harness.clock.advance(by: 11 * 60)
+        await harness.coordinator.managementSessionEnded()
+        XCTAssertFalse(SessionPolicy.isIdleExpiryHeld)
+    }
+
     func testAfterPairingPollingAndTheHoldEndWhenTheSessionExpires() async throws {
         try await harness.pairPhoneLeavingSheetOpen()
         XCTAssertTrue(SessionPolicy.isIdleExpiryHeld)

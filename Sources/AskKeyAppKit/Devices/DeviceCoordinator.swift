@@ -328,8 +328,9 @@ package final class DeviceCoordinator {
             if state.listAccount == nil || !isListAccount {
                 // No account recorded, or another one: this account becomes the
                 // list's only while nothing is paired.
+                let lifecycle = self.lifecycle
                 let list = try? await services?.registry.list()
-                guard check == accountCheck else { return }
+                guard check == accountCheck, lifecycle == self.lifecycle else { return }
                 isListAccount = list?.devices.isEmpty == true
                 if isListAccount {
                     state.listAccount = name
