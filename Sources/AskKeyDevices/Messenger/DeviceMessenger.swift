@@ -32,6 +32,21 @@ public enum DeviceMessengerError: Error, Equatable, Sendable {
     case unknownDevice
 }
 
+/// What became of one fetched message in a poll (ADR 0013 → Change tokens).
+public enum InboxMessageOutcome: Hashable, Sendable {
+    /// Its effect is committed; it was deleted.
+    case processed
+    /// Refused for good; it was deleted.
+    case refused(DeviceMessageRefusal)
+    /// Kept for a retry within an open pairing session, such as a
+    /// confirmation that arrived before the reveal. Not a failure; it is
+    /// refused and deleted once the session ends.
+    case keptForSession
+    /// It failed to process and will be fetched again; the third failure
+    /// refuses it.
+    case failed
+}
+
 /// A summary of one inbox poll, without message content.
 public struct InboxReport: Hashable, Sendable {
     /// Messages whose effect is committed; they were deleted.
@@ -42,6 +57,8 @@ public struct InboxReport: Hashable, Sendable {
     public var failed = 0
     /// Refused messages, which were deleted. Log them without content.
     public var refusals: [DeviceMessageRefusal] = []
+    /// Each fetched message's last outcome in this poll, by record name.
+    public var outcomes: [String: InboxMessageOutcome] = [:]
 
     public init() {}
 }

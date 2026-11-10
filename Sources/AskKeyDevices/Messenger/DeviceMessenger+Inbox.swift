@@ -16,10 +16,12 @@ extension DeviceMessenger {
     /// were all processed or refused: a held or failed message keeps the old
     /// token, so a later poll fetches it again, and a message that fails
     /// three times is refused. Held messages are retried as later pages
-    /// arrive. An expired token leads to one full fetch from no token. A poll
-    /// that starts while another is running returns an empty report. Throws
-    /// `DeviceIdentityError` when this device's own key no longer works, and
-    /// transport errors.
+    /// arrive. The report gives each fetched message's outcome: processed,
+    /// refused, kept for an open pairing session, or failed; only failures
+    /// count toward the three. An expired token leads to one full fetch
+    /// from no token. A poll that starts while another is running returns
+    /// an empty report. Throws `DeviceIdentityError` when this device's own
+    /// key no longer works, and transport errors.
     public func poll() async throws -> InboxReport {
         guard !isPolling else { return InboxReport() }
         isPolling = true
@@ -67,8 +69,10 @@ extension DeviceMessenger {
         }
         var deletable = changes.malformedRecordNames
         report.refusals += changes.malformedRecordNames.map { _ in DeviceMessageRefusal.malformed }
+        for name in changes.malformedRecordNames { report.outcomes[name] = .refused(.malformed) }
         var settled = changes.failedRecordNames.isEmpty
         report.failed += changes.failedRecordNames.count
+        for name in changes.failedRecordNames { report.outcomes[name] = .failed }
         let fetchedNames = Set(changes.envelopes.map(\.recordName))
         var pending = (carried.filter { !fetchedNames.contains($0.recordName) } + changes.envelopes).enumerated()
             .sorted { (Self.rank($0.element), $0.offset) < (Self.rank($1.element), $1.offset) }
@@ -88,6 +92,7 @@ extension DeviceMessenger {
                     failureCounts[envelope.recordName] = failures
                     guard failures >= Self.failureLimit else {
                         report.failed += 1
+                        report.outcomes[envelope.recordName] = .failed
                         settled = false
                         continue
                     }
@@ -96,12 +101,15 @@ extension DeviceMessenger {
                 switch outcome {
                 case .processed:
                     report.processed += 1
+                    report.outcomes[envelope.recordName] = .processed
                     deletable.append(envelope.recordName)
                     progressed = true
                 case .refused(let refusal, _):
                     report.refusals.append(refusal)
+                    report.outcomes[envelope.recordName] = .refused(refusal)
                     deletable.append(envelope.recordName)
                 case .held:
+                    report.outcomes[envelope.recordName] = .keptForSession
                     held.append(envelope)
                 }
             }
