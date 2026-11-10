@@ -385,6 +385,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
             }
         }
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "No pairing sheet")
+        attachDeviceTransitions()
         XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
         captureSheet(name(1, "devices-pairing-qr-code"))
         try fixture("phone-scan")
@@ -396,8 +397,10 @@ final class ScreenshotE2ETests: E2EBaseCase {
         try fixture("phone-complete")
         click("devices-pairing-done")
         try fixture("phone-poll")
-        let settings = app.windows["settings"].scrollViews.containing(.button, identifier: "settings-pair-device").firstMatch
-        for _ in 0..<4 { settings.scroll(byDeltaX: 0, deltaY: -600) }
+        attachDeviceTransitions()
+        let row = app.buttons["devices-rename"].firstMatch
+        let settings = app.windows["settings"].scrollViews.containing(.button, identifier: "devices-rename").firstMatch
+        for _ in 0..<6 where !row.isHittable { settings.scroll(byDeltaX: 0, deltaY: -300) }
         waitForText(language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}", containing: true)
         capture(name(0, "devices-list"))
         try fixture("account-signed-out")
@@ -420,6 +423,16 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("unlock-management")
         click("sidebar-settings")
         XCTAssertTrue(app.buttons["settings-agent-access"].waitForExistence(timeout: 8))
+    }
+
+    /// The fixture's record of the device coordinator's states, attached at
+    /// once so it survives a later query timeout.
+    private func attachDeviceTransitions() {
+        guard let data = try? Data(contentsOf: runDirectory.appendingPathComponent("device-transitions.json")) else { return }
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "device-transitions.json"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     /// The Backup and Devices sections sit below the fold of Settings.

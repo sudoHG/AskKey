@@ -42,11 +42,23 @@ private struct DevicesSectionContent: View {
                         .dimmedAndDisabled(model.confirmingReset)
                         .accessibilityIdentifier("settings-reset-device-identity")
                 } else {
-                    Button(appLocalized("Pair a Device…")) { Task { await model.pairDevice() } }
+                    Button(appLocalized("Pair a Device…"), action: pairDevice)
                         .buttonStyle(.secondaryAction)
                         .dimmedAndDisabled(!model.canPair)
                         .accessibilityIdentifier("settings-pair-device")
                 }
+            }
+            // The session decides whether the sheet shows. A live session ends
+            // only through the sheet's buttons or the end of the management
+            // session, so a dismissal reported by SwiftUI alone never cancels
+            // a pairing; it only clears a session that has already finished.
+            .sheet(isPresented: Binding(
+                get: { model.isSheetPresented },
+                set: { presented in
+                    if !presented, model.coordinator.pairing?.isActive != true { Task { await model.closeSheet() } }
+                }
+            )) {
+                DevicePairingSheet(model: model)
             }
             if model.confirmingReset {
                 GroupedListSeparator()
@@ -74,19 +86,11 @@ private struct DevicesSectionContent: View {
                     .accessibilityIdentifier("settings-devices-issue")
             }
         }
-        .task { await model.sectionOpened() }
-        // The session decides whether the sheet shows. A live session ends
-        // only through the sheet's buttons or the end of the management
-        // session, so a dismissal reported by SwiftUI alone never cancels a
-        // pairing; it only clears a session that has already finished.
-        .sheet(isPresented: Binding(
-            get: { model.isSheetPresented },
-            set: { presented in
-                if !presented, model.coordinator.pairing?.isActive != true { Task { await model.closeSheet() } }
-            }
-        )) {
-            DevicePairingSheet(model: model)
-        }
+        .onAppear { Task { await model.sectionOpened() } }
+    }
+
+    private func pairDevice() {
+        Task { await model.pairDevice() }
     }
 }
 
