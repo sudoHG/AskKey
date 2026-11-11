@@ -30,6 +30,9 @@ struct DevicesSettingsSection: View {
 
 private struct DevicesSectionContent: View {
     @Bindable var model: DevicesSettingsModel
+    /// Changes once after the section appeared, which rebuilds its controls;
+    /// see `onAppear`.
+    @State private var controlsGeneration = 0
 
     var body: some View {
         // Each separate view subscribes to the language itself; the parent's
@@ -43,11 +46,13 @@ private struct DevicesSectionContent: View {
                         .buttonStyle(.irreversibleAction)
                         .dimmedAndDisabled(model.confirmingReset)
                         .accessibilityIdentifier("settings-reset-device-identity")
+                        .id(controlsGeneration)
                 } else {
                     Button(appLocalized("Pair a Device…"), action: pairDevice)
                         .buttonStyle(.secondaryAction)
                         .dimmedAndDisabled(!model.canPair)
                         .accessibilityIdentifier("settings-pair-device")
+                        .id(controlsGeneration)
                 }
             }
             // The session decides whether the sheet shows. A live session ends
@@ -75,6 +80,7 @@ private struct DevicesSectionContent: View {
             ForEach(model.coordinator.devices) { row in
                 GroupedListSeparator()
                 DeviceRow(model: model, row: row)
+                    .id(controlsGeneration)
             }
             if let issue = model.coordinator.lastIssue {
                 GroupedListSeparator()
@@ -88,7 +94,18 @@ private struct DevicesSectionContent: View {
                     .accessibilityIdentifier("settings-devices-issue")
             }
         }
-        .onAppear { Task { await model.sectionOpened() } }
+        .onAppear {
+            Task {
+                await model.sectionOpened()
+                // macOS 26 workaround (#298), cause unknown: when nothing the
+                // section shows changes as it appears, as on a Mac that has
+                // not paired yet, its buttons ignore clicks until it redraws.
+                // Rebuilding the controls once, after the section has loaded,
+                // restores them. One rebuild per appearance; nothing redraws
+                // repeatedly, and the controls look the same before and after.
+                controlsGeneration += 1
+            }
+        }
     }
 
     private func pairDevice() {
