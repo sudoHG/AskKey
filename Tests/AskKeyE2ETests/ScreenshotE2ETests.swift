@@ -344,22 +344,18 @@ final class ScreenshotE2ETests: E2EBaseCase {
     }
 
     func testDevicesScreensInEnglish() throws {
-        try captureDevicesScreens(language: "en", tag: "en", firstNumber: 30)
+        try captureDevicesScreens(language: "en", tag: "en", firstNumber: 30, emptyNumber: 40)
     }
 
     func testDevicesScreensInChinese() throws {
-        try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35)
+        try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35, emptyNumber: 41)
     }
 
-    /// The runner's click on Pair a Device… opens the sheet. A strict known failure on macOS 26, where
-    /// SwiftUI never runs the button's action (#299): a run there that passes fails. Others must pass.
+    /// The runner's click on Pair a Device… opens the sheet, on every macOS release (#299).
     func testPairADeviceOpensItsSheet() throws {
         _ = openDevicesSettings(language: "en")
         click("settings-pair-device")
-        XCTExpectFailure("On macOS 26 the click does not reach Pair a Device…'s action (#299)",
-                         enabled: ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26, strict: true) {
-            XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "Pair a Device… opened no sheet")
-        }
+        XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "Pair a Device… opened no sheet")
     }
 
     /// Settings on the E2E App's fake device services (#288), Pair a Device… in view.
@@ -378,11 +374,11 @@ final class ScreenshotE2ETests: E2EBaseCase {
         return page
     }
 
-    /// The list with one iPhone, the sheet's QR code, waiting and code entry steps, and iCloud signed
-    /// out. The fixture starts the session, as the runner's click does nothing on macOS 26 (#299), and
-    /// plays the iPhone, including typing its code. Texts are found by identifier: after the code
-    /// field had focus, whole-window snapshots can hang on the cursor's remote element in CI.
-    private func captureDevicesScreens(language: String, tag: String, firstNumber: Int) throws {
+    /// The empty list, the sheet's QR code, waiting and code entry steps, the list with one iPhone,
+    /// and iCloud signed out. The runner clicks Pair a Device…; the fixture plays the iPhone,
+    /// including typing its code. Texts are found by identifier: after the code field had focus,
+    /// whole-window snapshots can hang on the cursor's remote element in CI.
+    private func captureDevicesScreens(language: String, tag: String, firstNumber: Int, emptyNumber: Int) throws {
         func name(_ offset: Int, _ label: String) -> String { String(format: "%02d-%@-%@", firstNumber + offset, tag, label) }
         func fixture(_ command: String) throws {
             try sendFixtureCommand(command)
@@ -394,7 +390,10 @@ final class ScreenshotE2ETests: E2EBaseCase {
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 8), .completed, "Missing \(text)")
         }
         let page = openDevicesSettings(language: language)
-        try fixture("start-pairing")
+        XCTAssertTrue(app.staticTexts["settings-devices-empty"].firstMatch.waitForExistence(timeout: 8), "No empty list row")
+        page.scroll(byDeltaX: 0, deltaY: -900) // the whole Devices box in view
+        attachScreenshot(of: app.windows["settings"].firstMatch, String(format: "%02d-%@-devices-empty", emptyNumber, tag))
+        click("settings-pair-device")
         XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "No pairing sheet")
         XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
         captureSheet(name(1, "devices-pairing-qr-code"))

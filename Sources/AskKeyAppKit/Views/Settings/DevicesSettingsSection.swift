@@ -76,6 +76,10 @@ private struct DevicesSectionContent: View {
                 GroupedListSeparator()
                 DeviceRow(model: model, row: row)
             }
+            if model.coordinator.devices.isEmpty {
+                GroupedListSeparator()
+                emptyListRow
+            }
             if let issue = model.coordinator.lastIssue {
                 GroupedListSeparator()
                 Text(DevicesPresentation.issueMessage(issue))
@@ -89,6 +93,24 @@ private struct DevicesSectionContent: View {
             }
         }
         .onAppear { Task { await model.sectionOpened() } }
+    }
+
+    /// Stands in for the list while no device is paired.
+    ///
+    /// It is also the fix for #299: on macOS 26 a button in a `GroupedList`
+    /// that holds a single row receives no clicks, so Pair a Device… (or
+    /// Reset Device Identity…) did nothing until a device was listed. A second
+    /// row as tall as the Pairing row restored the click in CI
+    /// (https://github.com/sudoHG/AskKey/issues/299,
+    /// https://github.com/sudoHG/AskKey/actions/runs/43048425691). Check
+    /// Pair a Device… on macOS 26 before removing this row or making it shorter.
+    private var emptyListRow: some View {
+        Text(appLocalized("Paired devices appear here."))
+            .font(Theme.Fonts.secondary)
+            .foregroundStyle(Theme.textSecondary)
+            .frame(maxWidth: .infinity, minHeight: 72)
+            .padding(.horizontal, Theme.Spacing.lg)
+            .accessibilityIdentifier("settings-devices-empty")
     }
 
     private func pairDevice() {

@@ -6,15 +6,14 @@ import Observation
 /// The other side of the Devices screenshots (#288): the E2E App's fake
 /// device services and a simulated iPhone in the same process, on the
 /// factory from #287. The runner clicks the App's real controls and plays
-/// the iPhone and the iCloud account through one-shot fixture commands;
-/// for the screenshots, a command also starts the session (#299).
+/// the iPhone and the iCloud account through one-shot fixture commands.
 /// The iPhone's code never leaves this process: the step that enters it
 /// plays the person typing it, and nothing writes it anywhere.
 @MainActor
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
+    static let commands = ["phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -111,10 +110,6 @@ enum E2EDeviceScenario {
             throw E2EDeviceScenarioError.notInstalled
         }
         switch command {
-        case "start-pairing":
-            // Screenshots only: what Pair a Device… does. On macOS 26 the runner's click never
-            // reaches the button's action (#299); `testPairADeviceOpensItsSheet` covers the click.
-            await coordinator.startPairing()
         case "phone-scan":
             guard case .showingQRCode(let text, _) = coordinator.pairing else { throw E2EDeviceScenarioError.noQRCode }
             try await phone.scan(text, name: phoneName)
