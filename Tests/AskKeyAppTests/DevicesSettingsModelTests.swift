@@ -211,7 +211,7 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         XCTAssertEqual(model.removalCandidate, row.id)
         XCTAssertEqual(harness.coordinator.devices.count, 1, "asking removes nothing")
         XCTAssertEqual(DevicesPresentation.removalWarning(row.displayName),
-                       "This Mac stops trusting “Synthetic Phone” at once. Ask Key tries to tell the device, which then removes this Mac the next time it connects. If it still lists this Mac later, remove this Mac on that device too.")
+                       "This Mac stops trusting “Synthetic Phone” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too.")
         model.cancelRemoval()
         await model.confirmRemoval()
         XCTAssertEqual(harness.coordinator.devices.count, 1, "a cancelled confirmation removes nothing")

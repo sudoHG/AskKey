@@ -16968,12 +16968,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!That didn't work. Try again.!!]" } }
       }
     },
-    "This Mac stops trusting “%@” at once. Ask Key tries to tell the device, which then removes this Mac the next time it connects. If it still lists this Mac later, remove this Mac on that device too.": {
+    "This Mac stops trusting “%@” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too.": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "This Mac stops trusting “%@” at once. Ask Key tries to tell the device, which then removes this Mac the next time it connects. If it still lists this Mac later, remove this Mac on that device too." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 将立即停止信任“%@”。请旨会尝试通知对方，对方下次联网时会移除这台 Mac；如果之后它仍列出这台 Mac，请在那台设备上手动移除。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac stops trusting “%@” at once. Ask Key tries to tell the device, which then removes this Mac the next time it connects. If it still lists this Mac later, remove this Mac on that device too.!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "This Mac stops trusting “%@” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 将立即停止信任“%@”。请旨会尝试通知对方移除这台 Mac；如果对方仍列出这台 Mac，请在那台设备上手动移除。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac stops trusting “%@” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too.!!]" } }
       }
     },
     "Preparing…": {
