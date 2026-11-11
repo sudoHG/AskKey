@@ -92,6 +92,7 @@ private struct DevicesSectionContent: View {
     }
 
     private func pairDevice() {
+        DevicesPairingTrace.log("button action: Pair a Device…") // T6 TEMP #298, revert before merge
         Task { await model.pairDevice() }
     }
 }

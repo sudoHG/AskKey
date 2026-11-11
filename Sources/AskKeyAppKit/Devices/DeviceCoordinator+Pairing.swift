@@ -11,24 +11,36 @@ extension DeviceCoordinator {
     /// session is open. The open sheet keeps the management session from
     /// expiring for idleness until the session ends or the sheet closes.
     package func startPairing() async {
-        guard environment.backend != nil, pairing?.isActive != true else { return }
+        // T6 TEMP #298 trace lines in this function, revert before merge.
+        DevicesPairingTrace.log("startPairing: entry backend=\(environment.backend != nil) pairing=\(DevicesPairingTrace.describe(pairing)) "
+            + "services=\(services != nil) availability=\(availability)")
+        guard environment.backend != nil, pairing?.isActive != true else {
+            DevicesPairingTrace.log("startPairing: returned at guard backend/active session")
+            return
+        }
         if services == nil, availability == .loading || availability == .storageUnavailable {
             _ = openStoredServices()
+            DevicesPairingTrace.log("startPairing: opened stored services, availability=\(availability)")
         }
         switch availability {
         case .ready:
             break
         case .secureEnclaveUnavailable:
+            DevicesPairingTrace.log("startPairing: failed, secureEnclaveUnavailable")
             return failPairing(.secureEnclaveUnavailable)
         case .identityUnusable, .listRefused:
+            DevicesPairingTrace.log("startPairing: failed, identityUnusable/listRefused")
             return failPairing(.identityUnusable)
         case .storageUnavailable, .loading, .notConfigured:
+            DevicesPairingTrace.log("startPairing: failed, storageUnavailable (\(availability))")
             return failPairing(.storageUnavailable)
         }
         guard managementSessionIsOpen() else {
+            DevicesPairingTrace.log("startPairing: failed, managementRequired")
             pairing = .failed(.managementRequired)
             return
         }
+        DevicesPairingTrace.log("startPairing: preparing")
         pairingGeneration += 1
         let generation = pairingGeneration
         pairing = .preparing
@@ -36,38 +48,58 @@ extension DeviceCoordinator {
         pairingExpiresAt = nil
         acquireExpiryHold()
         do {
-            guard try await openServicesForPairing(generation: generation), generation == pairingGeneration,
-                  let services else { return }
+            let opened = try await openServicesForPairing(generation: generation)
+            guard opened, generation == pairingGeneration, let services else {
+                DevicesPairingTrace.log("startPairing: returned after opening services, opened=\(opened) "
+                    + "current=\(generation == pairingGeneration) services=\(self.services != nil) pairing=\(DevicesPairingTrace.describe(pairing))")
+                return
+            }
             if account != .available { await refreshAccount() }
-            guard generation == pairingGeneration else { return }
-            guard account == .available else { return failPairing(.accountUnavailable(account)) }
+            guard generation == pairingGeneration else {
+                DevicesPairingTrace.log("startPairing: returned, superseded after the account check")
+                return
+            }
+            guard account == .available else {
+                DevicesPairingTrace.log("startPairing: failed, account \(account)")
+                return failPairing(.accountUnavailable(account))
+            }
             do {
                 _ = try await services.inbox.prepareInbox()
             } catch {
+                DevicesPairingTrace.log("startPairing: inbox preparation threw \(error)")
                 guard generation == pairingGeneration else { return }
                 return failPairing(.iCloudUnavailable)
             }
-            guard generation == pairingGeneration, self.services === services else { return }
+            guard generation == pairingGeneration, self.services === services else {
+                DevicesPairingTrace.log("startPairing: returned, superseded after the inbox")
+                return
+            }
             let qr = try await services.messenger.startPairing(displayName: environment.displayName())
             guard generation == pairingGeneration, self.services === services else {
+                DevicesPairingTrace.log("startPairing: returned, superseded after the messenger")
                 await services.messenger.cancelPairing()
                 return
             }
             pairing = .showingQRCode(text: qr.text, expiresAt: qr.qrExpiry)
             pairingExpiresAt = qr.qrExpiry.addingTimeInterval(Self.sessionExtension)
             startPairingPolling()
+            DevicesPairingTrace.log("startPairing: showing the QR code")
         } catch DeviceIdentityError.secureEnclaveUnavailable {
+            DevicesPairingTrace.log("startPairing: threw secureEnclaveUnavailable")
             guard generation == pairingGeneration else { return }
             availability = .secureEnclaveUnavailable
             failPairing(.secureEnclaveUnavailable)
         } catch DeviceIdentityError.unusable {
+            DevicesPairingTrace.log("startPairing: threw unusable")
             guard generation == pairingGeneration else { return }
             identityBecameUnusable()
             failPairing(.identityUnusable)
         } catch DeviceIdentityError.keyCreationFailed {
+            DevicesPairingTrace.log("startPairing: threw keyCreationFailed")
             guard generation == pairingGeneration else { return }
             failPairing(.keyCreationFailed)
         } catch {
+            DevicesPairingTrace.log("startPairing: threw \(error)")
             guard generation == pairingGeneration else { return }
             failPairing(.storageUnavailable)
         }

@@ -13,7 +13,7 @@ import Observation
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
+    static let commands = ["phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "trace"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -137,6 +137,11 @@ enum E2EDeviceScenario {
                 if case .reached = coordinator.devices.first?.reachability { return true }
                 return false
             }
+        case "trace":
+            // T6 TEMP #298, revert before merge: what Pair a Device… did on the runner's click.
+            guard let control else { throw E2EDeviceScenarioError.notInstalled }
+            let data = try JSONSerialization.data(withJSONObject: ["trace": DevicesPairingTrace.lines], options: [.prettyPrinted])
+            try data.write(to: control.appendingPathComponent("device-trace.json"), options: .atomic)
         case "account-signed-out":
             backend.accountState = .noAccount
             backend.signalAccountChange()
