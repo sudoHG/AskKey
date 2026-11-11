@@ -141,7 +141,7 @@ enum E2EDeviceScenario {
             // T6 TEMP #298, revert before merge: what Pair a Device… did on the runner's click.
             guard let control else { throw E2EDeviceScenarioError.notInstalled }
             let data = try JSONSerialization.data(withJSONObject: ["trace": DevicesPairingTrace.lines], options: [.prettyPrinted])
-            try data.write(to: control.appendingPathComponent("device-trace.json"), options: .atomic)
+            try data.write(to: control.appendingPathComponent("device-pairing-trace.json"), options: .atomic)
         case "account-signed-out":
             backend.accountState = .noAccount
             backend.signalAccountChange()

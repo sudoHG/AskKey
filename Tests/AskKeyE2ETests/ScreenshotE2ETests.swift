@@ -385,7 +385,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("settings-pair-device")
         let opened = app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8)
         try fixture("trace") // T6 TEMP #298, revert before merge: the App's trace of that click
-        let trace = (try? String(contentsOf: runDirectory.appendingPathComponent("device-trace.json"), encoding: .utf8)) ?? "none"
+        let trace = (try? String(contentsOf: runDirectory.appendingPathComponent("device-pairing-trace.json"), encoding: .utf8)) ?? "none"
         print("T6TRACE \(language) sheet=\(opened)\n\(trace)")
         XCTAssertTrue(opened, "Pair a Device… opened no sheet. Trace: \(trace)")
         XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
