@@ -87,19 +87,9 @@ final class DevicesSettingsModel {
     }
 
     func pairDevice() async {
-        // T6 TEMP #298, revert before merge.
-        DevicesPairingTrace.log("model.pairDevice: canPair=\(canPair) availability=\(coordinator.availability) "
-            + "shown availability=\(availability) account=\(coordinator.account) deviceCount=\(coordinator.devices.count) "
-            + "isPairing=\(coordinator.pairing != nil) identity=\(coordinator.hasIdentity) "
-            + "secureEnclave=\(coordinator.environment.backend?.isSecureEnclaveAvailable.description ?? "no backend")")
-        guard canPair else {
-            DevicesPairingTrace.log("model.pairDevice: returned at guard canPair")
-            return
-        }
+        guard canPair else { return }
         codeEntry = ""
         await coordinator.startPairing()
-        DevicesPairingTrace.log("model.pairDevice: startPairing returned, pairing=\(DevicesPairingTrace.describe(coordinator.pairing)) "
-            + "isSheetPresented=\(isSheetPresented)")
     }
 
     /// **Confirm**: checks the typed code; a wrong or malformed entry asks
@@ -242,24 +232,5 @@ final class DevicesSettingsModel {
         guard confirmingReset else { return }
         confirmingReset = false
         await coordinator.resetIdentity()
-    }
-}
-
-// T6 TEMP #298 diagnostics, revert before merge: what Pair a Device… does on
-// a click, read by the E2E fixture. Pairing states by case name, failures in
-// full; neither carries a code or QR payload.
-@MainActor
-package enum DevicesPairingTrace {
-    package private(set) static var lines: [String] = []
-
-    static func log(_ text: String) {
-        lines.append(String(format: "%.3f ", Date().timeIntervalSince1970) + text)
-    }
-
-    static func describe(_ state: PairingSheetState?) -> String {
-        guard let state else { return "nil" }
-        if case .failed = state { return String(describing: state) }
-        if case .ended = state { return String(describing: state) }
-        return String(String(describing: state).prefix { $0 != "(" })
     }
 }

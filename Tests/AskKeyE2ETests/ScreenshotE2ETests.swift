@@ -383,11 +383,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(pair.waitForExistence(timeout: 8))
         for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
         click("settings-pair-device")
-        let opened = app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8)
-        try fixture("trace") // T6 TEMP #298, revert before merge: the App's trace of that click
-        let trace = (try? String(contentsOf: runDirectory.appendingPathComponent("device-pairing-trace.json"), encoding: .utf8)) ?? "none"
-        print("T6TRACE \(language) sheet=\(opened)\n\(trace)")
-        XCTAssertTrue(opened, "Pair a Device… opened no sheet. Trace: \(trace)")
+        XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "Pair a Device… opened no sheet")
         XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
         captureSheet(name(1, "devices-pairing-qr-code"))
         try fixture("phone-scan")
