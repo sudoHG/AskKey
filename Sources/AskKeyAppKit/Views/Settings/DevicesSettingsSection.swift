@@ -95,14 +95,15 @@ private struct DevicesSectionContent: View {
         .onAppear { Task { await model.sectionOpened() } }
     }
 
-    /// Stands in for the list while no device is paired.
+    /// Stands in for the list while no device is listed.
     ///
-    /// It is also the fix for #299: on macOS 26 a button in a `GroupedList`
-    /// that holds a single row receives no clicks, so Pair a Device… (or
-    /// Reset Device Identity…) did nothing until a device was listed. A second
-    /// row as tall as the Pairing row restored the click in CI
+    /// It is also the fix for #299: on macOS 26, Pair a Device… received no
+    /// clicks while this box held only the Pairing row, so it did nothing
+    /// until a device was listed. A second row as tall as the Pairing row
+    /// restored the click in CI
     /// (https://github.com/sudoHG/AskKey/issues/299,
-    /// https://github.com/sudoHG/AskKey/actions/runs/43048425691). Check
+    /// https://github.com/sudoHG/AskKey/actions/runs/43048425691). Reset
+    /// Device Identity… shares the box and was not tested there. Check
     /// Pair a Device… on macOS 26 before removing this row or making it shorter.
     private var emptyListRow: some View {
         Text(appLocalized("Paired devices appear here."))
