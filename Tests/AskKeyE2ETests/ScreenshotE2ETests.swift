@@ -343,6 +343,68 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("backup-import-done")
     }
 
+    func testDevicesScreensInEnglish() throws {
+        try captureDevicesScreens(language: "en", tag: "en", firstNumber: 30)
+    }
+
+    func testDevicesScreensInChinese() throws {
+        try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35)
+    }
+
+    /// Settings → Devices on the E2E App's fake device services (#288): the list with one paired
+    /// iPhone, the pairing sheet's QR code, waiting and code entry steps, and iCloud signed out. The
+    /// runner clicks Pair a Device… itself, so a macOS release on which that click starts nothing
+    /// fails here. The fixture plays the iPhone, including the person typing its code, which never
+    /// leaves the App. The Devices texts are found by identifier: after the code field had focus,
+    /// snapshots of the whole window can hang on the text cursor's remote element on the CI runner.
+    private func captureDevicesScreens(language: String, tag: String, firstNumber: Int) throws {
+        func name(_ offset: Int, _ label: String) -> String { String(format: "%02d-%@-%@", firstNumber + offset, tag, label) }
+        func fixture(_ command: String) throws {
+            try sendFixtureCommand(command)
+            let report = try waitForEvidence("device-\(command).json")
+            XCTAssertEqual(report["ok"] as? Bool, true, "\(command): \(report)")
+        }
+        func waitUntilShown(_ identifier: String, _ text: String) {
+            let element = app.staticTexts[identifier].firstMatch
+            let shown = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                element.exists && (element.label.contains(text) || (element.value as? String)?.contains(text) == true)
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [shown], timeout: 8), .completed, "Missing \(text)")
+        }
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
+        app.launch()
+        addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
+        moveManagementAboveDock()
+        click("unlock-management")
+        click("sidebar-settings")
+        let page = app.scrollViews["settings-page"].firstMatch
+        let pair = app.buttons["settings-pair-device"].firstMatch
+        XCTAssertTrue(pair.waitForExistence(timeout: 8))
+        for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+        click("settings-pair-device")
+        XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "Pair a Device… opened no sheet")
+        XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
+        captureSheet(name(1, "devices-pairing-qr-code"))
+        try fixture("phone-scan")
+        XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-waiting"].waitForExistence(timeout: 8))
+        captureSheet(name(2, "devices-pairing-waiting"))
+        try fixture("phone-reveal")
+        XCTAssertTrue(app.textFields["devices-pairing-code"].waitForExistence(timeout: 8))
+        captureSheet(name(3, "devices-pairing-code-entry"))
+        try fixture("phone-complete")
+        click("devices-pairing-done")
+        try fixture("phone-poll")
+        let rename = app.buttons["devices-rename"].firstMatch
+        XCTAssertTrue(rename.waitForExistence(timeout: 8))
+        for _ in 0..<6 where !rename.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+        waitUntilShown("devices-row-reachability", language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}")
+        captureWindow(name(0, "devices-list"))
+        try fixture("account-signed-out")
+        waitUntilShown("settings-devices-notice", language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}")
+        captureWindow(name(4, "devices-icloud-signed-out"))
+    }
+
     /// Saves "Staging API" through the first-run editor, then unlocks
     /// management and opens Settings.
     private func createFirstCredential(value: String) {
@@ -356,6 +418,14 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("unlock-management")
         click("sidebar-settings")
         XCTAssertTrue(app.buttons["settings-agent-access"].waitForExistence(timeout: 8))
+    }
+
+    /// The Settings window alone, without querying the App's other windows.
+    private func captureWindow(_ name: String) {
+        let attachment = XCTAttachment(screenshot: app.windows["settings"].firstMatch.screenshot())
+        attachment.name = name + ".png"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     /// The Backup and Devices sections sit below the fold of Settings.
@@ -426,7 +496,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
     }
 
     /// The sheet over the management window, which shows the backup flows.
-    func captureSheet(_ name: String) {
+    private func captureSheet(_ name: String) {
         let sheet = app.windows["settings"].sheets.firstMatch
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "Missing sheet for \(name)")
         let attachment = XCTAttachment(screenshot: sheet.screenshot())
@@ -435,7 +505,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         add(attachment)
     }
 
-    func capture(_ name: String, approval: Bool = false) {
+    private func capture(_ name: String, approval: Bool = false) {
         // AppKit's floating approval NSPanel is exposed as a dialog, while the
         // management scene is a window. Query both before taking a window crop.
         let windows = app.windows.allElementsBoundByIndex + app.dialogs.allElementsBoundByIndex
@@ -457,7 +527,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         add(attachment)
     }
 
-    func moveManagementAboveDock() {
+    private func moveManagementAboveDock() {
         let window = app.windows["settings"].firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 8))
         let origin = window.frame.origin
@@ -476,7 +546,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         button.click()
     }
 
-    func waitForText(_ text: String, containing: Bool = false) {
+    private func waitForText(_ text: String, containing: Bool = false) {
         let predicate = NSPredicate(format: containing
             ? "label CONTAINS %@ OR value CONTAINS %@" : "label == %@ OR value == %@", text, text)
         XCTAssertTrue(app.descendants(matching: .any).matching(predicate).firstMatch

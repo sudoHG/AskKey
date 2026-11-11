@@ -1,4 +1,3 @@
-import AppKit
 import AskKeyAppKit
 import AskKeyDevices
 import Foundation
@@ -14,7 +13,7 @@ import Observation
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["snapshot", "start-pairing", "phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out", "ax-walk", "resign-focus", "inject-click", "write-log"]
+    static let commands = ["phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -38,22 +37,16 @@ enum E2EDeviceScenario {
     /// and writes `device-<command>.json` with the outcome.
     static func start(control: URL) {
         self.control = control
-        E2EDeviceDiagnostics.captureStandardError(control: control)
         recordPairingTransitions(control: control)
-        E2EDeviceDiagnostics.recordMouseEvents { event in
-            transitions.append("\(Date().timeIntervalSince1970) \(event)")
-            writeTransitions(control: control)
-        }
         task = Task { @MainActor in
             while !Task.isCancelled {
                 for command in commands {
                     let file = control.appendingPathComponent("command-\(command).txt")
                     guard FileManager.default.fileExists(atPath: file.path) else { continue }
-                    let argument = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
                     try? FileManager.default.removeItem(at: file)
                     var report: [String: Any] = ["command": command]
                     do {
-                        try await run(command, argument: argument)
+                        try await run(command)
                         report["ok"] = true
                     } catch {
                         report["ok"] = false
@@ -112,20 +105,11 @@ enum E2EDeviceScenario {
         }
     }
 
-    private static func run(_ command: String, argument: String) async throws {
+    private static func run(_ command: String) async throws {
         guard let coordinator = DeviceServicesHost.coordinator, let phone, let backend else {
             throw E2EDeviceScenarioError.notInstalled
         }
         switch command {
-        case "snapshot":
-            // What Pair a Device… checks before it starts, at the moment the runner clicks.
-            transitions.append("\(Date().timeIntervalSince1970) snapshot before a click: secureEnclave=\(backend.isSecureEnclaveAvailable) "
-                + "pairing=\(coordinator.pairing.map(describe) ?? "none") availability=\(coordinator.availability) "
-                + "account=\(coordinator.account) identity=\(coordinator.hasIdentity) devices=\(coordinator.devices.count)")
-            if let control { writeTransitions(control: control) }
-        case "start-pairing":
-            // Diagnostic only: what Pair a Device… does, for a run in which the click did not start it.
-            await coordinator.startPairing()
         case "phone-scan":
             guard case .showingQRCode(let text, _) = coordinator.pairing else { throw E2EDeviceScenarioError.noQRCode }
             try await phone.scan(text, name: phoneName)
@@ -153,31 +137,6 @@ enum E2EDeviceScenario {
                 if case .reached = coordinator.devices.first?.reachability { return true }
                 return false
             }
-        case "ax-walk":
-            // Diagnostic only (#298): the App's own accessibility tree.
-            guard let control else { throw E2EDeviceScenarioError.notInstalled }
-            transitions.append("\(Date().timeIntervalSince1970) \(E2EDeviceDiagnostics.walkAccessibility(control: control))")
-            writeTransitions(control: control)
-        case "resign-focus":
-            // Diagnostic only (#298): the key window drops its first responder.
-            let window = NSApp.keyWindow
-            transitions.append("\(Date().timeIntervalSince1970) resign focus: key=\(window.map { String(describing: type(of: $0)) } ?? "none") "
-                + "firstResponder=\(window?.firstResponder.map { String(describing: type(of: $0)) } ?? "none") "
-                + "resigned=\(window?.makeFirstResponder(nil) ?? false)")
-            if let control { writeTransitions(control: control) }
-        case "inject-click":
-            // Diagnostic only (#298): a click the App posts to itself at a point in the runner's
-            // screen coordinates, beside XCTest's synthesized one.
-            let values = argument.split(whereSeparator: \.isWhitespace).compactMap { Double($0) }
-            guard values.count == 2 else { throw E2EDeviceScenarioError.unknownCommand }
-            let outcome = await E2EDeviceDiagnostics.postClick(atRunnerPoint: NSPoint(x: values[0], y: values[1]))
-            transitions.append("\(Date().timeIntervalSince1970) posted click: \(outcome)")
-            if let control { writeTransitions(control: control) }
-        case "write-log":
-            // Diagnostic only (#298): the App's own log and standard error so far.
-            guard let control else { throw E2EDeviceScenarioError.notInstalled }
-            transitions.append("\(Date().timeIntervalSince1970) \(E2EDeviceDiagnostics.writeLog(control: control))")
-            writeTransitions(control: control)
         case "account-signed-out":
             backend.accountState = .noAccount
             backend.signalAccountChange()

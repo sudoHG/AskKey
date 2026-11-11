@@ -77,7 +77,12 @@ final class DevicesSettingsModel {
         }
     }
 
+    /// The section appeared. The model outlives each visit to Settings, so
+    /// a rename or confirmation left open on an earlier visit is closed.
     func sectionOpened() async {
+        cancelRename()
+        removalCandidate = nil
+        confirmingReset = false
         await coordinator.devicesOpened()
     }
 

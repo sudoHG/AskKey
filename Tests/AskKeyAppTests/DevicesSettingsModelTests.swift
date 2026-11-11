@@ -40,7 +40,7 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         ))
         XCTAssertFalse(DevicesSettingsModel(coordinator: coordinator).isSectionVisible)
         // This process has no CloudKit entitlement, so whatever it installed is not configured.
-        XCTAssertFalse(VaultViewModel.makeDevicesSettingsModel()?.isSectionVisible ?? false)
+        XCTAssertFalse(VaultViewModel.devicesSettingsModel?.isSectionVisible ?? false)
         XCTAssertTrue(model.isSectionVisible, "a configured build shows the section")
     }
 
@@ -221,6 +221,21 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         XCTAssertTrue(harness.coordinator.devices.isEmpty)
         XCTAssertNil(model.removalCandidate)
         XCTAssertEqual(harness.macSent(.unpairNotice).count, 1)
+    }
+
+    func testTheSectionReceivesOneModelThatClosesLeftoversOnEachVisit() async throws {
+        // Settings is rebuilt on every visit; the section only receives the model.
+        if let shared = VaultViewModel.devicesSettingsModel {
+            XCTAssertTrue(VaultViewModel.devicesSettingsModel === shared, "one model for the App's coordinator")
+        }
+        try await harness.pairPhone()
+        let row = try XCTUnwrap(harness.coordinator.devices.first)
+        model.beginRename(row)
+        model.requestRemoval(row)
+        await model.sectionOpened()
+        XCTAssertNil(model.renaming)
+        XCTAssertNil(model.removalCandidate)
+        XCTAssertEqual(harness.coordinator.devices.count, 1, "reopening the section removes nothing")
     }
 
     func testRemovingTheLastDeviceAfterAnAccountChangeLetsPairingStart() async throws {

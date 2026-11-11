@@ -9,7 +9,6 @@ struct BackupSettingsSection: View {
     @State private var savedFileName: String?
 
     var body: some View {
-        let _ = Self._printChanges() // T6 TEMP #298, revert before merge
         // A separate view keeps its body across the parent's redraw, so it
         // subscribes to the language itself; otherwise a switch leaves this
         // section in the previous language.
