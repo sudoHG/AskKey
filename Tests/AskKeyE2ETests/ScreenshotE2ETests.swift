@@ -410,6 +410,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         let rename = app.buttons["devices-rename"].firstMatch
         XCTAssertTrue(rename.waitForExistence(timeout: 8))
         for _ in 0..<6 where !rename.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+        page.scroll(byDeltaX: 0, deltaY: -900) // the whole row in view, whatever the language's line breaks
         waitUntilShown("devices-row-reachability", language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}")
         attachScreenshot(of: app.windows["settings"].firstMatch, name(0, "devices-list"))
         try fixture("account-signed-out")
