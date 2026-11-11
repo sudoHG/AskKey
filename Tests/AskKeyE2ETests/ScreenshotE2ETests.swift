@@ -343,6 +343,81 @@ final class ScreenshotE2ETests: E2EBaseCase {
         click("backup-import-done")
     }
 
+    func testDevicesScreensInEnglish() throws {
+        try captureDevicesScreens(language: "en", tag: "en", firstNumber: 30)
+    }
+
+    func testDevicesScreensInChinese() throws {
+        try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35)
+    }
+
+    /// The runner's click on Pair a Device… opens the sheet. A strict known failure on macOS 26, where
+    /// SwiftUI never runs the button's action (#299): a run there that passes fails. Others must pass.
+    func testPairADeviceOpensItsSheet() throws {
+        _ = openDevicesSettings(language: "en")
+        click("settings-pair-device")
+        XCTExpectFailure("On macOS 26 the click does not reach Pair a Device…'s action (#299)",
+                         enabled: ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26, strict: true) {
+            XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "Pair a Device… opened no sheet")
+        }
+    }
+
+    /// Settings on the E2E App's fake device services (#288), Pair a Device… in view.
+    private func openDevicesSettings(language: String) -> XCUIElement {
+        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
+        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
+        app.launch()
+        addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
+        moveManagementAboveDock()
+        click("unlock-management")
+        click("sidebar-settings")
+        let page = app.scrollViews["settings-page"].firstMatch
+        let pair = app.buttons["settings-pair-device"].firstMatch
+        XCTAssertTrue(pair.waitForExistence(timeout: 8))
+        for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+        return page
+    }
+
+    /// The list with one iPhone, the sheet's QR code, waiting and code entry steps, and iCloud signed
+    /// out. The fixture starts the session, as the runner's click does nothing on macOS 26 (#299), and
+    /// plays the iPhone, including typing its code. Texts are found by identifier: after the code
+    /// field had focus, whole-window snapshots can hang on the cursor's remote element in CI.
+    private func captureDevicesScreens(language: String, tag: String, firstNumber: Int) throws {
+        func name(_ offset: Int, _ label: String) -> String { String(format: "%02d-%@-%@", firstNumber + offset, tag, label) }
+        func fixture(_ command: String) throws {
+            try sendFixtureCommand(command)
+            XCTAssertEqual(try waitForEvidence("device-\(command).json")["ok"] as? Bool, true, command)
+        }
+        func waitUntilShown(_ identifier: String, _ text: String) {
+            let element = app.staticTexts[identifier].firstMatch
+            let shown = NSPredicate { _, _ in element.exists && (element.label.contains(text) || (element.value as? String)?.contains(text) == true) }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 8), .completed, "Missing \(text)")
+        }
+        let page = openDevicesSettings(language: language)
+        try fixture("start-pairing")
+        XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "No pairing sheet")
+        XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-qr"].waitForExistence(timeout: 8))
+        captureSheet(name(1, "devices-pairing-qr-code"))
+        try fixture("phone-scan")
+        XCTAssertTrue(app.descendants(matching: .any)["devices-pairing-waiting"].waitForExistence(timeout: 8))
+        captureSheet(name(2, "devices-pairing-waiting"))
+        try fixture("phone-reveal")
+        XCTAssertTrue(app.textFields["devices-pairing-code"].waitForExistence(timeout: 8))
+        captureSheet(name(3, "devices-pairing-code-entry"))
+        try fixture("phone-complete")
+        click("devices-pairing-done")
+        try fixture("phone-poll")
+        let rename = app.buttons["devices-rename"].firstMatch
+        XCTAssertTrue(rename.waitForExistence(timeout: 8))
+        for _ in 0..<6 where !rename.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+        page.scroll(byDeltaX: 0, deltaY: -900) // the whole row in view, whatever the language's line breaks
+        waitUntilShown("devices-row-reachability", language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}")
+        attachScreenshot(of: app.windows["settings"].firstMatch, name(0, "devices-list"))
+        try fixture("account-signed-out")
+        waitUntilShown("settings-devices-notice", language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}")
+        attachScreenshot(of: app.windows["settings"].firstMatch, name(4, "devices-icloud-signed-out"))
+    }
+
     /// Saves "Staging API" through the first-run editor, then unlocks
     /// management and opens Settings.
     private func createFirstCredential(value: String) {
@@ -358,7 +433,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(app.buttons["settings-agent-access"].waitForExistence(timeout: 8))
     }
 
-    /// The Backup section sits below the fold of Settings.
+    /// The Backup and Devices sections sit below the fold of Settings.
     private func openBackupSetting(_ identifier: String) {
         let button = app.buttons[identifier].firstMatch
         XCTAssertTrue(button.waitForExistence(timeout: 8), "Missing control: \(identifier)")
@@ -429,7 +504,11 @@ final class ScreenshotE2ETests: E2EBaseCase {
     private func captureSheet(_ name: String) {
         let sheet = app.windows["settings"].sheets.firstMatch
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "Missing sheet for \(name)")
-        let attachment = XCTAttachment(screenshot: sheet.screenshot())
+        attachScreenshot(of: sheet, name)
+    }
+
+    private func attachScreenshot(of element: XCUIElement, _ name: String) {
+        let attachment = XCTAttachment(screenshot: element.screenshot())
         attachment.name = name + ".png"
         attachment.lifetime = .keepAlways
         add(attachment)
@@ -451,10 +530,7 @@ final class ScreenshotE2ETests: E2EBaseCase {
             return
         }
         XCTAssertTrue(window.isHittable)
-        let attachment = XCTAttachment(screenshot: window.screenshot())
-        attachment.name = name + ".png"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        attachScreenshot(of: window, name)
     }
 
     private func moveManagementAboveDock() {

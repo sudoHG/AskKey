@@ -187,6 +187,7 @@ enum AppLanguage {
         "Expired without decision",
         "Open Ask Key to review pending requests.",
         "Disable system authentication for read approvals",
+        "Pair a device with this Mac",
         "Ask Key could not save an access record. Credential operations continue, and this warning will remain until recording succeeds.",
         "Ask Key could not prepare Agent access. Open the app to review the vault state.",
         "Ask Key could not apply this decision. Open Pending requests to retry or reject it.",

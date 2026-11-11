@@ -84,6 +84,25 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
         }
     }
 
+    /// Pairing confirmation asks with its own reason (#288), which the
+    /// authentication subprocess accepts and shows in either language.
+    func testPackagedSubprocessAcceptsAndDescribesThePairingReason() throws {
+        let action = ManagementAuthenticationAction.pairDevice
+        XCTAssertEqual(action.reasonKey, "Pair a device with this Mac")
+        XCTAssertNotEqual(action.reasonKey, CredentialManagementCopy.manageReason)
+        XCTAssertTrue(ManagementAuthenticationSubprocess.accepts(reasonKey: action.reasonKey, argumentCount: 0))
+        XCTAssertFalse(ManagementAuthenticationSubprocess.accepts(reasonKey: action.reasonKey, argumentCount: 1))
+        let chinese = try describePackagedAuthentication(
+            presentation: ManagementAuthenticationPresentation(reasonKey: action.reasonKey, language: "zh-Hans")
+        )
+        XCTAssertEqual(chinese.title, "请旨")
+        XCTAssertEqual(chinese.reason, "确认将设备与这台 Mac 配对")
+        let english = try describePackagedAuthentication(
+            presentation: ManagementAuthenticationPresentation(reasonKey: action.reasonKey, language: "en")
+        )
+        XCTAssertEqual(english.reason, "Pair a device with this Mac")
+    }
+
     func testAuthenticationArgumentsRejectUnknownDuplicateAndMixedModes() {
         let presentation = ManagementAuthenticationPresentation(
             reasonKey: CredentialManagementCopy.manageReason,

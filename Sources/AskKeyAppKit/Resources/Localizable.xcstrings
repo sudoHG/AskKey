@@ -16823,6 +16823,686 @@
           }
         }
       }
+    },
+    "Devices are unavailable because Ask Key can't read this Mac's device keys right now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Devices are unavailable because Ask Key can't read this Mac's device keys right now." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨暂时无法读取这台 Mac 的设备密钥，设备功能不可用。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Devices are unavailable because Ask Key can't read this Mac's device keys right now.!!]" } }
+      }
+    },
+    "Pair Ask Key on your iPhone with this Mac. They exchange encrypted messages through iCloud, so both must use the same Apple Account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pair Ask Key on your iPhone with this Mac. They exchange encrypted messages through iCloud, so both must use the same Apple Account." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "将 iPhone 上的请旨与这台 Mac 配对。两台设备通过 iCloud 交换加密消息，所以必须登录同一个 Apple 账户。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pair Ask Key on your iPhone with this Mac. They exchange encrypted messages through iCloud, so both must use the same Apple Account.!!]" } }
+      }
+    },
+    "iCloud is signed out, so paired devices can't be reached. To pair, sign in with the same Apple Account as your iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "iCloud is signed out, so paired devices can't be reached. To pair, sign in with the same Apple Account as your iPhone." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iCloud 已退出登录，无法联系已配对的设备。要配对，请用与 iPhone 相同的 Apple 账户登录。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!iCloud is signed out, so paired devices can't be reached. To pair, sign in with the same Apple Account as your iPhone.!!]" } }
+      }
+    },
+    "iCloud is restricted on this Mac, for example by Screen Time or a device management profile, so devices can't be reached.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "iCloud is restricted on this Mac, for example by Screen Time or a device management profile, so devices can't be reached." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 的 iCloud 受到限制（例如“屏幕使用时间”或设备管理描述文件），因此无法联系设备。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!iCloud is restricted on this Mac, for example by Screen Time or a device management profile, so devices can't be reached.!!]" } }
+      }
+    },
+    "Ask Key can't reach iCloud right now, so devices can't be reached. Check the connection.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key can't reach iCloud right now, so devices can't be reached. Check the connection." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨暂时无法连接 iCloud，因此无法联系设备。请检查网络。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key can't reach iCloud right now, so devices can't be reached. Check the connection.!!]" } }
+      }
+    },
+    "This Mac now uses a different Apple Account than the one these devices were paired in, so they can't be reached. Sign back in, or remove them and pair again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This Mac now uses a different Apple Account than the one these devices were paired in, so they can't be reached. Sign back in, or remove them and pair again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 现在登录的 Apple 账户与配对时不同，因此无法联系这些设备。请重新登录原来的账户，或移除这些设备后重新配对。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac now uses a different Apple Account than the one these devices were paired in, so they can't be reached. Sign back in, or remove them and pair again.!!]" } }
+      }
+    },
+    "%1$@ · Paired %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ · Paired %2$@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ · 配对于 %2$@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!%1$@ · Paired %2$@!!]" } }
+      }
+    },
+    "Not reached yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Not reached yet" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "还没联系上" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Not reached yet!!]" } }
+      }
+    },
+    "Last reached %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Last reached %@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "上次联系：%@" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Last reached %@!!]" } }
+      }
+    },
+    "Can't be reached": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Can't be reached" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法联系" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Can't be reached!!]" } }
+      }
+    },
+    "Delivery check sent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delivery check sent" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已发送送达检查" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Delivery check sent!!]" } }
+      }
+    },
+    "Delivery check answered": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delivery check answered" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "送达检查已回应" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Delivery check answered!!]" } }
+      }
+    },
+    "Delivery check got no reply": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delivery check got no reply" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "送达检查没有回应" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Delivery check got no reply!!]" } }
+      }
+    },
+    "Credential management is locked. Unlock it, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Credential management is locked. Unlock it, then try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "凭证管理已锁定。请解锁后重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Credential management is locked. Unlock it, then try again.!!]" } }
+      }
+    },
+    "This device is no longer paired.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This device is no longer paired." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台设备已不在配对列表中。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This device is no longer paired.!!]" } }
+      }
+    },
+    "The delivery check couldn't be sent. Check the connection, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The delivery check couldn't be sent. Check the connection, then try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法发送送达检查。请检查网络后重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The delivery check couldn't be sent. Check the connection, then try again.!!]" } }
+      }
+    },
+    "The device was removed here, but Ask Key couldn't tell it. Remove this Mac on that device too.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The device was removed here, but Ask Key couldn't tell it. Remove this Mac on that device too." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已在这台 Mac 上移除该设备，但没能通知它。请也在那台设备上移除这台 Mac。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The device was removed here, but Ask Key couldn't tell it. Remove this Mac on that device too.!!]" } }
+      }
+    },
+    "That didn't work. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "That didn't work. Try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "操作没有完成，请重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!That didn't work. Try again.!!]" } }
+      }
+    },
+    "This Mac stops trusting “%@” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This Mac stops trusting “%@” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 将立即停止信任“%@”。请旨会尝试通知对方移除这台 Mac；如果对方仍列出这台 Mac，请在那台设备上手动移除。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac stops trusting “%@” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too.!!]" } }
+      }
+    },
+    "Preparing…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparing…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "正在准备…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Preparing…!!]" } }
+      }
+    },
+    "Scan with Your iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Scan with Your iPhone" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "用 iPhone 扫描" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Scan with Your iPhone!!]" } }
+      }
+    },
+    "In Ask Key on your iPhone, tap Pair a Mac, then scan this QR code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "In Ask Key on your iPhone, tap Pair a Mac, then scan this QR code." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "在 iPhone 上的请旨中轻点“配对 Mac”，然后扫描这个二维码。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!In Ask Key on your iPhone, tap Pair a Mac, then scan this QR code.!!]" } }
+      }
+    },
+    "Scan only the QR code in this window. Never scan a QR code that someone sends you.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Scan only the QR code in this window. Never scan a QR code that someone sends you." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "只扫描这个窗口中的二维码。别人发给你的二维码，一律不要扫。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Scan only the QR code in this window. Never scan a QR code that someone sends you.!!]" } }
+      }
+    },
+    "Waiting for the iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Waiting for the iPhone" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "正在等待 iPhone" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Waiting for the iPhone!!]" } }
+      }
+    },
+    "The iPhone shows a pairing code once it has answered, and this window then asks for it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The iPhone shows a pairing code once it has answered, and this window then asks for it." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iPhone 回应后会显示配对码，这个窗口随后会请你输入。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The iPhone shows a pairing code once it has answered, and this window then asks for it.!!]" } }
+      }
+    },
+    "If the iPhone has shown a code for more than about 10 seconds while this window still waits, cancel and pair again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "If the iPhone has shown a code for more than about 10 seconds while this window still waits, cancel and pair again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "如果 iPhone 已显示配对码超过约 10 秒，而这个窗口仍在等待，请取消并重新配对。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!If the iPhone has shown a code for more than about 10 seconds while this window still waits, cancel and pair again.!!]" } }
+      }
+    },
+    "Enter the Pairing Code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter the Pairing Code" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "输入配对码" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Enter the Pairing Code!!]" } }
+      }
+    },
+    "Waiting for system authentication…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Waiting for system authentication…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "正在等待系统验证…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Waiting for system authentication…!!]" } }
+      }
+    },
+    "The code matches. Confirm to finish pairing; Ask Key asks for system authentication.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The code matches. Confirm to finish pairing; Ask Key asks for system authentication." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对码正确。确认后即可完成配对，请旨会要求系统验证。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The code matches. Confirm to finish pairing; Ask Key asks for system authentication.!!]" } }
+      }
+    },
+    "Confirm on the iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Confirm on the iPhone" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "在 iPhone 上确认" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Confirm on the iPhone!!]" } }
+      }
+    },
+    "Confirmed on this Mac. Tap Confirm Pairing on the iPhone to finish.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Confirmed on this Mac. Tap Confirm Pairing on the iPhone to finish." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已在这台 Mac 上确认。请在 iPhone 上轻点“确认配对”以完成配对。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Confirmed on this Mac. Tap Confirm Pairing on the iPhone to finish.!!]" } }
+      }
+    },
+    "Paired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Paired" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已配对" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Paired!!]" } }
+      }
+    },
+    "This Mac and “%@” are paired. Ask Key sent a delivery check; until the device answers, it shows as “Not reached yet”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This Mac and “%@” are paired. Ask Key sent a delivery check; until the device answers, it shows as “Not reached yet”." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 已与“%@”配对。请旨已发送送达检查，在对方回应之前，它会显示为“还没联系上”。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac and “%@” are paired. Ask Key sent a delivery check; until the device answers, it shows as “Not reached yet”.!!]" } }
+      }
+    },
+    "Pairing Ended": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pairing Ended" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对已结束" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pairing Ended!!]" } }
+      }
+    },
+    "Pairing Couldn't Start": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pairing Couldn't Start" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法开始配对" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pairing Couldn't Start!!]" } }
+      }
+    },
+    "Enter the code shown on the iPhone's Ask Key pairing screen. Never enter a code from a notification or a message. If that screen shows no code, cancel.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter the code shown on the iPhone's Ask Key pairing screen. Never enter a code from a notification or a message. If that screen shows no code, cancel." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请输入 iPhone 上请旨配对页面显示的配对码。切勿输入通知或消息里的任何数字。如果那个页面没有显示配对码，请取消。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Enter the code shown on the iPhone's Ask Key pairing screen. Never enter a code from a notification or a message. If that screen shows no code, cancel.!!]" } }
+      }
+    },
+    "Enter the six half-width digits shown on the iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter the six half-width digits shown on the iPhone." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请输入 iPhone 上显示的 6 位半角数字。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Enter the six half-width digits shown on the iPhone.!!]" } }
+      }
+    },
+    "System authentication was cancelled. Nothing was sent; you can confirm again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "System authentication was cancelled. Nothing was sent; you can confirm again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "系统验证已取消，没有发送任何内容。你可以再次确认。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!System authentication was cancelled. Nothing was sent; you can confirm again.!!]" } }
+      }
+    },
+    "System authentication didn't succeed. Nothing was sent; you can confirm again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "System authentication didn't succeed. Nothing was sent; you can confirm again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "系统验证未通过，没有发送任何内容。你可以再次确认。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!System authentication didn't succeed. Nothing was sent; you can confirm again.!!]" } }
+      }
+    },
+    "Pairing was cancelled. Nothing was stored.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pairing was cancelled. Nothing was stored." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对已取消，没有保存任何内容。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pairing was cancelled. Nothing was stored.!!]" } }
+      }
+    },
+    "The code didn't match three times, so this pairing ended. Nothing was stored. Pair again to get a new QR code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The code didn't match three times, so this pairing ended. Nothing was stored. Pair again to get a new QR code." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对码 3 次都不正确，这次配对已结束，没有保存任何内容。请重新配对以获取新的二维码。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The code didn't match three times, so this pairing ended. Nothing was stored. Pair again to get a new QR code.!!]" } }
+      }
+    },
+    "The iPhone's answer didn't match its request, so this pairing ended. Nothing was stored. Pair again, and scan only the QR code in this window.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The iPhone's answer didn't match its request, so this pairing ended. Nothing was stored. Pair again, and scan only the QR code in this window." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iPhone 的回应与它的请求不符，这次配对已结束，没有保存任何内容。请重新配对，并且只扫描这个窗口中的二维码。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The iPhone's answer didn't match its request, so this pairing ended. Nothing was stored. Pair again, and scan only the QR code in this window.!!]" } }
+      }
+    },
+    "Pairing was cancelled on the iPhone. Nothing was stored.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pairing was cancelled on the iPhone. Nothing was stored." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对已在 iPhone 上取消，没有保存任何内容。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pairing was cancelled on the iPhone. Nothing was stored.!!]" } }
+      }
+    },
+    "The iPhone cancelled this pairing after it finished, so the device was removed again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The iPhone cancelled this pairing after it finished, so the device was removed again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iPhone 在配对完成后取消了这次配对，因此这台设备已被移除。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The iPhone cancelled this pairing after it finished, so the device was removed again.!!]" } }
+      }
+    },
+    "A second device answered this QR code, so this pairing ended. Nothing was stored. Pair again, and make sure nobody else can see the QR code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A second device answered this QR code, so this pairing ended. Nothing was stored. Pair again, and make sure nobody else can see the QR code." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "有第二台设备回应了这个二维码，这次配对已结束，没有保存任何内容。请重新配对，并确保别人看不到二维码。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!A second device answered this QR code, so this pairing ended. Nothing was stored. Pair again, and make sure nobody else can see the QR code.!!]" } }
+      }
+    },
+    "The pairing session expired. Nothing was stored. Pair again to get a new QR code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The pairing session expired. Nothing was stored. Pair again to get a new QR code." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对已超时，没有保存任何内容。请重新配对以获取新的二维码。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The pairing session expired. Nothing was stored. Pair again to get a new QR code.!!]" } }
+      }
+    },
+    "8 devices are already paired, the most Ask Key allows. Nothing was stored. Remove one, then pair again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "8 devices are already paired, the most Ask Key allows. Nothing was stored. Remove one, then pair again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已配对 8 台设备，达到请旨的上限，没有保存任何内容。请先移除一台，再重新配对。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!8 devices are already paired, the most Ask Key allows. Nothing was stored. Remove one, then pair again.!!]" } }
+      }
+    },
+    "This device's keys conflict with a device that is already paired. Nothing was stored.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This device's keys conflict with a device that is already paired. Nothing was stored." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台设备的密钥与已配对的设备冲突，没有保存任何内容。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This device's keys conflict with a device that is already paired. Nothing was stored.!!]" } }
+      }
+    },
+    "The device was removed while pairing, so this pairing ended. Nothing was stored.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The device was removed while pairing, so this pairing ended. Nothing was stored." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对过程中这台设备被移除，这次配对已结束，没有保存任何内容。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The device was removed while pairing, so this pairing ended. Nothing was stored.!!]" } }
+      }
+    },
+    "This Mac's device keys no longer work. Nothing was stored. Reset the device identity in Settings, then pair again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This Mac's device keys no longer work. Nothing was stored. Reset the device identity in Settings, then pair again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 的设备密钥已失效，没有保存任何内容。请在“设置”中重置设备身份，然后重新配对。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac's device keys no longer work. Nothing was stored. Reset the device identity in Settings, then pair again.!!]" } }
+      }
+    },
+    "Unlock credential management to pair a device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unlock credential management to pair a device." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请先解锁凭证管理，再配对设备。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Unlock credential management to pair a device.!!]" } }
+      }
+    },
+    "This Mac has no Secure Enclave, so it can't keep device keys safe and can't pair.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This Mac has no Secure Enclave, so it can't keep device keys safe and can't pair." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 没有安全隔区，无法安全地保存设备密钥，因此不能配对。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac has no Secure Enclave, so it can't keep device keys safe and can't pair.!!]" } }
+      }
+    },
+    "Ask Key couldn't prepare its iCloud inbox. Check the connection, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key couldn't prepare its iCloud inbox. Check the connection, then try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨没能准备好 iCloud 收件箱。请检查网络后重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key couldn't prepare its iCloud inbox. Check the connection, then try again.!!]" } }
+      }
+    },
+    "This Mac's device keys no longer work, for example after Migration Assistant or a restore. Reset the device identity, then pair your devices again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This Mac's device keys no longer work, for example after Migration Assistant or a restore. Reset the device identity, then pair your devices again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这台 Mac 的设备密钥已失效，例如使用“迁移助理”或从备份恢复之后。请重置设备身份，然后重新配对设备。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This Mac's device keys no longer work, for example after Migration Assistant or a restore. Reset the device identity, then pair your devices again.!!]" } }
+      }
+    },
+    "Ask Key couldn't read or save this Mac's device keys. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key couldn't read or save this Mac's device keys. Try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨无法读取或保存这台 Mac 的设备密钥。请重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key couldn't read or save this Mac's device keys. Try again.!!]" } }
+      }
+    },
+    "The Secure Enclave didn't create the keys. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The Secure Enclave didn't create the keys. Try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "安全隔区没有生成密钥。请重试。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The Secure Enclave didn't create the keys. Try again.!!]" } }
+      }
+    },
+    "Devices": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Devices" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "设备" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Devices!!]" } }
+      }
+    },
+    "Pairing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pairing" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pairing!!]" } }
+      }
+    },
+    "Reset Device Identity…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Reset Device Identity…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重置设备身份…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Reset Device Identity…!!]" } }
+      }
+    },
+    "Pair a Device…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pair a Device…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对设备…" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pair a Device…!!]" } }
+      }
+    },
+    "Delete this Mac's device keys and its list of paired devices? Then remove this Mac on each paired device and pair again. This can't be undone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delete this Mac's device keys and its list of paired devices? Then remove this Mac on each paired device and pair again. This can't be undone." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "删除这台 Mac 的设备密钥和已配对设备列表？之后请在每台已配对的设备上移除这台 Mac，再重新配对。此操作无法撤销。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Delete this Mac's device keys and its list of paired devices? Then remove this Mac on each paired device and pair again. This can't be undone.!!]" } }
+      }
+    },
+    "Reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Reset" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重置" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Reset!!]" } }
+      }
+    },
+    "Rename": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Rename" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重命名" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Rename!!]" } }
+      }
+    },
+    "Test Delivery": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Test Delivery" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "测试送达" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Test Delivery!!]" } }
+      }
+    },
+    "This QR code has expired. Pair again to get a new one.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This QR code has expired. Pair again to get a new one." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这个二维码已过期。请重新配对以获取新的二维码。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!This QR code has expired. Pair again to get a new one.!!]" } }
+      }
+    },
+    "QR code for pairing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "QR code for pairing" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对用的二维码" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!QR code for pairing!!]" } }
+      }
+    },
+    "Device that scanned the QR code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Device that scanned the QR code" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "扫描了二维码的设备" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Device that scanned the QR code!!]" } }
+      }
+    },
+    "Pairing code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pairing code" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对码" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pairing code!!]" } }
+      }
+    },
+    "6 digits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "6 digits" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "6 位数字" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!6 digits!!]" } }
+      }
+    },
+    "Pairing code shown on the iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pairing code shown on the iPhone" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iPhone 上显示的配对码" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pairing code shown on the iPhone!!]" } }
+      }
+    },
+    "Close": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Close" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "关闭" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Close!!]" } }
+      }
+    },
+    "Confirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Confirm" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "确认" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Confirm!!]" } }
+      }
+    },
+    "Pair Again": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pair Again" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重新配对" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pair Again!!]" } }
+      }
+    },
+    "The list of paired devices failed its integrity check, so Ask Key won't use it. Reset the device identity, then pair your devices again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The list of paired devices failed its integrity check, so Ask Key won't use it. Reset the device identity, then pair your devices again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已配对设备列表未通过完整性校验，请旨不会使用它。请重置设备身份，然后重新配对设备。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!The list of paired devices failed its integrity check, so Ask Key won't use it. Reset the device identity, then pair your devices again.!!]" } }
+      }
+    },
+    "8 devices are paired, the most Ask Key allows. Remove one to pair another.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "8 devices are paired, the most Ask Key allows. Remove one to pair another." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已配对 8 台设备，达到请旨的上限。请先移除一台，再配对新的设备。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!8 devices are paired, the most Ask Key allows. Remove one to pair another.!!]" } }
+      }
+    },
+    "That code doesn't match. %lld attempts left.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "That code doesn't match. %lld attempts left." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对码不正确，还可以再试 %lld 次。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!That code doesn't match. %lld attempts left.!!]" } }
+      }
+    },
+    "That code doesn't match. %lld attempt left.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "That code doesn't match. %lld attempt left." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配对码不正确，还可以再试 %lld 次。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!That code doesn't match. %lld attempt left.!!]" } }
+      }
+    },
+    "Pair a device with this Mac": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pair a device with this Mac" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "确认将设备与这台 Mac 配对" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pair a device with this Mac!!]" } }
+      }
+    },
+    "Ask Key found a device-message-key item outside login.keychain-db or duplicate device-message-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-message-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key found a device-message-key item outside login.keychain-db or duplicate device-message-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-message-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨发现 login.keychain-db 之外的 device-message-key 项目或重复的 device-message-key 项目。请退出请旨，在“钥匙串访问”中移除不在登录钥匙串里的请旨 device-message-key 项目，然后重新打开请旨。如果“设备”随后提示这台 Mac 的设备身份不可用，请重置设备身份并重新配对设备。请勿移除 vault-key 项目。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key found a device-message-key item outside login.keychain-db or duplicate device-message-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-message-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items.!!]" } }
+      }
+    },
+    "Ask Key found a device-agreement-key item outside login.keychain-db or duplicate device-agreement-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-agreement-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key found a device-agreement-key item outside login.keychain-db or duplicate device-agreement-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-agreement-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨发现 login.keychain-db 之外的 device-agreement-key 项目或重复的 device-agreement-key 项目。请退出请旨，在“钥匙串访问”中移除不在登录钥匙串里的请旨 device-agreement-key 项目，然后重新打开请旨。如果“设备”随后提示这台 Mac 的设备身份不可用，请重置设备身份并重新配对设备。请勿移除 vault-key 项目。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key found a device-agreement-key item outside login.keychain-db or duplicate device-agreement-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-agreement-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items.!!]" } }
+      }
+    },
+    "Ask Key found a device-approval-key item outside login.keychain-db or duplicate device-approval-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-approval-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key found a device-approval-key item outside login.keychain-db or duplicate device-approval-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-approval-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨发现 login.keychain-db 之外的 device-approval-key 项目或重复的 device-approval-key 项目。请退出请旨，在“钥匙串访问”中移除不在登录钥匙串里的请旨 device-approval-key 项目，然后重新打开请旨。如果“设备”随后提示这台 Mac 的设备身份不可用，请重置设备身份并重新配对设备。请勿移除 vault-key 项目。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key found a device-approval-key item outside login.keychain-db or duplicate device-approval-key items. Quit Ask Key. In Keychain Access, remove the Ask Key device-approval-key items that are not in the login keychain, then reopen Ask Key. If Devices then reports that this Mac's device identity is unusable, reset it and pair your devices again. Do not remove vault-key items.!!]" } }
+      }
+    },
+    "Ask Key found a paired-devices item outside login.keychain-db or duplicate paired-devices items. Quit Ask Key. In Keychain Access, remove the conflicting Ask Key paired-devices items, then reopen Ask Key and pair your devices again. Do not remove vault-key items.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key found a paired-devices item outside login.keychain-db or duplicate paired-devices items. Quit Ask Key. In Keychain Access, remove the conflicting Ask Key paired-devices items, then reopen Ask Key and pair your devices again. Do not remove vault-key items." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨发现 login.keychain-db 之外的 paired-devices 项目或重复的 paired-devices 项目。请退出请旨，在“钥匙串访问”中移除请旨的冲突 paired-devices 项目，然后重新打开请旨并重新配对设备。请勿移除 vault-key 项目。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key found a paired-devices item outside login.keychain-db or duplicate paired-devices items. Quit Ask Key. In Keychain Access, remove the conflicting Ask Key paired-devices items, then reopen Ask Key and pair your devices again. Do not remove vault-key items.!!]" } }
+      }
+    },
+    "push.message.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Ask Key!!]" } }
+      }
+    },
+    "push.message.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A paired device sent a message." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "一台已配对的设备发来一条消息。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!A paired device sent a message.!!]" } }
+      }
+    },
+    "Confirm Pairing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Confirm Pairing" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "确认配对" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Confirm Pairing!!]" } }
+      }
     }
   },
   "version": "1.0"

@@ -19,7 +19,10 @@ package enum E2EAppRuntime {
             makeViewModel: makeViewModel,
             prepareServices: configureE2EAuthentication,
             didStart: startScenario,
-            willStop: stop
+            willStop: stop,
+            // Only the Devices screenshots show the Devices section; every
+            // other run stays a build without CloudKit.
+            makeDeviceServices: E2EDeviceScenario.isRequested(scenario) ? E2EDeviceScenario.makeBackend : nil
         )
     }
 
@@ -203,7 +206,11 @@ package enum E2EAppRuntime {
     static func startScenario() {
         driver = E2EBrokerScenario(directory: runDirectory, control: controlDirectory, scenario: scenario)
         driver?.start()
+        if E2EDeviceScenario.isRequested(scenario) { E2EDeviceScenario.start(control: controlDirectory) }
     }
 
-    static func stop() { driver?.stop() }
+    static func stop() {
+        E2EDeviceScenario.stop()
+        driver?.stop()
+    }
 }

@@ -141,7 +141,7 @@ extension DeviceCoordinator {
         let generation = pairingGeneration
         pairingFeedback = nil
         do {
-            try await services.messenger.confirmPairing(approvalReason: Vault.devicePairingReason)
+            try await services.messenger.confirmPairing(approvalReason: ManagementAuthenticationAction.pairDevice.reasonKey)
         } catch DeviceIdentityError.authenticationCancelled {
             if generation == pairingGeneration { pairingFeedback = .authenticationCancelled }
         } catch DeviceIdentityError.authenticationFailed, DeviceIdentityError.authenticationUnavailable {

@@ -35,10 +35,12 @@ struct FrozenSettingsPage: View {
                 agentAccessSection
                 generalSection
                 BackupSettingsSection()
+                DevicesSettingsSection()
                 dataSection
             }
             .padding(Theme.Spacing.xxl)
         }
+        .accessibilityIdentifier("settings-page")
         .scrollPosition(id: $settingsScrollTarget, anchor: .center)
         .background(Theme.windowBackground)
         .onAppear {
