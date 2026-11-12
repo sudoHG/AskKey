@@ -351,29 +351,6 @@ final class ScreenshotE2ETests: E2EBaseCase {
         try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35, emptyNumber: 41)
     }
 
-    /// The runner's click on Pair a Device… opens the sheet, on every macOS release (#299).
-    func testPairADeviceOpensItsSheet() throws {
-        _ = openDevicesSettings(language: "en")
-        click("settings-pair-device")
-        XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "Pair a Device… opened no sheet")
-    }
-
-    /// Settings on the E2E App's fake device services (#288), Pair a Device… in view.
-    private func openDevicesSettings(language: String) -> XCUIElement {
-        app.launchEnvironment["ASKKEY_E2E_SCENARIO"] = "screenshots-devices"
-        app.launchEnvironment["ASKKEY_E2E_LANGUAGE"] = language
-        app.launch()
-        addTeardownBlock { [app] in app?.terminate() } // a hung query must not also hang the teardown
-        moveManagementAboveDock()
-        click("unlock-management")
-        click("sidebar-settings")
-        let page = app.scrollViews["settings-page"].firstMatch
-        let pair = app.buttons["settings-pair-device"].firstMatch
-        XCTAssertTrue(pair.waitForExistence(timeout: 8))
-        for _ in 0..<6 where !pair.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
-        return page
-    }
-
     /// The empty list, the sheet's QR code, waiting and code entry steps, the list with one iPhone,
     /// and iCloud signed out. The runner clicks Pair a Device…; the fixture plays the iPhone,
     /// including typing its code. Texts are found by identifier: after the code field had focus,
@@ -530,17 +507,6 @@ final class ScreenshotE2ETests: E2EBaseCase {
         }
         XCTAssertTrue(window.isHittable)
         attachScreenshot(of: window, name)
-    }
-
-    private func moveManagementAboveDock() {
-        let window = app.windows["settings"].firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 8))
-        let origin = window.frame.origin
-        guard origin.y > 34 else { return }
-        let titleBar = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
-            .withOffset(CGVector(dx: 0, dy: 14))
-        titleBar.press(forDuration: 0.1, thenDragTo:
-            titleBar.withOffset(CGVector(dx: 0, dy: 34 - origin.y)))
     }
 
     private func clickLabel(_ text: String, containing: Bool = false) {

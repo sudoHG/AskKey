@@ -14,5 +14,6 @@
   "testCredentialCreateEditRecycleRestorePersistsAfterRestart",
   "testManagementStartsLockedAndRequiresExplicitUnlock",
   "testClosingManagementWindowRequiresUnlockWhenReopened",
-  "testAboutPanelFromAppMenuKeepsAskKeyInFront"
+  "testAboutPanelFromAppMenuKeepsAskKeyInFront",
+  "testPairADeviceOpensItsSheet"
 ]
