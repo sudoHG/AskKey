@@ -17304,6 +17304,14 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Pair a Device…!!]" } }
       }
     },
+    "Paired devices appear here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Paired devices appear here." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已配对的设备会显示在这里。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Paired devices appear here.!!]" } }
+      }
+    },
     "Delete this Mac's device keys and its list of paired devices? Then remove this Mac on each paired device and pair again. This can't be undone.": {
       "extractionState": "manual",
       "localizations": {

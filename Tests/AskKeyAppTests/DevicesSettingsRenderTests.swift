@@ -31,6 +31,7 @@ final class DevicesSettingsRenderTests: AskKeyAppTestCase {
             defer { try? harness.close() }
             await harness.coordinator.launch()
             let model = DevicesSettingsModel(coordinator: harness.coordinator)
+            try render(DevicesSettingsSection(model: model).frame(width: 712), as: "\(language)-empty")
 
             await model.pairDevice()
             guard case .qrCode(let text, _) = try XCTUnwrap(model.sheet).stage else { return XCTFail("the QR code") }
@@ -71,7 +72,7 @@ final class DevicesSettingsRenderTests: AskKeyAppTestCase {
             await harness.coordinator.devicesOpened()
             try render(DevicesSettingsSection(model: model).frame(width: 712), as: "\(language)-icloud-signed-out")
         }
-        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path).count, 18)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path).count, 20)
     }
 
     @discardableResult
