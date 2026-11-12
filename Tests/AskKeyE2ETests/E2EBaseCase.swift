@@ -111,6 +111,17 @@ class E2EBaseCase: XCTestCase {
         button.click()
     }
 
+    func moveManagementAboveDock() {
+        let window = app.windows["settings"].firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 8))
+        let origin = window.frame.origin
+        guard origin.y > 34 else { return }
+        let titleBar = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: 14))
+        titleBar.press(forDuration: 0.1, thenDragTo:
+            titleBar.withOffset(CGVector(dx: 0, dy: 34 - origin.y)))
+    }
+
     func sendFixtureCommand(_ command: String) throws {
         try Data("requested\n".utf8).write(
             to: runDirectory.appendingPathComponent("command-\(command).txt"), options: .atomic
