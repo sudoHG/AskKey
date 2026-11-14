@@ -27,6 +27,10 @@ public struct PairedDevice: Hashable, Sendable {
     /// Nil until the first delivery check between the two devices succeeds.
     public internal(set) var lastReachedAt: Date?
     public internal(set) var lastDeliveryCheck: DeliveryCheckResult?
+    /// The approval flag (ADR 0014 → Approvers). On a Mac: this iPhone may
+    /// decide its requests. On an iPhone: it accepts requests from this Mac.
+    /// Every entry starts with it off; only `setApprover` turns it on.
+    public internal(set) var isApprover = false
 
     public init(card: DeviceCard, pairingID: PairingID, displayName: String, pairedAt: Date,
                 lastReachedAt: Date? = nil, lastDeliveryCheck: DeliveryCheckResult? = nil) {
@@ -52,7 +56,9 @@ public struct PairedDevice: Hashable, Sendable {
 /// pairing cannot bring back or alter the wrong entry.
 public enum PairedDeviceChange: Hashable, Sendable {
     /// Adds a device; pairing again with a device already on the list
-    /// replaces its entry and pairing ID.
+    /// replaces its entry and pairing ID. The new entry's approval flag is
+    /// off; adding an entry with the stored pairing ID again keeps the
+    /// stored flag.
     case add(PairedDevice)
     case rename(DeviceID, pairingID: PairingID, displayName: String)
     case remove(DeviceID, pairingID: PairingID)
@@ -61,6 +67,9 @@ public enum PairedDeviceChange: Hashable, Sendable {
     /// The state of the delivery check this device sent. A reply also marks
     /// the peer as reached; "no reply" applies only to the check still pending.
     case recordDeliveryCheck(DeviceID, pairingID: PairingID, result: DeliveryCheckResult)
+    /// Turns the entry's approval flag on or off. On the Mac the Vault
+    /// decides who may write it (ADR 0014 → Approvers).
+    case setApprover(DeviceID, pairingID: PairingID, enabled: Bool)
 }
 
 public enum PairedDeviceChangeOutcome: Hashable, Sendable {
@@ -89,11 +98,12 @@ public struct PairedDeviceList: Hashable, Sendable {
         devices = []
     }
 
+    /// The list of these entries, flags included.
     public init(devices: [PairedDevice]) throws {
         self.init()
         for device in devices {
             guard self.device(device.deviceID) == nil else { throw PairedDeviceListError.malformed }
-            _ = try apply(.add(device))
+            try insert(device)
         }
     }
 
@@ -105,17 +115,10 @@ public struct PairedDeviceList: Hashable, Sendable {
     @discardableResult
     public mutating func apply(_ change: PairedDeviceChange) throws -> PairedDeviceChangeOutcome {
         switch change {
-        case .add(let device):
-            let others = devices.filter { $0.deviceID != device.deviceID }
-            guard others.count < Self.maximumCount else { throw PairedDeviceListError.limitReached }
-            guard others.allSatisfy({ $0.card.compressedPublicKeys.isDisjoint(with: device.card.compressedPublicKeys) }) else {
-                throw PairedDeviceListError.keyConflict
-            }
-            if let index = devices.firstIndex(where: { $0.deviceID == device.deviceID }) {
-                devices[index] = device
-            } else {
-                devices.append(device)
-            }
+        case .add(var device):
+            let stored = self.device(device.deviceID)
+            device.isApprover = stored?.pairingID == device.pairingID && stored?.isApprover == true
+            try insert(device)
             return .applied
         case .rename(let id, let pairingID, let name):
             return update(id, pairingID) { $0.displayName = DeviceDisplayName.clean(name) }
@@ -137,6 +140,30 @@ public struct PairedDeviceList: Hashable, Sendable {
                 device.lastDeliveryCheck = result
                 if case .replied(let date) = result { device.markReached(date) }
             }
+        case .setApprover(let id, let pairingID, let enabled):
+            return update(id, pairingID) { $0.isApprover = enabled }
+        }
+    }
+
+    /// Adds the entry or replaces the one with its device ID, as it is.
+    private mutating func insert(_ device: PairedDevice) throws {
+        let others = devices.filter { $0.deviceID != device.deviceID }
+        guard others.count < Self.maximumCount else { throw PairedDeviceListError.limitReached }
+        guard others.allSatisfy({ $0.card.compressedPublicKeys.isDisjoint(with: device.card.compressedPublicKeys) }) else {
+            throw PairedDeviceListError.keyConflict
+        }
+        if let index = devices.firstIndex(where: { $0.deviceID == device.deviceID }) {
+            devices[index] = device
+        } else {
+            devices.append(device)
+        }
+    }
+
+    /// The entries of this list that `other` no longer holds with the same
+    /// pairing ID: removed or replaced by pairing again.
+    func entriesRemoved(in other: PairedDeviceList) -> [PairedDevice] {
+        devices.filter { entry in
+            !other.devices.contains { $0.deviceID == entry.deviceID && $0.pairingID == entry.pairingID }
         }
     }
 
@@ -191,4 +218,49 @@ public actor PairedDeviceRegistry {
         }
         return outcome
     }
+
+    /// Applies a change that may remove entries, a removal or pairing again,
+    /// and calls `hook` with every entry it would remove before the write
+    /// that removes it. After the hooks it reads the list again; it writes
+    /// only once every entry the write removes has been passed to `hook`,
+    /// with no suspension between that read and the write.
+    @discardableResult
+    public func apply(_ change: PairedDeviceChange,
+                      beforeRemoving hook: @Sendable (PairedDevice) async -> Void) async throws -> PairedDeviceChangeOutcome {
+        var announced: Set<RemovedEntry> = []
+        while true {
+            let stored = try store.loadPairedDeviceList()
+            var list = stored
+            let outcome = try list.apply(change)
+            let removed = outcome == .applied ? stored.entriesRemoved(in: list) : []
+            let unannounced = removed.filter { !announced.contains(RemovedEntry($0)) }
+            guard unannounced.isEmpty else {
+                for entry in unannounced {
+                    await hook(entry)
+                    announced.insert(RemovedEntry(entry))
+                }
+                continue
+            }
+            if outcome == .applied {
+                try store.savePairedDeviceList(list)
+            }
+            return outcome
+        }
+    }
+
+    private struct RemovedEntry: Hashable {
+        let deviceID: DeviceID
+        let pairingID: PairingID
+
+        init(_ entry: PairedDevice) {
+            deviceID = entry.deviceID
+            pairingID = entry.pairingID
+        }
+    }
 }
+
+/// Called with an entry before any change that removes it commits: a
+/// removal on this device, an unpair notice, an undone or rolled-back
+/// pairing, or pairing again, which replaces the entry (ADR 0014 →
+/// Revocation). The App uses it to end the device's authority first.
+public typealias PairedDeviceRemovalHook = @Sendable (PairedDevice) async -> Void

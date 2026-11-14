@@ -25,6 +25,7 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     private var subscriptionFetches = 0
     private var created: [CKRecord] = []
     private var deleteBatches: [Int] = []
+    private var fetchBatches: [[String]] = []
 
     // Injected behavior; set before the call it affects.
     var subscriptionFetchError: Error? { get { locked { _subscriptionFetchError } } set { locked { _subscriptionFetchError = newValue } } }
@@ -35,6 +36,9 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     var recordDeleteErrors: [String: Error] { get { locked { _recordDeleteErrors } } set { locked { _recordDeleteErrors = newValue } } }
     var nextCreateErrors: [Error] { get { locked { _nextCreateErrors } } set { locked { _nextCreateErrors = newValue } } }
     var pageSize: Int? { get { locked { _pageSize } } set { locked { _pageSize = newValue } } }
+    var recordFetchErrors: [String: Error] { get { locked { _recordFetchErrors } } set { locked { _recordFetchErrors = newValue } } }
+    /// Fails every record fetch request as a whole, until set to nil.
+    var recordFetchError: Error? { get { locked { _recordFetchError } } set { locked { _recordFetchError = newValue } } }
     var status: CKAccountStatus { get { locked { _status } } set { locked { _status = newValue } } }
     var statusError: Error? { get { locked { _statusError } } set { locked { _statusError = newValue } } }
     var userRecordNameValue: String { get { locked { _userRecordName } } set { locked { _userRecordName = newValue } } }
@@ -49,6 +53,8 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     private var _recordDeleteErrors: [String: Error] = [:]
     private var _nextCreateErrors: [Error] = []
     private var _pageSize: Int?
+    private var _recordFetchErrors: [String: Error] = [:]
+    private var _recordFetchError: Error?
     private var _status: CKAccountStatus = .available
     private var _statusError: Error?
     private var _userRecordName = "_4d1f0c2a"
@@ -66,6 +72,8 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     var createdRecords: [CKRecord] { locked { created } }
     var zoneNames: Set<String> { locked { zones } }
     var deleteBatchSizes: [Int] { locked { deleteBatches } }
+    /// The record names of each fetch-by-ID request.
+    var recordFetchBatches: [[String]] { locked { fetchBatches } }
 
     // MARK: A writer to the same account
 
@@ -208,6 +216,27 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
                     results[id] = .failure(CKError(.unknownItem))
                 } else {
                     results[id] = .success(())
+                }
+            }
+            return results
+        }
+    }
+
+    func fetchRecords(_ ids: [CKRecord.ID]) async throws -> [CKRecord.ID: Result<CKRecord, Error>] {
+        try locked {
+            fetchBatches.append(ids.map(\.recordName))
+            if let _recordFetchError { throw _recordFetchError }
+            var results: [CKRecord.ID: Result<CKRecord, Error>] = [:]
+            for id in ids {
+                let zone = id.zoneID.zoneName
+                if let error = _recordFetchErrors[id.recordName] {
+                    results[id] = .failure(error)
+                } else if !zones.contains(zone) {
+                    results[id] = .failure(CKError(.zoneNotFound))
+                } else if let stored = records[zone]?[id.recordName] {
+                    results[id] = .success(stored.record)
+                } else {
+                    results[id] = .failure(CKError(.unknownItem))
                 }
             }
             return results

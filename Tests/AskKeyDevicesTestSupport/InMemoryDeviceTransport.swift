@@ -2,10 +2,11 @@ import AskKeyDevices
 import Foundation
 
 /// An in-memory stand-in for the account's private database: one inbox per
-/// device, record names unique per inbox, and change tokens. Tests can play
-/// a writer to the same account: read every record, drop, delay, duplicate,
-/// tamper with and re-insert messages, delete records and expire tokens.
-public final class InMemoryDeviceTransport: DeviceTransport, @unchecked Sendable {
+/// device, record names unique per inbox, change tokens, and fetches by
+/// record name. Tests can play a writer to the same account: read every
+/// record, drop, delay, duplicate, tamper with and re-insert messages,
+/// delete records and expire tokens.
+public final class InMemoryDeviceTransport: DeviceTransport, NamedInboxFetching, @unchecked Sendable {
     /// What happens to one sent envelope.
     public enum Disposition: Sendable {
         case deliver
@@ -34,6 +35,7 @@ public final class InMemoryDeviceTransport: DeviceTransport, @unchecked Sendable
     private var rule: (@Sendable (DeviceEnvelope) -> Disposition)?
     private var limit: Int?
     private var unreadable: Set<String> = []
+    private var namedFetches: [[String]] = []
 
     public init() {}
 
@@ -53,6 +55,9 @@ public final class InMemoryDeviceTransport: DeviceTransport, @unchecked Sendable
     public func failFetches(of recordNames: Set<String>) {
         lock.withLock { unreadable = recordNames }
     }
+
+    /// The names each named fetch asked for, in order.
+    public var namedFetchRequests: [[String]] { lock.withLock { namedFetches } }
 
     /// Every envelope passed to `send`, in order, as the sender produced it.
     public var sentEnvelopes: [DeviceEnvelope] { lock.withLock { sent } }
@@ -103,6 +108,25 @@ public final class InMemoryDeviceTransport: DeviceTransport, @unchecked Sendable
             return InboxChanges(envelopes: page.map(\.envelope).filter { !unreadable.contains($0.recordName) },
                                 failedRecordNames: failed,
                                 newToken: Self.token(generation: generation, sequence: position), moreComing: moreComing)
+        }
+    }
+
+    /// Records that exist are returned, unreadable ones (`failFetches`)
+    /// fail, and every other name is missing. Nothing changes the token.
+    public func fetchMessages(named recordNames: [String], from device: DeviceID) async throws -> NamedInboxFetch {
+        lock.withLock {
+            namedFetches.append(recordNames)
+            var result = NamedInboxFetch()
+            for name in recordNames {
+                if unreadable.contains(name) {
+                    result.failedRecordNames.append(name)
+                } else if let record = inboxes[device.text]?[name] {
+                    result.envelopes.append(record.envelope)
+                } else {
+                    result.missingRecordNames.append(name)
+                }
+            }
+            return result
         }
     }
 

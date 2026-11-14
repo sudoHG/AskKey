@@ -28,6 +28,11 @@ public protocol CloudKitInboxService: Sendable {
     func createRecord(_ record: CKRecord) async throws
     /// Each record's deletion result; an ID without an entry got no answer.
     func deleteRecords(_ ids: [CKRecord.ID]) async throws -> [CKRecord.ID: Result<Void, Error>]
+    /// Fetches records by ID in one request with the user-initiated quality
+    /// of service: each record, or CloudKit's error for it
+    /// (`CKError.unknownItem` when it does not exist). An ID without an entry
+    /// got no answer. Throws when the request as a whole failed.
+    func fetchRecords(_ ids: [CKRecord.ID]) async throws -> [CKRecord.ID: Result<CKRecord, Error>]
 
     /// One batch of the zone's changes since `token`, or from its start when
     /// `token` is nil. An expired or unreadable token fails with

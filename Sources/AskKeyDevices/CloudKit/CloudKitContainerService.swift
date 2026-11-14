@@ -72,6 +72,22 @@ final class CloudKitContainerService: CloudKitInboxService, @unchecked Sendable 
                                          atomically: false).deleteResults
     }
 
+    func fetchRecords(_ ids: [CKRecord.ID]) async throws -> [CKRecord.ID: Result<CKRecord, Error>] {
+        let configuration = CKOperation.Configuration()
+        configuration.qualityOfService = .userInitiated
+        do {
+            return try await database.configuredWith(configuration: configuration) { database in
+                try await database.records(for: ids)
+            }
+        } catch let error as CKError where error.code == .partialFailure {
+            var results: [CKRecord.ID: Result<CKRecord, Error>] = [:]
+            for (key, itemError) in error.partialErrorsByItemID ?? [:] {
+                if let id = key as? CKRecord.ID { results[id] = .failure(itemError) }
+            }
+            return results
+        }
+    }
+
     func fetchChanges(in zoneID: CKRecordZone.ID, since token: Data?) async throws -> CloudKitZoneChanges {
         var serverToken: CKServerChangeToken?
         if let token {

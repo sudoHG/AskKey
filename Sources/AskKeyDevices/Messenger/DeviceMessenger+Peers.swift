@@ -41,7 +41,7 @@ extension DeviceMessenger {
         dropChecks(for: id)
         var removed: PairedDevice?
         while let entry = try await registry.list().device(id) {
-            if try await registry.apply(.remove(id, pairingID: entry.pairingID)) == .applied { removed = entry }
+            if try await commit(.remove(id, pairingID: entry.pairingID)) == .applied { removed = entry }
         }
         await perform(effects)
         guard let entry = removed else { throw DeviceMessengerError.unknownDevice }
