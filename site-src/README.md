@@ -15,7 +15,7 @@ Wrangler reads a Cloudflare API token with Pages write access from `CLOUDFLARE_A
 
 Before deploying, run `npm run stamp` in `how/` if any CSS or JS changed, so pages never pair with a cached old file, and check both pages in a browser.
 
-`site/_redirects` carries the update feed: `/appcast.xml` redirects with a temporary (302) redirect to the `appcast.xml` asset of the latest GitHub Release, which every installed copy of Ask Key requests ([ADR 0011](../docs/adr/0011-in-app-updates.md)). Deleting the file or changing its target breaks updates for every installed copy. Because each deploy replaces the whole site, a deploy from a checkout without it removes the redirect.
+`site/_redirects` carries the update feed: `/appcast.xml` redirects with a temporary (302) redirect to the `appcast.xml` asset of the latest GitHub Release, which every installed copy of Ask Key requests ([ADR 0011](../docs/adr/0011-in-app-updates.md)). Deleting the file or changing its target breaks updates for every installed copy. Because each deploy replaces the whole site, a deploy from a checkout without it removes the redirect. It also carries `/iphone`, the fixed install link in the Mac app's pairing sheet: until the public TestFlight link exists ([#320](https://github.com/sudoHG/AskKey/issues/320)) it points at the placeholder page `site/iphone-soon/`, then at that link, and later at the App Store.
 
 ## Search and sharing
 

@@ -23,6 +23,9 @@ CJK_ALLOWLIST = {
     "site/index.html",  # Language switcher on the English website (#160).
     "site/zh/index.html",  # Simplified Chinese website (#160).
     "site/404.html",  # Bilingual not-found page of the website (#160).
+    "site/privacy/index.html",  # Language switcher on the English privacy policy (#318).
+    "site/zh/privacy/index.html",  # Simplified Chinese privacy policy (#318).
+    "site/iphone-soon/index.html",  # Bilingual placeholder for the /iphone link (#318).
     "docs/glossary.md",  # Chinese UI terms alongside English glossary prose (#67).
     "Sources/AskKeyAppKit/Resources/zh-Hans.lproj/InfoPlist.strings",  # Localized product name.
     "iOS/AskKeyiOSKit/Resources/Localizable.xcstrings",  # English and Simplified Chinese iPhone UI catalog (#289).

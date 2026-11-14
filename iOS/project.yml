@@ -17,6 +17,8 @@ settings:
     SUPPORTS_MACCATALYST: NO
     SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
     SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+    # The app and the extension share both; the upload mode of
+    # scripts/build-ios.sh sets the build number for each upload.
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     # The catalogs are maintained by hand; a build never rewrites them.
@@ -43,7 +45,12 @@ targets:
     type: application
     platform: iOS
     sources:
+      # Info.plist, entitlements, catalogs and PrivacyInfo.xcprivacy.
       - path: AskKeyiOS
+      # The Mac app's Icon Composer document (scripts/compile-app-icon.sh).
+      # Xcode compiles it into the app's asset catalog as AppIcon, with
+      # flattened images for iOS before 26.
+      - path: ../assets/AppIcon.icon
     dependencies:
       - target: AskKeyiOSKit
       - target: AskKeyiOSNotificationService
@@ -64,6 +71,7 @@ targets:
     sources:
       - path: AskKeyiOSNotificationService/Sources
       - path: AskKeyiOSNotificationService/Resources
+      - path: AskKeyiOSNotificationService/PrivacyInfo.xcprivacy
       - path: AskKeyiOSKit/Services/DeviceKeychain.swift
     dependencies:
       - package: AskKey
