@@ -4,6 +4,8 @@
 
 Accepted. Supersedes the updater sentences in [ADR 0006](0006-release-process.md) ("There is no updater" and "Sparkle or any in-app updater … need their own issue") and the updater part of the release sentence in [ADR 0005](0005-distribution-and-client-integration.md). [#257](https://github.com/sudoHG/AskKey/issues/257) adds the App side and the packaging; [#258](https://github.com/sudoHG/AskKey/issues/258) adds the public signing key; [#259](https://github.com/sudoHG/AskKey/issues/259) publishes the signed appcast and the website redirect.
 
+[ADR 0014](0014-remote-approval.md) limits decision 8 to Macs that have not paired a device; see the [paired devices amendment](#amendment-paired-devices-309).
+
 ## Context
 
 Users install Ask Key by replacing `/Applications/Ask Key.app` with the app from a notarized DMG on GitHub Releases. Most never learn that a new version exists. Releases stay signed and notarized on the maintainer's Mac and each publication needs the maintainer's approval ([ADR 0006](0006-release-process.md)); an updater must not weaken that, must not install anything without the user, and must not interrupt requests an agent is waiting on.
@@ -33,3 +35,7 @@ Sparkle follows the website's redirect to GitHub and GitHub's redirects to its a
 ## Consequences
 
 Users of the official install learn about updates and install them with one confirmation, and releases still need only the maintainer's approval to publish. The appcast, its signing and the website redirect are release work in #259; until #258 lands, `Release` builds fail by design. Update checks add a network request that reveals the IP address, app version and preferred languages to Cloudflare and GitHub, as documented in the README and [SECURITY.md](../../SECURITY.md). A relaunch waits for as long as agent work continues.
+
+## Amendment: paired devices (#309)
+
+Decision 8 ("the update check is Ask Key's only outbound network request") holds only until the person starts pairing a device. From the stage 4 release on, Release builds can pair an iPhone ([ADR 0014](0014-remote-approval.md), [ADR 0013](0013-device-identity-and-pairing.md)). A Mac that has paired uses the iCloud account's private CloudKit database for its inbox and its peers' inboxes, and registers for and receives Apple push notifications; what it sends there is routing data and end-to-end encrypted messages. A Mac that never starts pairing creates no device identity, makes no CloudKit request and registers no push, because push registration waits until an identity exists, so for it decision 8 still holds. The update check itself, its headers and its hosts are unchanged. README and [SECURITY.md](../../SECURITY.md) state this in the same release.

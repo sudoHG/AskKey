@@ -24,6 +24,7 @@ See the [changelog](../CHANGELOG.md) for release changes and known limitations.
 - [ADR 0008](adr/0008-approval-shows-target.md): approvals show the command, working directory and delivered names.
 - [ADR 0012](adr/0012-encrypted-backup-export-and-import.md): encrypted backup export with a generated recovery key, and merge import that adds without replacing.
 - [ADR 0013](adr/0013-device-identity-and-pairing.md): Secure Enclave device identity, pairing by QR code and a code entered on the Mac, and sealed messages through CloudKit.
+- [ADR 0014](adr/0014-remote-approval.md): remote approval of agent read requests from a paired iPhone, with Face ID for Allow, and its notification extension.
 
 ## Contributing and project rules
 
