@@ -209,6 +209,10 @@ extension AppDelegate {
             completion(valid ? value : nil)
         }
         let groupAllowance = GroupTimedAllowancePresentation(snapshot: pending?.groupAllowanceSnapshot)
+        let remote = pending.map {
+            RemoteApprovalPanelState(requestID: $0.requestID,
+                                     status: DeviceServicesHost.coordinator?.remoteApprovals[$0.requestID])
+        }
         let panel = Self.makeFrozenApprovalPanel(
             FrozenAgentApprovalPrompt(
                 request: request,
@@ -217,6 +221,7 @@ extension AppDelegate {
                 timedAllowanceEnabled: vault.timedAllowanceEnabled,
                 timedAllowanceMinutes: vault.defaultTimedAllowanceMinutes,
                 groupAllowance: groupAllowance,
+                remote: remote,
                 writeSummary: pending.flatMap {
                     try? Vault.shared.frozenAgentWriteSummary(
                         operationID: $0.request.operationID,
@@ -300,18 +305,53 @@ extension AppDelegate {
                 let requestEnded = pending.map {
                     (try? Vault.shared.approvalRequests.status(requestID: $0.requestID, capability: $0.capability)) != .pending
                 } ?? false
-                if Self.screenState() != .unlocked || expiresAt.map({ $0 <= Date() }) == true || requestEnded {
+                let screenUnlocked = Self.screenState() == .unlocked
+                let expired = expiresAt.map({ $0 <= Date() }) == true
+                if let remote {
+                    // A paired iPhone's decision stays for about two seconds
+                    // on an unlocked screen (ADR 0014 → Mac App).
+                    let coordinator = DeviceServicesHost.coordinator
+                    let step = remote.step(requestEnded: requestEnded, screenUnlocked: screenUnlocked, expired: expired,
+                        now: Date(), status: coordinator?.remoteApprovals[remote.requestID],
+                        lastDecision: coordinator?.lastRemoteDecision,
+                        applying: coordinator?.isApplyingRemoteDecision(to: remote.requestID) == true)
+                    if step == .close { finish(nil) }
+                } else if !screenUnlocked || expired || requestEnded {
                     finish(nil)
                 }
             }
         }
         if let privacyTimer { RunLoop.main.add(privacyTimer, forMode: .common) }
+        if let remote { Self.observeRemoteDecisions(for: remote, while: { !finished }) }
         panel.level = .modalPanel
         AgentApprovalPanelPlacement.bringForward(panel)
         return AgentApprovalPanelActions(
             bringForward: { AgentApprovalPanelPlacement.bringForward(panel) },
-            dismiss: { finish(nil) }
+            dismiss: { finish(nil) },
+            showsRemoteOutcome: {
+                guard let remote, !finished else { return false }
+                let coordinator = DeviceServicesHost.coordinator
+                return remote.holdsPanel(screenUnlocked: Self.screenState() == .unlocked,
+                                         lastDecision: coordinator?.lastRemoteDecision,
+                                         applying: coordinator?.isApplyingRemoteDecision(to: remote.requestID) == true)
+            }
         )
+    }
+
+    /// Records an approver's decision for the open panel as soon as the
+    /// coordinator publishes it, so a second decision right after it can't
+    /// replace it before the next privacy check.
+    private static func observeRemoteDecisions(for remote: RemoteApprovalPanelState, while isOpen: @escaping () -> Bool) {
+        guard let coordinator = DeviceServicesHost.coordinator, isOpen() else { return }
+        withObservationTracking {
+            _ = coordinator.lastRemoteDecision
+        } onChange: {
+            Task { @MainActor in
+                guard isOpen() else { return }
+                remote.record(coordinator.lastRemoteDecision, now: Date())
+                observeRemoteDecisions(for: remote, while: isOpen)
+            }
+        }
     }
 
     /// Shared by live presentation and hidden layout tests. No window is ordered in here.

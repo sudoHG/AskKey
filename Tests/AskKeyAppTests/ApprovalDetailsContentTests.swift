@@ -1,5 +1,6 @@
 import XCTest
 import AskKeyBroker
+import AskKeyDevices
 @testable import AskKeyAppKit
 
 /// Details are one list of label and value rows, in a fixed order per card,
@@ -166,6 +167,33 @@ final class ApprovalDetailsContentTests: AskKeyAppTestCase {
         let details = ApprovalDetailsContent(request: request, credentialName: "Staging API")
         XCTAssertEqual(details.rows.last?.value, .revealableValue)
         XCTAssertEqual(ApprovalDetailsContent(request: Fixtures.request(.delete), credentialName: "Staging API").rows.count, 2)
+    }
+
+    /// Details say, per approver, where a read request went (ADR 0014 → Mac App).
+    func testReadRowsSayWhereARemoteRequestWentInBothLanguages() throws {
+        let sent = Date(timeIntervalSince1970: 2_000_000_000)
+        let ids = try (1...3).map { try XCTUnwrap(DeviceID(rawValue: Data(repeating: UInt8($0), count: 16))) }
+        let status = RemoteApprovalStatus(approvers: [
+            .init(deviceID: ids[0], displayName: "Synthetic iPhone", sentAt: sent, deliveredAt: nil),
+            .init(deviceID: ids[1], displayName: "Spare iPhone", sentAt: sent, deliveredAt: sent.addingTimeInterval(60)),
+            .init(deviceID: ids[2], displayName: "Third iPhone", sentAt: nil, deliveredAt: nil),
+        ])
+        Fixtures.withLanguages { language in
+            let read = Fixtures.request(.read, display: Fixtures.display(command: "./deploy.sh"))
+            let details = ApprovalDetailsContent(request: read, credentialName: "Staging API", remote: status)
+            let row = details.rows.last
+            XCTAssertEqual(row?.label, "iPhone")
+            let time = ApprovalDetailsContent.remoteTime(sent)
+            let later = ApprovalDetailsContent.remoteTime(sent.addingTimeInterval(60))
+            let expected = language == "en"
+                ? "Sent to “Synthetic iPhone” at \(time)\nNot delivered yet\nDelivered to “Spare iPhone” at \(later)\nSending to “Third iPhone”…"
+                : "已于 \(time) 发送到“Synthetic iPhone”\n尚未送达\n已于 \(later) 送达“Spare iPhone”\n正在发送到“Third iPhone”…" // i18n-literal: Chinese remote rows.
+            XCTAssertEqual(row.map { text($0.value) }, expected)
+            let without = ApprovalDetailsContent(request: read, credentialName: "Staging API")
+            XCTAssertEqual(details.rows.dropLast().map(\.label), without.rows.map(\.label), "the other rows stay as they were")
+            let write = ApprovalDetailsContent(request: Fixtures.request(.create), credentialName: "Staging API", remote: status)
+            XCTAssertFalse(write.rows.contains { $0.label == "iPhone" }, "only read requests go to an iPhone")
+        }
     }
 
     func testOneLabelColumnForEveryCard() {

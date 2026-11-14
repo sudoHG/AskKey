@@ -73,12 +73,21 @@ extension CredentialManagementView {
                     .foregroundStyle(Theme.text)
                     .lineLimit(2)
                     .truncationMode(.middle)
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(PendingRequestPresentation.expiry(deadline: approval.expiresAt, now: context.date))
-                        .font(Theme.Fonts.secondary)
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.textSecondary)
+                HStack(spacing: Theme.Spacing.xs) {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(PendingRequestPresentation.expiry(deadline: approval.expiresAt, now: context.date))
+                            .monospacedDigit()
+                    }
+                    // A read request that went to a paired iPhone (ADR 0014).
+                    if DeviceServicesHost.coordinator?.wasSentToApprover(approval.requestID) == true {
+                        Text(verbatim: "·")
+                            .accessibilityHidden(true)
+                        Text(appLocalized("Sent to iPhone"))
+                            .accessibilityIdentifier("request-sent-to-iphone")
+                    }
                 }
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.textSecondary)
             }
             Spacer(minLength: Theme.Spacing.md)
             Button(appLocalized("Deny")) {
