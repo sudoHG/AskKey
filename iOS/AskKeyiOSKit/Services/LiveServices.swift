@@ -126,13 +126,21 @@ public struct CloudKitTransportFactory: InboxTransportFactory {
 /// Turns a received notification into a hint, only when it is a CloudKit
 /// query notification for this device's own inbox (ADR 0013 → CloudKit
 /// layout); subscriptions belong to the account, so other devices' pushes
-/// arrive here too.
+/// arrive here too. The notification extension replaces the user info with
+/// only the record name under `extensionRecordNameKey` (ADR 0014); such a
+/// name is a hint too when it is a message ID, and a name from another
+/// device's inbox is simply not found in this one.
 enum PushHintReader {
+    static let extensionRecordNameKey = "askkey.recordName"
+
     static func hint(userInfo: [AnyHashable: Any], arrivedAt: Date, notificationIdentifier: String?,
                      for device: DeviceID) -> PushHint? {
-        guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo),
-              CloudKitInboxLayout.isPush(notification, for: device),
-              let recordName = (notification as? CKQueryNotification)?.recordID?.recordName else {
+        if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo) {
+            guard CloudKitInboxLayout.isPush(notification, for: device),
+                  let recordName = (notification as? CKQueryNotification)?.recordID?.recordName else { return nil }
+            return PushHint(recordName: recordName, arrivedAt: arrivedAt, notificationIdentifier: notificationIdentifier)
+        }
+        guard let recordName = userInfo[extensionRecordNameKey] as? String, MessageID(text: recordName) != nil else {
             return nil
         }
         return PushHint(recordName: recordName, arrivedAt: arrivedAt, notificationIdentifier: notificationIdentifier)

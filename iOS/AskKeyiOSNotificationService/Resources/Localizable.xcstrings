@@ -1,0 +1,38 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "push.message.body": {
+      "comment": "Generic body of every notification the extension cannot or must not detail. Neutral: Ask Key never asks the person to act on a notification's text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A paired device sent a message." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "一台已配对的设备发来一条消息。" } }
+      }
+    },
+    "push.message.title": {
+      "comment": "Title of every notification for a message in this iPhone's inbox.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ask Key" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请旨" } }
+      }
+    },
+    "push.request.body %@ %@ %@ %@": {
+      "comment": "Body of a verified approval request from a Mac this iPhone approves for, as the v0.2 card's sentence. Arguments: the agent's name, this iPhone's own name for the Mac, the credential's name, the program's file name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "“%@” on “%@” wants to use “%@” to run %@" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "“%@”在“%@”上想使用“%@”运行 %@" } }
+      }
+    },
+    "push.request.localAgent": {
+      "comment": "The requester in a request notification when the agent sent no name; the same words as the request card.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Local Agent" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "本地 Agent" } }
+      }
+    }
+  },
+  "version": "1.0"
+}

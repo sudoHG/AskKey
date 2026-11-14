@@ -28,6 +28,7 @@ CJK_ALLOWLIST = {
     "iOS/AskKeyiOSKit/Resources/Localizable.xcstrings",  # English and Simplified Chinese iPhone UI catalog (#289).
     "iOS/AskKeyiOS/Resources/Localizable.xcstrings",  # iPhone push alert text, which must live in the app bundle (#289).
     "iOS/AskKeyiOS/Resources/zh-Hans.lproj/InfoPlist.strings",  # Localized iPhone app name and usage descriptions (#289).
+    "iOS/AskKeyiOSNotificationService/Resources/Localizable.xcstrings",  # iPhone notification extension text (#315).
     "Tests/AskKeyAppTests/AgentClientConnectionPolicyTests.swift",  # Chinese client connection errors.
     "Tests/AskKeyAppTests/AppLanguageCatalogTests.swift",  # Chinese catalog and bundle-name assertions.
     "Tests/AskKeyAppTests/AppLanguageExperienceTests.swift",  # Chinese language switching and persistence.
