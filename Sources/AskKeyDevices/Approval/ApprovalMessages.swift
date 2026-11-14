@@ -93,15 +93,18 @@ public struct ApprovalClosed: Hashable, Sendable {
     public let outcome: ApprovalClosedOutcome
     /// The applied decision code for outcome 1; nil for the others.
     public let appliedCode: ApprovalDecisionCode?
-    /// For outcome 1 with code 2, the seconds the Broker granted; else 0.
+    /// For outcome 1 with code 2, the seconds the Broker granted (at most
+    /// 7,200); else 0.
     public let appliedDuration: UInt64
 
     /// Whether the code and duration fit the outcome: for outcomes 2–6 both
-    /// are 0; for outcome 1 the duration is 0 unless the code is 2.
+    /// are 0; for outcome 1 the duration is 0 unless the code is 2, and then
+    /// at most the Broker's maximum of 7,200 seconds (0 when rounding down
+    /// left nothing).
     static func isConsistent(outcome: ApprovalClosedOutcome, code: ApprovalDecisionCode?, duration: UInt64) -> Bool {
         guard outcome == .applied else { return code == nil && duration == 0 }
         guard let code else { return false }
-        return code == .timedAllowance || duration == 0
+        return code == .timedAllowance ? duration <= ApprovalLayout.maximumTimedDuration : duration == 0
     }
 
     static func encode(pairingID: PairingID, requestDigest: Data, outcome: ApprovalClosedOutcome,

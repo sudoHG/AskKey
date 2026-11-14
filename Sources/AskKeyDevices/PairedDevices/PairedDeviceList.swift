@@ -209,6 +209,9 @@ public actor PairedDeviceRegistry {
         try store.loadPairedDeviceList()
     }
 
+    /// Calls no removal hook. A change that may remove an entry and has to
+    /// end the device's authority first goes through
+    /// `apply(_:beforeRemoving:)` or `DeviceMessenger`.
     @discardableResult
     public func apply(_ change: PairedDeviceChange) throws -> PairedDeviceChangeOutcome {
         var list = try store.loadPairedDeviceList()
@@ -223,7 +226,9 @@ public actor PairedDeviceRegistry {
     /// and calls `hook` with every entry it would remove before the write
     /// that removes it. After the hooks it reads the list again; it writes
     /// only once every entry the write removes has been passed to `hook`,
-    /// with no suspension between that read and the write.
+    /// with no suspension between that read and the write. A hook call does
+    /// not prove the removal: the write may still fail or be dropped, and
+    /// concurrent changes can pass the same entry twice.
     @discardableResult
     public func apply(_ change: PairedDeviceChange,
                       beforeRemoving hook: @Sendable (PairedDevice) async -> Void) async throws -> PairedDeviceChangeOutcome {
@@ -262,5 +267,9 @@ public actor PairedDeviceRegistry {
 /// Called with an entry before any change that removes it commits: a
 /// removal on this device, an unpair notice, an undone or rolled-back
 /// pairing, or pairing again, which replaces the entry (ADR 0014 →
-/// Revocation). The App uses it to end the device's authority first.
+/// Revocation). The App uses it to end the device's authority first. It
+/// cannot fail the removal and must be idempotent: it may run for a write
+/// that then fails or is dropped, and more than once for one entry. The
+/// entry stays stored, and trusted by other paths, until the hook returns
+/// and the write commits.
 public typealias PairedDeviceRemovalHook = @Sendable (PairedDevice) async -> Void

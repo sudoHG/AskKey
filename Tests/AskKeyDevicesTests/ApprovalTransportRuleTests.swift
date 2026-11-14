@@ -106,6 +106,9 @@ final class ApprovalTransportRuleTests: XCTestCase {
             ("ciphertext", .decryptionFailed, { var e = $0; e.body[e.body.count - 1] ^= 1; return e }),
             ("unknown kind", .unknownKind, { var e = $0; e.kind = 15; return e }),
             ("non-canonical name", .malformed, { var e = $0; e.recordName = e.recordName.uppercased(); return e }),
+            ("fractional time", .malformed, { var e = $0; e.sentAt += 0.5; return e }),
+            ("pairing request kind", .noSession, { var e = $0; e.kind = 1; e.recordType = .quiet; return e }),
+            ("pairing withdrawal kind", .noSession, { var e = $0; e.kind = 5; e.recordType = .quiet; return e }),
         ]
         for kind in Self.kinds {
             for (name, refusal, change) in cases {
@@ -131,11 +134,56 @@ final class ApprovalTransportRuleTests: XCTestCase {
             try await fixture.assertRefused(future, at: recipient, .sentInFuture)
             let (long, _) = try await sealed(kind, lifetime: 601)
             try await fixture.assertRefused(long, at: recipient, .lifetimeTooLong)
+            for lifetime: Int64 in [0, -5] {
+                let (backwards, _) = try await sealed(kind, sentAtOffset: 10, lifetime: lifetime)
+                try await fixture.assertRefused(backwards, at: recipient, .malformed)
+            }
             let (atLimit, _) = try await sealed(kind, sentAtOffset: 300)
             fixture.harness.transport.insert(atLimit, intoInboxOf: recipient.id)
             let report = try await recipient.poll()
             XCTAssertFalse(report.refusals.contains(.sentInFuture), "\(kind): 5 minutes ahead is still fresh")
         }
+    }
+
+    func testAPreSharedKeyKindNeedsTheOpenSessionsKey() async throws {
+        // With a pairing session open on the Mac, a decision relabelled as a
+        // pairing request is opened with the session's pre-shared key and fails.
+        _ = try await fixture.mac.messenger.startPairing(displayName: "Studio Mac")
+        let (envelope, recipient) = try await sealed(.approvalDecision)
+        var relabelled = envelope
+        relabelled.kind = 1
+        try await fixture.assertRefused(relabelled, at: recipient, .decryptionFailed, checkVerifier: false)
+        let verdict = try DeviceMessageVerifier(identity: recipient.identity, list: try recipient.store.loadPairedDeviceList())
+            .verify(relabelled, now: recipient.clock.now())
+        XCTAssertEqual(verdict, .refused(.noSession), "the stateless verifier has no session")
+    }
+
+    func testAnInnerPayloadOverSixteenKiBIsRefused() async throws {
+        let (mac, phone) = (fixture.mac!, fixture.phone!)
+        XCTAssertThrowsError(try MessageCodec.seal(kind: .approvalRequest, payload: Data(count: 16_385), identity: mac.identity,
+                                                   recipient: phone.id, recipientKey: phone.identity.agreementPublicKey,
+                                                   preSharedKey: nil, sentAt: now, expiresAt: now + 300),
+                             "sealing a larger payload fails")
+        // A writer with the Mac's message key could still encrypt one by hand.
+        let messageID = MessageID.random()
+        var writer = ByteWriter()
+        writer.append(1)
+        writer.append(MessageKind.approvalRequest.rawValue)
+        writer.append(mac.id.rawValue)
+        writer.append(phone.id.rawValue)
+        writer.append(messageID.rawValue)
+        writer.appendTime(now)
+        writer.appendTime(now + 300)
+        writer.appendLengthPrefixed(Data(count: 16_385))
+        let inner = writer.data + (try mac.identity.signWithMessageKey(DomainLabel.message + writer.data))
+        var sender = try HPKE.Sender(recipientKey: phone.identity.agreementPublicKey, ciphersuite: MessageCodec.ciphersuite,
+                                     info: MessageCodec.info(sender: mac.id, recipient: phone.id))
+        let ciphertext = try sender.seal(inner)
+        let envelope = DeviceEnvelope(recordType: .alert, recordName: messageID.text, sender: mac.id.text,
+                                      recipient: phone.id.text, kind: 10, sentAt: UnixTime.date(now),
+                                      expiresAt: UnixTime.date(now + 300),
+                                      body: Data([1]) + sender.encapsulatedKey + ciphertext)
+        try await fixture.assertRefused(envelope, at: phone, .malformed)
     }
 
     func testMalformedPayloadsAreRefused() async throws {

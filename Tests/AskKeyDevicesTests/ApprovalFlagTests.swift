@@ -158,6 +158,40 @@ final class ApprovalFlagTests: XCTestCase {
         await XCTAssertNilAsync(try await mac.entry(for: phone))
     }
 
+    func testTheHookRunsBeforeTheRollbackOfAnAddWhoseSessionEndedDuringTheWrite() async throws {
+        let harness = DeviceHarness()
+        let store = InMemoryPairedDeviceListStore()
+        let log = RemovalLog()
+        let record = log.hook(store: store)
+        let canceller = Canceller()
+        let mac = SimulatedDevice(identity: SoftwareDeviceIdentity(), store: store, platform: .macOS, harness: harness,
+                                  options: .init(removalHook: { entry in
+                                      await record(entry)
+                                      await canceller.cancel(onRemovalOf: entry)
+                                  }))
+        let phone = harness.makeDevice(.iOS)
+        try await harness.pair(mac, phone)
+        harness.clock.advance(by: 11 * 60)
+        let old = try await XCTUnwrapAsync(try await mac.entry(for: phone))
+        canceller.arm(mac.messenger, cancellingOn: old.pairingID)
+
+        // Pairing again; Cancel arrives while the replacing write waits for the hook.
+        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        try await mac.poll()
+        try await phone.poll()
+        try await mac.poll()
+        try await mac.confirm()
+        try await phone.confirm()
+        try await mac.poll()
+
+        XCTAssertEqual(log.entries.count, 2, "the replaced entry, then the rolled-back new one")
+        XCTAssertEqual(log.entries.first?.pairingID, old.pairingID)
+        XCTAssertNotEqual(log.entries.last?.pairingID, old.pairingID)
+        XCTAssertTrue(log.allBeforeCommit)
+        await XCTAssertNilAsync(try await mac.entry(for: phone), "the ended session stores nothing")
+    }
+
     func testTheRegistryAnnouncesEveryEntryAWriteRemovesEvenWhenTheListChangesDuringTheHook() async throws {
         let identity = SoftwareDeviceIdentity()
         let first = try entry(identity, pairing: 1)
@@ -195,5 +229,28 @@ private final class Interference: @unchecked Sendable {
             defer { done = true }
             return !done
         }
+    }
+}
+
+/// Cancels the Mac's pairing session from inside the removal hook, once.
+private final class Canceller: @unchecked Sendable {
+    private let lock = NSLock()
+    private var messenger: DeviceMessenger?
+    private var pairingID: PairingID?
+
+    func arm(_ messenger: DeviceMessenger, cancellingOn pairingID: PairingID) {
+        lock.withLock {
+            self.messenger = messenger
+            self.pairingID = pairingID
+        }
+    }
+
+    func cancel(onRemovalOf entry: PairedDevice) async {
+        let target = lock.withLock { () -> DeviceMessenger? in
+            guard entry.pairingID == pairingID else { return nil }
+            pairingID = nil
+            return messenger
+        }
+        await target?.cancelPairing()
     }
 }

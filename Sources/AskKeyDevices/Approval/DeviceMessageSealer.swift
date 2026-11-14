@@ -85,8 +85,8 @@ public struct DeviceMessageSealer: Sendable {
 
     /// Kind 12 with a random message ID. Throws
     /// `ApprovalMessageError.invalidClosedOutcome` unless outcome 1 carries
-    /// the applied code (and, for code 2, the granted seconds) and the other
-    /// outcomes carry neither, and `invalidDigest` for a digest that is not
+    /// the applied code (and, for code 2, the granted seconds, at most
+    /// 7,200) and the other outcomes carry neither, and `invalidDigest` for a digest that is not
     /// 32 bytes.
     public func sealApprovalClosed(_ outcome: ApprovalClosedOutcome, appliedCode: ApprovalDecisionCode? = nil,
                                    appliedDuration: UInt64 = 0, requestDigest: Data,

@@ -37,6 +37,8 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     var nextCreateErrors: [Error] { get { locked { _nextCreateErrors } } set { locked { _nextCreateErrors = newValue } } }
     var pageSize: Int? { get { locked { _pageSize } } set { locked { _pageSize = newValue } } }
     var recordFetchErrors: [String: Error] { get { locked { _recordFetchErrors } } set { locked { _recordFetchErrors = newValue } } }
+    /// Fails the record fetch requests with these indexes (0 is the first) as a whole.
+    var recordFetchCallErrors: [Int: Error] { get { locked { _recordFetchCallErrors } } set { locked { _recordFetchCallErrors = newValue } } }
     /// Fails every record fetch request as a whole, until set to nil.
     var recordFetchError: Error? { get { locked { _recordFetchError } } set { locked { _recordFetchError = newValue } } }
     var status: CKAccountStatus { get { locked { _status } } set { locked { _status = newValue } } }
@@ -55,6 +57,7 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
     private var _pageSize: Int?
     private var _recordFetchErrors: [String: Error] = [:]
     private var _recordFetchError: Error?
+    private var _recordFetchCallErrors: [Int: Error] = [:]
     private var _status: CKAccountStatus = .available
     private var _statusError: Error?
     private var _userRecordName = "_4d1f0c2a"
@@ -224,8 +227,10 @@ final class FakeCloudKitService: CloudKitInboxService, @unchecked Sendable {
 
     func fetchRecords(_ ids: [CKRecord.ID]) async throws -> [CKRecord.ID: Result<CKRecord, Error>] {
         try locked {
+            let index = fetchBatches.count
             fetchBatches.append(ids.map(\.recordName))
             if let _recordFetchError { throw _recordFetchError }
+            if let error = _recordFetchCallErrors[index] { throw error }
             var results: [CKRecord.ID: Result<CKRecord, Error>] = [:]
             for id in ids {
                 let zone = id.zoneID.zoneName

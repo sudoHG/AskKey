@@ -134,9 +134,10 @@ extension DeviceMessenger {
         return (settled, pending)
     }
 
-    /// Within one fetch, pairing kinds come first (ADR 0013), then
-    /// approval-closed, so a closed message stored before its request keeps
-    /// the request from being shown (ADR 0014), then every other kind.
+    /// Within one transport fetch (one page of a poll, or one named fetch),
+    /// pairing kinds come first (ADR 0013), then approval-closed, so a closed
+    /// message stored before its request keeps the request from being shown
+    /// (ADR 0014), then every other kind.
     static func rank(_ envelope: DeviceEnvelope) -> Int {
         let order: [MessageKind] = [.pairingRequest, .pairingChallenge, .pairingReveal, .pairingConfirmation,
                                     .pairingCancellation, .pairingWithdrawal, .approvalClosed]

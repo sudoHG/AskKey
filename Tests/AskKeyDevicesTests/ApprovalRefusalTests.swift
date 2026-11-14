@@ -140,6 +140,20 @@ final class ApprovalRefusalTests: XCTestCase {
         try await assertEntryUnchanged()
     }
 
+    func testAnApprovalSignatureMovedToAnotherCodeOrDigestIsRefused() async throws {
+        let pairingID = try await fixture.phoneEntryForMac().pairingID
+        let onceStatement = ApprovalDecision.statement(approver: fixture.phone.id, requester: fixture.mac.id,
+                                                       pairingID: pairingID, requestDigest: request.requestDigest,
+                                                       code: .allowOnce, durationCeiling: 0)
+        let once = try await fixture.phone.identity.signWithApprovalKey(onceStatement, reason: "test")
+        let asTimed = try await decisionPayload(code: .timedAllowance, slot: once)
+        try await assertRefused(try decisionEnvelope(asTimed), at: fixture.mac, .badSignature)
+        let otherDigest = Data(SHA256.hash(data: Data("another request".utf8)))
+        let moved = try await decisionPayload(code: .allowOnce, digest: otherDigest, slot: once)
+        try await assertRefused(try decisionEnvelope(moved, messageID: .random()), at: fixture.mac, .badSignature)
+        try await assertEntryUnchanged()
+    }
+
     func testDenyWithANonZeroSlotIsRefused() async throws {
         var slot = Data(count: 64)
         slot[63] = 1

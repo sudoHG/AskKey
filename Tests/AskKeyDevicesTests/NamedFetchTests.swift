@@ -90,6 +90,28 @@ final class NamedFetchTests: XCTestCase {
         XCTAssertEqual(fixture.outstanding.messages.count, 1)
     }
 
+    func testAZonePollThatMeetsARecordTheNamedFetchIsHandlingKeepsItsToken() async throws {
+        let fixture = try await ApprovalFixture.make()
+        let (request, decision) = try await decisionReady(fixture)
+        let token = await fixture.mac.messenger.inboxToken
+        let gate = Gate()
+        fixture.outstanding.beforeHandling = { await gate.wait() }
+        let named = Task { try await fixture.mac.messenger.fetchNamedMessages([decision.envelope.recordName]) }
+        try await gate.waitForArrivals(1)
+
+        let polled = try await fixture.mac.poll()
+        XCTAssertEqual(polled.outcomes[decision.envelope.recordName], .failed, "busy: neither handled nor deleted")
+        XCTAssertEqual(polled.refusals, [])
+        await XCTAssertEqualAsync(await fixture.mac.messenger.inboxToken, token, "the token stays behind the record")
+
+        gate.open()
+        let report = try await named.value
+        XCTAssertEqual(report.outcomes, [decision.envelope.recordName: .processed])
+        XCTAssertEqual(fixture.outstanding.messages.count, 1)
+        XCTAssertEqual(fixture.outstanding.applied.map(\.messageID), [request.request.responseID])
+        await XCTAssertEqualAsync(try await fixture.mac.poll().processed, 0)
+    }
+
     func testHandlerFailuresCountTowardTheLimitOnBothPaths() async throws {
         let harness = DeviceHarness()
         let failing = FailingHandler()
@@ -212,6 +234,61 @@ final class NamedFetchTests: XCTestCase {
             XCTAssertEqual(log.events.filter { if case .inboxZoneRecreated = $0 { return true } else { return false } }.count,
                            wholeRequest ? 2 : 1)
         }
+    }
+
+    func testCloudKitAsksForNothingMoreOnceCloudKitAsksToWait() async throws {
+        let harness = DeviceHarness()
+        let mac = harness.makeDevice(.macOS)
+        let phone = harness.makeDevice(.iOS)
+        let transport = cloudTransport(for: mac.id)
+        _ = try await transport.prepareInbox()
+        let found = try PairingRuleTests.seal(.approvalReceipt, Data(count: 49), from: phone, to: mac, harness: harness)
+        service.insert(try CloudKitMessageRecord.record(for: found))
+        let names = [found.recordName] + (1..<250).map { _ in MessageID.random().text }
+        service.recordFetchErrors = [names[7]: CKError(.requestRateLimited, userInfo: [CKErrorRetryAfterKey: 4.0])]
+        let fetch = try await transport.fetchMessages(named: names, from: mac.id)
+        XCTAssertEqual(service.recordFetchBatches.count, 1, "no further call after CloudKit asked to wait")
+        XCTAssertEqual(fetch.envelopes, [found], "what was fetched is kept")
+        XCTAssertEqual(fetch.retryAfter, 4)
+        XCTAssertEqual(fetch.failedRecordNames, [names[7]] + Array(names[100...]))
+        XCTAssertEqual(fetch.missingRecordNames.count, 98)
+    }
+
+    func testCloudKitKeepsEarlierBatchesWhenALaterCallFailsAsAWhole() async throws {
+        for (error, wait) in [(CKError(.requestRateLimited, userInfo: [CKErrorRetryAfterKey: 9.0]), TimeInterval?(9)),
+                              (CKError(.networkFailure), nil)] {
+            let harness = DeviceHarness()
+            let mac = harness.makeDevice(.macOS)
+            let phone = harness.makeDevice(.iOS)
+            let transport = cloudTransport(for: mac.id)
+            _ = try await transport.prepareInbox()
+            let found = try PairingRuleTests.seal(.approvalReceipt, Data(count: 49), from: phone, to: mac, harness: harness)
+            service.insert(try CloudKitMessageRecord.record(for: found))
+            let names = [found.recordName] + (1..<250).map { _ in MessageID.random().text }
+            let callsBefore = service.recordFetchBatches.count
+            service.recordFetchCallErrors = [callsBefore + 1: error]
+            let fetch = try await transport.fetchMessages(named: names, from: mac.id)
+            XCTAssertEqual(service.recordFetchBatches.count - callsBefore, 2, "the third batch is not asked for")
+            XCTAssertEqual(fetch.envelopes, [found])
+            XCTAssertEqual(fetch.failedRecordNames, Array(names[100...]))
+            XCTAssertEqual(fetch.retryAfter, wait)
+            service.recordFetchCallErrors = [:]
+        }
+    }
+
+    func testANonRepairingFetchLeavesAMissingZoneAlone() async throws {
+        let device = SoftwareDeviceIdentity().deviceID
+        let transport = cloudTransport(for: device)
+        _ = try await transport.prepareInbox()
+        let zone = CloudKitInboxLayout.zoneID(for: device).zoneName
+        service.removeZone(named: zone)
+        let savedZones = service.savedZoneNames.count
+        let name = MessageID.random().text
+        let fetch = try await transport.fetchMessages(named: [name], from: device, recreatingMissingZone: false)
+        XCTAssertEqual(fetch.missingRecordNames, [name])
+        XCTAssertFalse(service.zoneNames.contains(zone))
+        XCTAssertEqual(service.savedZoneNames.count, savedZones)
+        XCTAssertFalse(log.events.contains { if case .inboxZoneRecreated = $0 { return true } else { return false } })
     }
 
     func testMessengerOverCloudKitHandlesANamedDecisionOnce() async throws {

@@ -7,7 +7,8 @@ public struct NamedFetchReport: Hashable, Sendable {
     public var outcomes: [String: InboxMessageOutcome] = [:]
     /// Names without a record: "not yet", which is not an error.
     public var notYet: [String] = []
-    /// The longest wait CloudKit asked for in a per-record answer.
+    /// The longest wait CloudKit asked for; wait at least this long before
+    /// the next named fetch.
     public var retryAfter: TimeInterval?
 
     public init() {}
@@ -49,8 +50,9 @@ extension DeviceMessenger {
     /// or a receipt under its receipt ID, and handles each found record
     /// exactly as the zone-change poll does: the same refusal rules and
     /// handler, deletion of processed and refused records, and the same
-    /// three-failure limit. It never moves the change token. A message both
-    /// paths find takes effect once. Throws
+    /// three-failure limit, so a handler should retry brief work itself
+    /// before it answers `failed`. It never moves the change token. A
+    /// message both paths find takes effect once. Throws
     /// `DeviceMessengerError.namedFetchUnavailable` when the transport
     /// cannot fetch by name, `DeviceIdentityError` when this device's own key
     /// no longer works, and transport errors.

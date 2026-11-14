@@ -16,13 +16,16 @@ public enum DeviceMessageVerdict: Hashable, Sendable {
 }
 
 /// Verifies one envelope without any state (ADR 0014 → Notification Service
-/// Extension): it applies every refusal rule of `DeviceMessenger` except
-/// replay, against the list it is given, and gives the messenger's verdict
-/// for every delivery check and kind 10–14 message from a device on the
-/// list. It deletes nothing, writes nothing and never uses the approval
-/// key. Pairing kinds need a session and are refused as `noSession`;
-/// unpair notices and delivery check replies need the messenger's state and
-/// are refused as `unexpectedKind`.
+/// Extension): against the list it is given, it applies the same envelope,
+/// signature, payload, pairing-ID and approval-signature checks as
+/// `DeviceMessenger`, in the same order, for delivery checks and kinds
+/// 10–14. It does not check replay, does not hold a message from an open
+/// pairing session's peer as the messenger does, and does not know the
+/// caller's handler or state: `.approval` means only that the checks
+/// `AskKeyDevices` owns passed. It deletes nothing, writes nothing and never
+/// uses the approval key. Pairing kinds need a session and are refused as
+/// `noSession`; unpair notices and delivery check replies need the
+/// messenger's state and are refused as `unexpectedKind`.
 public struct DeviceMessageVerifier: Sendable {
     public let identity: any DeviceIdentity
     public let list: PairedDeviceList

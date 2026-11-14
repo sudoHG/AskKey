@@ -23,8 +23,9 @@ public struct VerifiedApprovalMessage: Hashable, Sendable {
     /// The signed times, on the sender's clock.
     public let sentAt: Date
     public let expiresAt: Date
-    /// SHA-256 over the inner message's exact bytes, signature included; for
-    /// an approval request, its request digest.
+    /// SHA-256 over this message's own inner bytes, signature included. For
+    /// an approval request this is its request digest; for the other kinds
+    /// use `requestDigest`.
     public let digest: Data
     /// The envelope as fetched, which holds only ciphertext; the stateless
     /// verifier opens it again.
@@ -32,6 +33,18 @@ public struct VerifiedApprovalMessage: Hashable, Sendable {
     public let message: ApprovalMessage
 
     public var senderID: DeviceID { sender.deviceID }
+    /// The request this message is about: a request's own digest, or the
+    /// request digest a decision, closed message or receipt carries; nil
+    /// for a confirmation.
+    public var requestDigest: Data? {
+        switch message {
+        case .request: return digest
+        case .decision(let decision): return decision.requestDigest
+        case .closed(let closed): return closed.requestDigest
+        case .receipt(let receipt): return receipt.requestDigest
+        case .confirmation: return nil
+        }
+    }
     /// The pairing ID the payload carries, which is the sender's current one.
     public var pairingID: PairingID { sender.pairingID }
 }
@@ -48,8 +61,10 @@ public enum ApprovalMessageHandling: Hashable, Sendable {
     case failed
 }
 
-/// Handles verified kind 10–14 messages for the App; it runs inside the
-/// messenger's serialized handling, once per message ID at a time.
+/// Handles verified kind 10–14 messages for the App. Calls for one message
+/// ID never overlap; calls for different messages can, when the zone poll
+/// and a named fetch run at the same time, so the handler keeps its own
+/// state consistent.
 public typealias ApprovalMessageHandler = @Sendable (VerifiedApprovalMessage) async -> ApprovalMessageHandling
 
 enum ApprovalVerification {

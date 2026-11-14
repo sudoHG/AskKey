@@ -309,6 +309,8 @@ final class ApprovalPayloadTests: XCTestCase {
     func testClosedLayout() throws {
         XCTAssertEqual(closed(1).count, ApprovalClosed.byteCount)
         XCTAssertEqual(try ApprovalClosed(decoding: closed(1, code: 2, duration: 900)).appliedDuration, 900)
+        XCTAssertEqual(try ApprovalClosed(decoding: closed(1, code: 2, duration: 7_200)).appliedDuration, 7_200)
+        XCTAssertEqual(try ApprovalClosed(decoding: closed(1, code: 2, duration: 0)).appliedDuration, 0, "rounded down to nothing")
         XCTAssertEqual(try ApprovalClosed(decoding: closed(1, code: 0)).appliedCode, .deny)
         XCTAssertEqual(try ApprovalClosed(decoding: closed(1, code: 1)).appliedCode, .allowOnce)
         for outcome: UInt8 in 2...6 {
@@ -320,6 +322,8 @@ final class ApprovalPayloadTests: XCTestCase {
             ("outcome 0", closed(0)), ("outcome 7", closed(7)), ("outcome 1 with code 3", closed(1, code: 3)),
             ("outcome 1, Deny with a duration", closed(1, code: 0, duration: 1)),
             ("outcome 1, Allow Once with a duration", closed(1, code: 1, duration: 1)),
+            ("outcome 1, timed over the Broker's maximum", closed(1, code: 2, duration: 7_201)),
+            ("outcome 1, timed with the largest duration", closed(1, code: 2, duration: .max)),
             ("short", closed(2).dropLast()), ("long", closed(2) + [0]),
         ]
         for outcome: UInt8 in 2...6 {
