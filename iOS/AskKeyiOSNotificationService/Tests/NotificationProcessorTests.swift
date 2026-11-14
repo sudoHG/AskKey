@@ -129,6 +129,7 @@ final class NotificationProcessorTests: XCTestCase {
 
         XCTAssertEqual(decision, .answeredDeliveryCheck)
         XCTAssertEqual(world.sent.map(\.kind), [Int64(MessageKind.deliveryCheckReply.rawValue)])
+        world.assertStayedInItsLane()
         world.clock.advance(by: 1)
         _ = try await messenger.poll()
         let entry = try await messenger.pairedDevices().first
@@ -140,6 +141,27 @@ final class NotificationProcessorTests: XCTestCase {
         XCTAssertEqual(records.map(\.recordName), [check.text])
         XCTAssertEqual(world.cloud.calls.filter { $0.hasPrefix("deleteRecords inbox_" + world.phone.id.text) }, [])
         XCTAssertEqual(world.phone.approvalKeyUses, 0)
+    }
+
+    func testAReplyThatCannotBeSentIsNotRecorded() async throws {
+        let world = try NotificationWorld()
+        let transport = CloudKitDeviceTransport(service: world.cloud, deviceID: world.mac.identity.id, platform: .macOS,
+                                                clock: world.clock, log: { _ in })
+        let messenger = DeviceMessenger(identity: world.mac.identity, platform: .macOS,
+                                        registry: PairedDeviceRegistry(store: world.mac.listStore), transport: transport,
+                                        clock: world.clock, inboxToken: nil)
+        let check = try await messenger.sendDeliveryCheck(to: world.phone.id)
+        world.cloud.sendsFail = true
+
+        let decision = try await world.process(world.push(for: check.text))
+
+        XCTAssertEqual(decision, .generic(.replyFailed))
+        XCTAssertNil(world.keychain.stored(ExtensionKeychain.stateAccount))
+    }
+
+    func testTheExtensionsItemIsTheOneTheADRNames() {
+        XCTAssertEqual(DataProtectionKeychain.service, "com.sudohg.askkey.ios.devices")
+        XCTAssertEqual(ExtensionKeychain.stateAccount, "notification-service-state")
     }
 
     // MARK: Generic text, and nothing sent
@@ -157,6 +179,15 @@ final class NotificationProcessorTests: XCTestCase {
         let (sealed, _) = try world.sendRequest()
         let other = TestIdentity()
         try await assertGeneric(world, world.push(for: sealed.sealed.envelope.recordName, device: other.id), .otherDevice)
+    }
+
+    func testAPushNeedsThisInboxsZoneAndSubscription() async throws {
+        let world = try NotificationWorld()
+        let name = try world.sendRequest().request.sealed.envelope.recordName
+        let zone = CloudKitInboxLayout.zoneName(for: world.phone.id)
+        try await assertGeneric(world, world.push(for: name, subscription: "attacker"), .otherDevice)
+        try await assertGeneric(world, world.push(for: name, device: TestIdentity().id, subscription: zone + "_alert"),
+                                .otherDevice)
     }
 
     func testAPushThatNamesNoMessageStaysGeneric() async throws {
@@ -249,6 +280,30 @@ final class NotificationProcessorTests: XCTestCase {
         world.cloud.fetchesFail = false
         world.hasContainer = false
         try await assertGeneric(world, push, .noContainer)
+    }
+
+    func testARecordCloudKitFailsToReturnStaysGeneric() async throws {
+        let world = try NotificationWorld()
+        let push = try world.sendRequest().push
+        world.cloud.recordsFail = true
+        try await assertGeneric(world, push, .fetchFailed)
+    }
+
+    func testApprovalStoppedWhileTheRecordIsFetchedStaysGeneric() async throws {
+        let world = try NotificationWorld()
+        let push = try world.sendRequest().push
+        let gate = Gate()
+        world.cloud.fetchGate = gate
+        let environment = try world.environment()
+        let running = Task { await NotificationProcessor(environment: environment).process(PushInfo(userInfo: push)) }
+        while gate.arrived == 0 { await Task.yield() }
+        try world.setApprover(world.mac, enabled: false)
+        gate.open()
+
+        let decision = await running.value
+
+        XCTAssertEqual(decision, .generic(.notApprover))
+        XCTAssertEqual(world.sent, [])
     }
 
     func testAMissingInboxZoneIsNeverRecreated() async throws {

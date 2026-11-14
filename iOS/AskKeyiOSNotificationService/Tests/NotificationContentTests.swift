@@ -17,7 +17,8 @@ final class NotificationServiceTests: XCTestCase {
 
     /// Runs the extension on a push and returns every content it handed over.
     private func run(_ world: NotificationWorld, _ userInfo: [AnyHashable: Any],
-                     whileRunning: ((NotificationService) async -> Void)? = nil) async throws -> [UNNotificationContent] {
+                     whileRunning: ((NotificationService) async -> Void)? = nil,
+                     afterRunning: ((NotificationService) -> Void)? = nil) async throws -> [UNNotificationContent] {
         let service = NotificationService()
         let environment = try world.environment()
         service.makeEnvironment = { environment }
@@ -25,6 +26,7 @@ final class NotificationServiceTests: XCTestCase {
         service.didReceive(originalContent(userInfo)) { delivered.value.append($0) }
         await whileRunning?(service)
         await service.work?.value
+        afterRunning?(service)
         return delivered.value
     }
 
@@ -94,6 +96,33 @@ final class NotificationServiceTests: XCTestCase {
         try assertGeneric(delivered.first, recordName: sealed.sealed.envelope.recordName)
         XCTAssertEqual(world.sent, [])
         world.assertStayedInItsLane()
+    }
+
+    func testTheTimeRunningOutAfterDeliveryChangesNothing() async throws {
+        let world = try NotificationWorld()
+        let push = try world.sendRequest().push
+
+        let delivered = try await run(world, push, afterRunning: { $0.serviceExtensionTimeWillExpire() })
+
+        XCTAssertEqual(delivered.count, 1)
+        XCTAssertEqual(delivered.first?.interruptionLevel, .timeSensitive)
+    }
+
+    func testTheTimeRunningOutTwiceDeliversOnce() async throws {
+        let world = try NotificationWorld()
+        let push = try world.sendRequest().push
+        let gate = Gate()
+        world.cloud.fetchGate = gate
+
+        let delivered = try await run(world, push) { service in
+            while gate.arrived == 0 { await Task.yield() }
+            service.serviceExtensionTimeWillExpire()
+            service.serviceExtensionTimeWillExpire()
+            gate.open()
+        }
+
+        XCTAssertEqual(delivered.count, 1)
+        XCTAssertEqual(delivered.first?.interruptionLevel, .active)
     }
 
     func testADeliveryCheckGetsTheGenericText() async throws {

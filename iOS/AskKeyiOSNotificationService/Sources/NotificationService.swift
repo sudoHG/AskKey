@@ -51,18 +51,25 @@ final class NotificationService: UNNotificationServiceExtension {
         lock.withLock {
             self.contentHandler = contentHandler
             fallback = generic
-            work = Task { [weak self] in
+            // Holds the extension until it delivers; the system keeps it
+            // anyway until the handler runs or the time runs out.
+            work = Task {
                 let decision = await NotificationProcessor(environment: environment).process(push)
-                self?.deliver(NotificationContentBuilder.content(decision, recordName: push.recordName,
-                                                                 strings: environment.strings))
+                self.deliver(NotificationContentBuilder.content(decision, recordName: push.recordName,
+                                                                strings: environment.strings))
             }
         }
     }
 
+    /// Takes the handler in the same step that ends the run, so content
+    /// the processor finishes afterwards can no longer replace the generic text.
     override func serviceExtensionTimeWillExpire() {
-        let (task, generic) = lock.withLock { (work, fallback) }
+        let (task, handler, generic) = lock.withLock {
+            defer { contentHandler = nil }
+            return (work, contentHandler, fallback)
+        }
         task?.cancel()
-        if let generic { deliver(generic) }
+        if let handler, let generic { handler(generic) }
     }
 
     private func deliver(_ content: UNNotificationContent) {

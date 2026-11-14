@@ -184,6 +184,7 @@ final class TestCloudKit: CloudKitInboxService, @unchecked Sendable {
     private var log: [String] = []
     private var missingZone = false
     private var failingFetches = false
+    private var failingRecords = false
     private var failingSends = false
     private var gate: Gate?
 
@@ -198,6 +199,12 @@ final class TestCloudKit: CloudKitInboxService, @unchecked Sendable {
     var fetchesFail: Bool {
         get { lock.withLock { failingFetches } }
         set { lock.withLock { failingFetches = newValue } }
+    }
+
+    /// CloudKit answers each record with an error instead of the record.
+    var recordsFail: Bool {
+        get { lock.withLock { failingRecords } }
+        set { lock.withLock { failingRecords = newValue } }
     }
 
     var sendsFail: Bool {
@@ -287,7 +294,11 @@ final class TestCloudKit: CloudKitInboxService, @unchecked Sendable {
             if failingFetches { throw CKError(.networkUnavailable) }
             var results: [CKRecord.ID: Result<CKRecord, Error>] = [:]
             for id in ids {
-                results[id] = records[id].map { .success($0) } ?? .failure(CKError(.unknownItem))
+                if failingRecords {
+                    results[id] = .failure(CKError(.serviceUnavailable))
+                } else {
+                    results[id] = records[id].map { .success($0) } ?? .failure(CKError(.unknownItem))
+                }
             }
             return results
         }

@@ -80,6 +80,14 @@ final class PushHintReaderTests: XCTestCase {
         XCTAssertEqual(hint, PushHint(recordName: name, arrivedAt: arrival, notificationIdentifier: "n"))
     }
 
+    /// A CloudKit payload is read as before, even with the extension's key beside it.
+    func testAnotherDevicesPushStaysIgnoredWithTheExtensionsKey() {
+        let zone = CloudKitInboxLayout.zoneName(for: other)
+        var foreign = TestWorld.pushPayload(subscription: zone + "_alert", zone: zone, record: "abc")
+        foreign["askkey.recordName"] = MessageID.random().text
+        XCTAssertNil(PushHintReader.hint(userInfo: foreign, arrivedAt: Date(), notificationIdentifier: nil, for: device))
+    }
+
     func testAnExtensionRecordNameThatIsNotAMessageIDIsNotAHint() {
         for value: Any in ["abc", "", 42] {
             XCTAssertNil(PushHintReader.hint(userInfo: ["askkey.recordName": value], arrivedAt: Date(),

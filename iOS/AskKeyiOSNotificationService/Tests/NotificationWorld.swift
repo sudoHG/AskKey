@@ -77,6 +77,12 @@ final class NotificationWorld {
         return mac
     }
 
+    /// Turns a Mac's approval flag on or off on this iPhone, as the app would.
+    func setApprover(_ mac: Mac, enabled: Bool) throws {
+        try phoneList.apply(.setApprover(mac.identity.id, pairingID: mac.pairingID, enabled: enabled))
+        keychain.seed(try phoneList.serialized(), for: DeviceKeychainAccount.pairedDevices)
+    }
+
     func environment(strings: NotificationStrings? = nil) throws -> NotificationEnvironment {
         let phone = phone
         let restoreFails = restoreFails
@@ -120,14 +126,15 @@ final class NotificationWorld {
 
     /// The payload CloudKit sends for a record in `device`'s inbox
     /// (this iPhone's by default), with an alert an attacker could have chosen.
-    func push(for recordName: String, device: DeviceID? = nil) -> [AnyHashable: Any] {
+    func push(for recordName: String, device: DeviceID? = nil, subscription: String? = nil) -> [AnyHashable: Any] {
         let zone = CloudKitInboxLayout.zoneName(for: device ?? phone.id)
+        let subscription = subscription ?? zone + "_alert"
         return [
             "aps": ["alert": ["title": "Ask Key", "subtitle": "Enter 123 456", "body": "Approve now"],
                     "mutable-content": 1, "category": "attacker.actions"] as [String: Any],
             "ck": [
                 "ce": 2, "cid": "iCloud.com.sudohg.askkey", "nid": UUID().uuidString,
-                "qry": ["dbs": 1, "fo": 1, "rid": recordName, "sid": zone + "_alert", "zid": zone, "zoid": "_defaultOwner"],
+                "qry": ["dbs": 1, "fo": 1, "rid": recordName, "sid": subscription, "zid": zone, "zoid": "_defaultOwner"],
             ] as [String: Any],
             "extra": "Enter 123 456 on your Mac",
         ]

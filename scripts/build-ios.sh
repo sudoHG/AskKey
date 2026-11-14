@@ -109,7 +109,9 @@ build)
     -destination 'generic/platform=iOS Simulator' -derivedDataPath "$DERIVED" CODE_SIGNING_ALLOWED=NO -quiet
   APP="$DERIVED/Build/Products/Debug-iphonesimulator/AskKey.app"
   APPEX="$APP/PlugIns/$EXTENSION.appex"
-  test -x "$APP/AskKey" && test -d "$APP/Frameworks/AskKeyiOSKit.framework" && test -x "$APPEX/$EXTENSION"
+  test -x "$APP/AskKey"
+  test -d "$APP/Frameworks/AskKeyiOSKit.framework"
+  test -x "$APPEX/$EXTENSION"
   [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APPEX/Info.plist")" == "$EXTENSION_BUNDLE_ID" ]]
   [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$APPEX/Info.plist")" \
     == com.apple.usernotifications.service ]]

@@ -14,11 +14,15 @@ protocol NotificationInbox: Sendable {
 
 /// The CloudKit inbox of this iPhone.
 struct CloudKitNotificationInbox: NotificationInbox {
+    /// CloudKit answered for the record itself with an error, not "missing".
+    struct RecordFetchFailed: Error {}
+
     let transport: CloudKitDeviceTransport
 
     func fetchMessage(named recordName: String) async throws -> DeviceEnvelope? {
         let fetch = try await transport.fetchMessages(named: [recordName], from: transport.deviceID,
                                                       recreatingMissingZone: false)
+        if fetch.failedRecordNames.contains(recordName) { throw RecordFetchFailed() }
         return fetch.envelopes.first { $0.recordName == recordName }
     }
 
@@ -57,6 +61,8 @@ enum GenericReason: Equatable, Sendable {
     case noContainer
     case fetchFailed
     case notFound
+    /// The delivery check verified, but its reply could not be sent.
+    case replyFailed
     case refused(DeviceMessageRefusal)
     case notARequest
     case notFromMac
@@ -121,12 +127,6 @@ struct NotificationProcessor: Sendable {
         guard CloudKitInboxLayout.isPush(subscriptionID: push.subscriptionID, zoneName: push.zoneName, for: deviceID) else {
             return .generic(.otherDevice)
         }
-        let list: PairedDeviceList
-        do {
-            list = try environment.keychain.pairedDeviceList()
-        } catch {
-            return .generic(.listUnavailable)
-        }
         guard let inbox = environment.makeInbox(deviceID) else { return .generic(.noContainer) }
         let envelope: DeviceEnvelope?
         do {
@@ -136,6 +136,14 @@ struct NotificationProcessor: Sendable {
         }
         guard !Task.isCancelled else { return .generic(.timedOut) }
         guard let envelope, envelope.recordName == recordName else { return .generic(.notFound) }
+        // Read after the fetch, so approval stopped or a Mac removed while
+        // CloudKit answered is already in the list the checks use.
+        let list: PairedDeviceList
+        do {
+            list = try environment.keychain.pairedDeviceList()
+        } catch {
+            return .generic(.listUnavailable)
+        }
         let verdict: DeviceMessageVerdict
         do {
             verdict = try DeviceMessageVerifier(identity: identity, list: list).verify(envelope, now: environment.clock.now())
@@ -148,7 +156,11 @@ struct NotificationProcessor: Sendable {
             return .generic(.refused(refusal))
         case .deliveryCheck(let check):
             guard let reply = try? sealer.sealDeliveryCheckReply(answering: check) else { return .generic(.keysUnavailable) }
-            guard await send(reply.envelope, to: inbox) else { return .generic(.timedOut) }
+            switch await send(reply.envelope, to: inbox) {
+            case .cancelled: return .generic(.timedOut)
+            case .failed: return .generic(.replyFailed)
+            case .sent: break
+            }
             NotificationStateStore(keychain: environment.keychain)
                 .recordDeliveryCheck(recordName, at: environment.clock.now())
             return .answeredDeliveryCheck
@@ -160,8 +172,9 @@ struct NotificationProcessor: Sendable {
                                                     strings: environment.strings)
             // The app sends its own receipt when it processes the request,
             // so one that cannot be sealed or sent here changes nothing else.
-            if let receipt = try? sealer.sealApprovalReceipt(answering: message) {
-                guard await send(receipt.envelope, to: inbox) else { return .generic(.timedOut) }
+            if let receipt = try? sealer.sealApprovalReceipt(answering: message),
+               await send(receipt.envelope, to: inbox) == .cancelled {
+                return .generic(.timedOut)
             }
             guard !Task.isCancelled else { return .generic(.timedOut) }
             let timeSensitive = NotificationStateStore(keychain: environment.keychain)
@@ -171,16 +184,25 @@ struct NotificationProcessor: Sendable {
         }
     }
 
-    /// Sends unless the system's time ran out; false only then. A failed
-    /// send is logged and otherwise ignored: the app replies again.
-    private func send(_ envelope: DeviceEnvelope, to inbox: any NotificationInbox) async -> Bool {
-        guard !Task.isCancelled else { return false }
+    private enum SendOutcome {
+        case sent
+        case failed
+        /// The system's time ran out first; nothing was handed to CloudKit.
+        case cancelled
+    }
+
+    /// Sends unless the system's time ran out. A send already handed to
+    /// CloudKit cannot be taken back. A failed send is logged; the app
+    /// replies again when it processes the message.
+    private func send(_ envelope: DeviceEnvelope, to inbox: any NotificationInbox) async -> SendOutcome {
+        guard !Task.isCancelled else { return .cancelled }
         do {
             try await inbox.send(envelope)
+            return .sent
         } catch {
             NotificationLog.sendFailed(envelope.recordName, error)
+            return .failed
         }
-        return true
     }
 }
 
