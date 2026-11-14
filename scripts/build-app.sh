@@ -7,8 +7,9 @@
 #   Release -> prod vault/keychain/socket (com.sudohg.askkey.vault)
 #   Debug   -> dev  vault/keychain/socket (com.sudohg.askkey.vault.dev)
 # ASKKEY_PROVISIONING_PROFILE=<Developer ID .provisionprofile> adds CloudKit and
-# push to a Local build (ADR 0013); every other mode refuses it. Setting it,
-# even to an empty value, turns the option on.
+# push (ADR 0013). Release requires it from #269 stage 4 on (ADR 0014), Local
+# accepts it, and Debug and E2E refuse it. Setting it, even to an empty value,
+# turns the option on.
 set -euo pipefail
 # Resolve a relative profile path against the caller's directory before cd.
 case "${ASKKEY_PROVISIONING_PROFILE-/}" in /*) ;; *) ASKKEY_PROVISIONING_PROFILE="$PWD/$ASKKEY_PROVISIONING_PROFILE" ;; esac
@@ -25,10 +26,14 @@ CLOUDKIT_CONTAINER="iCloud.com.sudohg.askkey"
 CLOUDKIT_DIR=""
 if [ -n "${ASKKEY_PROVISIONING_PROFILE+set}" ]; then
   case "$MODE" in
-    Release) echo "ASKKEY_PROVISIONING_PROFILE is refused in Release builds: they get no CloudKit entitlement until #269 stage 4 ships the iPhone app." >&2; exit 1 ;;
     Debug|E2E) echo "ASKKEY_PROVISIONING_PROFILE is refused in $MODE builds: they are signed ad hoc, which cannot carry the CloudKit and push entitlements. Use Local." >&2; exit 1 ;;
   esac
   CLOUDKIT_DIR=".build/cloudkit-signing"
+elif [ "$MODE" = Release ]; then
+  # A Release without CloudKit would drop the Devices section for every Mac
+  # that has paired an iPhone (ADR 0014 → Release build and distribution).
+  echo "Release builds require ASKKEY_PROVISIONING_PROFILE, the Developer ID provisioning profile for com.sudohg.askkey.app that grants CloudKit and push; it is not set." >&2
+  exit 1
 fi
 if [ "$MODE" = Local ]; then
   python3 scripts/release-gate.py
@@ -59,17 +64,6 @@ if [ "$MODE" = Local ]; then
   SIGN_IDENTITY="$ASKKEY_CODESIGN_IDENTITY"
   BUNDLE_ID="com.sudohg.askkey.app"
 fi
-# Check the profile before building: a Developer ID profile for this App ID and
-# team, not expired, listing the signing certificate and granting every
-# entitlement. Signing then uses that certificate's hash.
-if [ -n "$CLOUDKIT_DIR" ]; then
-  echo "==> Checking the provisioning profile…"
-  rm -rf "$CLOUDKIT_DIR"
-  mkdir -p "$CLOUDKIT_DIR"
-  python3 scripts/cloudkit-signing.py prepare --profile "$ASKKEY_PROVISIONING_PROFILE" \
-    --identity "$SIGN_IDENTITY" --team "$ASKKEY_APPLE_TEAM_ID" --output "$CLOUDKIT_DIR"
-  SIGN_IDENTITY="$(cat "$CLOUDKIT_DIR/signing-certificate")"
-fi
 # Release builds ship the updater, which needs the committed EdDSA public key.
 # Without it they fail closed, so no release ships an updater without a key.
 SPARKLE_FEED_URL="https://askkey.sudohg.com/appcast.xml"
@@ -80,6 +74,17 @@ if [ "$MODE" = Release ]; then
   [[ "$SPARKLE_PUBLIC_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] \
     && [ "$(printf '%s' "$SPARKLE_PUBLIC_KEY" | base64 -D 2>/dev/null | wc -c | tr -d ' ')" = 32 ] \
     || { echo "$SPARKLE_PUBLIC_KEY_FILE must hold one base64-encoded 32-byte EdDSA public key." >&2; exit 1; }
+fi
+# Check the profile before building: a Developer ID profile for this App ID and
+# team, not expired, listing the signing certificate and granting every
+# entitlement. Signing then uses that certificate's hash.
+if [ -n "$CLOUDKIT_DIR" ]; then
+  echo "==> Checking the provisioning profile…"
+  rm -rf "$CLOUDKIT_DIR"
+  mkdir -p "$CLOUDKIT_DIR"
+  python3 scripts/cloudkit-signing.py prepare --profile "$ASKKEY_PROVISIONING_PROFILE" \
+    --identity "$SIGN_IDENTITY" --team "$ASKKEY_APPLE_TEAM_ID" --output "$CLOUDKIT_DIR"
+  SIGN_IDENTITY="$(cat "$CLOUDKIT_DIR/signing-certificate")"
 fi
 AVAILABLE_KIB="$(df -k /System/Volumes/Data | awk 'NR==2 {print $4}')"
 [ "${AVAILABLE_KIB:-0}" -ge 83886080 ] || { echo "At least 80 GiB free is required before building." >&2; exit 1; }

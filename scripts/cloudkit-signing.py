@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Check the Developer ID provisioning profile and the CloudKit signing of a Local build.
+"""Check the Developer ID provisioning profile and the CloudKit signing of a Local or Release build.
 
 build-app.sh runs `prepare` before building, `entitlements` right before it
 signs the App and `verify` after signing; package-release.sh runs `check-app`
-before notarizing (#286, ADR 0013 in #291). The team comes from
+before notarizing, and a notarized package requires it (#286, ADR 0013 in
+#291; Release builds from #269 stage 4 on, ADR 0014). The team comes from
 ASKKEY_APPLE_TEAM_ID at build time. Messages name no team ID, signing identity
 or certificate.
 """

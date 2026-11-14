@@ -85,12 +85,15 @@ def install_stubs(directory, names=STUB_TOOLS):
     return tools
 
 
-def stub_environment(directory, tools, trace, **extra):
+def stub_environment(directory, tools, trace, base=None, **extra):
     state = Path(directory) / "tool-state"
     state.mkdir(exist_ok=True)
     certificate = Path(directory) / "leaf.der"
     certificate.write_bytes(CERTIFICATE)
-    environment = {key: value for key, value in os.environ.items() if not key.startswith("ASKKEY_")}
+    if base is None:
+        environment = {key: value for key, value in os.environ.items() if not key.startswith("ASKKEY_")}
+    else:
+        environment = dict(base)
     environment.update({
         "PATH": f"{tools}{os.pathsep}{environment['PATH']}",
         "CLOUDKIT_TEST_TRACE": str(trace),
@@ -104,6 +107,32 @@ def stub_environment(directory, tools, trace, **extra):
 
 def read_trace(trace):
     return [json.loads(line) for line in trace.read_text().splitlines()] if trace.exists() else []
+
+
+def make_cloudkit_app(app, profile=None, entitlements=ENTITLEMENTS):
+    """Turn a fixture App into a CloudKit build: the Info.plist key, an embedded synthetic
+    profile and a real ad hoc signature carrying the entitlements."""
+    contents = Path(app) / "Contents"
+    info = plistlib.loads((contents / "Info.plist").read_bytes())
+    info["CloudKitContainerIdentifier"] = CONTAINER
+    (contents / "Info.plist").write_bytes(plistlib.dumps(info))
+    (contents / "embedded.provisionprofile").write_bytes(plistlib.dumps(profile or synthetic_profile()))
+    with tempfile.TemporaryDirectory(prefix="askkey-cloudkit-entitlements-") as directory:
+        entitlements_file = Path(directory) / "fixture.entitlements"
+        entitlements_file.write_bytes(plistlib.dumps(entitlements))
+        subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--entitlements", str(entitlements_file),
+                        str(app)], check=True, capture_output=True)
+
+
+def cloudkit_release_app(app, directory, environment):
+    """Make a packaging fixture a valid CloudKit build, as a release must be, and return its
+    packaging environment with the synthetic `security` and leaf certificate in front: other
+    codesign calls go to the next codesign on PATH, and entitlements come from the real signature."""
+    make_cloudkit_app(app)
+    directory = Path(directory)
+    directory.mkdir()
+    return stub_environment(directory, install_stubs(directory, ["security", "codesign"]), directory / "calls.jsonl",
+                            base=environment, CLOUDKIT_TEST_DELEGATE_CODESIGN="1")
 
 
 def package_release_tests():
@@ -283,7 +312,7 @@ class PackageReleaseProfileTests(unittest.TestCase):
                                             CLOUDKIT_TEST_DELEGATE_CODESIGN="1", TMPDIR=str(self.scratch))
         self.app = self.directory / "Fixture.app"
 
-    def make_app(self, profile=None, entitlements=ENTITLEMENTS):
+    def make_app(self, profile=None, entitlements=ENTITLEMENTS, cloudkit=True):
         contents = self.app / "Contents"
         (contents / "MacOS").mkdir(parents=True)
         shutil.copyfile("/usr/bin/true", contents / "MacOS/Fixture")
@@ -291,13 +320,13 @@ class PackageReleaseProfileTests(unittest.TestCase):
         (contents / "Info.plist").write_bytes(plistlib.dumps({
             "CFBundleExecutable": "Fixture", "CFBundleIdentifier": BUNDLE_ID,
             "CFBundlePackageType": "APPL", "CFBundleShortVersionString": self.version,
-            "CFBundleVersion": self.version, "CloudKitContainerIdentifier": CONTAINER,
+            "CFBundleVersion": self.version,
         }))
-        (contents / "embedded.provisionprofile").write_bytes(plistlib.dumps(profile or synthetic_profile()))
-        entitlements_file = self.directory / "fixture.entitlements"
-        entitlements_file.write_bytes(plistlib.dumps(entitlements))
-        subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--entitlements", str(entitlements_file),
-                        str(self.app)], check=True, capture_output=True)
+        if cloudkit:
+            make_cloudkit_app(self.app, profile, entitlements)
+        else:
+            subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", str(self.app)],
+                           check=True, capture_output=True)
 
     def package(self, *arguments, environment=None):
         return subprocess.run(["bash", str(PACKAGE), "--app", str(self.app), "--output", str(self.output),
@@ -357,8 +386,8 @@ class PackageReleaseProfileTests(unittest.TestCase):
         self.assertRefused(self.package("--no-notarize", environment=environment),
                            "ASKKEY_APPLE_TEAM_ID is required to check the embedded provisioning profile")
 
-    def test_invalid_profile_stops_before_any_notarization_request(self):
-        self.make_app(synthetic_profile(expires=now() - timedelta(days=1)))
+    def notarize(self):
+        """Package with mocked notarization tools behind the CloudKit stubs; no notary service is called."""
         tools = self.directory / "package-tools"
         tools.mkdir()
         mock = tools / "package-release-tool"
@@ -375,16 +404,35 @@ class PackageReleaseProfileTests(unittest.TestCase):
         environment["PATH"] = os.pathsep.join([stub_tools, str(tools), rest])
         result = self.package("--sparkle-key-credential", "synthetic-sparkle-key", "--release-notes", str(notes),
                               environment=environment)
-        self.assertRefused(result)
         self.assertNotIn("synthetic-signing-identity", result.stdout + result.stderr)
+        return result
+
+    def test_invalid_profile_stops_before_any_notarization_request(self):
+        self.make_app(synthetic_profile(expires=now() - timedelta(days=1)))
+        self.assertRefused(self.notarize())
         calls = read_trace(self.trace)
         self.assertIn(["security", "cms", "-D", "-i"], [call[:4] for call in calls])
         self.assertFalse([call for call in calls if call[0] in ("xcrun", "spctl", "askkey", "hdiutil")], calls)
 
+    def test_notarizing_requires_a_cloudkit_build(self):
+        # From #269 stage 4 on every release is a CloudKit build (ADR 0014); a synthetic
+        # --no-notarize package of an App without the profile is still allowed.
+        self.make_app(cloudkit=False)
+        self.assertRefused(self.notarize(), "A release needs a CloudKit build: the App has no "
+                                            "Contents/embedded.provisionprofile; build it with ASKKEY_PROVISIONING_PROFILE")
+        calls = read_trace(self.trace)
+        self.assertFalse([call for call in calls if call[0] in ("security", "xcrun", "spctl", "askkey", "hdiutil")], calls)
+        result = self.package("--no-notarize")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.output / f"AskKey-{self.version}-unnotarized.dmg").is_file())
+
     def test_check_runs_after_staging_and_before_notarizing(self):
         source = PACKAGE.read_text(encoding="utf-8")
         check = source.index('scripts/cloudkit-signing.py" check-app --app "$STAGED_APP"')
+        required = source.index("A release needs a CloudKit build")
         self.assertLess(source.index('ditto "$APP" "$STAGED_APP"'), check)
+        self.assertLess(check, required)
+        self.assertLess(required, source.index('notarize "$APP_ZIP"'))
         self.assertLess(check, source.index('notarize "$APP_ZIP"'))
         self.assertLess(check, source.index('hdiutil create'))
 

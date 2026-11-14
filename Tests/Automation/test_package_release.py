@@ -3,6 +3,7 @@
 import base64
 import functools
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -43,6 +44,14 @@ def synthetic_key_pair():
             ["/usr/bin/xcrun", "swift", str(script), seed], env=dict(os.environ, TMPDIR=directory),
             check=True, capture_output=True, text=True, timeout=120).stdout.strip()
     return seed, public_key
+
+
+@functools.lru_cache(maxsize=None)
+def cloudkit_fixtures():
+    spec = importlib.util.spec_from_file_location("cloudkit_fixtures", ROOT / "Tests/Automation/test_cloudkit_signing.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 SYNTHETIC_MAPPINGS = {
     "PRIVATE_KEY_FILE": "synthetic-private-key-file",
     "KEY_ID": "synthetic-key-id",
@@ -257,7 +266,8 @@ class PackageReleaseTests(unittest.TestCase):
                 self.assert_no_artifacts()
 
     def mock_tools(self):
-        """Never invoke a real signing identity, keychain profile or notary service."""
+        """Never invoke a real signing identity, keychain profile or notary service. A release must
+        be a CloudKit build, so the fixture becomes one, checked with synthetic signing tools."""
         tools = self.directory / "tools"
         tools.mkdir()
         trace = self.directory / "calls.jsonl"
@@ -277,7 +287,7 @@ class PackageReleaseTests(unittest.TestCase):
             "ASKKEY_NOTARY_PROFILE": "synthetic-notary-profile",
             "ASKKEY_RELEASE_HELPER": str(tools / "askkey"),
         })
-        return environment, trace
+        return cloudkit_fixtures().cloudkit_release_app(self.app, self.directory / "cloudkit", environment), trace
 
     def assert_settings_not_printed(self, result, environment):
         text = result.stdout + result.stderr
