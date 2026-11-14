@@ -4,6 +4,8 @@
 
 Accepted for v0.2 (#117). Refines the presentation in [ADR 0002](0002-broker-and-approval-protocol.md) and [ADR 0003](0003-credential-delivery.md). The helper-to-Broker protocol and its version are unchanged.
 
+[ADR 0014](0014-remote-approval.md) shows the same display on a paired iPhone and in its notifications; see the [remote approval amendment](#amendment-remote-approval-309).
+
 ## Context
 
 The approval prompt shows the caller name, the credential and the purpose; caller and purpose are self-declared. The runtime request (`BrokerTextRunRequest` in [TextRuntime](../../Sources/AskKeyBroker/TextRuntime.swift)) carries the command, arguments and working directory. [Vault+CredentialDelivery](../../Sources/AskKeyVault/Vault+CredentialDelivery.swift) binds that request and the App-derived component metadata into the read approval's `payloadDigest`. Approval-tier values must not be decrypted before approval.
@@ -21,3 +23,12 @@ The approval prompt shows the caller name, the credential and the purpose; calle
 ## Consequences
 
 The person approving sees the actual target with no protocol change and no new trust in self-declared fields. The display summary is held in App memory with its approval record, including the Broker's bounded terminal history (at most 256 entries, cleared when the App exits); it is never persisted beyond the sanitized executable name. Implementation: #118 (Vault and Broker side), #120 (prompt UI).
+
+## Amendment: remote approval (#309)
+
+[ADR 0014](0014-remote-approval.md) sends read requests to a paired iPhone that the person made an approver.
+
+- **Same display.** The iPhone card shows what the Mac card shows, built on the Mac from the same App-derived data: the requester and purpose marked not verified, the credential's trusted name, the command line as rendered here, the working directory, the executable name and the delivered names, never a value. Each field has a byte cap; a longer one is shortened in the middle and flagged, and any shortened field, like unavailable delivery metadata, makes Deny the only offer. The iPhone applies the display safety rules above again before showing anything.
+- **Where the display exists.** The display travels encrypted to each approver. CloudKit holds it as ciphertext until the iPhone processes the request or deletes it after its transport expiry; the iPhone keeps the ciphertext until that expiry, at most 10 minutes after the Mac sealed it, and never stores the opened content.
+- **Notifications on the iPhone** show only the card's sentence: the requester's name, the iPhone's own name for the Mac, the credential's name and the executable name, each shortened. They never show a value, arguments, the working directory or delivered names, and appear only after the notification extension verified a request from a Mac the iPhone approves for; otherwise the text is generic. Delivered notifications stay in Notification Center until the app removes them, and the lock screen shows their details only if the person set Show Previews to Always.
+- **Access records** keep at most the executable's last path component, as above, plus the name of the device that approved or denied a request remotely, as the Mac called that device then.

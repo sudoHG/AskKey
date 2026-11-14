@@ -6,6 +6,8 @@ Accepted. Carries forward the retained Broker decisions of legacy ADR 0027.
 
 [ADR 0010](0010-agent-credential-metadata-writes.md) amends the App-only group-management rule to allow approved agent metadata and group writes.
 
+[ADR 0014](0014-remote-approval.md) adds a paired iPhone as a second source of read decisions; see the [remote approval amendment](#amendment-remote-approval-from-a-paired-iphone-309).
+
 ## Context
 
 Local agents need discovery, approved runtime delivery and separately approved writes while management stays in the App. Client-supplied identities cannot securely partition programs running as the same macOS user. The [security policy](../../SECURITY.md) states that boundary explicitly.
@@ -43,3 +45,16 @@ The Broker owns the sleep transition. willSleep records the upper bound of the c
 Aborted sleep without didWake keeps new timed grants blocked until didWake, unless a later unlocked sample proves a subsequent real sleep (fail-closed).
 
 The [allowance revocation](../../Sources/AskKeyBroker/BrokerApprovalStateMachine+Allowances.swift), [screen and sleep checks](../../Sources/AskKeyBroker/BrokerApprovalStateMachine+ScreenSession.swift) and [runtime authorization](../../Sources/AskKeyBroker/BrokerApprovalStateMachine+RuntimeAuthorization.swift) implement these boundaries. [ApprovalStateMachinePolicyTests](../../Tests/AskKeyBrokerTests/ApprovalStateMachinePolicyTests.swift) checks the clock bounds, [GroupTimedAllowanceTests](../../Tests/AskKeyBrokerTests/GroupTimedAllowanceTests.swift) checks whole-group runtime revocation, and [GroupTimedAllowanceSessionTests](../../Tests/AskKeyAppTests/GroupTimedAllowanceSessionTests.swift) checks session events, mixed runs and Vault group revalidation.
+
+## Amendment: remote approval from a paired iPhone (#309)
+
+[ADR 0014](0014-remote-approval.md) adds a second decision source for read approvals: a paired iPhone that the person made an **approver** on the Mac with system authentication and a code typed on that iPhone. The Broker protocol, its version and every agent-facing response are unchanged; agents cannot see devices or choose where a request is decided.
+
+- **Reads only.** An approver may Deny, Allow Once, or grant the timed allowance for the one requested credential. Writes, organize operations and group timed allowances are never sent to it and keep their decision on the Mac; every agent write still requires separate system authentication on the Mac.
+- **Remote Allow counts as authenticated.** A verified approval-key signature, which the iPhone produces only with Face ID or Touch ID, stands for the system authentication a local read approval asks for. The Broker's remote path never calls the local authentication, and needs the signature even when read approval authentication is turned off.
+- **Remote Deny needs no authentication** on the iPhone. It is still signed with the iPhone's message key and bound to the exact request, and the remote path maps it only to the deny transition.
+- **First decision wins.** Local and remote decisions go through the same single transition from pending under the approval lock; a later one finds the request no longer pending. A local decision whose system authentication is still open when a remote one wins ends as decided elsewhere.
+- **Active approvers.** The Broker keeps an in-memory set of active approvers and checks a remote decision against it inside that transition, for every code. Revoking an approver removes it from the set before anything else, so a revocation that has returned wins over any remote decision not yet applied.
+- **Locked screen.** "Protect request details when the screen is locked" still holds for the Mac's own prompt. A request's details now leave the Mac while it is locked, but only to approvers and encrypted to each of them.
+- **Timed allowances.** With End Timed Allow on Lock off, a timed allowance can now start from the iPhone while the Mac is locked and nobody is at it; it is an ordinary allowance under the rules above, capped by the Mac's setting. With the setting on, the iPhone is never offered a timed allowance and the remote path refuses one, whether the Mac is locked or not.
+- Pending requests still expire after five minutes or an earlier credential deadline on the Mac's clock, which alone decides whether a request is pending.

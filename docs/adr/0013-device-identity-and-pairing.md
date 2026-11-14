@@ -6,6 +6,8 @@ Accepted. Stage 2 of the multi-device roadmap in [#269](https://github.com/sudoH
 
 This ADR does not amend [ADR 0002](0002-broker-and-approval-protocol.md): no credential, approval request or decision crosses devices in stage 2. Stage 4 amends ADR 0002 when the iPhone starts approving.
 
+[ADR 0014](0014-remote-approval.md) builds stage 4 on this ADR, adds kinds 10–14 to the table under Sealed messages and amends it as described in the [stage 4 amendment](#amendment-stage-4-remote-approval-309).
+
 ## Context
 
 Cross-device approval needs each device to know, before any request is sent, which other devices it trusts and how to reach them privately. An Ask Key install has no identity beyond its local library and cannot tell another device of the same person apart from any program or device that can write to that person's iCloud.
@@ -137,6 +139,11 @@ The Mac bundle ID `com.sudohg.askkey.app` and the other product identifiers in `
   | Delivery check | 7 | `AlertMessage` | pairing ID |
   | Delivery check reply | 8 | `QuietMessage` | pairing ID and the check's message ID |
   | Pairing reveal | 9 | `QuietMessage` | session ID and the digest of the challenge |
+  | Approval request ([ADR 0014](0014-remote-approval.md)) | 10 | `AlertMessage` | pairing ID |
+  | Approval decision | 11 | `QuietMessage` | pairing ID and request digest; message ID = the request's response ID |
+  | Approval closed | 12 | `QuietMessage` | pairing ID and request digest |
+  | Approval receipt | 13 | `QuietMessage` | pairing ID and request digest; message ID derived from the response ID |
+  | Approver confirmation | 14 | `QuietMessage` | pairing ID and the code proof |
 
   The **pairing ID** is the first 16 bytes of SHA-256 over `AskKey pairing id v1` and the transcript hash; both sides store it in the entry. Pairing again creates a new pairing ID, so a notice or reply from an earlier pairing of the same two devices is refused.
 - The recipient refuses, without telling the sender:
@@ -219,3 +226,17 @@ Pairing needs both devices on the same Apple ID, a Secure Enclave, and on the iP
 A local erase does not notify peers; they keep an entry for a device that no longer exists until the person removes it. Restoring an older copy of the Mac's login keychain, for example from Time Machine, can bring back a device that was removed after that copy was made; like other whole-library rollbacks (ADR 0001), this is not detected.
 
 Release builds keep their current entitlements and outbound network behavior until stage 4. The identity storage, sealed messages, pairing, the paired-device list and the signing changes are `risk:security` and are reviewed line by line. CI tests pairing with software keys and an in-memory transport; the Secure Enclave, CloudKit and push are verified only on real devices in #290.
+
+## Amendment: stage 4, remote approval (#309)
+
+[ADR 0014](0014-remote-approval.md) grows the iPhone app into an approver for the Mac's agent read requests. It uses this ADR's identity, list, zones, record types and subscriptions unchanged and changes the following.
+
+- **Kinds 10–14** (the table under Sealed messages): approval request, decision, closed, receipt and approver confirmation. All use base-mode HPKE and the refusal rules above, live at most 10 minutes, and start their payload with the pairing ID; within one fetch they come after the pairing kinds, kind 12 first. ADR 0014 fixes their layouts, statements, transport expiries and test vectors.
+- **Message IDs.** "Message IDs are 16 random bytes" holds for every kind but two: a decision's message ID is the response ID the Mac chose at random for that request, and a receipt's is derived from it. The Mac therefore knows both record names in advance and fetches them by name; a send that finds a record already under such a name counts as sent.
+- **Approval flag.** A paired-device list entry gains an approval flag on both sides, and the serialization becomes version 2; version 1 lists decode with every flag off. On the Mac, turning the flag on is a write that needs the management session and a one-time approver authorization, like adding a device. A version 2 list is refused by stage 2 builds, which only the maintainer's Local and Ad Hoc builds ran, so "no downgrade limit" no longer holds for them.
+- **Notification extension.** `com.sudohg.askkey.ios.notification-service` reads the message and key-agreement keys and the list from the shared access group, verifies a request without changing any state, replies to delivery checks and sends receipts with the message key, and keeps its own state in a separate keychain item. It never writes the list, deletes an inbox record or uses the approval key. If a key with the protection above does not work in the extension on a locked phone (#316), notifications stay generic and the app sends receipts; this replaces the fallback of resetting identities and pairing again in Device identity.
+- **Replay across restarts.** A decision applies only to an outstanding request held in the memory of the Mac App process that sealed it, and the first verified decision consumes it. Approval decisions therefore need no persistent processed-message IDs, which answers the open point under Sealed messages.
+- **Decision 4 for Deny.** Allow decisions carry an approval-key signature made with Face ID or Touch ID. On 2026-11-14 the maintainer decided that Deny needs no Face ID: a Deny is signed only by the message key, with the same bindings, and can only deny. This follows the invariant under Device identity, which stands: only a message that creates or widens trust or authority needs an approval-key signature.
+- **Decision 3 is fulfilled** in the stage 4 release: Release builds carry the CloudKit entitlements and show the Devices section, `scripts/build-app.sh` accepts the CloudKit option for `Release` and from then on requires it, and README and `SECURITY.md` change in that release. The Mac registers for push only once an identity exists, not at launch.
+- **Superseded.** Two statements no longer hold. Consequences says that an attacker who gets the person to enter the impostor's code pairs with the Mac, "which in stage 4 would make it an approver": pairing no longer makes any device an approver, because turning approval on needs system authentication on the Mac and the approver code typed on that device. Out of scope says that persisting processed message IDs across restarts is something "stage 4 needs for decisions": it does not, as above.
+- **A fake Mac on the iPhone's list** cannot send approval requests unless the person completed the approver confirmation for it on the iPhone, and a request carries no Mac name, so the Pairing section's warning that it "could send the phone approval requests under any name" applies only to a Mac the person confirmed.

@@ -4,6 +4,8 @@
 
 Accepted for v0.1.0 and later releases until superseded. Narrows the "releases are disabled" decision in [ADR 0005](0005-distribution-and-client-integration.md): releases are allowed only through this process, and each publication needs the maintainer's explicit approval.
 
+[ADR 0014](0014-remote-approval.md) adds iPhone app uploads to TestFlight and their renewal; see the [iPhone distribution amendment](#amendment-iphone-distribution-309).
+
 ## Context
 
 The repository is public, but users can only build AskKey from source. The official topology (`/Applications/Ask Key.app` with `Contents/Helpers/askkey`) and the helper signature checks already assume a Developer ID-signed bundle. `scripts/build-app.sh` has a `Release` mode that signs with the hardened runtime and checks the team, but it does not notarize, package or publish. It also requires a local desktop E2E receipt, which conflicts with the rule that agents do not run desktop UI flows on the maintainer's Mac.
@@ -24,3 +26,13 @@ The repository is public, but users can only build AskKey from source. The offic
 ## Consequences
 
 Every release needs the maintainer present for keychain and notarization prompts, which keeps signing material off shared infrastructure. Release evidence is tied to a CI run for the exact commit instead of a local receipt. v0.1 still has no backup, so release notes and the README must warn users to keep the originals of their credentials elsewhere.
+
+## Amendment: iPhone distribution (#309)
+
+Stage 4 ([ADR 0014](0014-remote-approval.md)) distributes the iPhone approver through TestFlight external testing with a public link. Ad Hoc stays for development, and the App Store is a later issue.
+
+- **Where it runs.** The maintainer archives and uploads from their own Mac with `scripts/build-ios.sh` in its upload mode: an App Store Connect export with automatic signing that reads back both targets' signed entitlements (the app and `com.sudohg.askkey.ios.notification-service`). There is no signing in CI, and no Team ID, signing identity or App Store Connect credential is committed.
+- **Approval.** Each upload to external testing and each Beta App Review submission needs the maintainer's explicit approval, like a Mac release.
+- **Renewal.** TestFlight builds expire (after 90 days at the time of writing). The release checklist in [docs/testing.md](../testing.md) includes uploading a fresh build before the current one expires, so the public link keeps installing.
+- **Ordering.** The first Mac release that shows the Devices section is published only after the public TestFlight link installs ([#320](https://github.com/sudoHG/AskKey/issues/320)). If Beta App Review refuses the build, that release waits and the maintainer decides how to proceed.
+- The Mac release process above is otherwise unchanged; the Release build additionally requires the CloudKit option from stage 4 on (ADR 0014).
