@@ -260,6 +260,55 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
         }
     }
 
+    /// A paired iPhone's decision stays on its panel for about two seconds;
+    /// the next request waits until the panel closes itself (ADR 0014).
+    func testAPairedIPhonesDecisionKeepsItsPanelUntilItClosesItself() {
+        let harness = Harness()
+        harness.pending = [request("first"), request("second")]
+        harness.coordinator.presentPendingApproval()
+        harness.remoteOutcome = true
+        harness.pending = [request("second")]
+        harness.coordinator.presentPendingApproval()
+        XCTAssertEqual(harness.presented, ["first"])
+        XCTAssertEqual(harness.dismissCount, 0)
+        XCTAssertTrue(harness.coordinator.isPresenting)
+        harness.remoteOutcome = false
+        harness.finish?(nil)
+        XCTAssertEqual(harness.presented, ["first", "second"])
+        XCTAssertTrue(harness.applied.isEmpty)
+    }
+
+    func testChoosingAnotherRequestOrLockingDoesNotWaitForAPairedIPhonesDecision() {
+        let chosen = Harness()
+        chosen.pending = [request("first"), request("second")]
+        chosen.coordinator.presentPendingApproval()
+        chosen.remoteOutcome = true
+        chosen.pending = [request("second")]
+        chosen.coordinator.presentPendingApproval(operationID: "second", userInitiated: true)
+        XCTAssertEqual(chosen.dismissCount, 1)
+        XCTAssertEqual(chosen.presented, ["first", "second"])
+
+        let locked = Harness()
+        locked.pending = [request("first"), request("second")]
+        locked.coordinator.presentPendingApproval()
+        locked.remoteOutcome = true
+        locked.pending = [request("second")]
+        locked.screenState = .locked
+        locked.coordinator.presentPendingApproval()
+        XCTAssertEqual(locked.dismissCount, 1)
+        XCTAssertEqual(locked.presented, ["first"])
+    }
+
+    func testAStillPendingRequestKeepsItsPanelWhateverTheRemoteState() {
+        let harness = Harness()
+        harness.pending = [request("first"), request("second")]
+        harness.coordinator.presentPendingApproval()
+        harness.remoteOutcome = true
+        harness.coordinator.presentPendingApproval()
+        XCTAssertEqual(harness.presented, ["first"])
+        XCTAssertEqual(harness.dismissCount, 0)
+    }
+
     private func request(_ id: String, deadline: Date = Date(timeIntervalSince1970: 2_000_000_300)) -> BrokerPendingApproval {
         .init(requestID: id, capability: "synthetic-\(id)", request: .init(
             operationID: id, credentialID: id, targetID: id,
@@ -286,6 +335,7 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
         var applied: [String] = []
         var modal = false
         var modalReminders = 0
+        var remoteOutcome = false
         lazy var coordinator = AgentApprovalPresentationCoordinator(
             screenState: { self.screenState },
             presentationBlocked: { self.modal },
@@ -307,7 +357,8 @@ final class AgentApprovalPresentationCoordinatorTests: XCTestCase {
                     self.focusCount += 1
                     self.panelDisplay = self.currentDisplay
                     self.panelCovered = false
-                }, dismiss: { self.dismissCount += 1; finish(nil) })
+                }, dismiss: { self.dismissCount += 1; finish(nil) },
+                showsRemoteOutcome: { self.remoteOutcome })
             },
             applyDecision: { pending, _ in self.applied.append(pending.request.operationID) }
         )

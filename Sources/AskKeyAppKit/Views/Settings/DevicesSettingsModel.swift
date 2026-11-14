@@ -23,6 +23,8 @@ final class DevicesSettingsModel {
     private(set) var isSubmitting = false
     /// **Pair Again** is replacing the session; the sheet stays open meanwhile.
     private(set) var isRestarting = false
+    /// The iPhone whose **Approve agent requests** sheet is open.
+    private(set) var approverSheetDevice: PairedDeviceRow?
 
     @ObservationIgnored private var qrCache: (text: String, image: NSImage)?
 
@@ -83,6 +85,7 @@ final class DevicesSettingsModel {
         cancelRename()
         removalCandidate = nil
         confirmingReset = false
+        if approverSheetDevice != nil { closeApproverSheet() }
         await coordinator.devicesOpened()
     }
 
@@ -213,6 +216,78 @@ final class DevicesSettingsModel {
         if coordinator.account == .accountChanged, coordinator.devices.isEmpty {
             await coordinator.devicesOpened()
         }
+    }
+
+    // MARK: Approver
+
+    var isApproverSheetPresented: Bool { approverSheetDevice != nil }
+
+    var approverSheet: ApproverSheetPresentation? {
+        approverSheetDevice.map { ApproverSheetPresentation(device: $0, state: coordinator.approverConfirmation) }
+    }
+
+    /// Turning approval on needs the device services and the account the
+    /// devices were paired in, which carries the iPhone's confirmation.
+    var canTurnApproverOn: Bool {
+        coordinator.availability == .ready && coordinator.account == .available
+    }
+
+    /// Turning it off only writes this Mac's list, so it also works while
+    /// iCloud can't be reached.
+    var canTurnApproverOff: Bool { coordinator.availability == .ready }
+
+    func canChangeApprover(_ row: PairedDeviceRow) -> Bool {
+        row.isApprover ? canTurnApproverOff : canTurnApproverOn
+    }
+
+    /// The switch. Turning it on opens the sheet on its first step, which
+    /// only explains what will leave the Mac; turning it off takes effect at
+    /// once and asks for no authentication. Mac rows have no switch.
+    func setApprover(_ row: PairedDeviceRow, enabled: Bool) async {
+        guard row.platform == .iOS, enabled != row.isApprover, canChangeApprover(row) else { return }
+        guard enabled else {
+            await coordinator.disableApprover(row)
+            return
+        }
+        guard approverSheetDevice == nil else { return }
+        cancelRename()
+        removalCandidate = nil
+        // An attempt that ended earlier leaves its state; this one starts fresh.
+        coordinator.cancelApproverConfirmation()
+        approverSheetDevice = row
+    }
+
+    /// **Continue**: system authentication, then the code.
+    func continueApprover() async {
+        guard let row = approverSheetDevice, coordinator.approverConfirmation == nil else { return }
+        await coordinator.startApproverConfirmation(for: row.id)
+    }
+
+    /// **Start Again** after an attempt ended: system authentication again,
+    /// then a new code.
+    func startApproverAgain() async {
+        guard let row = approverSheetDevice, case .ended? = coordinator.approverConfirmation else { return }
+        coordinator.cancelApproverConfirmation()
+        await coordinator.startApproverConfirmation(for: row.id)
+    }
+
+    /// **Cancel**, **Done**, **Close** or closing the sheet: the code and
+    /// the authorization are discarded.
+    func closeApproverSheet() {
+        approverSheetDevice = nil
+        coordinator.cancelApproverConfirmation()
+    }
+
+    /// The section left the screen, for example because management locked:
+    /// the approver sheet must not come back on the next visit.
+    func sectionClosed() {
+        if approverSheetDevice != nil { closeApproverSheet() }
+    }
+
+    /// The coordinator dropped an open attempt itself, for example when
+    /// management locked; the sheet closes with it.
+    func approverStateChanged(from old: ApproverConfirmationState?, to new: ApproverConfirmationState?) {
+        if old?.isActive == true, new == nil, approverSheetDevice != nil { closeApproverSheet() }
     }
 
     // MARK: Reset

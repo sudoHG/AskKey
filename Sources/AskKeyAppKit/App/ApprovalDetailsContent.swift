@@ -33,7 +33,8 @@ struct ApprovalDetailsContent: Equatable {
 
     init(request: BrokerApprovalOperationRequest, credentialName: String, write: FrozenWriteSummaryContent? = nil,
          organization: FrozenOrganizationSummaryContent? = nil, timedAllowanceEnabled: Bool = false,
-         timedAllowanceMinutes: Int = 30, groupSnapshot: BrokerGroupAllowanceSnapshot? = nil, now: Date = Date()) {
+         timedAllowanceMinutes: Int = 30, groupSnapshot: BrokerGroupAllowanceSnapshot? = nil,
+         remote: RemoteApprovalStatus? = nil, now: Date = Date()) {
         var rows = [Row(label: appLocalized("Requested by"),
                         value: .text(appLocalizedFormat("%@ (not verified)", ApprovalCopy.requester(request))))]
         if let purpose = request.callerPurpose, !purpose.isEmpty {
@@ -64,6 +65,9 @@ struct ApprovalDetailsContent: Equatable {
                             timedAllowanceMinutes, expiry.formatted(.dateTime.locale(AppLanguage.locale(for: AppLanguage.current)))))))
                     }
                 }
+            }
+            if let remote, !remote.approvers.isEmpty {
+                rows.append(Row(label: appLocalized("iPhone"), value: .lines(remote.approvers.map(Self.remoteLine))))
             }
         case .create, .modify, .delete:
             if let write {
@@ -102,6 +106,28 @@ struct ApprovalDetailsContent: Equatable {
                 + files.map { deliveredLine(credentialName, variable: $0, file: true) }
         }
         return lines.isEmpty ? [Line(text: ApprovalLine(appLocalized("Nothing from this credential is given to the command")))] : lines
+    }
+
+    /// Where a read request went (ADR 0014 → Mac App): sending, sent but not
+    /// delivered, or delivered, on the Mac's clock.
+    private static func remoteLine(_ approver: RemoteApprovalStatus.Approver) -> Line {
+        if let delivered = approver.deliveredAt {
+            return Line(text: ApprovalLine(appLocalizedFormat("Delivered to “%1$@” at %2$@", approver.displayName,
+                                                              remoteTime(delivered))))
+        }
+        guard let sent = approver.sentAt else {
+            return Line(text: ApprovalLine(appLocalizedFormat("Sending to “%@”…", approver.displayName)))
+        }
+        return Line(text: ApprovalLine(appLocalizedFormat("Sent to “%1$@” at %2$@", approver.displayName, remoteTime(sent))),
+                    note: appLocalized("Not delivered yet"))
+    }
+
+    static func remoteTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = AppLanguage.locale(for: AppLanguage.current)
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 
     private static func deliveredLine(_ name: String, variable: String, file: Bool) -> Line {
@@ -162,7 +188,7 @@ struct ApprovalDetailsContent: Equatable {
     /// for the longest label.
     static func labelWidth() -> CGFloat {
         let labels = ["Requested by", "Purpose", "Command", "Runs in", "Hands over", "Contents", "Instructions",
-                      "Changes", "Group", "Value", "Entire group", "Expires"].map { appLocalized($0) }
+                      "Changes", "Group", "Value", "Entire group", "Expires", "iPhone"].map { appLocalized($0) }
             + [appLocalizedFormat("%lld minutes", 999), appLocalizedFormat("Step %lld", 64)]
         let font = NSFont.systemFont(ofSize: 12)
         return ceil(labels.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0) + 1
