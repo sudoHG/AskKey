@@ -112,7 +112,9 @@ struct MacDetailContent: View {
                 NoticeCard(symbol: row.isApprover ? "checkmark.shield.fill" : "shield.slash",
                            tone: row.isApprover ? .success : .info,
                            text: Text(row.isApprover ? "mac.status.approving" : "mac.status.notApproving", bundle: .kit))
-                Button(action: onApprove) { Text("mac.approve", bundle: .kit) }
+                // The iPhone cannot learn whether the Mac accepted; once its flag
+                // is on, the button only sends a new code.
+                Button(action: onApprove) { Text(row.isApprover ? "mac.approveAgain" : "mac.approve", bundle: .kit) }
                     .buttonStyle(ActionButtonStyle(kind: row.isApprover ? .secondary : .primary))
                 if row.isApprover {
                     Button(action: onStop) { Text("mac.stop", bundle: .kit) }

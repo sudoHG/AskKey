@@ -681,6 +681,23 @@
         }
       }
     },
+    "mac.approveAgain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a New Approval Code"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新输入审批码"
+          }
+        }
+      }
+    },
     "mac.rename": {
       "extractionState": "manual",
       "localizations": {
