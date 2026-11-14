@@ -97,15 +97,13 @@ class BuildAppCloudKitTests(unittest.TestCase):
         for secret in (fixtures.TEAM, fixtures.IDENTITY_NAME, fixtures.CERTIFICATE_SHA1):
             self.assertNotIn(secret, result.stdout + result.stderr)
 
-    def test_option_is_refused_outside_local_before_any_work(self):
-        for mode, message in (("Release", "until #269 stage 4 ships the iPhone app"),
-                              ("Debug", "signed ad hoc, which cannot carry the CloudKit and push entitlements"),
-                              ("E2E", "signed ad hoc, which cannot carry the CloudKit and push entitlements")):
+    def test_option_is_refused_in_ad_hoc_modes_before_any_work(self):
+        for mode in ("Debug", "E2E"):
             with self.subTest(mode=mode):
                 result = self.run_build(mode)
                 self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-                self.assertIn("ASKKEY_PROVISIONING_PROFILE is refused", result.stderr)
-                self.assertIn(message, result.stderr)
+                self.assertIn(f"ASKKEY_PROVISIONING_PROFILE is refused in {mode} builds", result.stderr)
+                self.assertIn("signed ad hoc, which cannot carry the CloudKit and push entitlements", result.stderr)
                 self.assertEqual(self.calls(), [])
                 self.assertFalse((self.root / APP).exists())
                 self.assertFalse((self.root / ".build/cloudkit-signing").exists())
@@ -113,6 +111,45 @@ class BuildAppCloudKitTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("ASKKEY_PROVISIONING_PROFILE is refused in Debug builds", result.stderr)
         self.assertEqual(self.calls(), [])
+
+    def test_release_without_the_option_fails_before_any_work(self):
+        # From #269 stage 4 on, a Release without CloudKit would drop the Devices section (ADR 0014).
+        result = self.run_build("Release", profile=False)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Release builds require ASKKEY_PROVISIONING_PROFILE", result.stderr)
+        self.assertIn("it is not set", result.stderr)
+        self.assertNoSecrets(result)
+        self.assertEqual(self.calls(), [])
+        self.assertFalse((self.root / APP).exists())
+        result = self.run_build("Release", profile=False, ASKKEY_PROVISIONING_PROFILE="")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("must name a provisioning profile file", result.stderr)
+        self.assertFalse([call for call in self.calls() if call[0] in ("swift", "xcodebuild", "codesign")])
+
+    def test_release_build_embeds_signs_with_the_updater_on_and_reads_back(self):
+        result = self.run_build("Release")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNoSecrets(result)
+        signings = self.signings()
+        self.assertEqual([entry["target"] for entry in signings], NESTED_TARGETS + [str(APP)])
+        for entry in signings:
+            self.assertTrue(entry["profile"], f"{entry['target']} was signed before the profile was embedded")
+            self.assertEqual(entry["container"], fixtures.CONTAINER)
+            self.assertEqual(entry["entitlements"], entry["target"] == str(APP), entry["target"])
+        sign_calls = [call for call in self.calls() if call[0] == "codesign" and "--sign" in call]
+        self.assertTrue(all(call[call.index("--sign") + 1] == fixtures.CERTIFICATE_SHA1 for call in sign_calls))
+        self.assertTrue(all({"--options", "runtime", "--timestamp"} <= set(call) for call in sign_calls))
+        self.assertEqual(self.app("embedded.provisionprofile").read_bytes(), self.profile.read_bytes())
+        generated = self.root / ".build/cloudkit-signing/AskKeyApp.entitlements"
+        self.assertEqual(plistlib.loads(generated.read_bytes()), fixtures.ENTITLEMENTS)
+        info = plistlib.loads(self.app("Info.plist").read_bytes())
+        self.assertEqual(info["CloudKitContainerIdentifier"], fixtures.CONTAINER)
+        self.assertEqual((info["CFBundleIdentifier"], info["CFBundleVersion"]), (fixtures.BUNDLE_ID, "9.9.9"))
+        self.assertEqual(info["SUFeedURL"], "https://askkey.sudohg.com/appcast.xml")
+        self.assertIn("Read back: the signed entitlements and the embedded provisioning profile", result.stdout)
+        calls = self.calls()
+        self.assertIn(["codesign", "-dv", "--verbose=4", str(APP)], calls)
+        self.assertTrue([call for call in calls if call[:4] == ["codesign", "--verify", "--strict", "-R"]])
 
     def test_empty_or_relative_profile_path_in_local(self):
         result = self.run_build("Local", profile=False, ASKKEY_PROVISIONING_PROFILE="")
@@ -206,15 +243,15 @@ class BuildAppCloudKitTests(unittest.TestCase):
                 self.assertNoSecrets(result)
                 self.assertFalse([call for call in self.calls() if call[:2] == ["codesign", "--verify"]])
 
-    def test_every_mode_without_the_option_is_unchanged(self):
+    def test_every_other_mode_without_the_option_is_unchanged(self):
         info = {}
-        for mode in ("Local", "Release", "Debug", "E2E"):
+        for mode in ("Local", "Debug", "E2E"):
             with self.subTest(mode=mode):
                 self.trace.unlink(missing_ok=True)
                 (self.directory / "tool-state/signing.jsonl").unlink(missing_ok=True)
                 result = self.run_build(mode, profile=False)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                cli = ".build/release/askkey" if mode in ("Local", "Release") else ".build/debug/askkey"
+                cli = ".build/release/askkey" if mode == "Local" else ".build/debug/askkey"
                 self.assertEqual([entry["target"] for entry in self.signings()],
                                  [cli] + NESTED_TARGETS[1:] + [str(APP)])
                 self.assertFalse([entry for entry in self.signings() if entry["entitlements"] or entry["profile"]])
@@ -225,7 +262,7 @@ class BuildAppCloudKitTests(unittest.TestCase):
                 info[mode] = plistlib.loads(self.app("Info.plist").read_bytes())
                 self.assertNotIn("CloudKitContainerIdentifier", info[mode])
                 sign_calls = [call for call in self.calls() if call[0] == "codesign" and "--sign" in call]
-                identity = fixtures.IDENTITY_NAME if mode in ("Local", "Release") else "-"
+                identity = fixtures.IDENTITY_NAME if mode == "Local" else "-"
                 self.assertTrue(all(call[call.index("--sign") + 1] == identity for call in sign_calls))
         self.assertEqual(self.run_build("Local").returncode, 0)
         with_option = plistlib.loads(self.app("Info.plist").read_bytes())
@@ -245,6 +282,13 @@ class BuildAppCloudKitTests(unittest.TestCase):
         added = set(plistlib.loads(self.app("Info.plist").read_bytes())) - without_option
         self.assertEqual(added, {"CloudKitContainerIdentifier"})
         self.assertFalse([key for key in added if key.startswith(match.group(1))])
+        # The Release build, the only one with the updater, carries no key with that prefix at all.
+        result = self.run_build("Release")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        release = plistlib.loads(self.app("Info.plist").read_bytes())
+        self.assertIn("CloudKitContainerIdentifier", release)
+        self.assertIn("SUFeedURL", release)
+        self.assertFalse([key for key in release if key.startswith(match.group(1))])
 
     def test_nested_code_signing_lines_carry_no_entitlements(self):
         source = (ROOT / "scripts/build-app.sh").read_text(encoding="utf-8")

@@ -85,7 +85,11 @@ class BuildAppSparkleScriptTests(unittest.TestCase):
 
 
 class BuildAppReleaseKeyTests(unittest.TestCase):
-    """Run a copy of the script with stubs, so it stops right after the key check."""
+    """Run a copy of the script with stubs, so it stops right after the key check.
+
+    Release builds require the CloudKit option (ADR 0014); its profile check, the step after the
+    key check, is a stub that stops the run.
+    """
 
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="askkey-build-app-test-")
@@ -98,6 +102,9 @@ class BuildAppReleaseKeyTests(unittest.TestCase):
         (scripts / "product-version.sh").write_text(
             f"echo {PAST_KEY_CHECK} >&2\nexit 3\n", encoding="utf-8"
         )
+        (scripts / "cloudkit-signing.py").write_text(
+            f"import sys\nprint({PAST_KEY_CHECK!r}, file=sys.stderr)\nsys.exit(3)\n", encoding="utf-8"
+        )
         self.environment = {key: value for key, value in os.environ.items() if not key.startswith("ASKKEY_")}
 
     def run_script(self, mode, key=None):
@@ -109,6 +116,7 @@ class BuildAppReleaseKeyTests(unittest.TestCase):
                 "ASKKEY_RELEASES_ENABLED": "true",
                 "ASKKEY_CODESIGN_IDENTITY": "Synthetic Identity",
                 "ASKKEY_APPLE_TEAM_ID": "SYNTHETIC",
+                "ASKKEY_PROVISIONING_PROFILE": str(self.root / "Synthetic.provisionprofile"),
             })
         return subprocess.run(["bash", str(self.root / "scripts/build-app.sh"), mode],
                               env=environment, text=True, capture_output=True, timeout=60)
@@ -140,6 +148,11 @@ class BuildAppReleaseKeyTests(unittest.TestCase):
 
     def test_debug_needs_no_key(self):
         self.assertPassedKeyCheck(self.run_script("Debug"))
+
+    def test_key_check_runs_before_the_profile_check(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        self.assertLess(source.index('[ -f "$SPARKLE_PUBLIC_KEY_FILE" ]'),
+                        source.index("python3 scripts/cloudkit-signing.py prepare"))
 
 
 @unittest.skipUnless(

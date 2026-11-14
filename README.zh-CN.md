@@ -145,6 +145,18 @@ Claude Code、Codex、Cursor 和 Grok CLI。在应用的 **Agent 接入**页面�
 
 请旨 0.6.0 及更早的版本没有备份功能，使用这些版本时请在其他地方保留凭证原件。
 
+## 在 iPhone 上审批
+
+请旨 iPhone 版让你不在 Mac 前时也能决定 Agent 的读取请求。两台设备需要登录同一个 Apple 账户并使用 iCloud。在“设置 → 设备”中，“配对设备…”提供 iPhone 版的下载链接；安装后用它扫描二维码，在 Mac 上输入 iPhone 显示的配对码并确认。然后打开这台 iPhone 那一行的“审批 Agent 请求”：这需要在 Mac 上通过系统验证，再在那台 iPhone 的请旨里输入 Mac 显示的审批码，并用面容 ID 或触控 ID 确认。在你打开之前，每台 iPhone 的审批都是关闭的，重新配对后也是如此。
+
+打开审批后，等你处理的读取请求也会发到 iPhone：Mac 锁屏时立即发送，否则在 Mac 上等待 20 秒后或 Mac 锁屏时发送。Mac 和 iPhone 上谁先做出决定，就以谁为准。在 iPhone 上允许需要面容 ID 或触控 ID，拒绝不需要。开启“锁屏时结束限时允许”时，iPhone 不会提供限时允许；关闭时，即使 Mac 已锁屏，iPhone 也可以授予限时允许。写入、分组修改和分组限时允许仍只能在 Mac 上处理。
+
+**哪些信息会离开 Mac。** 在你第一次选择“配对设备…”之前，请旨不会发出任何 CloudKit（iCloud 数据库）请求，也不会注册推送通知。开始配对会为这台 Mac 创建设备身份。此后，它把你 iCloud 账户的 CloudKit 私有数据库当作已配对设备之间的信箱，并通过 Apple 推送通知服务得知有新消息。每条消息都在你的已配对设备之间端到端加密。运营 iCloud 的 Apple 能看到哪些设备在何时互发消息，以及每条消息的类型和大小，但看不到消息内容和设备名称。iPhone 发回的只有它签名的决定和送达回执。
+
+发到 iPhone 的请求包含：Agent 的名称和它声明的用途（都由 Agent 自报，未经验证）、凭证名称、审批提示里显示的命令行和工作目录、程序名称、凭证交付时使用的名称（环境变量和临时文件）、截止时间，以及可选的决定和限时允许的时长。请求里绝不会有凭证的值或任何已保存的组成部分、文件内容、其余环境变量、写入的内容、保险库密钥、任何关于隐藏凭证的信息，也没有这台 Mac 的名称。
+
+iPhone 上的通知只有在 iPhone 上的请旨取回、解密并验证这是一台你已开启审批的 Mac 发来的请求之后，才会把它显示为一句话，例如：“Codex”在“MacBook Pro”上想使用“GitHub Token”运行 deploy.sh。否则只显示“一台已配对的设备发来一条消息。”通知里绝不会出现凭证的值、命令参数、文件夹或变量名。锁定屏幕上是否显示详情取决于 iPhone 的“显示预览”设置（默认仅在解锁时显示），已送达的通知会留在通知中心，直到你清除。请在请旨应用里的卡片上做决定，而不要只凭通知文字：任何能写入你 iCloud 的人，都能让你的设备以请旨的名义显示任意文字的通知。设计记录见 [ADR 0014](docs/adr/0014-remote-approval.md)。
+
 ## 升级
 
 更新到 0.6.0 前，先退出请旨。按[安装](#安装)中的步骤下载并校验新版 DMG，用其中的应用替换 `/Applications/Ask Key.app`，然后从“应用程序”打开请旨。
@@ -159,7 +171,7 @@ Claude Code、Codex、Cursor 和 Grok CLI。在应用的 **Agent 接入**页面�
 
 从 0.6.0 起，请旨可以自行更新。第二次启动时，请旨会询问是否自动检查更新（每天一次）。之后可以在“设置 → 通用”中用“自动检查更新”更改；也可以随时在那里、菜单栏图标的菜单或它的右键菜单中选择“检查更新…”。你确认之前，不会安装任何更新。安装时，请旨会等到没有待处理或进行中的请求后再重新启动；重启后请旨重新锁定，所有限时允许随之结束。已连接的 Agent 无需重新配置：安装路径、helper 和 Broker 协议都不变，正在运行的 helper 也能继续使用。新版本新增的工具，要等 Agent 重启它的 MCP 服务后才会出现。只有位于 `/Applications/Ask Key.app` 的正式版会检查更新，开发版和测试版不会。更新窗口跟随请旨的语言设置；更改语言后，下次打开请旨时切换。
 
-检查更新是请旨唯一的对外网络请求。每次检查会经由 Cloudflare 请求 `https://askkey.sudohg.com/appcast.xml`，再跳转到最新 [GitHub Release](https://github.com/sudoHG/AskKey/releases) 中的 appcast；下载更新也来自 GitHub。两者都能看到你的 IP 地址。请求带有 `User-Agent`（`Ask Key/<版本> Sparkle/<版本>`）和 macOS 自动添加的标准请求头，例如你的首选语言；不会发送系统概况。appcast 和更新包都必须带有请旨 EdDSA 密钥的有效签名，否则不会安装。关闭自动检查后，只有在你选择“检查更新…”时才会发出请求。具体请求内容见 [ADR 0011](docs/adr/0011-in-app-updates.md)。
+在你开始配对设备之前，检查更新是请旨唯一的对外网络请求；配对之后增加的内容见[在 iPhone 上审批](#在-iphone-上审批)。每次检查会经由 Cloudflare 请求 `https://askkey.sudohg.com/appcast.xml`，再跳转到最新 [GitHub Release](https://github.com/sudoHG/AskKey/releases) 中的 appcast；下载更新也来自 GitHub。两者都能看到你的 IP 地址。请求带有 `User-Agent`（`Ask Key/<版本> Sparkle/<版本>`）和 macOS 自动添加的标准请求头，例如你的首选语言；不会发送系统概况。appcast 和更新包都必须带有请旨 EdDSA 密钥的有效签名，否则不会安装。关闭自动检查后，只有在你选择“检查更新…”时才会发出请求。具体请求内容见 [ADR 0011](docs/adr/0011-in-app-updates.md)。
 
 0.5.0 及更早的版本没有更新功能：请关注 [GitHub Releases](https://github.com/sudoHG/AskKey/releases)，按上面的步骤手动更新。
 
