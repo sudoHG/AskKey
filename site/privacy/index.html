@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacy policy — Ask Key</title>
-  <meta name="description" content="What Ask Key for iPhone and Ask Key for Mac handle, where it is kept, and how to remove it. Ask Key has no servers, and nothing reaches the developer.">
+  <meta name="description" content="What Ask Key for iPhone and Ask Key for Mac handle, where it is kept, and how to remove it. Ask Key has no servers, and the iPhone app sends nothing to the developer.">
   <link rel="canonical" href="https://askkey.sudohg.com/privacy/">
   <link rel="alternate" hreflang="en" href="https://askkey.sudohg.com/privacy/">
   <link rel="alternate" hreflang="zh-Hans" href="https://askkey.sudohg.com/zh/privacy/">
   <link rel="alternate" hreflang="x-default" href="https://askkey.sudohg.com/privacy/">
   <meta property="og:title" content="Privacy policy — Ask Key">
-  <meta property="og:description" content="What Ask Key handles, where it is kept, and how to remove it. Nothing reaches the developer.">
+  <meta property="og:description" content="What Ask Key handles, where it is kept, and how to remove it. The iPhone app sends nothing to the developer.">
   <meta property="og:url" content="https://askkey.sudohg.com/privacy/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Ask Key">
@@ -63,23 +63,24 @@
 
     <h2>What Ask Key for iPhone handles</h2>
     <ul>
-      <li><b>Requests from your own Mac.</b> When an agent on your Mac asks to use a credential and you have turned on approval for this iPhone on that Mac, the Mac sends the request: the agent’s name, the credential’s name, the Mac’s name, the command, the folder, and the names the credential is delivered as. A request never contains a credential’s value.</li>
+      <li><b>Requests from your own Mac.</b> When an agent on your Mac asks to use a credential and you have turned on approval for this iPhone on that Mac, the Mac sends the request: the agent’s name and the purpose it states, the credential’s name, the command, the folder, the program’s name, and the names the credential is delivered as, with the deadline and the choices offered, including the length of a timed allowance. The iPhone shows the Mac under the name it has for it; the request does not carry it. A request never contains a credential’s value.</li>
       <li><b>Your decisions.</b> Allow or Deny, signed on this iPhone and sent back to that Mac. Allow needs Face ID or Touch ID: iOS checks your face or fingerprint, and the app only learns whether the check passed.</li>
       <li><b>Pairing.</b> The camera is used only to scan the pairing QR code that Ask Key shows on your Mac; no picture is kept or sent. Pairing exchanges the two devices’ public keys and their names, such as the name iOS reports for this iPhone.</li>
     </ul>
 
     <h2>How it travels</h2>
     <ul>
-      <li>Messages between your Mac and your iPhone go through the private iCloud database of the Apple Account you use on both. They are end-to-end encrypted, so only your paired devices can read them. Apple, which runs iCloud, can see which devices exchange messages and when, but not what they say or the names in them.</li>
-      <li>The receiving device deletes a message from iCloud after reading it, and deletes expired messages from its inbox when it checks. Most messages expire within 10 minutes; a notice that a device was removed lasts 30 days. Messages for a device that stops checking stay in iCloud, encrypted.</li>
+      <li>Messages between your Mac and your iPhone go through the private iCloud database of the Apple Account you use on both. They are end-to-end encrypted, so only your paired devices can read them. Apple, which runs iCloud, can see which devices exchange messages, when, and the type and size of each, but not what they say or the names in them.</li>
+      <li>The receiving app deletes a message from iCloud after processing it; the notification extension only reads. Each device also deletes expired messages from its inbox when its app checks. Most messages expire within 10 minutes; a notice that a device was removed lasts 30 days. Messages that a device’s app never processes, for example because it was deleted, stay in iCloud, encrypted.</li>
       <li>iCloud wakes the app through Apple’s push notification service. A push carries no request details: the app fetches and decrypts the message itself.</li>
     </ul>
 
     <h2>What stays on your iPhone</h2>
     <ul>
-      <li>In the iPhone’s keychain, on this device only: the iPhone’s keys, whose private parts are created in the Secure Enclave and never leave it; the list of paired Macs with the names you see; and a small counter the notification extension uses to limit time-sensitive notifications.</li>
+      <li>In the iPhone’s keychain, on this device only: the iPhone’s keys, whose private parts are created in the Secure Enclave and never leave it; the list of paired Macs with the names you see; and the notification extension’s own record, without content: when each Mac last had a time-sensitive notification, and the record names and times of the last 20 delivery checks it answered.</li>
       <li>In the app’s files: requests and your decisions, stored encrypted, until they expire. The app deletes them the next time it runs after that.</li>
-      <li>In the app’s settings: its place in its iCloud inbox, this iPhone’s device ID, and the record names and times of the last 50 delivery checks, without content.</li>
+      <li>In the app’s settings: its place in its iCloud inbox with the identifier iCloud gives your account for this app, this iPhone’s device ID, and the record names and times of the last 50 delivery checks, without content.</li>
+      <li>In the iPhone’s system log: record names, times and reasons a message was refused, without content.</li>
     </ul>
 
     <h2>Notifications</h2>
@@ -87,20 +88,21 @@
     <p>iOS stores delivered notifications in Notification Center until you clear them, and the app removes a request’s notification once it knows the request is over. Whether details appear on the Lock Screen follows Settings → Notifications → Show Previews.</p>
 
     <h2>What reaches the developer</h2>
-    <p>Nothing. Ask Key has no servers, no account, no analytics, no advertising and no tracking, and the app contains no third-party code.</p>
+    <p>From Ask Key for iPhone, nothing. It has no servers, no account, no analytics, no advertising and no tracking, and contains no third-party code.</p>
+    <p>From Ask Key for Mac, nothing about you or your credentials. Its update checks and downloads go through Cloudflare and GitHub, whose dashboards show the developer request and download counts. This website’s visit statistics are described under This website.</p>
     <p>Apple may share some information with developers on your behalf. If you turn on Share With App Developers in Settings → Privacy &amp; Security → Analytics &amp; Improvements, Apple may send the developer crash reports. If you install a beta through TestFlight, Apple shares what <a href="https://www.apple.com/legal/privacy/data/en/test-flight/">TestFlight &amp; Privacy</a> describes, such as installs, sessions, crashes and any feedback you send.</p>
 
     <h2>Removing your data</h2>
     <ul>
-      <li><b>A paired Mac.</b> On the iPhone, open the Mac in Paired Macs and choose Remove: the iPhone stops trusting it at once and tells the Mac. On the Mac, remove the iPhone in Settings → Devices.</li>
+      <li><b>A paired Mac.</b> On the iPhone, open the Mac in Paired Macs and choose Remove: the iPhone stops trusting it at once and tries to tell the Mac; if that fails, the app asks you to remove the iPhone on the Mac too. On the Mac, remove the iPhone in Settings → Devices.</li>
       <li><b>Notifications.</b> Clear them in Notification Center.</li>
-      <li><b>The app.</b> Deleting the app removes its files and settings. iOS may keep its keychain items after the app is deleted: they stay on this iPhone, only Ask Key can read them, and Ask Key uses them again if you reinstall it. Erase All Content and Settings removes them.</li>
-      <li><b>iCloud.</b> Messages are deleted once read or expired, as long as the device they are for keeps checking. What remains is the inbox each device created; anything left in it stays encrypted.</li>
+      <li><b>The app.</b> Deleting the app removes its files and settings. iOS may keep its keychain items, including the extension’s record, after the app is deleted: they stay on this iPhone, only Ask Key can read them, and Ask Key uses them again if you reinstall it. Erase All Content and Settings removes them.</li>
+      <li><b>iCloud.</b> Each device’s inbox, and any messages it has not processed, stay in your iCloud after you delete the app; they hold only encrypted messages and routing data. Ask Key has no command that deletes them. If Ask Key is listed under Settings → your name → iCloud → Storage (Manage Account Storage on some versions), you can delete its data there, as <a href="https://support.apple.com/en-us/108922">Manage your iCloud storage</a> describes.</li>
     </ul>
-    <p>The developer holds none of your data, so there is nothing to request or delete on our side.</p>
+    <p>The developer holds none of the data the apps handle. Crash reports and TestFlight information that Apple passes on stay in App Store Connect; to have something you sent deleted, open an issue without including the data itself.</p>
 
     <h2>Ask Key for Mac</h2>
-    <p>Ask Key for Mac keeps your credentials encrypted on your Mac and gives them only to the programs you allow. Its only other network request is the update check: the app requests askkey.sudohg.com/appcast.xml, which Cloudflare redirects to GitHub. Both see your IP address and the app’s version; no system profile is sent. A Mac that pairs a device also uses your iCloud as described above.</p>
+    <p>Ask Key for Mac keeps your credentials encrypted on your Mac and gives them only to the programs you allow. Without a paired device, its only network request is the update check: the app requests askkey.sudohg.com/appcast.xml, which Cloudflare redirects to GitHub, and an update you install downloads from GitHub. Both see your IP address, the versions of Ask Key and its updater, and the standard headers macOS adds, including your preferred languages; cookies they set are stored for Ask Key. No system profile is sent. A Mac that pairs a device also uses your iCloud as described above.</p>
 
     <h2>This website</h2>
     <p>askkey.sudohg.com is served by Cloudflare Pages and counts visits with VibeCafé’s analytics script. Neither is part of the apps.</p>

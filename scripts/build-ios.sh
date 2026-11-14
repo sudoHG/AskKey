@@ -54,7 +54,8 @@ if [[ "$MODE" == upload ]]; then
   [[ -n "$CREDENTIAL" ]] || { echo 'Set ASKKEY_ASC_CREDENTIAL to the Ask Key credential with the App Store Connect API key.' >&2; exit 1; }
   HELPER="${ASKKEY_RELEASE_HELPER:-/Applications/Ask Key.app/Contents/Helpers/askkey}"
   [[ -x "$HELPER" ]] || { echo "No Ask Key helper at $HELPER." >&2; exit 1; }
-  [[ -z "$(git status --porcelain)" ]] || { echo 'Upload from a clean checkout of the commit to ship.' >&2; exit 1; }
+  STATUS="$(git status --porcelain)" || { echo 'Cannot read the checkout status.' >&2; exit 1; }
+  [[ -z "$STATUS" ]] || { echo 'Upload from a clean checkout of the commit to ship.' >&2; exit 1; }
 fi
 
 AVAILABLE_KIB="$(df -k /System/Volumes/Data | awk 'NR==2 {print $4}')"
@@ -255,10 +256,13 @@ export|upload)
   APPEX="$APP/PlugIns/$EXTENSION.appex"
   codesign --verify --strict "$APPEX"
   codesign --verify --strict "$APP"
-  codesign -d --entitlements - --xml "$APP" > "$CHECK/app.plist" 2>/dev/null
-  codesign -d --entitlements - --xml "$APPEX" > "$CHECK/extension.plist" 2>/dev/null
-  security cms -D -i "$APP/embedded.mobileprovision" > "$CHECK/app-profile.plist" 2>/dev/null
-  security cms -D -i "$APPEX/embedded.mobileprovision" > "$CHECK/extension-profile.plist" 2>/dev/null
+  for target in app extension; do
+    bundle="$APP"; [[ "$target" == app ]] || bundle="$APPEX"
+    codesign -d --entitlements - --xml "$bundle" > "$CHECK/$target.plist" 2>/dev/null \
+      || { echo "Cannot read the $target's signed entitlements." >&2; exit 1; }
+    security cms -D -i "$bundle/embedded.mobileprovision" > "$CHECK/$target-profile.plist" 2>/dev/null \
+      || { echo "Cannot read the $target's embedded profile." >&2; exit 1; }
+  done
   check_packaging "$APP" "$APPEX" "${BUILD_NUMBER:-}"
   python3 - "$MODE" "$CHECK" "$APP" "$APPEX" "$TEAM" "$BUNDLE_ID" "$EXTENSION_BUNDLE_ID" "$CONTAINER" "$ACCESS_GROUP_SUFFIX" <<'PY'
 import plistlib, sys

@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>隐私政策 · 请旨 Ask Key</title>
-  <meta name="description" content="请旨 iPhone 版和 Mac 版处理哪些信息、存在哪里、如何删除。请旨没有服务器，开发者收不到你的任何数据。">
+  <meta name="description" content="请旨 iPhone 版和 Mac 版处理哪些信息、存在哪里、如何删除。请旨没有服务器，iPhone 版不向开发者发送任何数据。">
   <link rel="canonical" href="https://askkey.sudohg.com/zh/privacy/">
   <link rel="alternate" hreflang="en" href="https://askkey.sudohg.com/privacy/">
   <link rel="alternate" hreflang="zh-Hans" href="https://askkey.sudohg.com/zh/privacy/">
   <link rel="alternate" hreflang="x-default" href="https://askkey.sudohg.com/privacy/">
   <meta property="og:title" content="隐私政策 · 请旨 Ask Key">
-  <meta property="og:description" content="请旨处理哪些信息、存在哪里、如何删除。开发者收不到你的任何数据。">
+  <meta property="og:description" content="请旨处理哪些信息、存在哪里、如何删除。iPhone 版不向开发者发送任何数据。">
   <meta property="og:url" content="https://askkey.sudohg.com/zh/privacy/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="请旨 Ask Key">
@@ -62,23 +62,24 @@
 
     <h2>iPhone 版处理哪些信息</h2>
     <ul>
-      <li><b>来自你自己 Mac 的请求。</b>当你的 Mac 上有 Agent 请求使用凭证，而你已在那台 Mac 上为这台 iPhone 开启审批时，Mac 会把请求发过来：Agent 的名称、凭证的名称、Mac 的名称、命令、所在文件夹，以及凭证交付时使用的变量名。请求里永远不含凭证的值。</li>
+      <li><b>来自你自己 Mac 的请求。</b>当你的 Mac 上有 Agent 请求使用凭证，而你已在那台 Mac 上为这台 iPhone 开启审批时，Mac 会把请求发过来：Agent 的名称和它自述的用途、凭证的名称、命令、所在文件夹、程序名称、凭证交付时使用的变量名，以及截止时间和可选的决定（包括限时允许的时长）。iPhone 用它为那台 Mac 保存的名称显示它，请求里不带 Mac 的名称。请求里永远不含凭证的值。</li>
       <li><b>你的决定。</b>允许或拒绝，在这台 iPhone 上签名后发回那台 Mac。允许需要面容 ID 或触控 ID：由 iOS 验证你的面容或指纹，应用只知道验证是否通过。</li>
       <li><b>配对。</b>相机只用来扫描请旨在你的 Mac 上显示的配对二维码，不保存也不发送任何画面。配对时两台设备交换公钥和名称，例如 iOS 为这台 iPhone 提供的名称。</li>
     </ul>
 
     <h2>信息怎么传递</h2>
     <ul>
-      <li>Mac 与 iPhone 之间的消息经由你在两台设备上登录的 Apple 账户的 iCloud 私有数据库传递，并且端到端加密，只有你配对的设备能读取。运营 iCloud 的 Apple 能看到哪些设备在何时互发消息，但看不到消息内容和其中的名称。</li>
-      <li>接收方读取消息后会把它从 iCloud 删除，检查收件箱时也会删除已过期的消息。大多数消息在 10 分钟内过期；设备被移除的通知保留 30 天。发给一台不再检查收件箱的设备的消息会以加密形式留在 iCloud 中。</li>
+      <li>Mac 与 iPhone 之间的消息经由你在两台设备上登录的 Apple 账户的 iCloud 私有数据库传递，并且端到端加密，只有你配对的设备能读取。运营 iCloud 的 Apple 能看到哪些设备在何时互发消息，以及每条消息的类型和大小，但看不到消息内容和其中的名称。</li>
+      <li>接收方的应用处理完消息后会把它从 iCloud 删除；通知扩展只读取，不删除。每台设备的应用检查收件箱时，也会删除已过期的消息。大多数消息在 10 分钟内过期；设备被移除的通知保留 30 天。设备上的应用始终没有处理的消息（例如应用已被删除）会以加密形式留在 iCloud 中。</li>
       <li>iCloud 通过 Apple 推送通知服务唤醒应用。推送不含任何请求详情，应用会自己取回并解密消息。</li>
     </ul>
 
     <h2>留在 iPhone 上的信息</h2>
     <ul>
-      <li>iPhone 钥匙串里（仅限这台设备）：这台 iPhone 的密钥，其私钥在安全隔区中生成且从不离开；已配对 Mac 的列表及你看到的名称；通知扩展用来限制时效性通知数量的一个小计数。</li>
+      <li>iPhone 钥匙串里（仅限这台设备）：这台 iPhone 的密钥，其私钥在安全隔区中生成且从不离开；已配对 Mac 的列表及你看到的名称；通知扩展自己的记录，不含内容：每台 Mac 上一次发出时效性通知的时间，以及它最近答复的 20 次送达检查的记录名和时间。</li>
       <li>应用文件里：请求和你的决定，以加密形式保存到过期为止，过期后应用下次运行时删除。</li>
-      <li>应用设置里：它在 iCloud 收件箱中的位置、这台 iPhone 的设备 ID，以及最近 50 次送达检查的记录名和时间，不含内容。</li>
+      <li>应用设置里：它在 iCloud 收件箱中的位置及 iCloud 为这个应用分配给你账户的标识符、这台 iPhone 的设备 ID，以及最近 50 次送达检查的记录名和时间，不含内容。</li>
+      <li>iPhone 的系统日志里：记录名、时间和消息被拒收的原因，不含内容。</li>
     </ul>
 
     <h2>通知</h2>
@@ -86,20 +87,21 @@
     <p>已送达的通知由 iOS 保存在通知中心，直到你清除；应用得知请求已结束后，也会移除对应的通知。锁定屏幕上是否显示详情，取决于“设置”→“通知”→“显示预览”。</p>
 
     <h2>开发者能收到什么</h2>
-    <p>什么也收不到。请旨没有服务器、没有账号、没有统计分析、没有广告、不做跟踪，应用里也没有任何第三方代码。</p>
-    <p>Apple 可能会替你把部分信息分享给开发者。如果你在“设置”→“隐私与安全性”→“分析与改进”中打开了“与 App 开发者共享”，Apple 可能把崩溃报告发给开发者。如果你通过 TestFlight 安装测试版，Apple 会按照 <a href="https://www.apple.com/legal/privacy/data/en/test-flight/">TestFlight 与隐私</a>的说明分享信息，例如安装、使用次数、崩溃以及你提交的反馈。</p>
+    <p>从请旨 iPhone 版，什么也收不到。它没有服务器、没有账号、没有统计分析、没有广告、不做跟踪，也不含任何第三方代码。</p>
+    <p>从请旨 Mac 版，收不到任何关于你或你的凭证的信息。它的检查更新和下载经由 Cloudflare 和 GitHub，开发者能在它们的后台看到请求数和下载次数。本网站的访问统计见下文“本网站”。</p>
+    <p>Apple 可能会替你把部分信息分享给开发者。如果你在“设置”→“隐私与安全性”→“分析与改进”中打开了“与 App 开发者共享”，Apple 可能把崩溃报告发给开发者。如果你通过 TestFlight 安装测试版，Apple 会按照 <a href="https://www.apple.com/legal/privacy/data/zh-cn/test-flight/">TestFlight 与隐私</a>的说明分享信息，例如安装、使用次数、崩溃以及你提交的反馈。</p>
 
     <h2>如何删除</h2>
     <ul>
-      <li><b>已配对的 Mac。</b>在 iPhone 上打开“已配对的 Mac”里的那台 Mac，选择移除：iPhone 立即停止信任它，并通知那台 Mac。在 Mac 上，到“设置”→“设备”中移除这台 iPhone。</li>
+      <li><b>已配对的 Mac。</b>在 iPhone 上打开“已配对的 Mac”里的那台 Mac，选择移除：iPhone 立即停止信任它，并尝试通知那台 Mac；通知失败时，应用会提示你也在 Mac 上移除这台 iPhone。在 Mac 上，到“设置”→“设备”中移除这台 iPhone。</li>
       <li><b>通知。</b>在通知中心清除。</li>
-      <li><b>应用。</b>删除应用会移除它的文件和设置。删除应用后，iOS 可能保留它的钥匙串项目：这些项目留在这台 iPhone 上，只有请旨能读取，重新安装后请旨会再次使用它们。“抹掉所有内容和设置”会移除它们。</li>
-      <li><b>iCloud。</b>只要收件设备还在检查收件箱，消息在读取或过期后就会删除。剩下的是每台设备创建的收件箱，其中留下的任何内容都是加密的。</li>
+      <li><b>应用。</b>删除应用会移除它的文件和设置。删除应用后，iOS 可能保留它的钥匙串项目（包括通知扩展的记录）：这些项目留在这台 iPhone 上，只有请旨能读取，重新安装后请旨会再次使用它们。“抹掉所有内容和设置”会移除它们。</li>
+      <li><b>iCloud。</b>删除应用后，每台设备的收件箱以及其中尚未处理的消息会留在你的 iCloud 里，只含加密消息和路由数据。请旨没有删除它们的命令。如果“设置”→你的名字→“iCloud”→“储存空间”（部分版本为“管理账户储存空间”）中列出了请旨，可以在那里删除它的数据，参见 Apple 的<a href="https://support.apple.com/zh-cn/108922">管理 iCloud 储存空间</a>。</li>
     </ul>
-    <p>开发者不持有你的任何数据，因此无需向我们申请查询或删除。</p>
+    <p>开发者不持有应用处理的任何数据。Apple 转交的崩溃报告和 TestFlight 信息保存在 App Store Connect 中；如需删除你提交过的内容，请提交 Issue，但不要在其中附上这些数据本身。</p>
 
     <h2>请旨 Mac 版</h2>
-    <p>请旨 Mac 版把你的凭证加密保存在你的 Mac 上，只交给你允许的程序。它唯一的其他网络请求是检查更新：应用请求 askkey.sudohg.com/appcast.xml，由 Cloudflare 重定向到 GitHub。两者能看到你的 IP 地址和应用版本，不发送任何系统信息。配对了设备的 Mac 还会按上文所述使用你的 iCloud。</p>
+    <p>请旨 Mac 版把你的凭证加密保存在你的 Mac 上，只交给你允许的程序。没有配对设备时，它唯一的网络请求是检查更新：应用请求 askkey.sudohg.com/appcast.xml，由 Cloudflare 重定向到 GitHub；你安装的更新从 GitHub 下载。两者能看到你的 IP 地址、请旨及其更新组件的版本，以及 macOS 附带的标准请求头（包括你的首选语言）；它们设置的 Cookie 会为请旨保存。请旨不发送系统概况。配对了设备的 Mac 还会按上文所述使用你的 iCloud。</p>
 
     <h2>本网站</h2>
     <p>askkey.sudohg.com 由 Cloudflare Pages 提供，并用 VibeCafé 的统计脚本统计访问量。两者都不在应用里。</p>
