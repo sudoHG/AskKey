@@ -234,6 +234,40 @@ final class RemoteApprovalDecisionTests: AskKeyAppTestCase {
         XCTAssertEqual(try harness.state(pending), .approved)
     }
 
+    func testReplacementTakesItsPredecessorsPlaceInTheLimit() async throws {
+        for _ in 0..<16 { try harness.submitDirect(.read, display: DeviceCoordinatorHarness.syntheticDisplay) }
+        try await harness.waitForRequests(16)
+        let requests = try await harness.phoneRequests()
+        let first = try XCTUnwrap(requests.first)
+        try await harness.phone.decide(.timedAllowance, on: first)
+        try harness.vault.updateTimedAllowance(enabled: false, minutes: 30)
+        try await harness.macFetches()
+        XCTAssertEqual(harness.coordinator.outstandingCount(for: harness.phone.deviceID), 16,
+                       "the replacement was sealed in the same step that removed its predecessor")
+        try harness.submitDirect(.read, display: DeviceCoordinatorHarness.syntheticDisplay)
+        try await harness.waitForRequests(17)
+        XCTAssertEqual(harness.coordinator.outstandingCount(for: harness.phone.deviceID), 16)
+        XCTAssertEqual(harness.macSent(.approvalRequest).count, 17, "16 requests and one replacement")
+    }
+
+    func testStaleGenerationEndsOnlyTheRequestsSealedUnderIt() async throws {
+        let (first, _) = try await outstandingRead()
+        let stale = try XCTUnwrap(harness.entries(first).first)
+        harness.coordinator.remoteRequests[first.requestID]?.entries[0].decided = true
+        harness.coordinator.remoteRequests[first.requestID]?.applying = 1
+        // Turned off and on again while that decision is being applied.
+        let row = try XCTUnwrap(harness.coordinator.devices.first)
+        await harness.coordinator.disableApprover(row)
+        try await harness.enableApprover(harness.phone)
+        let (second, _) = try await outstandingRead()
+        XCTAssertNotEqual(harness.entries(second).first?.generation, stale.generation)
+        harness.coordinator.finishRemoteDecision(.outcome(.approverInactive), code: .allowOnce, entry: stale,
+                                                 requestID: first.requestID, deviceName: "Synthetic Phone")
+        XCTAssertEqual(harness.entries(second).count, 1, "the newer generation's request stays open")
+        let outcomes = try await harness.phoneClosed().map(\.outcome)
+        XCTAssertEqual(outcomes, [.cancelled])
+    }
+
     func testInactiveApproverEndsItsOtherOutstandingRequests() async throws {
         let (first, request) = try await outstandingRead()
         let (second, _) = try await outstandingRead()

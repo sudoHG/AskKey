@@ -162,15 +162,20 @@ package final class DeviceCoordinator {
     @ObservationIgnored var closedMessages: [MessageID: PendingClosedMessage] = [:]
     @ObservationIgnored var remoteLoopTask: Task<Void, Never>?
     @ObservationIgnored var remoteLoopGeneration = 0
+    /// Changes whenever the outstanding requests are dropped or forgotten.
+    @ObservationIgnored var remoteStateGeneration = 0
+    /// The state generation whose named fetch is out, if any.
+    @ObservationIgnored var knownRecordFetchGeneration: Int?
     @ObservationIgnored var nextKnownRecordFetch: Date?
     /// CloudKit's retry-after, counted from its answer; push hints, unlocks
     /// and wakes never fetch before it.
     @ObservationIgnored var knownRecordBackoffUntil: Date?
-    @ObservationIgnored var isFetchingKnownRecords = false
     @ObservationIgnored var remoteActivity: AnyObject?
     /// Whether the Broker's active-approver set was loaded from the list for
     /// the current services and account.
     @ObservationIgnored var approversLoaded = false
+    /// Approvers whose flag was written but whose activation failed.
+    @ObservationIgnored var approversAwaitingActivation: Set<PairingID> = []
     @ObservationIgnored var approverAttempt: ApproverAttempt?
     /// Changes whenever an approver confirmation starts or is left.
     @ObservationIgnored var approverGeneration = 0
@@ -355,8 +360,10 @@ package final class DeviceCoordinator {
         finishPairingSession()
         deliveryPollTask?.cancel()
         deliveryPollTask = nil
-        // Nothing can be sealed or opened any more.
-        forgetOutstandingRemoteRequests()
+        // Nothing can be sealed or opened any more; sealed closing messages
+        // still go out.
+        forgetOutstandingRemoteRequests(keepingClosed: true)
+        if approverConfirmation?.isActive == true { endApproverAttempt(.unavailable) }
         availability = .identityUnusable
     }
 
@@ -384,12 +391,15 @@ package final class DeviceCoordinator {
 
     func apply(_ answer: CloudKitAccountState, stored: DeviceInboxState, check: Int) async {
         var state = stored
+        let previous = account
         switch answer {
         case .available(let name), .accountChanged(let name):
             var isListAccount = true
             if case .accountChanged = answer {
                 isListAccount = false
-                // Every approver's authority ends before anything awaits.
+                // Every approver's authority ends, and nothing can restore it
+                // or seal for it, before anything awaits.
+                account = .accountChanged
                 suspendRemoteApproval()
             }
             if state.listAccount == nil || !isListAccount {
@@ -407,7 +417,7 @@ package final class DeviceCoordinator {
             if isListAccount {
                 account = .available
             } else {
-                if account != .accountChanged { environment.log(.accountChanged) }
+                if previous != .accountChanged { environment.log(.accountChanged) }
                 account = .accountChanged
             }
             await use(account: name, state: state, check: check)

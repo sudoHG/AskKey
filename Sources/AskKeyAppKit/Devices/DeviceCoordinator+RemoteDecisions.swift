@@ -113,7 +113,7 @@ extension DeviceCoordinator {
             // The flag is gone or the set no longer holds this generation: the
             // approver's other requests end too.
             enqueueClosed(.cancelled, for: entry)
-            closeRemoteRequests(of: entry.approverID, pairingID: entry.pairingID)
+            closeRemoteRequests(of: entry.approverID, pairingID: entry.pairingID, generation: entry.generation)
         case .outcome(.notApplicable), .failed:
             let state = brokerState(of: track)
             guard state == .pending else {
@@ -124,13 +124,28 @@ extension DeviceCoordinator {
             // Never turned into another decision: outcome 6, then a
             // replacement with the current offers and the original deadline.
             enqueueClosed(.notApplied, for: entry)
-            Task { [weak self] in await self?.deliverRemoteRequest(requestID, only: entry.approverID) }
+            sendReplacement(requestID, for: entry)
         }
         // A request that left pending while this decision was applied
         // closes now for the approvers that still have it open.
         if remoteRequests[requestID]?.ended != nil { requestLeftPending(requestID) }
         publishRemoteStatus()
         startRemoteLoopIfNeeded()
+    }
+
+    /// Seals the replacement in the same step that removed its predecessor,
+    /// so it takes the predecessor's place in the limit, to the approver's
+    /// entry as held at sealing while the device is still an active approver.
+    private func sendReplacement(_ requestID: String, for predecessor: OutstandingRemoteRequest) {
+        guard var track = remoteRequests[requestID], track.ended == nil, track.phase == .sent,
+              listedDevices.contains(where: {
+                  $0.deviceID == predecessor.approverID && $0.pairingID == predecessor.pairingID && $0.isApprover
+              }),
+              let generation = vault.approvalRequests.activeApproverGeneration(pairingID: predecessor.pairingID.rawValue),
+              let content = sendableContent(for: track),
+              let responseID = seal(content, into: &track, for: predecessor.recipient, generation: generation) else { return }
+        remoteRequests[requestID] = track
+        Task { [weak self] in await self?.transmitRemoteRequest(requestID, responseID: responseID) }
     }
 
     /// The request's state now; an entry the Broker no longer holds ended by
@@ -184,14 +199,19 @@ extension DeviceCoordinator {
     }
 
     /// Ends one approver's outstanding requests with outcome 5 after it was
-    /// turned off, removed, paired again or found inactive. Entries whose
-    /// decision is being applied keep their own outcome.
-    func closeRemoteRequests(of device: DeviceID, pairingID: PairingID) {
+    /// turned off, removed, paired again or found inactive; for an inactive
+    /// generation, only the requests sealed under it. Entries whose decision
+    /// is being applied keep their own outcome.
+    func closeRemoteRequests(of device: DeviceID, pairingID: PairingID, generation: UInt64? = nil) {
+        func closes(_ entry: OutstandingRemoteRequest) -> Bool {
+            entry.belongs(to: device, pairingID: pairingID) && !entry.decided
+                && generation.map { $0 == entry.generation } != false
+        }
         for (requestID, var track) in remoteRequests {
-            let closing = track.entries.filter { $0.belongs(to: device, pairingID: pairingID) && !$0.decided }
+            let closing = track.entries.filter(closes)
             guard !closing.isEmpty else { continue }
             for entry in closing { enqueueClosed(.cancelled, for: entry) }
-            track.entries.removeAll { $0.belongs(to: device, pairingID: pairingID) && !$0.decided }
+            track.entries.removeAll(where: closes)
             remoteRequests[requestID] = track
         }
         publishRemoteStatus()

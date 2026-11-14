@@ -151,6 +151,13 @@ final class ApproverConfirmationTests: AskKeyAppTestCase {
         XCTAssertEqual(harness.script.authenticationReasons.count, prompts, "no prompt opened")
     }
 
+    func testAnUnusableIdentityEndsTheAttempt() async throws {
+        _ = try await start()
+        coordinator.identityBecameUnusable()
+        XCTAssertEqual(coordinator.approverConfirmation, .ended(.unavailable))
+        XCTAssertNil(coordinator.approverCode)
+    }
+
     func testClosingTheSheetOrLockingManagementDiscardsTheCode() async throws {
         let first = try await start()
         coordinator.cancelApproverConfirmation()

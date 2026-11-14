@@ -55,6 +55,19 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
         try await harness.waitForRequests(1)
     }
 
+    func testUnlockedRequestNotEligibleWhenCreatedStaysOnTheMac() async throws {
+        try await harness.pairPhone()
+        try harness.addCredential()
+        harness.script.screenUnlocked = true
+        let pending = try harness.submitRead()
+        try await harness.enableApprover(harness.phone)
+        harness.clock.advance(by: 20)
+        await harness.coordinator.remoteApprovalTick()
+        XCTAssertTrue(harness.macSent(.approvalRequest).isEmpty)
+        XCTAssertEqual(harness.coordinator.remoteRequests[pending.requestID]?.phase, .stayingOnMac)
+        XCTAssertEqual(harness.script.activityBegins, 0)
+    }
+
     func testLockedScreenSendsAtOnce() async throws {
         try await harness.pairApprover()
         let created = harness.clock.now()
@@ -261,6 +274,25 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
         harness.clock.advance(by: 1)
         await harness.coordinator.remoteApprovalTick()
         XCTAssertEqual(harness.transport.namedFetchRequests.count, afterAnswer + 1)
+    }
+
+    func testAFetchLeftFromDroppedStateDoesNotBlockNewFetches() async throws {
+        try await harness.pairApprover()
+        try harness.submitRead()
+        try await harness.waitForRequests(1)
+        let latch = SyntheticLatch()
+        harness.backend.beforeFetch = { await latch.wait() }
+        let stuck = Task { await harness.coordinator.remoteApprovalTick() }
+        try await harness.waitUntil { harness.coordinator.knownRecordFetchGeneration != nil }
+        harness.coordinator.forgetOutstandingRemoteRequests()
+        harness.backend.beforeFetch = nil
+        try harness.submitRead()
+        try await harness.waitForRequests(2)
+        let before = harness.transport.namedFetchRequests.count
+        try await harness.macFetches()
+        XCTAssertEqual(harness.transport.namedFetchRequests.count, before + 1)
+        await latch.open()
+        await stuck.value
     }
 
     func testNamedFetchesGoInBatchesOfAtMostOneHundred() async throws {
