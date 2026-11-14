@@ -8,10 +8,17 @@ final class InMemoryApprovalStore: ApprovalStateStore, @unchecked Sendable {
     private let lock = NSLock()
     private var data: Data?
     private var failWrites = false
+    private var failReads = false
 
     var writesFail: Bool {
         get { lock.withLock { failWrites } }
         set { lock.withLock { failWrites = newValue } }
+    }
+
+    /// Reading fails as an I/O error would, while the stored bytes stay.
+    var readsFail: Bool {
+        get { lock.withLock { failReads } }
+        set { lock.withLock { failReads = newValue } }
     }
 
     /// The stored bytes, as the file would hold them.
@@ -22,7 +29,12 @@ final class InMemoryApprovalStore: ApprovalStateStore, @unchecked Sendable {
         return (try? JSONDecoder().decode(StoredApprovals.self, from: data)) ?? StoredApprovals()
     }
 
-    func loadApprovals() throws -> Data? { storedData }
+    func loadApprovals() throws -> Data? {
+        try lock.withLock {
+            if failReads { throw CocoaError(.fileReadUnknown) }
+            return data
+        }
+    }
 
     func saveApprovals(_ data: Data) throws {
         try lock.withLock {

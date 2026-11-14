@@ -48,6 +48,18 @@ public final class AppModel {
     @ObservationIgnored var pollAgain = false
     /// The stored requests, decisions and markers, as last saved.
     @ObservationIgnored var approvals = StoredApprovals()
+    /// False while the stored state exists but cannot be read; nothing is
+    /// then accepted, decided or written, so it is never overwritten.
+    @ObservationIgnored var approvalsReadable = true
+    /// Grows whenever a Mac's approval ends here, so work that awaited can tell.
+    @ObservationIgnored var revocationCount = 0
+    /// Requests settled in this process, so a notification found later for
+    /// one of them is removed at once.
+    @ObservationIgnored var settledRequests: Set<String> = []
+    /// Further delivered notifications for a record name beyond its hint's.
+    @ObservationIgnored var extraNotifications: [String: Set<String>] = [:]
+    /// CloudKit asked to wait until then before the next fetch by name.
+    @ObservationIgnored var namedFetchNotBefore: Date?
     /// Opened requests by record name, in memory only.
     @ObservationIgnored var openedContent: [String: VerifiedApprovalMessage] = [:]
     /// Pairings whose approval ended in this process: turned off here, or
@@ -61,8 +73,10 @@ public final class AppModel {
     @ObservationIgnored var nextAttempts: [String: Date] = [:]
     @ObservationIgnored var sendWork: Task<Void, Never>?
     @ObservationIgnored var sendAgain = false
-    /// The record a tapped notification named, until the next fetch shows it.
+    /// The record a tapped notification named, until its card shows or a
+    /// minute passed.
     @ObservationIgnored var pendingOpen: String?
+    @ObservationIgnored var pendingOpenSince: Date?
     /// Push hints already fetched by name.
     @ObservationIgnored var namedFetched: Set<String> = []
     /// The pairings on the list when Mac names were last made unique;
@@ -136,9 +150,9 @@ public final class AppModel {
                       inboxToken: InboxChangeToken?) -> DeviceServices {
         DeviceServices(identity: identity, transport: transport, listStore: listStore, clock: environment.clock,
                        inboxToken: inboxToken,
-                       approvalHandler: { [weak self] message in
+                       approvalHandler: { [weak self] message, generation in
                            guard let self else { return .failed }
-                           return await self.handleApproval(message)
+                           return await self.handleApproval(message, generation: generation)
                        },
                        removalHook: { [weak self] entry in
                            await self?.macWillBeRemoved(entry)
@@ -149,7 +163,7 @@ public final class AppModel {
         self.services = services
         // Loaded before anything can suspend, so a request handled while
         // the stored ones are opened again is added to them, not lost.
-        approvals = environment.approvals.load()
+        loadApprovals()
         adoptEarlyPushes(for: services.deviceID)
         stage = .ready
         watchAccount()

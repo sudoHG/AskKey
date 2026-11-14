@@ -22,6 +22,12 @@ extension AppModel {
     static let pendingLimit = 64
     static let markerLimitPerMac = 16
     static let markerLimit = 64
+    /// Stored requests, finished ones included, so a Mac that keeps sending
+    /// and closing requests cannot grow the store without bound.
+    static let storedLimitPerMac = 32
+    static let storedLimit = 128
+    /// How long a tapped notification waits for its request's card.
+    static let pendingOpenLifetime: TimeInterval = 60
 
     // MARK: Handler
 
@@ -30,25 +36,35 @@ extension AppModel {
     /// direction and the approval flag: a Mac sends only requests and
     /// closed messages, and only a Mac whose entry carries this iPhone's
     /// approval flag is heard. Everything after the list read runs without
-    /// a suspension, so overlapping calls see each other's changes.
-    func handleApproval(_ message: VerifiedApprovalMessage) async -> ApprovalMessageHandling {
-        guard let services, message.envelope.recipient == services.deviceID.text else { return .failed }
+    /// a suspension, so overlapping calls see each other's changes. A call
+    /// from a messenger an account change replaced, one made while the
+    /// account is unavailable, or one while the stored state cannot be read
+    /// fails, and the message stays in the inbox.
+    func handleApproval(_ message: VerifiedApprovalMessage, generation: Int) async -> ApprovalMessageHandling {
+        guard let services, isCurrent(services, generation: generation),
+              message.envelope.recipient == services.deviceID.text else { return .failed }
         switch message.message {
         case .request(let request):
-            return await accept(request, message, services: services)
+            return await accept(request, message, services: services, generation: generation)
         case .closed(let closed):
-            return await accept(closed, message, services: services)
+            return await accept(closed, message, services: services, generation: generation)
         case .decision, .receipt, .confirmation:
             return .refused(.unexpectedKind)
         }
     }
 
+    private func isCurrent(_ services: DeviceServices, generation: Int) -> Bool {
+        self.services === services && services.generation == generation && accountNotice == nil && approvalsReadable
+    }
+
     /// Re-reads the list: the sender must still be on it with the same
     /// pairing ID and the approval flag, and its approval must not have
-    /// ended in this process. Nil when the list cannot be read now.
-    private func senderApproves(_ message: VerifiedApprovalMessage, services: DeviceServices) async -> Bool? {
+    /// ended in this process. Nil when the list cannot be read now or the
+    /// services changed meanwhile.
+    private func senderApproves(_ message: VerifiedApprovalMessage, services: DeviceServices,
+                                generation: Int) async -> Bool? {
         guard message.sender.isApprover, !revokedPairings.contains(message.pairingID) else { return false }
-        guard let list = try? await services.registry.list(), self.services === services else { return nil }
+        guard let list = try? await services.registry.list(), isCurrent(services, generation: generation) else { return nil }
         knownList = list
         return approves(message.senderID, pairingID: message.pairingID, in: list)
     }
@@ -59,8 +75,8 @@ extension AppModel {
     }
 
     private func accept(_ request: ApprovalRequest, _ message: VerifiedApprovalMessage,
-                        services: DeviceServices) async -> ApprovalMessageHandling {
-        switch await senderApproves(message, services: services) {
+                        services: DeviceServices, generation: Int) async -> ApprovalMessageHandling {
+        switch await senderApproves(message, services: services, generation: generation) {
         case nil: return .failed
         case false?: return .refused(.bindingMismatch)
         case true?: break
@@ -89,7 +105,8 @@ extension AppModel {
         let displaced = fromMac.filter { state.requests[$0].launchTime < request.launchTime }
         let pending = state.requests.indices.filter { !displaced.contains($0) && !state.requests[$0].isFinished(at: now) }
         guard pending.filter({ state.requests[$0].macID == mac }).count < Self.pendingLimitPerMac,
-              pending.count < Self.pendingLimit else {
+              pending.count < Self.pendingLimit, fromMac.count < Self.storedLimitPerMac,
+              state.requests.count < Self.storedLimit else {
             return .refused(.bindingMismatch)
         }
         for index in displaced where state.requests[index].closed == nil {
@@ -103,7 +120,7 @@ extension AppModel {
                                             transportExpiry: message.expiresAt, envelope: StoredEnvelope(message.envelope)))
         // The sealed request is stored before the inbox copy is deleted.
         do {
-            try environment.approvals.save(state)
+            try persist(state)
         } catch {
             AppLog.failure("Storing a request", error)
             return .failed
@@ -121,8 +138,8 @@ extension AppModel {
     }
 
     private func accept(_ closed: ApprovalClosed, _ message: VerifiedApprovalMessage,
-                        services: DeviceServices) async -> ApprovalMessageHandling {
-        switch await senderApproves(message, services: services) {
+                        services: DeviceServices, generation: Int) async -> ApprovalMessageHandling {
+        switch await senderApproves(message, services: services, generation: generation) {
         case nil: return .failed
         case false?: return .refused(.bindingMismatch)
         case true?: break
@@ -160,7 +177,7 @@ extension AppModel {
                                               expiresAt: message.expiresAt))
         }
         do {
-            try environment.approvals.save(state)
+            try persist(state)
         } catch {
             AppLog.failure("Storing a closed request", error)
             return .failed
@@ -177,6 +194,7 @@ extension AppModel {
     /// Runs before any removal of a Mac commits: an unpair notice, a
     /// removal here, or pairing again. Its requests are refused from now on.
     func macWillBeRemoved(_ entry: PairedDevice) async {
+        revocationCount += 1
         revokedPairings.insert(entry.pairingID)
         dropApprovals(forMac: entry.deviceID.text)
     }
@@ -196,20 +214,33 @@ extension AppModel {
             case .confirmation(let target, _): return target.text != mac
             }
         }
+        if approverConfirmation?.macID == mac { stopSendingConfirmation() }
         rebuildRequests()
         settleRequestNotifications(also: dropped)
+    }
+
+    /// A confirmation that will no longer be sent leaves its sheet waiting
+    /// for the person again.
+    private func stopSendingConfirmation() {
+        guard approverConfirmation?.stage == .sending else { return }
+        approverConfirmation?.stage = .entering
+        approverConfirmation?.problem = .notSent
     }
 
     /// After an account change, a sign-out or an identity reset: every
     /// stored request, decision and marker goes.
     func dropAllApprovals() {
-        guard !approvals.isEmpty || !openedContent.isEmpty || !outbox.isEmpty else { return }
+        guard !approvals.isEmpty || !openedContent.isEmpty || !outbox.isEmpty || !approvalsReadable else { return }
         let dropped = approvals.requests.map(\.recordName)
         do {
             try environment.approvals.removeApprovals()
+            approvalsReadable = true
         } catch {
+            // A copy that survives is saved under the old account, which
+            // `loadApprovals` drops.
             AppLog.failure("Deleting the stored requests", error)
         }
+        stopSendingConfirmation()
         approvals = StoredApprovals()
         openedContent = [:]
         outbox = [:]
@@ -222,15 +253,46 @@ extension AppModel {
 
     // MARK: State
 
+    /// Writes the state under the current iCloud account. Nothing is
+    /// written while the stored state cannot be read.
+    func persist(_ state: StoredApprovals) throws {
+        guard approvalsReadable else { throw CocoaError(.fileReadUnknown) }
+        var state = state
+        state.account = environment.localState.inboxPosition?.userRecordName
+        try environment.approvals.save(state)
+    }
+
     /// Saves the state; a failed save keeps the change in memory, and the
     /// stored copy is checked again at the next launch.
     func commitApprovals(_ state: StoredApprovals) {
         approvals = state
         do {
-            try environment.approvals.save(state)
+            try persist(state)
         } catch {
             AppLog.failure("Storing the requests", error)
         }
+    }
+
+    /// Loads the stored state. A state saved under another iCloud account
+    /// is deleted; one that cannot be read now blocks the approver until a
+    /// later load succeeds.
+    func loadApprovals() {
+        guard let state = environment.approvals.load() else {
+            approvalsReadable = false
+            approvals = StoredApprovals()
+            return
+        }
+        approvalsReadable = true
+        if !state.isEmpty, state.account != environment.localState.inboxPosition?.userRecordName {
+            do {
+                try environment.approvals.removeApprovals()
+            } catch {
+                AppLog.failure("Deleting the stored requests", error)
+            }
+            approvals = StoredApprovals()
+            return
+        }
+        approvals = state
     }
 
     func forget(_ recordNames: [String]) {
@@ -246,17 +308,23 @@ extension AppModel {
     /// verifier, against the current list. A request that no longer opens,
     /// or whose Mac no longer carries the approval flag, is dropped.
     func restoreApprovals(_ services: DeviceServices) async {
-        guard let list = try? await services.registry.list(), self.services === services else { return }
+        guard let list = try? await services.registry.list(), self.services === services, approvalsReadable else { return }
         knownList = list
         let now = environment.clock.now()
         let verifier = DeviceMessageVerifier(identity: services.identity, list: list)
         var state = approvals
         var dropped = state.prune(now: now)
         for entry in state.requests where openedContent[entry.recordName] == nil {
-            if let message = reopen(entry, with: verifier, list: list, now: now) {
-                openedContent[entry.recordName] = message
-            } else {
-                dropped.append(entry.recordName)
+            do {
+                if let message = try reopen(entry, with: verifier, list: list, now: now) {
+                    openedContent[entry.recordName] = message
+                } else {
+                    dropped.append(entry.recordName)
+                }
+            } catch {
+                // This iPhone's own key failed, not the request: keep the
+                // stored state for after the reset's decision.
+                return identityBecameUnusable()
             }
         }
         state.requests.removeAll { dropped.contains($0.recordName) }
@@ -270,11 +338,12 @@ extension AppModel {
         settleRequestNotifications(also: dropped)
     }
 
+    /// Throws `DeviceIdentityError` when this iPhone's own key fails.
     private func reopen(_ entry: StoredRequest, with verifier: DeviceMessageVerifier, list: PairedDeviceList,
-                        now: Date) -> VerifiedApprovalMessage? {
+                        now: Date) throws -> VerifiedApprovalMessage? {
         guard let envelope = entry.envelope.envelope, let mac = DeviceID(text: entry.macID),
               let pairing = PairingID(rawValue: entry.pairingID), approves(mac, pairingID: pairing, in: list),
-              case .approval(let message)? = try? verifier.verify(envelope, now: now),
+              case .approval(let message) = try verifier.verify(envelope, now: now),
               case .request = message.message, message.senderID == mac, message.digest == entry.requestDigest else {
             return nil
         }
@@ -304,9 +373,13 @@ extension AppModel {
             return left ? lhs.countdownEnd > rhs.countdownEnd : lhs.countdownEnd < rhs.countdownEnd
         }
         if ordered != requests { requests = ordered }
-        if let pendingOpen, requests.contains(where: { $0.id == pendingOpen }) {
-            openedRequest = OpenedRequest(id: pendingOpen)
-            self.pendingOpen = nil
+        if let pendingOpen {
+            if requests.contains(where: { $0.id == pendingOpen }) {
+                openedRequest = OpenedRequest(id: pendingOpen)
+                self.pendingOpen = nil
+            } else if let since = pendingOpenSince, now.timeIntervalSince(since) > Self.pendingOpenLifetime {
+                self.pendingOpen = nil
+            }
         }
     }
 
@@ -318,12 +391,22 @@ extension AppModel {
 
     /// Removes the delivered notifications of settled requests: finished,
     /// dropped or expired, matched by the record name in the user info.
+    /// Settled names are kept for this process, so a notification found
+    /// later, for example at the first activation after a cold launch,
+    /// is removed as soon as it is seen.
     func settleRequestNotifications(also recordNames: [String] = []) {
         let now = environment.clock.now()
         let settled = Set(approvals.requests.filter { $0.isFinished(at: now) }.map(\.recordName)).union(recordNames)
+        settledRequests.formUnion(settled)
+        removeNotifications(of: settled)
+    }
+
+    /// Removes every delivered notification known for these record names.
+    func removeNotifications(of recordNames: some Sequence<String>) {
         var identifiers: [String] = []
-        for name in settled {
+        for name in recordNames {
             if let identifier = pushHints.removeValue(forKey: name)?.notificationIdentifier { identifiers.append(identifier) }
+            identifiers += extraNotifications.removeValue(forKey: name) ?? []
         }
         environment.notifications.removeDeliveredNotifications(identifiers: identifiers)
     }

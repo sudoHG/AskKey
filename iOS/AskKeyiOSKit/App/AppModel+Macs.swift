@@ -111,11 +111,19 @@ extension AppModel {
     }
 
     /// CloudKit saved the confirmation: the flag for that pairing is set.
+    /// A revocation that happened meanwhile wins: the flag is cleared again
+    /// and the revocation stays.
     func confirmationSaved(mac: DeviceID, pairingID: PairingID, services: DeviceServices) async {
+        let revocations = revocationCount
         do {
             guard try await services.registry.apply(.setApprover(mac, pairingID: pairingID, enabled: true)) == .applied else {
                 if approverConfirmation?.macID == mac.text { approverConfirmation = nil }
                 return
+            }
+            guard revocationCount == revocations else {
+                _ = try await services.registry.apply(.setApprover(mac, pairingID: pairingID, enabled: false))
+                if approverConfirmation?.macID == mac.text { approverConfirmation = nil }
+                return await refreshList()
             }
             revokedPairings.remove(pairingID)
             if approverConfirmation?.macID == mac.text {
@@ -134,18 +142,28 @@ extension AppModel {
 
     /// **Stop Approving for This Mac**: its requests are refused at once,
     /// and its cards, stored decisions and notifications are dropped before
-    /// the flag is cleared. The Mac's own setting changes on the Mac.
-    public func stopApproving(macID: String) async {
-        guard let services, let mac = DeviceID(text: macID),
-              let entry = try? await services.registry.list().device(mac) else { return }
+    /// anything waits; then the flag is cleared. The Mac's own setting
+    /// changes on the Mac. Returns false when the flag could not be cleared,
+    /// so the person can try again; until then this process refuses the
+    /// Mac's requests.
+    @discardableResult
+    public func stopApproving(macID: String) async -> Bool {
+        guard let services, let mac = DeviceID(text: macID) else { return false }
+        var known = knownList?.device(mac)
+        if known == nil { known = try? await services.registry.list().device(mac) }
+        guard let entry = known else { return false }
+        revocationCount += 1
         revokedPairings.insert(entry.pairingID)
         dropApprovals(forMac: macID)
         do {
             try await services.registry.apply(.setApprover(mac, pairingID: entry.pairingID, enabled: false))
         } catch {
             AppLog.failure("Clearing the approval flag", error)
+            await refreshList()
+            return false
         }
         await refreshList()
+        return true
     }
 
     // MARK: Names

@@ -970,6 +970,23 @@
         }
       }
     },
+    "mac.stop.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approval couldn't be turned off on this iPhone. Try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法在这台 iPhone 上关闭审批，请重试。"
+          }
+        }
+      }
+    },
     "pairing.cancel": {
       "extractionState": "manual",
       "localizations": {

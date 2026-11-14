@@ -11,13 +11,14 @@ struct MacDetailView: View {
     @State private var renaming = false
     @State private var newName = ""
     @State private var renameProblem: RenameProblem?
+    @State private var stopFailed = false
 
     private var row: PairedMacRow? { model.pairedMacs.first { $0.id == macID } }
 
     var body: some View {
         Group {
             if let row {
-                MacDetailContent(row: row, renameProblem: renameProblem,
+                MacDetailContent(row: row, renameProblem: renameProblem, stopFailed: stopFailed,
                                  onRename: {
                                      newName = row.name
                                      renaming = true
@@ -47,7 +48,7 @@ struct MacDetailView: View {
         .confirmationDialog(Text("mac.stop.confirmTitle \(row?.name ?? String())", bundle: .kit),
                             isPresented: $confirmingStop, titleVisibility: .visible) {
             Button(role: .destructive) {
-                Task { await model.stopApproving(macID: macID) }
+                Task { stopFailed = !(await model.stopApproving(macID: macID)) }
             } label: {
                 Text("mac.stop.confirm", bundle: .kit)
             }
@@ -75,6 +76,7 @@ struct MacDetailView: View {
 struct MacDetailContent: View {
     let row: PairedMacRow
     var renameProblem: RenameProblem?
+    var stopFailed = false
     let onRename: () -> Void
     let onApprove: () -> Void
     let onStop: () -> Void
@@ -103,6 +105,10 @@ struct MacDetailContent: View {
                 NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning, text: Self.text(renameProblem))
             }
             VStack(alignment: .leading, spacing: 12) {
+                if stopFailed {
+                    NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning,
+                               text: Text("mac.stop.failed", bundle: .kit))
+                }
                 NoticeCard(symbol: row.isApprover ? "checkmark.shield.fill" : "shield.slash",
                            tone: row.isApprover ? .success : .info,
                            text: Text(row.isApprover ? "mac.status.approving" : "mac.status.notApproving", bundle: .kit))

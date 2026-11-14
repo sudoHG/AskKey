@@ -69,7 +69,7 @@ extension AppModel {
                                                           durationCeiling: code == .timedAllowance ? request.timedDuration : 0,
                                                           envelope: StoredEnvelope(sealed.envelope))
         do {
-            try environment.approvals.save(state)
+            try persist(state)
         } catch {
             AppLog.failure("Storing a decision", error)
             decisionProblems[requestID] = .storage
@@ -100,19 +100,25 @@ extension AppModel {
         return !approvals.requests[index].isFinished(at: environment.clock.now())
     }
 
-    /// Whether the signed-in iCloud account is the stored one. Any other
-    /// state goes through the account refresh, which shows the notice and
-    /// drops what an account change or sign-out drops.
+    /// Whether no other iCloud account than the stored one is signed in.
+    /// iCloud that cannot answer now, for example offline, does not stop
+    /// storing a decision, which is then sent once it answers. A change, a
+    /// sign-out or a restriction goes through the account refresh, which
+    /// shows the notice and drops what it drops.
     func accountAllowsSending(_ services: DeviceServices) async -> Bool {
         let stored = environment.localState.inboxPosition?.userRecordName
         let state = await services.transport.accountState(storedUserRecordName: stored)
         guard self.services === services else { return false }
-        if case .available = state {
+        switch state {
+        case .available:
             if accountNotice != nil { await refreshAccount() }
             return accountNotice == nil && self.services === services
+        case .temporarilyUnavailable:
+            return true
+        case .accountChanged, .noAccount, .restricted:
+            await refreshAccount()
+            return false
         }
-        await refreshAccount()
-        return false
     }
 
     /// The Face ID prompt's reason, in the card's words.
@@ -142,30 +148,46 @@ extension AppModel {
                 self.sendAgain = false
                 await self.sendOnce()
             } while self.sendAgain && self.stage == .ready
+            // Cleared in the same step as the last check, so no call is lost.
+            self.sendWork = nil
         }
         sendWork = work
         await work.value
-        sendWork = nil
     }
 
+    /// Every send re-reads the live state after the previous one: a
+    /// decision goes out only while its entry still holds it, is open and
+    /// within its countdown, its Mac still carries the approval flag here,
+    /// and the services and the account are the ones it was made under.
     private func sendOnce() async {
-        guard stage == .ready, let services, accountNotice == nil else { return }
-        for entry in approvals.requests {
+        guard let services else { return }
+        for recordName in approvals.requests.map(\.recordName) {
+            guard mayStillSend(services) else { return }
             let now = environment.clock.now()
+            guard let index = approvals.index(of: recordName) else { continue }
+            let entry = approvals.requests[index]
             guard let decision = entry.decision, let envelope = decision.envelope.envelope, entry.closed == nil, !entry.gone,
-                  now < entry.countdownEnd, (nextAttempts[entry.recordName] ?? .distantPast) <= now else { continue }
+                  now < entry.countdownEnd, (nextAttempts[recordName] ?? .distantPast) <= now, macApproves(entry) else {
+                continue
+            }
             if let last = entry.lastSentAt, now.timeIntervalSince(last) < Self.resendInterval { continue }
-            let saved = await send(envelope, retryKey: entry.recordName, services: services)
+            let saved = await send(envelope, retryKey: recordName, services: services)
             guard self.services === services else { return }
-            guard saved, let index = approvals.index(of: entry.recordName) else { continue }
+            guard saved, let current = approvals.index(of: recordName), approvals.requests[current].decision == decision else {
+                continue
+            }
             var state = approvals
-            state.requests[index].lastSentAt = environment.clock.now()
+            state.requests[current].lastSentAt = environment.clock.now()
             commitApprovals(state)
             rebuildRequests()
         }
-        for (name, message) in outbox.sorted(by: { $0.key < $1.key }) {
+        for name in outbox.keys.sorted() {
+            guard mayStillSend(services) else { return }
             let now = environment.clock.now()
-            guard outbox[name] != nil, message.envelope.expiresAt > now, (nextAttempts[name] ?? .distantPast) <= now else {
+            guard let message = outbox[name], message.envelope.expiresAt > now,
+                  (nextAttempts[name] ?? .distantPast) <= now else { continue }
+            if case .receipt(let request) = message.purpose, approvals.index(of: request) == nil {
+                outbox[name] = nil
                 continue
             }
             let saved = await send(message.envelope, retryKey: name, services: services)
@@ -178,6 +200,18 @@ extension AppModel {
                 await confirmationSaved(mac: mac, pairingID: pairingID, services: services)
             }
         }
+    }
+
+    private func mayStillSend(_ services: DeviceServices) -> Bool {
+        stage == .ready && self.services === services && accountNotice == nil && approvalsReadable
+    }
+
+    /// The request's Mac is on the list as last read, with the request's
+    /// pairing ID and the approval flag, and its approval has not ended here.
+    private func macApproves(_ entry: StoredRequest) -> Bool {
+        guard let mac = DeviceID(text: entry.macID), let pairing = PairingID(rawValue: entry.pairingID),
+              let list = knownList else { return false }
+        return approves(mac, pairingID: pairing, in: list)
     }
 
     private func send(_ envelope: DeviceEnvelope, retryKey: String, services: DeviceServices) async -> Bool {
@@ -197,8 +231,18 @@ extension AppModel {
     }
 
     /// After every fetch: drops what expired, refreshes the cards, removes
-    /// the notifications of settled requests and sends what is due.
+    /// the notifications of settled requests and sends what is due. A
+    /// stored state that could not be read, or stored requests that could
+    /// not be opened yet, are tried again first.
     func serviceApprovals() async {
+        if let services {
+            if !approvalsReadable {
+                loadApprovals()
+                if approvalsReadable { await restoreApprovals(services) }
+            } else if approvals.requests.contains(where: { openedContent[$0.recordName] == nil }) {
+                await restoreApprovals(services)
+            }
+        }
         let now = environment.clock.now()
         var state = approvals
         let expired = state.prune(now: now)

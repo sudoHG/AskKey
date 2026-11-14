@@ -49,15 +49,29 @@ final class ApprovalRequestTests: XCTestCase {
         XCTAssertEqual(world.notifications.removedIdentifiers, [])
     }
 
-    func testARequestAPushNamedIsFetchedByName() async throws {
+    func testARequestAPushNamedIsFetchedByNameWhenTheZonePollFails() async throws {
         let phoneID = try world.phone.deviceID
         let sealed = try await world.sendRequest()
         let name = sealed.sealed.messageID.text
+        world.cloud.zoneFetchesFail = true
         await world.model.receivedPush(userInfo: TestWorld.alertPush(for: phoneID, record: name), arrivedAt: world.clock.now(),
                                        notificationIdentifier: "front")
         XCTAssertEqual(world.card?.id, name)
         XCTAssertTrue(world.cloud.namedFetches.contains([name]))
         XCTAssertFalse(world.notifications.removedIdentifiers.contains("front"), "a pending request keeps its notification")
+    }
+
+    func testAPushedRequestWhoseClosedMessageWaitsInTheZoneStaysHidden() async throws {
+        let phoneID = try world.phone.deviceID
+        let sealed = try await world.sealRequest()
+        try await world.deliver(sealed.sealed.envelope)
+        try await world.sendClosed(.decidedOnMac, for: sealed)
+        world.notifications.delivered = [PushHint(recordName: sealed.sealed.messageID.text, arrivedAt: world.clock.now(),
+                                                  notificationIdentifier: "request")]
+        await world.model.becameActive()
+        XCTAssertTrue(world.model.requests.isEmpty, "the zone poll handles the closed message before the request")
+        XCTAssertTrue(world.cloud.sent(.approvalReceipt, from: phoneID).isEmpty)
+        XCTAssertTrue(world.notifications.removedIdentifiers.contains("request"))
     }
 
     func testPullToRefreshAndTheForegroundPollFindRequests() async throws {

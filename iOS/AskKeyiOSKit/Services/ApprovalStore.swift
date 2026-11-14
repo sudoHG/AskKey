@@ -107,6 +107,10 @@ struct StoredMarker: Codable, Hashable, Sendable {
 /// digests and times, never opened request content.
 struct StoredApprovals: Codable, Hashable, Sendable {
     var version = 1
+    /// The iCloud account's user record name when it was saved. A state
+    /// saved under another account is dropped, so one whose deletion failed
+    /// at an account change never comes back.
+    var account: String?
     var requests: [StoredRequest] = []
     var markers: [StoredMarker] = []
 
@@ -171,18 +175,24 @@ public final class FileApprovalStateStore: ApprovalStateStore {
 }
 
 extension ApprovalStateStore {
-    /// The stored state; a state that does not decode is dropped, so the
-    /// app never acts on a damaged one.
-    func load() -> StoredApprovals {
+    /// The stored state, or an empty one when none is stored. A state that
+    /// does not decode is dropped, so the app never acts on a damaged one.
+    /// Nil when the stored state cannot be read now: the caller then writes
+    /// nothing, so it is not overwritten.
+    func load() -> StoredApprovals? {
+        let data: Data?
         do {
-            guard let data = try loadApprovals() else { return StoredApprovals() }
-            let state = try JSONDecoder().decode(StoredApprovals.self, from: data)
-            guard state.version == 1 else { return StoredApprovals() }
-            return state
+            data = try loadApprovals()
         } catch {
             AppLog.failure("Reading the stored requests", error)
+            return nil
+        }
+        guard let data else { return StoredApprovals() }
+        guard let state = try? JSONDecoder().decode(StoredApprovals.self, from: data), state.version == 1 else {
+            AppLog.failure("Decoding the stored requests", CocoaError(.coderReadCorrupt))
             return StoredApprovals()
         }
+        return state
     }
 
     /// Writes the state, trying up to three times before it gives up.

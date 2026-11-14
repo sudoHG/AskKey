@@ -72,14 +72,20 @@ final class DeviceServices {
     let transport: KindRecordingTransport
     let registry: PairedDeviceRegistry
     private(set) var messenger: DeviceMessenger
+    /// Grows whenever the messenger is replaced; a handler call carries the
+    /// generation of the messenger that made it.
+    private(set) var generation = 0
     private let clock: any DeviceClock
-    private let approvalHandler: ApprovalMessageHandler?
+    private let approvalHandler: Handler?
     private let removalHook: PairedDeviceRemovalHook?
 
-    /// `approvalHandler` receives verified kind 10–14 messages, and
-    /// `removalHook` runs before any removal of a Mac commits.
+    typealias Handler = @Sendable (VerifiedApprovalMessage, _ generation: Int) async -> ApprovalMessageHandling
+
+    /// `approvalHandler` receives verified kind 10–14 messages with the
+    /// messenger's generation, and `removalHook` runs before any removal
+    /// of a Mac commits.
     init(identity: any DeviceIdentity, transport: any InboxTransport, listStore: any PairedDeviceListStore,
-         clock: any DeviceClock, inboxToken: InboxChangeToken?, approvalHandler: ApprovalMessageHandler? = nil,
+         clock: any DeviceClock, inboxToken: InboxChangeToken?, approvalHandler: Handler? = nil,
          removalHook: PairedDeviceRemovalHook? = nil) {
         self.identity = identity
         self.clock = clock
@@ -90,15 +96,22 @@ final class DeviceServices {
         registry = PairedDeviceRegistry(store: listStore)
         messenger = DeviceMessenger(identity: identity, platform: .iOS, registry: registry,
                                     transport: self.transport, clock: clock, inboxToken: inboxToken,
-                                    approvalHandler: approvalHandler, removalHook: removalHook)
+                                    approvalHandler: Self.bind(approvalHandler, to: 0), removalHook: removalHook)
     }
 
     /// After an account change: the old account's token and in-memory
-    /// sessions are dropped; the list is kept.
+    /// sessions are dropped; the list is kept. Calls from the old
+    /// messenger, which may still be fetching, carry the old generation.
     func restartMessenger() {
+        generation += 1
         messenger = DeviceMessenger(identity: identity, platform: .iOS, registry: registry, transport: transport,
-                                    clock: clock, inboxToken: nil, approvalHandler: approvalHandler,
+                                    clock: clock, inboxToken: nil, approvalHandler: Self.bind(approvalHandler, to: generation),
                                     removalHook: removalHook)
+    }
+
+    private static func bind(_ handler: Handler?, to generation: Int) -> ApprovalMessageHandler? {
+        guard let handler else { return nil }
+        return { message in await handler(message, generation) }
     }
 
     /// Seals approval messages with this identity and clock.
