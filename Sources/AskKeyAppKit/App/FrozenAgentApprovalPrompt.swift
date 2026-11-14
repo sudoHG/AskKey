@@ -79,9 +79,12 @@ struct FrozenAgentApprovalPrompt: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(.ultraThinMaterial)
         .environment(\.locale, AppLanguage.store.locale)
-        // The decision shows above Details; collapse them so it is in view.
+        // The decision shows above Details; collapse them so it is in view,
+        // and announce it, since the panel closes about two seconds later.
         .onChange(of: remote?.outcome) { _, outcome in
-            if outcome != nil { showsDetails = false }
+            guard let outcome else { return }
+            showsDetails = false
+            AccessibilityNotification.Announcement(Self.remoteOutcomeText(outcome)).post()
         }
     }
 
@@ -220,8 +223,12 @@ struct FrozenAgentApprovalPrompt: View {
 
     /// "Approved on “iPhone”" or "Denied on “iPhone”" while the panel waits
     /// to close; the request is no longer pending.
+    static func remoteOutcomeText(_ outcome: RemoteAppliedDecision) -> String {
+        appLocalizedFormat(outcome.approved ? "Approved on “%@”" : "Denied on “%@”", outcome.deviceName)
+    }
+
     private func remoteOutcome(_ outcome: RemoteAppliedDecision) -> some View {
-        let text = appLocalizedFormat(outcome.approved ? "Approved on “%@”" : "Denied on “%@”", outcome.deviceName)
+        let text = Self.remoteOutcomeText(outcome)
         return HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
             Image(systemName: outcome.approved ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(outcome.approved ? Theme.accent : Theme.warning)
