@@ -1,5 +1,6 @@
-# The pairing-only iPhone app (#289, ADR 0013 → iPhone app). Generate the
-# Xcode project with `bash scripts/build-ios.sh`; it is never committed.
+# The iPhone app (#289, ADR 0013 → iPhone app; #314, ADR 0014 → iPhone app) and
+# its notification extension (#315, ADR 0014 → Notification Service Extension).
+# Generate the Xcode project with `bash scripts/build-ios.sh`; it is never committed.
 name: AskKeyiOS
 options:
   deploymentTarget:
@@ -45,6 +46,7 @@ targets:
       - path: AskKeyiOS
     dependencies:
       - target: AskKeyiOSKit
+      - target: AskKeyiOSNotificationService
     settings:
       base:
         PRODUCT_NAME: AskKey
@@ -54,6 +56,42 @@ targets:
         # Empty unless the Ad Hoc export of scripts/build-ios.sh sets it; the
         # app creates a CloudKit container only when its Info.plist names one.
         CLOUDKIT_CONTAINER_IDENTIFIER: ""
+  # The extension links AskKeyDevices and the kit's keychain code, never the
+  # kit itself, so no SwiftUI view code is in it.
+  AskKeyiOSNotificationService:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: AskKeyiOSNotificationService/Sources
+      - path: AskKeyiOSNotificationService/Resources
+      - path: AskKeyiOSKit/Services/DeviceKeychain.swift
+    dependencies:
+      - package: AskKey
+        product: AskKeyDevices
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sudohg.askkey.ios.notification-service
+        INFOPLIST_FILE: AskKeyiOSNotificationService/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AskKeyiOSNotificationService/AskKeyiOSNotificationService.entitlements
+        # As for the app: empty unless the Ad Hoc export sets it.
+        CLOUDKIT_CONTAINER_IDENTIFIER: ""
+  # Hostless tests of the extension's logic: they compile its sources and
+  # catalog themselves, as an extension cannot host tests.
+  AskKeyiOSNotificationServiceTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AskKeyiOSNotificationService/Tests
+      - path: AskKeyiOSNotificationService/Sources
+      - path: AskKeyiOSNotificationService/Resources
+      - path: AskKeyiOSKit/Services/DeviceKeychain.swift
+    dependencies:
+      - package: AskKey
+        product: AskKeyDevices
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sudohg.askkey.ios.notification-service.tests
+        GENERATE_INFOPLIST_FILE: YES
   AskKeyiOSKitTests:
     type: bundle.unit-test
     platform: iOS
@@ -76,8 +114,10 @@ schemes:
     build:
       targets:
         AskKeyiOSKitTests: [test]
+        AskKeyiOSNotificationServiceTests: [test]
     test:
       config: Debug
       gatherCoverageData: false
       targets:
         - AskKeyiOSKitTests
+        - AskKeyiOSNotificationServiceTests

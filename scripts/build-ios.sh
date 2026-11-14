@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# The pairing-only iPhone app (#289, ADR 0013 → iPhone app).
+# The iPhone app (#289, ADR 0013 → iPhone app) and its notification extension (#315,
+# ADR 0014 → Notification Service Extension).
 #
-#   bash scripts/build-ios.sh build    Simulator build, unsigned.
-#   bash scripts/build-ios.sh test     AskKeyiOSKitTests on a simulator, unsigned, without an
-#                                      app host; writes the rendered screens to .build/ios/screens.
+#   bash scripts/build-ios.sh build    Simulator build, unsigned; checks that the extension is
+#                                      embedded and links no SwiftUI or kit code.
+#   bash scripts/build-ios.sh test     AskKeyiOSKitTests and AskKeyiOSNotificationServiceTests on a
+#                                      simulator, unsigned, without an app host; writes the rendered
+#                                      screens and notifications to .build/ios/screens.
 #   ASKKEY_APPLE_TEAM_ID=<team> bash scripts/build-ios.sh export
 #                                      Ad Hoc export for the maintainer's iPhone: automatic signing
-#                                      for that team, the CloudKit container in the Info.plist, and
+#                                      for that team, the CloudKit container in both Info.plists, and
 #                                      the Production container environment; then reads back the
-#                                      signed entitlements.
+#                                      signed entitlements of the app and the extension.
 #
 # The Xcode project is generated from iOS/project.yml with XcodeGen and never committed. No team,
 # signing identity or profile is stored in the repository.
@@ -26,6 +29,8 @@ OUTPUT="$ROOT/.build/ios"
 DERIVED="$OUTPUT/DerivedData"
 CONTAINER="iCloud.com.sudohg.askkey"
 BUNDLE_ID="com.sudohg.askkey.ios"
+EXTENSION="AskKeyiOSNotificationService"
+EXTENSION_BUNDLE_ID="com.sudohg.askkey.ios.notification-service"
 ACCESS_GROUP_SUFFIX="com.sudohg.askkey.ios.shared"
 
 AVAILABLE_KIB="$(df -k /System/Volumes/Data | awk 'NR==2 {print $4}')"
@@ -34,17 +39,19 @@ command -v xcodegen >/dev/null || { echo 'Install XcodeGen (brew install xcodege
 mkdir -p "$OUTPUT"
 
 # Every catalog entry has English and Simplified Chinese with the same
-# placeholders, every key the kit's Swift sources use is in its catalog, and
-# the app's catalog holds the alert keys the AlertMessage subscription names.
+# placeholders, every key the kit's and the extension's Swift sources use is
+# in their catalog, and the app's and the extension's catalogs hold the alert
+# keys the AlertMessage subscription names.
 python3 - "$ROOT/iOS" <<'PY'
 import json, pathlib, re, sys
 root = pathlib.Path(sys.argv[1])
 kit = root / 'AskKeyiOSKit/Resources/Localizable.xcstrings'
 app = root / 'AskKeyiOS/Resources/Localizable.xcstrings'
+extension = root / 'AskKeyiOSNotificationService/Resources/Localizable.xcstrings'
 placeholder = re.compile(r'%(?:\d+\$)?(?:@|lld|d)')
 problems = []
 catalogs = {}
-for catalog in (kit, app):
+for catalog in (kit, app, extension):
     strings = json.loads(catalog.read_text(encoding='utf-8'))['strings']
     catalogs[catalog] = strings
     for key, entry in strings.items():
@@ -53,15 +60,22 @@ for catalog in (kit, app):
             problems.append(f'{catalog.relative_to(root)}: "{key}" needs English and Simplified Chinese')
         elif len({tuple(sorted(placeholder.findall(unit['value']))) for unit in units} | {tuple(sorted(placeholder.findall(key)))}) != 1:
             problems.append(f'{catalog.relative_to(root)}: "{key}" has mismatched placeholders')
-literal = re.compile(r'"((?:common|welcome|scanner|pairing|list|unusable)\.[A-Za-z0-9.]+)((?: \\\([^"]*?\))*)"')
+literal = re.compile(r'"((?:common|welcome|scanner|pairing|list|unusable|request|approver|mac)\.[A-Za-z0-9.]+)((?: \\\([^"]*?\))*)"')
 for source in sorted((root / 'AskKeyiOSKit').rglob('*.swift')):
     for match in literal.finditer(source.read_text(encoding='utf-8')):
         key = match.group(1) + ' %@' * match.group(2).count('\\(')
         if key not in catalogs[kit]:
             problems.append(f'{source.relative_to(root)}: "{key}" is not in the kit catalog')
-for key in ('push.message.title', 'push.message.body'):
-    if key not in catalogs[app]:
-        problems.append(f'{app.relative_to(root)}: "{key}" is missing')
+# The extension names its keys as literals, placeholders included.
+extension_literal = re.compile(r'"(push\.[A-Za-z0-9.]+(?: %@)*)"')
+for source in sorted((root / 'AskKeyiOSNotificationService/Sources').rglob('*.swift')):
+    for match in extension_literal.finditer(source.read_text(encoding='utf-8')):
+        if match.group(1) not in catalogs[extension]:
+            problems.append(f'{source.relative_to(root)}: "{match.group(1)}" is not in the extension catalog')
+for catalog in (app, extension):
+    for key in ('push.message.title', 'push.message.body'):
+        if key not in catalogs[catalog]:
+            problems.append(f'{catalog.relative_to(root)}: "{key}" is missing')
 for problem in problems:
     print(problem, file=sys.stderr)
 sys.exit(1 if problems else 0)
@@ -94,8 +108,19 @@ build)
   xcodebuild build -project "$PROJECT" -scheme AskKeyiOS -configuration Debug \
     -destination 'generic/platform=iOS Simulator' -derivedDataPath "$DERIVED" CODE_SIGNING_ALLOWED=NO -quiet
   APP="$DERIVED/Build/Products/Debug-iphonesimulator/AskKey.app"
-  test -x "$APP/AskKey" && test -d "$APP/Frameworks/AskKeyiOSKit.framework"
-  echo "Built $(basename "$APP") for the iOS Simulator"
+  APPEX="$APP/PlugIns/$EXTENSION.appex"
+  test -x "$APP/AskKey"
+  test -d "$APP/Frameworks/AskKeyiOSKit.framework"
+  test -x "$APPEX/$EXTENSION"
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APPEX/Info.plist")" == "$EXTENSION_BUNDLE_ID" ]]
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$APPEX/Info.plist")" \
+    == com.apple.usernotifications.service ]]
+  # The extension links AskKeyDevices and the keychain code, never the kit or SwiftUI.
+  if otool -L "$APPEX/$EXTENSION" | grep -E 'SwiftUI|AskKeyiOSKit'; then
+    echo 'The notification extension must not link SwiftUI or AskKeyiOSKit.' >&2
+    exit 1
+  fi
+  echo "Built $(basename "$APP") with $EXTENSION.appex for the iOS Simulator"
   ;;
 test)
   read -r UDID STATE < <(pick_simulator)
@@ -110,6 +135,8 @@ test)
   [[ "$status" -eq 0 ]] || exit "$status"
   COUNT="$(find "$SCREENS" -name '*.png' | wc -l | tr -d ' ')"
   [[ "$COUNT" -ge 8 ]] || { echo "Expected at least 8 rendered screens, found $COUNT." >&2; exit 1; }
+  NOTIFICATIONS="$(find "$SCREENS" -name '*-notification-*.png' | wc -l | tr -d ' ')"
+  [[ "$NOTIFICATIONS" -ge 6 ]] || { echo "Expected at least 6 rendered notifications, found $NOTIFICATIONS." >&2; exit 1; }
   echo "Rendered $COUNT screens into ${SCREENS#"$ROOT"/}"
   ;;
 export)
@@ -133,37 +160,51 @@ export)
   trap 'rm -rf "$CHECK"' EXIT
   ditto -x -k "$IPA" "$CHECK"
   APP="$(find "$CHECK/Payload" -maxdepth 1 -name '*.app' | head -n 1)"
+  APPEX="$APP/PlugIns/$EXTENSION.appex"
+  codesign --verify --strict "$APPEX"
   codesign --verify --strict "$APP"
-  codesign -d --entitlements - --xml "$APP" > "$CHECK/entitlements.plist" 2>/dev/null
-  python3 - "$CHECK/entitlements.plist" "$APP/Info.plist" "$TEAM" "$BUNDLE_ID" "$CONTAINER" "$ACCESS_GROUP_SUFFIX" <<'PY'
+  codesign -d --entitlements - --xml "$APP" > "$CHECK/app.plist" 2>/dev/null
+  codesign -d --entitlements - --xml "$APPEX" > "$CHECK/extension.plist" 2>/dev/null
+  python3 - "$CHECK" "$APP" "$APPEX" "$TEAM" "$BUNDLE_ID" "$EXTENSION_BUNDLE_ID" "$CONTAINER" "$ACCESS_GROUP_SUFFIX" <<'PY'
 import plistlib, sys
-entitlements_path, info_path, team, bundle_id, container, group_suffix = sys.argv[1:]
-entitlements = plistlib.load(open(entitlements_path, 'rb'))
-info = plistlib.load(open(info_path, 'rb'))
+check, app, appex, team, bundle_id, extension_id, container, group_suffix = sys.argv[1:]
 group = f'{team}.{group_suffix}'
-expected = {
-    'application-identifier': f'{team}.{bundle_id}',
+shared = {
     'com.apple.developer.team-identifier': team,
-    'aps-environment': 'production',
     'com.apple.developer.icloud-container-environment': 'Production',
     'com.apple.developer.icloud-container-identifiers': [container],
     'com.apple.developer.icloud-services': ['CloudKit'],
+    'com.apple.developer.usernotifications.time-sensitive': True,
     'keychain-access-groups': [group],
 }
-problems = [f'entitlement {key} is {entitlements.get(key)!r}, expected {value!r}'
-            for key, value in expected.items() if entitlements.get(key) != value]
-if entitlements.get('get-task-allow'):
-    problems.append('entitlement get-task-allow is set')
-for key, value in {'CFBundleIdentifier': bundle_id, 'CloudKitContainerIdentifier': container,
-                   'KeychainAccessGroup': group}.items():
-    if info.get(key) != value:
-        problems.append(f'Info.plist {key} is {info.get(key)!r}, expected {value!r}')
+# The app receives the pushes; the extension has no push entitlement, and
+# neither asks for notification filtering (ADR 0014, decision 7).
+targets = [
+    ('app', 'app.plist', app, bundle_id, {**shared, 'aps-environment': 'production'}, set()),
+    ('extension', 'extension.plist', appex, extension_id, shared, {'aps-environment'}),
+]
+problems = []
+for name, entitlements_file, bundle, identifier, expected, absent in targets:
+    entitlements = plistlib.load(open(f'{check}/{entitlements_file}', 'rb'))
+    info = plistlib.load(open(f'{bundle}/Info.plist', 'rb'))
+    expected = {'application-identifier': f'{team}.{identifier}', **expected}
+    problems += [f'{name}: entitlement {key} is {entitlements.get(key)!r}, expected {value!r}'
+                 for key, value in expected.items() if entitlements.get(key) != value]
+    for key in absent | {'get-task-allow', 'com.apple.developer.usernotifications.filtering'}:
+        if key in entitlements and entitlements[key] is not False:
+            problems.append(f'{name}: entitlement {key} is set')
+    for key, value in {'CFBundleIdentifier': identifier, 'CloudKitContainerIdentifier': container,
+                       'KeychainAccessGroup': group}.items():
+        if info.get(key) != value:
+            problems.append(f'{name}: Info.plist {key} is {info.get(key)!r}, expected {value!r}')
+    if name == 'extension' and info.get('NSExtension', {}).get('NSExtensionPointIdentifier') != 'com.apple.usernotifications.service':
+        problems.append('extension: Info.plist is not a notification service extension')
+    if not problems:
+        for key in sorted(expected):
+            print(f'{name}: {key} = {entitlements[key]}')
 for problem in problems:
     print(problem, file=sys.stderr)
-if problems:
-    sys.exit(1)
-for key in sorted(expected):
-    print(f'{key} = {entitlements[key]}')
+sys.exit(1 if problems else 0)
 PY
   echo "Exported ${IPA#"$ROOT"/}"
   ;;

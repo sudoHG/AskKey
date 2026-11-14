@@ -68,4 +68,31 @@ final class PushHintReaderTests: XCTestCase {
         let plain: [AnyHashable: Any] = ["aps": ["alert": "Enter 123 456 on your Mac"]]
         XCTAssertNil(PushHintReader.hint(userInfo: plain, arrivedAt: Date(), notificationIdentifier: nil, for: device))
     }
+
+    /// The notification extension leaves only the record name in the user
+    /// info, so tapping or settling its notification still finds the request.
+    func testTheExtensionsRecordNameIsAHint() throws {
+        XCTAssertEqual(PushHintReader.extensionRecordNameKey, "askkey.recordName")
+        let name = MessageID.random().text
+        let arrival = Date(timeIntervalSince1970: 1_800_000_000)
+        let hint = PushHintReader.hint(userInfo: ["askkey.recordName": name], arrivedAt: arrival,
+                                       notificationIdentifier: "n", for: device)
+        XCTAssertEqual(hint, PushHint(recordName: name, arrivedAt: arrival, notificationIdentifier: "n"))
+    }
+
+    /// A CloudKit payload is read as before, even with the extension's key beside it.
+    func testAnotherDevicesPushStaysIgnoredWithTheExtensionsKey() {
+        let zone = CloudKitInboxLayout.zoneName(for: other)
+        var foreign = TestWorld.pushPayload(subscription: zone + "_alert", zone: zone, record: "abc")
+        foreign["askkey.recordName"] = MessageID.random().text
+        XCTAssertNil(PushHintReader.hint(userInfo: foreign, arrivedAt: Date(), notificationIdentifier: nil, for: device))
+    }
+
+    func testAnExtensionRecordNameThatIsNotAMessageIDIsNotAHint() {
+        for value: Any in ["abc", "", 42] {
+            XCTAssertNil(PushHintReader.hint(userInfo: ["askkey.recordName": value], arrivedAt: Date(),
+                                             notificationIdentifier: nil, for: device))
+        }
+        XCTAssertNil(PushHintReader.hint(userInfo: [:], arrivedAt: Date(), notificationIdentifier: nil, for: device))
+    }
 }
