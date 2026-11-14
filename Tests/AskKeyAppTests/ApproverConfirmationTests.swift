@@ -46,7 +46,7 @@ final class ApproverConfirmationTests: AskKeyAppTestCase {
     func testMatchingCodeFromTheSelectedIPhoneTurnsApprovalOn() async throws {
         XCTAssertFalse(try row().isApprover)
         let code = try await start()
-        XCTAssertEqual(harness.script.authenticationReasons.last, ManagementAuthenticationAction.manage.reasonKey)
+        XCTAssertEqual(harness.script.authenticationReasons.last, ManagementAuthenticationAction.approveDevice.reasonKey)
         guard case .waitingForIPhone(_, let expiresAt, let remaining) = coordinator.approverConfirmation else {
             return XCTFail("the sheet waits for the iPhone")
         }

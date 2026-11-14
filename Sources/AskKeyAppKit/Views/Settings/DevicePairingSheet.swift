@@ -32,6 +32,9 @@ struct DevicePairingSheet: View {
     @ViewBuilder
     private func content(_ sheet: PairingSheetPresentation) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            if sheet.showsInstallReminder {
+                installReminder
+            }
             switch sheet.stage {
             case .preparing:
                 ProgressView()
@@ -89,6 +92,28 @@ struct DevicePairingSheet: View {
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// The iPhone app comes from a fixed link (ADR 0014 → Mac App).
+    private var installReminder: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
+            Image(systemName: "info.circle.fill")
+                .font(Theme.Fonts.secondary)
+                .foregroundStyle(Theme.accent)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(PairingSheetPresentation.installReminder)
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                Link(PairingSheetPresentation.installLinkText, destination: PairingSheetPresentation.installURL)
+                    .font(Theme.Fonts.secondary)
+                    .accessibilityIdentifier("devices-pairing-install-link")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.Spacing.md)
+        .background(Theme.accentSubtle, in: .rect(cornerRadius: Theme.Radius.control))
     }
 
     private func peerCard(_ peer: PairingPeer, isWaiting: Bool) -> some View {

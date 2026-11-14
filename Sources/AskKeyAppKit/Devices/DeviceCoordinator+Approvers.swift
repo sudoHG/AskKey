@@ -32,7 +32,7 @@ extension DeviceCoordinator {
         approverConfirmation = .authenticating(device: row)
         acquireApproverExpiryHold()
         let authenticate = environment.authenticate
-        let reason = ManagementAuthenticationAction.manage.reasonKey
+        let reason = ManagementAuthenticationAction.approveDevice.reasonKey
         let prompt = Task { @MainActor in await authenticate(reason) }
         approverAuthentication = prompt
         let result = await prompt.value

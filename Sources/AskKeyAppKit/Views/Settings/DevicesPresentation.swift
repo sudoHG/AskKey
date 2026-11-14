@@ -92,6 +92,12 @@ enum DevicesPresentation {
         appLocalizedFormat("%1$@ · Paired %2$@", platformName(row.platform), date(row.pairedAt, time: false))
     }
 
+    /// "iPhone (not verified) · Paired <date>", for the approver sheet.
+    static func approverDeviceSummary(_ row: PairedDeviceRow) -> String {
+        appLocalizedFormat("%1$@ · Paired %2$@", appLocalizedFormat("%@ (not verified)", platformName(row.platform)),
+                           date(row.pairedAt, time: false))
+    }
+
     /// Whether the device was reached since pairing.
     static func rowReachability(_ row: PairedDeviceRow) -> Notice {
         switch row.reachability {
@@ -115,6 +121,13 @@ enum DevicesPresentation {
         case .noReply: return Notice(text: appLocalized("Delivery check got no reply"), isWarning: true)
         case nil: return nil
         }
+    }
+
+    /// The line under **Approve agent requests** on an iPhone's row.
+    static func approverCaption(_ row: PairedDeviceRow) -> String {
+        row.isApprover
+            ? appLocalized("Agent requests can also be decided on this iPhone.")
+            : appLocalized("Agent requests aren't sent to this iPhone.")
     }
 
     static func issueMessage(_ issue: DeviceActionIssue) -> String {

@@ -99,6 +99,23 @@ struct PairingSheetPresentation: Equatable {
         self.feedbackIsWarning = feedbackIsWarning
     }
 
+    /// Before the QR code: install the iPhone app first (ADR 0014 → Mac App).
+    var showsInstallReminder: Bool {
+        switch stage {
+        case .preparing, .qrCode: return true
+        default: return false
+        }
+    }
+
+    /// A redirect the maintainer points at the public TestFlight link, later
+    /// at the App Store (`site/_redirects`).
+    static let installURL = URL(string: "https://askkey.sudohg.com/iphone")!
+    static let installLinkText = "askkey.sudohg.com/iphone"
+
+    static var installReminder: String {
+        appLocalized("Before you scan, install Ask Key on the iPhone:")
+    }
+
     static var codeInstruction: String {
         appLocalized("Enter the code shown on the iPhone's Ask Key pairing screen. Never enter a code from a notification or a message. If that screen shows no code, cancel.")
     }

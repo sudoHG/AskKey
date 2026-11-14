@@ -92,7 +92,24 @@ private struct DevicesSectionContent: View {
                     .accessibilityIdentifier("settings-devices-issue")
             }
         }
+        // The approver sheet ends only through its buttons or when the
+        // coordinator drops the attempt; a dismissal SwiftUI reports while
+        // the code shows does not cancel it.
+        .sheet(isPresented: Binding(
+            get: { model.isApproverSheetPresented },
+            set: { presented in
+                if !presented, model.coordinator.approverConfirmation?.isActive != true { model.closeApproverSheet() }
+            }
+        )) {
+            ApproverConfirmationSheet(model: model)
+        }
+        .onChange(of: model.coordinator.approverConfirmation) { old, new in
+            model.approverStateChanged(from: old, to: new)
+        }
         .onAppear { Task { await model.sectionOpened() } }
+        // Locking management replaces the page; an open approver sheet and
+        // its code go with it (ADR 0014 → Approvers).
+        .onDisappear { model.sectionClosed() }
     }
 
     /// Stands in for the list while no device is listed.
@@ -190,6 +207,12 @@ private struct DeviceRow: View {
             }
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.vertical, Theme.Spacing.md)
+            if row.platform == .iOS {
+                approverControl
+                    .padding(.leading, Theme.Spacing.lg + 24 + Theme.Spacing.md)
+                    .padding(.trailing, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.md)
+            }
             if model.removalCandidate == row.id {
                 GroupedListSeparator()
                 DevicesConfirmationRow(warning: DevicesPresentation.removalWarning(row.displayName)) {
@@ -200,6 +223,35 @@ private struct DeviceRow: View {
                         .accessibilityIdentifier("devices-confirm-remove")
                 }
             }
+        }
+    }
+
+    /// **Approve agent requests**, off until the person turns it on with
+    /// system authentication and the code typed on this iPhone (ADR 0014).
+    /// It sits in the device's own row, below the Pairing row, so the box
+    /// never holds a single row with a control (#299).
+    private var approverControl: some View {
+        HStack(alignment: .center, spacing: Theme.Spacing.md) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(appLocalized("Approve agent requests"))
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.text)
+                Text(DevicesPresentation.approverCaption(row))
+                    .font(Theme.Fonts.secondary)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("devices-approver-caption")
+            }
+            Spacer(minLength: Theme.Spacing.md)
+            Toggle(appLocalized("Approve agent requests"), isOn: Binding(
+                get: { row.isApprover },
+                set: { enabled in Task { await model.setApprover(row, enabled: enabled) } }
+            ))
+            .toggleStyle(.switch)
+            .labelsHidden()
+            .accessibilityLabel(appLocalizedFormat("Approve agent requests on “%@”", row.displayName))
+            .dimmedAndDisabled(!model.canChangeApprover(row))
+            .accessibilityIdentifier("devices-approver-toggle")
         }
     }
 

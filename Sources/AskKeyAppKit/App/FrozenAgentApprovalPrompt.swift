@@ -18,6 +18,8 @@ struct FrozenAgentApprovalPrompt: View {
     let timedAllowanceEnabled: Bool
     var timedAllowanceMinutes: Int = 30
     var groupAllowance: GroupTimedAllowancePresentation? = nil
+    /// Where the request went and a paired iPhone's decision (ADR 0014).
+    var remote: RemoteApprovalPanelState? = nil
     var writeSummary: BrokerCredentialWriteSummary? = nil
     var organizationSummary: BrokerOrganizationSummary? = nil
     var revealMaterial: (@MainActor () async throws -> FrozenApprovalMaterial)? = nil
@@ -52,7 +54,8 @@ struct FrozenAgentApprovalPrompt: View {
             write: write, organization: organization)
         let details = ApprovalDetailsContent(request: request, credentialName: credentialName, write: write,
             organization: organization, timedAllowanceEnabled: timedAllowanceEnabled,
-            timedAllowanceMinutes: timedAllowanceMinutes, groupSnapshot: groupAllowance?.snapshot)
+            timedAllowanceMinutes: timedAllowanceMinutes, groupSnapshot: groupAllowance?.snapshot,
+            remote: remote?.status)
         let buttons = FrozenApprovalActions.buttons(operation: request.operation, timedAllowanceEnabled: timedAllowanceEnabled,
             minutes: timedAllowanceMinutes, valueOnlyChange: write?.valueOnlyChange ?? false,
             destructive: write?.isDestructive ?? organization?.isDestructive ?? false,
@@ -76,6 +79,13 @@ struct FrozenAgentApprovalPrompt: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(.ultraThinMaterial)
         .environment(\.locale, AppLanguage.store.locale)
+        // The decision shows above Details; collapse them so it is in view,
+        // and announce it, since the panel closes about two seconds later.
+        .onChange(of: remote?.outcome) { _, outcome in
+            guard let outcome else { return }
+            showsDetails = false
+            AccessibilityNotification.Announcement(Self.remoteOutcomeText(outcome)).post()
+        }
     }
 
     @ViewBuilder
@@ -104,7 +114,7 @@ struct FrozenAgentApprovalPrompt: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Theme.Spacing.md)
                     }
-                    if let message = authenticationMessageKey {
+                    if let message = shownAuthenticationMessageKey {
                         Text(appLocalized(message))
                             .font(Theme.Fonts.secondary)
                             .foregroundStyle(Theme.textSecondary)
@@ -113,6 +123,10 @@ struct FrozenAgentApprovalPrompt: View {
                             .padding(.top, Theme.Spacing.md)
                             .accessibilityIdentifier(authenticationOutcome == .failed
                                 ? "approval-authentication-failed" : "approval-authentication-cancelled")
+                    }
+                    if let outcome = remote?.outcome {
+                        remoteOutcome(outcome)
+                            .padding(.top, Theme.Spacing.md)
                     }
                     detailsToggle(expanded: expanded)
                         .padding(.top, Theme.Spacing.md)
@@ -146,6 +160,12 @@ struct FrozenAgentApprovalPrompt: View {
         default: cancelledAuthenticationDecision != nil
             ? "Authentication cancelled. Nothing was handed over." : nil
         }
+    }
+
+    /// A paired iPhone's decision replaces an earlier local authentication
+    /// result; both together would contradict each other.
+    var shownAuthenticationMessageKey: String? {
+        remote?.outcome == nil ? authenticationMessageKey : nil
     }
 
     /// Title and subtitle wrap freely; they scroll only when a name is too
@@ -201,6 +221,29 @@ struct FrozenAgentApprovalPrompt: View {
         }
     }
 
+    /// "Approved on “iPhone”" or "Denied on “iPhone”" while the panel waits
+    /// to close; the request is no longer pending.
+    static func remoteOutcomeText(_ outcome: RemoteAppliedDecision) -> String {
+        appLocalizedFormat(outcome.approved ? "Approved on “%@”" : "Denied on “%@”", outcome.deviceName)
+    }
+
+    private func remoteOutcome(_ outcome: RemoteAppliedDecision) -> some View {
+        let text = Self.remoteOutcomeText(outcome)
+        return HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
+            Image(systemName: outcome.approved ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundStyle(outcome.approved ? Theme.accent : Theme.warning)
+                .accessibilityHidden(true)
+            Text(verbatim: ApprovalCopy.wrapping(text))
+                .foregroundStyle(Theme.text)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(Theme.Fonts.body.weight(.semibold))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(verbatim: text))
+        .accessibilityIdentifier("approval-remote-outcome")
+    }
+
     private func detailsToggle(expanded: Bool) -> some View {
         Button {
             showsDetails = !expanded
@@ -227,7 +270,8 @@ struct FrozenAgentApprovalPrompt: View {
         VStack(spacing: Theme.Spacing.sm) {
             ForEach(buttons, id: \.identifier) { button in
                 ApprovalPromptButton(title: button.title, role: button.role) { finish(button.decision) }
-                    .disabled(button.decision == .once && isOrganize && organizationSummary == nil)
+                    .disabled(button.decision == .once && isOrganize && organizationSummary == nil
+                        || remote?.outcome != nil)
                     .help(button.help ?? "")
                     .accessibilityIdentifier(button.identifier)
             }

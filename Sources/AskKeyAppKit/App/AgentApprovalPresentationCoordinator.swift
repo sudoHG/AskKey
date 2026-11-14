@@ -98,6 +98,10 @@ final class AgentApprovalPresentationCoordinator {
                 if userInitiated { panel?.bringForward() }
                 return
             }
+            // A paired iPhone's decision stays on the panel for about two
+            // seconds; the panel then closes itself and the next request
+            // follows. Choosing another request does not wait.
+            if !stillPending, operationID == nil, panel?.showsRemoteOutcome() == true { return }
             // Invalidate the old completion before closing its panel. It must
             // never apply a decision to a newly selected request.
             dismissActivePanel()

@@ -64,9 +64,21 @@ jobs:
           test -f "$DERIVED_DATA/Build/Products/Debug-iphonesimulator/AskKeyDevices.o"
 
       - name: Test
+        env:
+          # RemoteApprovalRenderTests keeps its zh/en PNGs here (#313).
+          REMOTE_APPROVAL_RENDER_DIRECTORY: ${{ runner.temp }}/remote-approval-renders
         run: |
           swift test
           python3 scripts/check_sdk_markers.py --test-products "$(swift build --show-bin-path)"
+
+      - name: Upload the remote approval renders
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: askkey-remote-approval-renders
+          path: ${{ runner.temp }}/remote-approval-renders/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Check release binary for E2E symbols
         run: |
