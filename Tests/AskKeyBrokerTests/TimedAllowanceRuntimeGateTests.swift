@@ -68,7 +68,7 @@ final class TimedAllowanceRuntimeGateTests: ApprovalStateMachineTestCase {
             XCTAssertFalse(gate.isInside)
             callbacks.record(count: 2)
         }
-        machine.configureOperationStateChanged { _, _, _ in
+        machine.configureOperationStateChanged { _, _, _, _ in
             XCTAssertFalse(gate.isInside)
             callbacks.record(count: 3)
         }

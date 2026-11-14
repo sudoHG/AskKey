@@ -33,12 +33,17 @@ public struct BrokerTimedAllowance: Identifiable, Equatable, Sendable {
     public let groupName: String?
     public var members: [BrokerGroupAllowanceSnapshot.Member]
     public let expiresAt: Date
+    /// The paired device that granted it remotely (ADR 0014); nil when it was
+    /// granted on this Mac.
+    public let approvingDeviceName: String?
 
     public init(id: UUID = UUID(), groupName: String? = nil,
-                members: [BrokerGroupAllowanceSnapshot.Member], expiresAt: Date) {
+                members: [BrokerGroupAllowanceSnapshot.Member], expiresAt: Date,
+                approvingDeviceName: String? = nil) {
         self.id = id
         self.groupName = groupName
         self.members = members
         self.expiresAt = expiresAt
+        self.approvingDeviceName = approvingDeviceName
     }
 }

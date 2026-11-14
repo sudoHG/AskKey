@@ -94,7 +94,7 @@ extension BrokerApprovalStateMachine {
     public func consumeForRuntime(
         _ consumptions: [BrokerApprovalConsumption]
     ) throws -> BrokerRuntimeReadAuthorization? {
-        let snapshot: (UUID, Date)? = try mutate {
+        let snapshot: (UUID, Date, [String: String])? = try mutate {
             guard !paused, consumptions.allSatisfy({ $0.operationRequest.operation == .read }) else {
                 throw BrokerApprovalError.invalidDecision
             }
@@ -106,9 +106,14 @@ extension BrokerApprovalStateMachine {
                 timedCredentialIDs: Set(entries.filter(\.approvedByTimedAllowance).map { $0.request.credentialID }),
                 expiresAt: expiresAt
             )
-            return (id, expiresAt)
+            let devices = entries.reduce(into: [String: String]()) { names, entry in
+                if let name = entry.approvingDeviceName { names[entry.request.credentialID] = name }
+            }
+            return (id, expiresAt, devices)
         }
-        return snapshot.map { BrokerRuntimeReadAuthorization(owner: self, id: $0.0, expiresAt: $0.1) }
+        return snapshot.map {
+            BrokerRuntimeReadAuthorization(owner: self, id: $0.0, expiresAt: $0.1, approvingDeviceNames: $0.2)
+        }
     }
 
     private func consumeBatchLocked(_ consumptions: [BrokerApprovalConsumption]) throws -> [Entry] {

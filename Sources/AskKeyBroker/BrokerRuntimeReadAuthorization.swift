@@ -5,13 +5,17 @@ import Foundation
 /// allowance. File cleanup belongs to this identity, never to a credential name.
 public final class BrokerRuntimeReadAuthorization: @unchecked Sendable {
     public let expiresAt: Date
+    /// For each credential a paired device approved remotely, by Allow Once or
+    /// a timed allowance it granted, that device's name (ADR 0014).
+    public let approvingDeviceNames: [String: String]
     private let owner: BrokerApprovalStateMachine
     private let id: UUID
 
-    init(owner: BrokerApprovalStateMachine, id: UUID, expiresAt: Date) {
+    init(owner: BrokerApprovalStateMachine, id: UUID, expiresAt: Date, approvingDeviceNames: [String: String] = [:]) {
         self.owner = owner
         self.id = id
         self.expiresAt = expiresAt
+        self.approvingDeviceNames = approvingDeviceNames
     }
 
     deinit { finish() }
