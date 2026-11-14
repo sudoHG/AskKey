@@ -18,7 +18,8 @@ final class AppLaunchLifecycleTests: AppLanguageExperienceTestSupport {
         presentation.apply(
             setActivationPolicy: { policy = $0 },
             activateApplication: { activationCount += 1 },
-            hideMainWindow: { hiddenWindowCount += 1 }
+            hideMainWindow: { hiddenWindowCount += 1 },
+            nextTurn: { _ in XCTFail("a user launch schedules no hide") }
         )
 
         XCTAssertEqual(AppLaunchSource(event: event), .active)
@@ -59,17 +60,21 @@ final class AppLaunchLifecycleTests: AppLanguageExperienceTestSupport {
         var policy: NSApplication.ActivationPolicy?
         var activationCount = 0
         var hiddenWindowCount = 0
+        var scheduled: [() -> Void] = []
         let presentation = AppLaunchPresentation.plan(for: AppLaunchSource(event: event))
         presentation.apply(
             setActivationPolicy: { policy = $0 },
             activateApplication: { activationCount += 1 },
-            hideMainWindow: { hiddenWindowCount += 1 }
+            hideMainWindow: { hiddenWindowCount += 1 },
+            nextTurn: { scheduled.append($0) }
         )
 
         XCTAssertEqual(AppLaunchSource(event: event), .loginItem)
         XCTAssertEqual(policy, .accessory)
         XCTAssertEqual(activationCount, 0)
         XCTAssertEqual(hiddenWindowCount, 1)
+        scheduled.forEach { $0() }
+        XCTAssertEqual(hiddenWindowCount, 2, "still in the background: hide once more")
     }
 
     func testHelperLaunchKeepsOnlyTheMenuBarResident() {
@@ -83,7 +88,8 @@ final class AppLaunchLifecycleTests: AppLanguageExperienceTestSupport {
         AppLaunchPresentation.plan(for: source).apply(
             setActivationPolicy: { policy = $0 },
             activateApplication: { activationCount += 1 },
-            hideMainWindow: { hiddenWindowCount += 1 }
+            hideMainWindow: { hiddenWindowCount += 1 },
+            nextTurn: { _ in }
         )
 
         XCTAssertEqual(source, .helper)
@@ -93,12 +99,24 @@ final class AppLaunchLifecycleTests: AppLanguageExperienceTestSupport {
         XCTAssertEqual(AppLaunchPresentation.plan(for: .helper), AppLaunchPresentation.plan(for: .loginItem))
     }
 
-    func testOnlyAUserLaunchStartsWithManagementInFront() {
-        for source in [AppLaunchSource.active, .loginItem, .helper] {
-            var policy = ManagementDockPolicy()
-            policy.handle(.launch(isActive: source == .active))
-            XCTAssertEqual(policy.isManagementWindowForeground, source == .active, source.logName)
-            XCTAssertEqual(policy.activationPolicy, source == .active ? .regular : .accessory, source.logName)
-        }
+    func testDelayedHideSkipsManagementOpenedDuringLaunch() {
+        // A queued second-instance activation, a notification or a reopen can
+        // open management before the next run-loop turn.
+        var source = AppLaunchSource.loginItem
+        var hiddenWindowCount = 0
+        var scheduled: [() -> Void] = []
+        AppLaunchPresentation.plan(for: source).apply(
+            setActivationPolicy: { _ in },
+            activateApplication: { XCTFail("a login launch does not activate") },
+            hideMainWindow: { hiddenWindowCount += 1 },
+            isStillInBackground: { source != .active },
+            nextTurn: { scheduled.append($0) }
+        )
+        XCTAssertEqual(hiddenWindowCount, 1)
+        XCTAssertEqual(scheduled.count, 1)
+
+        source = .active
+        scheduled.forEach { $0() }
+        XCTAssertEqual(hiddenWindowCount, 1)
     }
 }

@@ -21,16 +21,9 @@ final class AppLaunchSourceTests: XCTestCase {
         XCTAssertEqual(AppLaunchSource(event: event, arguments: [executable]), .loginItem)
     }
 
-    func testBareOpenApplicationIsAUserLaunchEvenWithLaunchAtLoginOn() {
+    func testBareOpenApplicationIsAUserLaunch() {
         // Finder, the Dock, Spotlight, Launchpad and `open` send this shape.
-        var asked = false
-        let source = AppLaunchSource(
-            event: Self.openApplication(),
-            arguments: [executable],
-            loginItemEnabled: { asked = true; return true }
-        )
-        XCTAssertEqual(source, .active)
-        XCTAssertFalse(asked, "Launch at Login is only consulted when no event arrived")
+        XCTAssertEqual(AppLaunchSource(event: Self.openApplication(), arguments: [executable]), .active)
     }
 
     func testOtherPropDataOrEventsAreUserLaunches() {
@@ -51,30 +44,22 @@ final class AppLaunchSourceTests: XCTestCase {
         XCTAssertEqual(AppLaunchSource(event: reopen, arguments: [executable]), .active)
     }
 
-    func testMissingEventFollowsLaunchAtLogin() {
-        XCTAssertEqual(
-            AppLaunchSource(event: nil, arguments: [executable], loginItemEnabled: { true }),
-            .loginItem
-        )
-        XCTAssertEqual(
-            AppLaunchSource(event: nil, arguments: [executable], loginItemEnabled: { false }),
-            .active
-        )
+    func testMissingEventIsAUserLaunch() {
+        XCTAssertEqual(AppLaunchSource(event: nil, arguments: [executable]), .active)
     }
 
     func testHelperOpenArgumentsMarkAHelperLaunch() {
         // What `askkey open` passes after `--args` is what the App recognises.
         let bundle = URL(fileURLWithPath: "/Applications/Ask Key.app")
-        let openArguments = HelperHostApplication.openArguments(for: bundle)
+        let openArguments = HelperHostApplication.openArguments(for: bundle, backgroundLaunch: true)
         let passed = Array(openArguments.drop { $0 != "--args" }.dropFirst())
         XCTAssertFalse(passed.isEmpty)
 
-        let source = AppLaunchSource(
-            event: Self.openApplication(),
-            arguments: [executable] + passed,
-            loginItemEnabled: { true }
+        XCTAssertEqual(
+            AppLaunchSource(event: Self.openApplication(), arguments: [executable] + passed),
+            .helper
         )
-        XCTAssertEqual(source, .helper)
+        XCTAssertEqual(AppLaunchSource(event: nil, arguments: [executable] + passed), .helper)
     }
 
     func testHelperFlagIsIgnoredAsTheExecutablePath() {
@@ -103,23 +88,16 @@ final class AppLaunchSourceTests: XCTestCase {
         XCTAssertTrue(summary.hasPrefix("aevt/oapp keys=["), summary)
         XCTAssertTrue(summary.contains("prdt"), summary)
         XCTAssertTrue(summary.contains("----"), summary)
-        XCTAssertTrue(summary.hasSuffix("propData=lgit"), summary)
         XCTAssertFalse(summary.contains("SYNTHETIC"), summary)
+        XCTAssertFalse(summary.contains("lgit"), summary)
 
         XCTAssertEqual(
-            AppLaunchSource.eventSummary(Self.openApplication()),
-            "aevt/oapp keys=[] propData=none"
-        )
-        XCTAssertEqual(
             AppLaunchSource.eventSummary(
-                Self.openApplication(propData: OSType(keyAELaunchedAsServiceItem))
+                Self.openApplication(propData: OSType(keyAELaunchedAsLogInItem))
             ),
-            "aevt/oapp keys=[prdt] propData=svit"
+            "aevt/oapp keys=[prdt]"
         )
-        XCTAssertEqual(
-            AppLaunchSource.eventSummary(Self.openApplication(propData: 0x7A7A_7A7A)),
-            "aevt/oapp keys=[prdt] propData=other"
-        )
+        XCTAssertEqual(AppLaunchSource.eventSummary(Self.openApplication()), "aevt/oapp keys=[]")
         XCTAssertEqual(AppLaunchSource.eventSummary(nil), "none")
     }
 

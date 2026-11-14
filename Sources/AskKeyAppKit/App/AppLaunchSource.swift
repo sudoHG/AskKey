@@ -12,14 +12,9 @@ enum AppLaunchSource: Equatable {
 
     /// Read the open-application event inside `applicationDidFinishLaunching`:
     /// it is not current yet in `applicationWillFinishLaunching` and is gone a
-    /// run-loop turn later. `loginItemEnabled` is asked only when the launch
-    /// carried no event at all.
-    init(
-        event: NSAppleEventDescriptor?,
-        arguments: [String] = [],
-        loginItemEnabled: () -> Bool = { false }
-    ) {
-        if Self.isLoginItemLaunch(event) || (event == nil && loginItemEnabled()) {
+    /// run-loop turn later.
+    init(event: NSAppleEventDescriptor?, arguments: [String] = []) {
+        if Self.isLoginItemLaunch(event) {
             self = .loginItem
         } else if arguments.dropFirst().contains(HelperHostApplication.backgroundLaunchArgument) {
             self = .helper
@@ -58,8 +53,7 @@ extension AppLaunchSource {
         }
     }
 
-    /// The event's class, ID and parameter keywords. The only value included
-    /// is `keyAEPropData`, reduced to `lgit`, `svit`, `other` or `none`.
+    /// The event's class, ID and parameter keywords; no parameter values.
     static func eventSummary(_ event: NSAppleEventDescriptor?) -> String {
         guard let event else { return "none" }
         var keys: [String] = []
@@ -68,15 +62,8 @@ extension AppLaunchSource {
                 keys.append(fourCharacterCode(event.keywordForDescriptor(at: index)))
             }
         }
-        let propData: String
-        switch event.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue {
-        case nil: propData = "none"
-        case OSType(keyAELaunchedAsLogInItem): propData = "lgit"
-        case OSType(keyAELaunchedAsServiceItem): propData = "svit"
-        default: propData = "other"
-        }
         let name = "\(fourCharacterCode(event.eventClass))/\(fourCharacterCode(event.eventID))"
-        return "\(name) keys=[\(keys.joined(separator: ","))] propData=\(propData)"
+        return "\(name) keys=[\(keys.joined(separator: ","))]"
     }
 
     func log(event: NSAppleEventDescriptor?) {

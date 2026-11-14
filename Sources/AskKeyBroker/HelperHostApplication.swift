@@ -105,9 +105,11 @@ public enum HelperHostApplication {
     /// running receives a reopen event instead.
     public static let backgroundLaunchArgument = "--askkey-background-launch"
 
-    /// `-g` keeps the App from taking focus while it starts.
-    public static func openArguments(for bundleURL: URL) -> [String] {
-        ["-g", bundleURL.path, "--args", backgroundLaunchArgument]
+    /// `-g` keeps the App from taking focus while it starts. Development hosts
+    /// get no argument: a `make install` copy runs `scripts/run-dev-app.sh`,
+    /// which reads its only argument as an app path.
+    public static func openArguments(for bundleURL: URL, backgroundLaunch: Bool) -> [String] {
+        ["-g", bundleURL.path] + (backgroundLaunch ? ["--args", backgroundLaunchArgument] : [])
     }
 
     public static func bundleURL(fromHelperExecutable url: URL) -> URL? {
@@ -133,7 +135,7 @@ public enum HelperHostApplication {
         bundleIdentifier: ((URL) -> String?)? = nil,
         resolvedURL: ((URL) -> URL)? = nil
     ) throws {
-        let opener = opener ?? { try open($0) }
+        let opener = opener ?? { try open($0, backgroundLaunch: !isDevelopmentBuild) }
         let signingFacts = signingFacts ?? Self.signingFacts(at:)
         let bundleIdentifier = bundleIdentifier ?? Self.bundleIdentifier(ofHost:)
         let resolvedURL = resolvedURL ?? { $0.resolvingSymlinksInPath() }
@@ -172,10 +174,10 @@ public enum HelperHostApplication {
         try opener(bundle)
     }
 
-    private static func open(_ bundleURL: URL) throws {
+    private static func open(_ bundleURL: URL, backgroundLaunch: Bool) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = openArguments(for: bundleURL)
+        process.arguments = openArguments(for: bundleURL, backgroundLaunch: backgroundLaunch)
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
