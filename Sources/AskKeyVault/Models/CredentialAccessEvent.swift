@@ -21,6 +21,10 @@ public struct CredentialAccessEvent: Codable, Equatable, Sendable {
     public let callerHint: String?
     public let declaredPurpose: String?
     public let executableBasename: String?
+    /// The paired device that allowed or denied this access remotely, as the
+    /// Mac named it then (ADR 0014); nil when it was decided on this Mac.
+    /// Optional, so records written before it decode unchanged.
+    public let deviceName: String?
 
     public init(
         timestamp: Date,
@@ -29,7 +33,8 @@ public struct CredentialAccessEvent: Codable, Equatable, Sendable {
         result: Result,
         callerHint: String?,
         declaredPurpose: String?,
-        executableBasename: String? = nil
+        executableBasename: String? = nil,
+        deviceName: String? = nil
     ) {
         self.timestamp = timestamp
         self.credentialID = credentialID
@@ -38,5 +43,6 @@ public struct CredentialAccessEvent: Codable, Equatable, Sendable {
         self.callerHint = callerHint
         self.declaredPurpose = declaredPurpose
         self.executableBasename = executableBasename.map { ($0 as NSString).lastPathComponent }
+        self.deviceName = deviceName
     }
 }

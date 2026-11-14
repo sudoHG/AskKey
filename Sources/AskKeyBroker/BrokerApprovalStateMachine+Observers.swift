@@ -17,9 +17,11 @@ extension BrokerApprovalStateMachine {
         publishPendingCount(publication)
     }
 
+    /// Called after each request leaves pending or approved. The last value
+    /// is, for a remote denial, the name of the paired device that denied it.
     public func configureOperationStateChanged(
         _ operationStateChanged: @escaping @Sendable (
-            String, BrokerApprovalOperationRequest?, BrokerRequestState
+            String, BrokerApprovalOperationRequest?, BrokerRequestState, String?
         ) -> Void
     ) {
         observerLock.lock()
@@ -70,27 +72,28 @@ extension BrokerApprovalStateMachine {
 
     private func terminalTransitionsLocked(
         from previousEntries: [String: (BrokerRequestState, BrokerApprovalOperationRequest)]
-    ) -> [(String, BrokerApprovalOperationRequest?, BrokerRequestState)] {
+    ) -> [(String, BrokerApprovalOperationRequest?, BrokerRequestState, String?)] {
         previousEntries.compactMap { operationID, previous in
             guard previous.0 == .pending || previous.0 == .approved else { return nil }
-            guard let state = entriesByOperationID[operationID]?.state else {
+            guard let entry = entriesByOperationID[operationID] else {
                 // Retention can evict an entry after this mutation expires it.
-                return (operationID, previous.1, .expired)
+                return (operationID, previous.1, .expired, nil)
             }
-            guard state != .pending, state != .approved else { return nil }
-            return (operationID, entriesByOperationID[operationID]?.request, state)
+            guard entry.state != .pending, entry.state != .approved else { return nil }
+            let denier = entry.state == .denied ? entry.remoteDecision?.deviceName : nil
+            return (operationID, entry.request, entry.state, denier)
         }
     }
 
     private func publishTerminalTransitions(
-        _ transitions: [(String, BrokerApprovalOperationRequest?, BrokerRequestState)]
+        _ transitions: [(String, BrokerApprovalOperationRequest?, BrokerRequestState, String?)]
     ) {
         guard !transitions.isEmpty else { return }
         observerLock.lock()
         let operationStateChanged = self.operationStateChanged
         observerLock.unlock()
-        for (operationID, request, state) in transitions {
-            operationStateChanged(operationID, request, state)
+        for (operationID, request, state, denier) in transitions {
+            operationStateChanged(operationID, request, state, denier)
         }
     }
 

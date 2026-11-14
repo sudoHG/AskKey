@@ -19,7 +19,7 @@ final class ApprovalStateMachineRuntimeTests: ApprovalStateMachineTestCase {
             let cleanups = NotificationRecorder()
             let callbacks = NotificationRecorder()
             machine.setTimedAllowanceRevokedHandler { _ in callbacks.record(count: 1) }
-            machine.configureOperationStateChanged { _, _, _ in callbacks.record(count: 2) }
+            machine.configureOperationStateChanged { _, _, _, _ in callbacks.record(count: 2) }
             let cleaned = expectation(description: "screen backstop cleanup can reenter the Broker")
             try lease.registerCleanup {
                 _ = machine.pendingRequests()

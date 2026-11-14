@@ -25,6 +25,10 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
         var approvedByTimedAllowance: Bool
         var retryCount: Int
         var committing: Bool
+        /// The approver whose remote decision moved this entry out of pending.
+        var remoteDecision: BrokerRemoteApprover? = nil
+        /// The paired device whose remote Allow Once or timed allowance approved it.
+        var approvingDeviceName: String? = nil
     }
 
     let lock = NSLock()
@@ -39,8 +43,8 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
     var pendingCountChanged: @Sendable (Int) -> Void
     var timedAllowanceRevoked: @Sendable (String) -> Void
     var operationStateChanged: @Sendable (
-        String, BrokerApprovalOperationRequest?, BrokerRequestState
-    ) -> Void = { _, _, _ in }
+        String, BrokerApprovalOperationRequest?, BrokerRequestState, String?
+    ) -> Void = { _, _, _, _ in }
     let requestTTL: TimeInterval
     var defaultTimedAllowance: TimeInterval
     var readAuthenticationEnabled: Bool
@@ -69,6 +73,11 @@ public final class BrokerApprovalStateMachine: @unchecked Sendable {
     var reportedRevision: UInt64 = 0
     var hasScheduledExpiration = false
     var paused = false
+    /// Active approvers by pairing ID, each with its enablement generation (ADR 0014).
+    var activeApprovers: [Data: UInt64] = [:]
+    var lastApproverGeneration: UInt64 = 0
+    /// Incremented by every removal from `activeApprovers` and every emptying.
+    var approverRevocationCount: UInt64 = 0
 
     public init(
         requestTTL: TimeInterval = 5 * 60,

@@ -232,7 +232,8 @@ extension Vault {
                 result: .allowed,
                 callerHint: callerName,
                 declaredPurpose: callerPurpose,
-                executableBasename: executableBasename
+                executableBasename: executableBasename,
+                deviceName: runtimeAuthorization?.approvingDeviceNames[record.id]
             ))
         }
         ownsAgentOperation = false

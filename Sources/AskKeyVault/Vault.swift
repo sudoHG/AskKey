@@ -220,7 +220,7 @@ public final class Vault {
     }
 
     private func configureAgentTextWriteCleanup() {
-        approvalRequests.configureOperationStateChanged { [weak self] operationID, request, state in
+        approvalRequests.configureOperationStateChanged { [weak self] operationID, request, state, denyingDevice in
             guard let self else { return }
             if state != .pending, state != .approved {
                 if request?.operation == .organize {
@@ -250,7 +250,8 @@ public final class Vault {
                         callerHint: approvalRequest.callerName,
                         declaredPurpose: approvalRequest.callerPurpose,
                         executableBasename: operation == .runtimeRead
-                            ? approvalRequest.display?.executableBasename : nil
+                            ? approvalRequest.display?.executableBasename : nil,
+                        deviceName: denyingDevice
                     ))
                 }
             }
@@ -358,7 +359,7 @@ public final class Vault {
         stateLock.lock()
         _managementSessionExpiresAt = nil
         stateLock.unlock()
-        deviceState.authorize(nil)
+        deviceState.dropAuthorizations()
     }
 
     func requireManagementSession() throws {

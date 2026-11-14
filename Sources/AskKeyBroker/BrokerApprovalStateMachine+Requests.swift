@@ -91,10 +91,11 @@ extension BrokerApprovalStateMachine {
             guard activeCount < BrokerLimits.maximumPendingApprovalRequests else {
                 throw BrokerApprovalError.capacityReached
             }
-            let allowanceEnd = request.operation == .read && timedAllowanceEnabled
+            let allowance = request.operation == .read && timedAllowanceEnabled
                 && (!endTimedAllowancesOnLock || timedAllowanceSessionPermitsGrantLocked())
-                ? allowanceLocked(credentialID: request.credentialID, digest: request.readProjectionDigest)?.expiresAt
+                ? allowanceLocked(credentialID: request.credentialID, digest: request.readProjectionDigest)
                 : nil
+            let allowanceEnd = allowance?.expiresAt
             let state: BrokerRequestState = allowanceEnd != nil ? .approved : .pending
             try makeRetentionRoom()
             let requestDeadline = now.addingTimeInterval(requestTTL)
@@ -115,7 +116,8 @@ extension BrokerApprovalStateMachine {
                 state: state,
                 approvedByTimedAllowance: allowanceEnd != nil,
                 retryCount: 0,
-                committing: false
+                committing: false,
+                approvingDeviceName: allowance?.approvingDeviceName
             )
             entriesByOperationID[request.operationID] = entry
             operationOrder.append(request.operationID)

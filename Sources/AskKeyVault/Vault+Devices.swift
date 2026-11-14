@@ -20,6 +20,9 @@ public enum DeviceStorageError: Error, Equatable, Sendable {
     /// A list change would add a device the person did not authorize, with
     /// system authentication, in the current pairing session.
     case pairingNotAuthorized
+    /// A list change would turn on a device's approval flag without the
+    /// approver authorization for that device and pairing (ADR 0014).
+    case approverNotAuthorized
     /// A local erase is running or was interrupted; device storage stays
     /// closed until it finishes.
     case eraseInProgress
@@ -49,13 +52,19 @@ public struct DeviceInboxState: Codable, Equatable, Sendable {
 }
 
 /// What the Vault keeps in memory for the device services: the storage
-/// epoch, the epoch's only list registry, the pairing authorization, and the
-/// handler that stops the services before a local erase.
+/// epoch, the epoch's only list registry, the pairing and approver
+/// authorizations, and the handler that stops the services before a local erase.
 final class VaultDeviceState: @unchecked Sendable {
+    struct Approver: Equatable {
+        let deviceID: DeviceID
+        let pairingID: PairingID
+    }
+
     private let lock = NSRecursiveLock()
     private var epoch = 0
     private var registry: PairedDeviceRegistry?
     private var authorizedPeer: DeviceID?
+    private var authorizedApprover: Approver?
     private var stopHandler: (@Sendable () -> Void)?
 
     func withLock<T>(_ body: () throws -> T) rethrows -> T {
@@ -81,6 +90,18 @@ final class VaultDeviceState: @unchecked Sendable {
 
     func isAuthorized(_ peer: DeviceID) -> Bool { withLock { authorizedPeer == peer } }
 
+    func authorizeApprover(_ approver: Approver?) { withLock { authorizedApprover = approver } }
+
+    func isApproverAuthorized(_ approver: Approver) -> Bool { withLock { authorizedApprover == approver } }
+
+    /// Drops both authorizations, when the management session has ended.
+    func dropAuthorizations() {
+        withLock {
+            authorizedPeer = nil
+            authorizedApprover = nil
+        }
+    }
+
     /// Closes the current epoch: its store refuses every later operation and
     /// the authorization is dropped. Returns the stop handler to call.
     @discardableResult
@@ -89,6 +110,7 @@ final class VaultDeviceState: @unchecked Sendable {
             epoch += 1
             registry = nil
             authorizedPeer = nil
+            authorizedApprover = nil
             return stopHandler
         }
     }
@@ -211,6 +233,8 @@ extension Vault {
     /// again, the pairing authorization is dropped, and the App stops its
     /// sessions, polling, delivery checks and pending callbacks.
     func stopDeviceServicesForLocalErase() {
+        // No approver keeps authority once the erase begins (ADR 0014).
+        approvalRequests.removeAllActiveApprovers()
         deviceState.endEpoch()?()
     }
 
@@ -271,6 +295,7 @@ extension Vault {
     /// session. The caller stops its device services first.
     public func resetDeviceIdentity() throws {
         try requireManagementSession()
+        approvalRequests.removeAllActiveApprovers()
         deviceState.endEpoch()
         try withDeviceStorage { keys in
             try deleteDeviceItems(from: keys)
@@ -303,18 +328,35 @@ extension Vault {
         deviceState.authorize(nil)
     }
 
+    /// Records step 1's system authentication for turning on approval for one
+    /// paired device (ADR 0014 → Approvers). The App writes the flag only
+    /// after a verified confirmation whose code proof matches; that one list
+    /// write uses the authorization up. Requires the management session; an
+    /// authenticator that does not confirm stores nothing.
+    package func authorizeDeviceApprover(_ deviceID: DeviceID, pairingID: PairingID,
+                                         using authenticator: ManagementAuthenticator) throws {
+        try requireManagementSession()
+        try authorizeManagement(authenticator, reason: Self.devicePairingReason)
+        deviceState.authorizeApprover(.init(deviceID: deviceID, pairingID: pairingID))
+    }
+
+    /// The approver sheet closed, its code expired or was refused, or management locked.
+    package func endDeviceApproverAuthorization() {
+        deviceState.authorizeApprover(nil)
+    }
+
     /// Renaming and removing a device need the management session; an open
     /// pairing sheet also uses this to keep it from expiring for idleness.
     public func requireDeviceManagementSession() throws {
         try requireDeviceManagementSessionDroppingAuthorization()
     }
 
-    /// A management session that has ended also ends any pairing authorization.
+    /// A management session that has ended also ends any pairing or approver authorization.
     private func requireDeviceManagementSessionDroppingAuthorization() throws {
         do {
             try requireManagementSession()
         } catch {
-            deviceState.authorize(nil)
+            deviceState.dropAuthorizations()
             throw error
         }
     }
@@ -328,23 +370,52 @@ extension Vault {
     /// Writes a list the registry prepared. A device that was not on the
     /// stored list, or is there with another pairing ID, is an add: it needs
     /// the management session and this pairing session's authorization for
-    /// that device, which the write then uses up.
+    /// that device, which the write then uses up. Turning a device's approval
+    /// flag on widens authority the same way: it needs the management session
+    /// and the approver authorization for that device and pairing ID, which
+    /// the write uses up. Turning it off needs the management session. A
+    /// device whose flag the write turns off, or whose flagged entry it
+    /// removes or replaces, leaves the Broker's active-approver set before
+    /// the write commits, so its authority ends first (ADR 0014 → Revocation).
     func savePairedDevices(_ list: PairedDeviceList, epoch: Int) throws {
         try withDeviceStorage(epoch: epoch) { keys in
             let vaultKey = try requireKey()
             let stored = try storedPairedDevices(keys: keys, vaultKey: vaultKey)
-            let added = list.devices.filter { device in
-                !stored.devices.contains { $0.deviceID == device.deviceID && $0.pairingID == device.pairingID }
+            func storedEntry(_ device: PairedDevice) -> PairedDevice? {
+                stored.devices.first { $0.deviceID == device.deviceID && $0.pairingID == device.pairingID }
+            }
+            let added = list.devices.filter { storedEntry($0) == nil }
+            let enabled = list.devices.filter { $0.isApprover && storedEntry($0)?.isApprover != true }
+            let disabled = list.devices.contains { !$0.isApprover && storedEntry($0)?.isApprover == true }
+            if !added.isEmpty || !enabled.isEmpty || disabled {
+                try requireDeviceManagementSessionDroppingAuthorization()
             }
             if !added.isEmpty {
-                try requireDeviceManagementSessionDroppingAuthorization()
                 guard added.count == 1, deviceState.isAuthorized(added[0].deviceID) else {
                     throw DeviceStorageError.pairingNotAuthorized
                 }
             }
+            if !enabled.isEmpty {
+                guard enabled.count == 1,
+                      deviceState.isApproverAuthorized(.init(deviceID: enabled[0].deviceID,
+                                                             pairingID: enabled[0].pairingID)) else {
+                    throw DeviceStorageError.approverNotAuthorized
+                }
+            }
+            for device in stored.devices where device.isApprover && !list.devices.contains(where: {
+                $0.deviceID == device.deviceID && $0.pairingID == device.pairingID && $0.isApprover
+            }) {
+                approvalRequests.removeActiveApprover(pairingID: device.pairingID.rawValue)
+            }
             try keys.saveDeviceItem(PairedDeviceListAuthentication.seal(list, using: vaultKey), account: .pairedDevices)
             if !added.isEmpty { deviceState.authorize(nil) }
+            if !enabled.isEmpty { deviceState.authorizeApprover(nil) }
         }
+    }
+
+    /// The stored list, read under the device lock. Needs no management session.
+    func storedPairedDeviceList() throws -> PairedDeviceList {
+        try withDeviceStorage { keys in try storedPairedDevices(keys: keys, vaultKey: requireKey()) }
     }
 
     private func storedPairedDevices(keys: AppKeyStore, vaultKey: SymmetricKey) throws -> PairedDeviceList {
