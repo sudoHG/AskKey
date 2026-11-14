@@ -1,3 +1,4 @@
+import AskKeyBroker
 import AskKeyDevicesTestSupport
 import AskKeyTestSupport
 import Foundation
@@ -20,7 +21,9 @@ final class DeviceCoordinatorHarness {
     private(set) var coordinator: DeviceCoordinator
 
     init() throws {
-        library = try AgentAccessPolicyTestLibrary()
+        let clock = self.clock
+        // The Broker shares the manual clock, so request deadlines and expiry follow it.
+        library = try AgentAccessPolicyTestLibrary(approvalRequests: BrokerApprovalStateMachine(clock: { clock.now() }))
         try library.vault.beginManagementSession(using: .allow)
         backend = FakeDeviceServicesBackend(transport: transport, clock: clock)
         phone = SimulatedPairingPhone(transport: transport, clock: clock)
@@ -50,7 +53,16 @@ final class DeviceCoordinatorHarness {
             displayName: { "Synthetic Mac" },
             log: { script.record($0) },
             automaticPolling: false,
-            sleep: { _ in }
+            sleep: { _ in },
+            isScreenUnlocked: { script.screenUnlocked },
+            registerForRemoteNotifications: { script.pushRegistrations += 1 },
+            processActivity: DeviceProcessActivity(
+                begin: {
+                    script.activityBegins += 1
+                    return NSObject()
+                },
+                end: { _ in script.activityEnds += 1 }
+            )
         ))
     }
 
@@ -149,6 +161,12 @@ final class DeviceCoordinatorHarness {
 @MainActor
 final class DeviceTestScript {
     var managementActive = true
+    /// Whether the Mac's screen is unlocked; locked by default.
+    var screenUnlocked = false
+    var pushRegistrations = 0
+    var activityBegins = 0
+    var activityEnds = 0
+    var activityHeld: Bool { activityBegins > activityEnds }
     /// Each prompt's answer, in order; afterwards every prompt succeeds.
     var authenticationResults: [ManagementAuthenticationResult] = []
     var duringAuthentication: (@MainActor () async -> Void)?

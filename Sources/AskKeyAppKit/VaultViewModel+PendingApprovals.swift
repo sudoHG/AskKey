@@ -12,8 +12,10 @@ extension VaultViewModel {
                 capability: approval.capability,
                 decision: .deny
             )
-        } catch {
+        } catch where LocalApprovalDecision.showsError(error) {
             errorMessage = "Ask Key could not apply this decision. Open Pending requests to retry or reject it."
+        } catch {
+            // A paired iPhone decided it first (ADR 0014): no error.
         }
         pendingApprovalCount = Vault.shared.approvalRequests.pendingRequests().count
     }

@@ -106,6 +106,7 @@ extension DeviceCoordinator {
         }
         account = .available
         await use(account: name, state: state)
+        activateApproversIfNeeded()
         return true
     }
 
@@ -170,7 +171,9 @@ extension DeviceCoordinator {
     }
 
     /// The management session ended (locked, expired or its window closed).
+    /// An open approver sheet ends too, with its code and authorization.
     package func managementSessionEnded() async {
+        if approverConfirmation?.isActive == true { cancelApproverConfirmation() }
         guard pairingIsLive else {
             finishPairingSession()
             return

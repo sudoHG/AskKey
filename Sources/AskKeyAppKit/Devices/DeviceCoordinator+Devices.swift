@@ -116,6 +116,8 @@ extension DeviceCoordinator {
             return false
         }
         let inbox = services?.inbox
+        // No approver keeps authority once the reset begins (ADR 0014).
+        vault.approvalRequests.removeAllActiveApprovers()
         stopServices()
         let lifecycle = self.lifecycle
         if let inbox { try? await inbox.removeInbox() }

@@ -36,6 +36,8 @@ extension AppDelegate {
             notify: { _ in },
             pendingCountChanged: { [weak self] count in
                 Task { @MainActor [weak self] in
+                    // Read requests may go to a paired iPhone (ADR 0014).
+                    DeviceServicesHost.coordinator?.approvalRequestsChanged()
                     self?.pendingApprovalCount = count
                     self?.vault.pendingApprovalCount = count
                     if self?.vault.softwareUpdates != nil { self?.refreshApprovalActivity() }
@@ -57,12 +59,16 @@ extension AppDelegate {
             MainActor.assumeIsolated {
                 self?.resetLockedApprovalReminder()
                 self?.approvalPresentation.refreshAfterResume()
+                DeviceServicesHost.coordinator?.screenDidUnlockOrWake()
             }
         }
         approvalWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.approvalPresentation.refreshAfterResume() }
+            MainActor.assumeIsolated {
+                self?.approvalPresentation.refreshAfterResume()
+                DeviceServicesHost.coordinator?.screenDidUnlockOrWake()
+            }
         }
     }
 
@@ -144,7 +150,8 @@ extension AppDelegate {
                 // The request stays pending and nothing was delivered or changed.
                 authenticationOutcome = attempt.outcome
             } catch {
-                didFail = true
+                // Losing to a paired iPhone's decision is not a failure (ADR 0014).
+                didFail = LocalApprovalDecision.showsError(error)
             }
             let failed = didFail
             let outcome = authenticationOutcome

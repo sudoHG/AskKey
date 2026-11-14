@@ -17,6 +17,7 @@ extension AppDelegate {
                 .map { CloudKitDeviceServicesBackend(containerIdentifier: $0) }
         }
         let model = vault
+        let registersForPushes = backend?.registersForRemoteNotifications == true
         let coordinator = DeviceCoordinator(environment: DeviceCoordinatorEnvironment(
             vault: .shared,
             backend: backend,
@@ -27,10 +28,15 @@ extension AppDelegate {
             isManagementSessionActive: { [weak model] in
                 guard let model else { return false }
                 return model.hasManagementSession && !model.isLocked
+            },
+            // ADR 0014 → Mac App: only once this Mac has an identity, so a
+            // Mac that never pairs registers no push.
+            registerForRemoteNotifications: {
+                if registersForPushes { NSApp.registerForRemoteNotifications() }
             }
         ))
         DeviceServicesHost.install(coordinator)
-        guard let backend else { return }
+        guard backend != nil else { return }
         Vault.shared.setDeviceServicesStopHandler { [weak coordinator] in
             // The Vault already refuses every later write of these services.
             if Thread.isMainThread {
@@ -40,14 +46,32 @@ extension AppDelegate {
             }
         }
         observeManagementSessionForDevices()
-        if backend.registersForRemoteNotifications {
-            NSApp.registerForRemoteNotifications()
-        }
+        observeScreenLockForRemoteApproval()
         coordinator.start()
     }
 
     func stopDeviceServices() {
+        for (center, token) in RemoteApprovalScreenObservers.tokens {
+            center.removeObserver(token)
+        }
+        RemoteApprovalScreenObservers.tokens = []
         DeviceServicesHost.coordinator?.stop()
+    }
+
+    /// A request still waiting for its 20 seconds goes to the approvers at
+    /// once when the screen locks or the session switches to another user
+    /// (ADR 0014).
+    private func observeScreenLockForRemoteApproval() {
+        let observations: [(NotificationCenter, Notification.Name)] = [
+            (DistributedNotificationCenter.default, .init("com.apple.screenIsLocked")),
+            (NSWorkspace.shared.notificationCenter, NSWorkspace.sessionDidResignActiveNotification),
+        ]
+        for (center, name) in observations {
+            let token = center.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { DeviceServicesHost.coordinator?.screenDidLock() }
+            }
+            RemoteApprovalScreenObservers.tokens.append((center, token))
+        }
     }
 
     /// Locking management, its expiry or closing its window cancels an open
@@ -78,4 +102,10 @@ extension AppDelegate {
     func application(_ application: NSApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         NSLog("AskKey: remote notifications are unavailable; device messages are fetched by polling")
     }
+}
+
+/// The screen-lock observer of the remote approval schedule.
+@MainActor
+private enum RemoteApprovalScreenObservers {
+    static var tokens: [(NotificationCenter, NSObjectProtocol)] = []
 }

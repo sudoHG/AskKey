@@ -61,6 +61,8 @@ package struct PairedDeviceRow: Identifiable, Equatable, Sendable {
     package let pairedAt: Date
     package let lastDeliveryCheck: DeliveryCheckResult?
     package let reachability: DeviceReachability
+    /// Whether this device may decide agent requests (ADR 0014 → Approvers).
+    package var isApprover = false
 }
 
 /// What the pairing sheet shows. The Mac never shows the pairing code: no
