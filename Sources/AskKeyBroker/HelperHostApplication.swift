@@ -100,6 +100,16 @@ public enum HelperHostApplicationError: Error, LocalizedError {
 /// Resolves the host `.app` that sealed this helper, then opens it only after
 /// the install-topology, identity, and signature gates pass.
 public enum HelperHostApplication {
+    /// Passed by `askkey open` so the App starts with only its menu bar icon.
+    /// `open` hands it to a new App process only; an App that is already
+    /// running receives a reopen event instead.
+    public static let backgroundLaunchArgument = "--askkey-background-launch"
+
+    /// `-g` keeps the App from taking focus while it starts.
+    public static func openArguments(for bundleURL: URL) -> [String] {
+        ["-g", bundleURL.path, "--args", backgroundLaunchArgument]
+    }
+
     public static func bundleURL(fromHelperExecutable url: URL) -> URL? {
         structuralBundleURL(from: url.standardizedFileURL.resolvingSymlinksInPath())
     }
@@ -165,7 +175,7 @@ public enum HelperHostApplication {
     private static func open(_ bundleURL: URL) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = [bundleURL.path]
+        process.arguments = openArguments(for: bundleURL)
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

@@ -13,7 +13,10 @@ struct AppLaunchPresentation: Equatable {
                 activatesApplication: true,
                 hidesMainWindow: false
             )
-        case .loginItem:
+        case .loginItem, .helper:
+            // Menu bar only. Approval prompts are their own panels and still
+            // appear; the menu bar icon or opening Ask Key again brings the
+            // management window.
             return .init(
                 activationPolicy: .accessory,
                 activatesApplication: false,

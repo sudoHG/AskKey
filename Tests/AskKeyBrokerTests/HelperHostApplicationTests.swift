@@ -154,6 +154,15 @@ final class HelperHostApplicationTests: XCTestCase {
         XCTAssertEqual(opened.urls.map(\.path), ["/Applications/Ask Key.app"])
     }
 
+    func testOpenStartsTheHostInTheBackgroundWithTheMenuBarOnlyArgument() {
+        let bundle = URL(fileURLWithPath: "/Applications/Ask Key.app")
+        XCTAssertEqual(
+            HelperHostApplication.openArguments(for: bundle),
+            ["-g", "/Applications/Ask Key.app", "--args", "--askkey-background-launch"]
+        )
+        XCTAssertEqual(HelperHostApplication.backgroundLaunchArgument, "--askkey-background-launch")
+    }
+
     func testReleaseOpenIgnoresDebugEnvironmentAndStillRejectsMovedHost() throws {
         let fixture = try makeHostFixture(
             appName: "Ask Key.app",

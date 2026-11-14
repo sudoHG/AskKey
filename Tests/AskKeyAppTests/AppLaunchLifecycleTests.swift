@@ -4,6 +4,7 @@ import LocalAuthentication
 import SwiftUI
 import XCTest
 @testable import AskKeyAppKit
+@testable import AskKeyBroker
 @testable import AskKeyVault
 
 @MainActor
@@ -69,5 +70,35 @@ final class AppLaunchLifecycleTests: AppLanguageExperienceTestSupport {
         XCTAssertEqual(policy, .accessory)
         XCTAssertEqual(activationCount, 0)
         XCTAssertEqual(hiddenWindowCount, 1)
+    }
+
+    func testHelperLaunchKeepsOnlyTheMenuBarResident() {
+        let source = AppLaunchSource(
+            event: launchEvent(loginItem: false),
+            arguments: ["AskKeyApp", HelperHostApplication.backgroundLaunchArgument]
+        )
+        var policy: NSApplication.ActivationPolicy?
+        var activationCount = 0
+        var hiddenWindowCount = 0
+        AppLaunchPresentation.plan(for: source).apply(
+            setActivationPolicy: { policy = $0 },
+            activateApplication: { activationCount += 1 },
+            hideMainWindow: { hiddenWindowCount += 1 }
+        )
+
+        XCTAssertEqual(source, .helper)
+        XCTAssertEqual(policy, .accessory)
+        XCTAssertEqual(activationCount, 0)
+        XCTAssertEqual(hiddenWindowCount, 1)
+        XCTAssertEqual(AppLaunchPresentation.plan(for: .helper), AppLaunchPresentation.plan(for: .loginItem))
+    }
+
+    func testOnlyAUserLaunchStartsWithManagementInFront() {
+        for source in [AppLaunchSource.active, .loginItem, .helper] {
+            var policy = ManagementDockPolicy()
+            policy.handle(.launch(isActive: source == .active))
+            XCTAssertEqual(policy.isManagementWindowForeground, source == .active, source.logName)
+            XCTAssertEqual(policy.activationPolicy, source == .active ? .regular : .accessory, source.logName)
+        }
     }
 }

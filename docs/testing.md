@@ -228,6 +228,13 @@ CI cannot check focus, Touch ID or real clients. Before notarizing, review the r
   ```
 
 - Every Touch ID entry: unlock management, reveal and copy a value, revoke a single or group timed allowance, permanently delete, replace on import, settings actions, approving a single or group read and a write. The prompt accepts a finger without a click. Turning End Timed Allow on Lock on asks for authentication; cancellation leaves it off. After enabling it, relaunch and confirm it stays on; turning it off also asks for authentication.
+- Log out and in with Launch at Login on: only the menu bar icon appears, with no management window and no Dock icon. Clicking the menu bar icon and choosing to open management, or opening Ask Key from Finder, brings the window front. Afterwards, the planner reads the launch log, which holds the classification and the open-application event's keywords, no values; the login line shows `source=loginItem` and `propData=lgit`:
+
+  ```bash
+  log show --last 15m --style compact --predicate 'subsystem == "com.sudohg.askkey.app" AND category == "Launch"'
+  ```
+
+  Then quit Ask Key and run the installed helper's `open` command from a terminal (`"/Applications/Ask Key.app/Contents/Helpers/askkey" open`): only the menu bar icon appears and the log shows `source=helper`. An agent request sent afterwards still shows its approval prompt.
 - With the management window in front, choose **About Ask Key** from the app menu: the panel opens in front, the Dock icon and the menu bar stay, and closing the panel returns to the management window.
 - With another app's window behind Ask Key, unlock management: Ask Key stays in front afterwards, and its Dock icon does not disappear during the prompt.
 - With the management window open behind another app, an agent request arrives: only the approval prompt appears; after Allow and Touch ID, focus returns to the other app.

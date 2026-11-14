@@ -13,7 +13,13 @@ extension AppDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in self?.vault.refreshAgentAccessPauseState() }
         }
-        launchSource = AppLaunchSource(event: NSAppleEventManager.shared().currentAppleEvent)
+        let launchEvent = NSAppleEventManager.shared().currentAppleEvent
+        launchSource = AppLaunchSource(
+            event: launchEvent,
+            arguments: CommandLine.arguments,
+            loginItemEnabled: { self.vault.launchAtLogin }
+        )
+        launchSource.log(event: launchEvent)
         ensureManagementWindow()
         _ = managementDockPolicy.handle(
             .launch(isActive: launchSource == .active)
