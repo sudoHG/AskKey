@@ -8,11 +8,12 @@ import XCTest
 @testable import AskKeyDevices
 
 /// Renders every new remote-approval state of the Mac App offscreen, in
-/// English and Simplified Chinese, as 2x PNGs (#313): Settings → Devices with
-/// approval off and on and the pending-requests list in the real management
-/// window, each step of the approver sheet and the pairing sheet's install
-/// reminder at their own size (a SwiftUI sheet can't be captured offscreen),
-/// and the approval panel through the production panel factory. No window is
+/// English and Simplified Chinese, as 2x PNGs (#313): the pending-requests
+/// list in the real management window, Settings → Devices with approval off
+/// and on at the window's content width, each step of the approver sheet and
+/// the pairing sheet's install reminder at their own size (a SwiftUI sheet
+/// can't be captured offscreen), and the approval panel through the
+/// production panel factory. No window is
 /// ordered in. Set `REMOTE_APPROVAL_RENDER_DIRECTORY` to keep the PNGs.
 @MainActor
 final class RemoteApprovalRenderTests: AskKeyAppTestCase {
@@ -72,36 +73,27 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
 
     // MARK: Settings → Devices
 
-    /// The Devices section in the real management window, scrolled down to it.
+    /// The Devices section at the management window's content width. A
+    /// programmatic scroll of the offscreen Settings window drew nothing on
+    /// the CI runner, so the real window's Devices captures come from the
+    /// desktop screenshot flow (30/35 off, 44/47 on).
     private func renderDevices(_ harness: DeviceCoordinatorHarness, language: String, tag: String) async throws -> [String] {
-        let fixture = try NoticeLayoutFixtures.Model(language: language, state: .management, recovery: false, broker: false)
-        defer { fixture.close() }
+        let model = DevicesSettingsModel(coordinator: harness.coordinator)
+        let width = WorkspaceVisualContract.windowWidth - WorkspaceVisualContract.sidebarWidth
         var names: [String] = []
         for enabled in [false, true] {
             try await drain(harness)
             if enabled { try await enable(harness) }
-            let navigation = ManagementNavigation()
-            navigation.route = .settings
-            let window = ManagementWindowConfiguration.makeWindow(
-                rootView: SettingsView(navigation: navigation)
-                    .environment(fixture.vault)
-                    .environment(\.locale, fixture.vault.appLocale)
-            )
-            defer { window.close() }
-            window.appearance = NSAppearance(named: .aqua)
-            settle(window)
-            try scrollToBottom(window)
-            settle(window)
-            XCTAssertFalse(window.isVisible)
-            XCTAssertEqual(window.frame.size, ManagementWindowConfiguration.frameSize)
             let name = "\(enabled ? "02" : "01")-\(tag)-devices-approval-\(enabled ? "on" : "off")"
-            try export(try XCTUnwrap(window.contentView?.superview), as: name)
+            try renderAlone(DevicesSettingsSection(model: model)
+                .padding(Theme.Spacing.xxl)
+                .frame(width: width)
+                .background(Theme.windowBackground), as: name)
             names.append(name)
         }
         XCTAssertTrue(try XCTUnwrap(harness.coordinator.devices.first).isApprover)
         try await drain(harness)
         // Off again for the sheet's steps; turning it off asks for nothing.
-        let model = DevicesSettingsModel(coordinator: harness.coordinator)
         await model.setApprover(try XCTUnwrap(harness.coordinator.devices.first), enabled: false)
         XCTAssertFalse(try XCTUnwrap(harness.coordinator.devices.first).isApprover)
         return names
@@ -268,7 +260,7 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
         settle(window)
         XCTAssertFalse(window.isVisible)
         let name = "15-\(tag)-pending-sent-to-iphone"
-        try export(try XCTUnwrap(window.contentView?.superview), as: name)
+        try export(try XCTUnwrap(window.contentView?.superview), as: name, contentFrom: WorkspaceVisualContract.sidebarWidth)
         return [name]
     }
 
@@ -332,26 +324,6 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
         }
     }
 
-    /// Scrolls the content column's scroll view to its end, where Devices sits.
-    private func scrollToBottom(_ window: NSWindow) throws {
-        var pending: [NSView] = [try XCTUnwrap(window.contentView)]
-        var found: NSScrollView?
-        while let view = pending.popLast() {
-            if let scrollView = view as? NSScrollView,
-               scrollView.convert(scrollView.bounds, to: nil).midX > WorkspaceVisualContract.sidebarWidth {
-                found = scrollView
-                break
-            }
-            pending.append(contentsOf: view.subviews)
-        }
-        let scrollView = try XCTUnwrap(found, "the Settings page scrolls")
-        let document = try XCTUnwrap(scrollView.documentView)
-        let clip = scrollView.contentView
-        let end = max(0, document.frame.height - clip.bounds.height)
-        clip.scroll(to: NSPoint(x: 0, y: document.isFlipped ? end : 0))
-        scrollView.reflectScrolledClipView(clip)
-    }
-
     /// A view at its own fitting size, without a window, like a sheet's content.
     @discardableResult
     private func renderAlone<V: View>(_ view: V, as name: String) throws -> NSView {
@@ -364,8 +336,20 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
         return hosting
     }
 
-    private func export(_ view: NSView, as name: String) throws {
-        let png = try XCTUnwrap(Self.render(view).representation(using: .png, properties: [:]))
+    /// Writes the PNG and fails when the part right of `contentFrom` points
+    /// is a single color, as an offscreen window that drew nothing would be.
+    private func export(_ view: NSView, as name: String, contentFrom: CGFloat = 0) throws {
+        let bitmap = try Self.render(view)
+        var colors = Set<String>()
+        let scale = CGFloat(bitmap.pixelsWide) / max(view.bounds.width, 1)
+        for y in stride(from: 0, to: bitmap.pixelsHigh, by: 12) {
+            for x in stride(from: Int(contentFrom * scale), to: bitmap.pixelsWide, by: 12) {
+                guard let color = bitmap.colorAt(x: x, y: y) else { continue }
+                colors.insert(String(format: "%.2f %.2f %.2f", color.redComponent, color.greenComponent, color.blueComponent))
+            }
+        }
+        XCTAssertGreaterThan(colors.count, 8, "\(name) drew nothing")
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
         XCTAssertGreaterThan(png.count, 5_000, "\(name) did not render")
         try png.write(to: directory.appendingPathComponent(name + ".png"), options: .atomic)
     }
