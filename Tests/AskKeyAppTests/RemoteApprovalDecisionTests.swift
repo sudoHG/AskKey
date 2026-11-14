@@ -251,6 +251,32 @@ final class RemoteApprovalDecisionTests: AskKeyAppTestCase {
         XCTAssertTrue(harness.entries(second).isEmpty)
     }
 
+    func testRequestEndedDuringARevokedApproversDecisionStillClosesForTheOthers() async throws {
+        let second = SimulatedPairingPhone(transport: harness.transport, clock: harness.clock)
+        try await harness.pair(second, name: "Synthetic Phone Two")
+        try await harness.enableApprover(second)
+        let pending = try harness.submitRead()
+        try await harness.waitForRequests(harness.macSent(.approvalRequest).count + 2)
+        let deciding = try XCTUnwrap(harness.entries(pending).first { $0.approverID == harness.phone.deviceID })
+        // The first approver's decision passed its checks and is being applied...
+        let index = try XCTUnwrap(harness.entries(pending).firstIndex { $0.responseID == deciding.responseID })
+        harness.coordinator.remoteRequests[pending.requestID]?.entries[index].decided = true
+        harness.coordinator.remoteRequests[pending.requestID]?.applying = 1
+        // ...when the request is denied on the Mac and the approver is revoked.
+        _ = try harness.vault.decideAgentApproval(requestID: pending.requestID, capability: pending.capability, decision: .deny)
+        harness.coordinator.approvalRequestsChanged()
+        XCTAssertNotNil(harness.coordinator.remoteRequests[pending.requestID], "it waits for the decision being applied")
+        harness.coordinator.finishRemoteDecision(.outcome(.approverInactive), code: .allowOnce, entry: deciding,
+                                                 requestID: pending.requestID, deviceName: "Synthetic Phone")
+        XCTAssertNil(harness.coordinator.remoteRequests[pending.requestID])
+        let outcomes = try await harness.phoneClosed().map(\.outcome)
+        XCTAssertEqual(outcomes, [.cancelled])
+        let others = try await harness.phoneClosed(second).map(\.outcome)
+        XCTAssertEqual(others, [.decidedOnMac])
+        XCTAssertFalse(harness.script.activityHeld)
+        XCTAssertFalse(harness.coordinator.remoteNeedsLoop)
+    }
+
     func testLocalDecisionThatLosesToARemoteOneShowsNoError() async throws {
         let (pending, request) = try await outstandingRead()
         try await harness.phone.decide(.allowOnce, on: request)

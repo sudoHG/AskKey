@@ -88,7 +88,7 @@ extension DeviceCoordinator {
 
     /// Sends the deciding approver its outcome and closes the request for
     /// the others once it left pending.
-    private func finishRemoteDecision(_ result: RemoteApplyResult, code: ApprovalDecisionCode,
+    func finishRemoteDecision(_ result: RemoteApplyResult, code: ApprovalDecisionCode,
                                       entry: OutstandingRemoteRequest, requestID: String, deviceName: String) {
         guard var track = remoteRequests[requestID],
               track.entries.contains(where: { $0.responseID == entry.responseID && $0.decided }) else {
@@ -126,6 +126,9 @@ extension DeviceCoordinator {
             enqueueClosed(.notApplied, for: entry)
             Task { [weak self] in await self?.deliverRemoteRequest(requestID, only: entry.approverID) }
         }
+        // A request that left pending while this decision was applied
+        // closes now for the approvers that still have it open.
+        if remoteRequests[requestID]?.ended != nil { requestLeftPending(requestID) }
         publishRemoteStatus()
         startRemoteLoopIfNeeded()
     }

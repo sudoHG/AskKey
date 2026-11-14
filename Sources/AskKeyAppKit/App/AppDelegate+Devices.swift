@@ -51,22 +51,27 @@ extension AppDelegate {
     }
 
     func stopDeviceServices() {
-        for token in RemoteApprovalScreenObservers.tokens {
-            DistributedNotificationCenter.default.removeObserver(token)
+        for (center, token) in RemoteApprovalScreenObservers.tokens {
+            center.removeObserver(token)
         }
         RemoteApprovalScreenObservers.tokens = []
         DeviceServicesHost.coordinator?.stop()
     }
 
     /// A request still waiting for its 20 seconds goes to the approvers at
-    /// once when the screen locks (ADR 0014).
+    /// once when the screen locks or the session switches to another user
+    /// (ADR 0014).
     private func observeScreenLockForRemoteApproval() {
-        let token = DistributedNotificationCenter.default.addObserver(
-            forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main
-        ) { _ in
-            MainActor.assumeIsolated { DeviceServicesHost.coordinator?.screenDidLock() }
+        let observations: [(NotificationCenter, Notification.Name)] = [
+            (DistributedNotificationCenter.default, .init("com.apple.screenIsLocked")),
+            (NSWorkspace.shared.notificationCenter, NSWorkspace.sessionDidResignActiveNotification),
+        ]
+        for (center, name) in observations {
+            let token = center.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { DeviceServicesHost.coordinator?.screenDidLock() }
+            }
+            RemoteApprovalScreenObservers.tokens.append((center, token))
         }
-        RemoteApprovalScreenObservers.tokens.append(token)
     }
 
     /// Locking management, its expiry or closing its window cancels an open
@@ -102,5 +107,5 @@ extension AppDelegate {
 /// The screen-lock observer of the remote approval schedule.
 @MainActor
 private enum RemoteApprovalScreenObservers {
-    static var tokens: [NSObjectProtocol] = []
+    static var tokens: [(NotificationCenter, NSObjectProtocol)] = []
 }

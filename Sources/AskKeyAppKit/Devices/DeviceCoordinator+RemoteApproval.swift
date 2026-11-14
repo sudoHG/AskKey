@@ -66,12 +66,16 @@ extension DeviceCoordinator {
     func suspendRemoteApproval() {
         vault.approvalRequests.removeAllActiveApprovers()
         approversLoaded = false
-        // The requests still pending stay on the Mac, also once the account
-        // is back; their outstanding entries are forgotten.
+        forgetOutstandingRemoteRequests()
+        if approverConfirmation?.isActive == true { endApproverAttempt(.unavailable) }
+    }
+
+    /// The requests still pending stay on the Mac, also once the account is
+    /// back; their outstanding entries and closing messages are forgotten.
+    func forgetOutstandingRemoteRequests() {
         let seen = remoteRequests.mapValues { RemoteRequestTrack(pending: $0.pending, phase: .stayingOnMac) }
         dropRemoteState()
         remoteRequests = seen
-        if approverConfirmation?.isActive == true { endApproverAttempt(.unavailable) }
     }
 
     /// The services stopped or were replaced.
@@ -88,9 +92,11 @@ extension DeviceCoordinator {
     private func dropRemoteState() {
         remoteLoopTask?.cancel()
         remoteLoopTask = nil
+        remoteLoopGeneration += 1
         remoteRequests = [:]
         closedMessages = [:]
         nextKnownRecordFetch = nil
+        knownRecordBackoffUntil = nil
         publishRemoteStatus()
         updateRemoteActivity()
     }
@@ -125,24 +131,27 @@ extension DeviceCoordinator {
         guard services != nil else { return }
         let pending = vault.approvalRequests.pendingRequests()
         let pendingIDs = Set(pending.map(\.requestID))
-        for (requestID, track) in remoteRequests where !pendingIDs.contains(requestID) && track.ended == nil {
+        for requestID in remoteRequests.keys where !pendingIDs.contains(requestID) {
+            // Waits while a decision for it is being applied.
             requestLeftPending(requestID)
         }
         let now = self.now
         let approverExists = hasActiveApprover
         for request in pending where remoteRequests[request.requestID] == nil {
-            // A request that appears while no approver is active, or that
-            // is not a read with a display summary, stays on the Mac.
-            guard approverExists, request.request.operation == .read, request.request.display != nil else {
+            guard request.request.operation == .read, request.request.display != nil else {
                 remoteRequests[request.requestID] = RemoteRequestTrack(pending: request, phase: .stayingOnMac)
                 continue
             }
             if environment.isScreenUnlocked() {
+                // Eligibility is checked at the 20-second mark or the lock.
                 remoteRequests[request.requestID] = RemoteRequestTrack(
                     pending: request, phase: .waiting(sendAt: now.addingTimeInterval(Self.remoteSendDelay)))
-            } else {
+            } else if approverExists {
                 remoteRequests[request.requestID] = RemoteRequestTrack(pending: request, phase: .sending)
                 startDelivery(request.requestID)
+            } else {
+                // Not eligible when it appeared on a locked Mac: it stays here.
+                remoteRequests[request.requestID] = RemoteRequestTrack(pending: request, phase: .stayingOnMac)
             }
         }
         for (requestID, track) in remoteRequests {
@@ -185,8 +194,10 @@ extension DeviceCoordinator {
         guard let services, remoteRequests[requestID] != nil else { return }
         let lifecycle = self.lifecycle
         let list = try? await services.registry.list()
+        // A first delivery needs the track still being sealed; a replacement
+        // one that was sent. Either may have ended or stayed on the Mac.
         guard lifecycle == self.lifecycle, self.services === services, var track = remoteRequests[requestID],
-              track.ended == nil else { return }
+              track.ended == nil, track.phase == (approver == nil ? .sending : .sent) else { return }
         let now = self.now
         let content = (try? vault.agentAccessPolicyState()).flatMap {
             RemoteApprovalRequestContent(pending: track.pending, policy: $0.policy)
@@ -201,9 +212,11 @@ extension DeviceCoordinator {
         }
         var sealed: [MessageID] = []
         for (device, generation) in activeApprovers(in: list.devices) {
+            // A replacement takes its predecessor's place in the limit.
             guard approver.map({ $0 == device.deviceID }) ?? true,
                   !track.entries.contains(where: { $0.approverID == device.deviceID && !$0.decided }),
-                  outstandingCount(for: device.deviceID) < Self.maximumOutstandingPerApprover else { continue }
+                  approver != nil || outstandingCount(for: device.deviceID) < Self.maximumOutstandingPerApprover
+            else { continue }
             do {
                 let request = try services.messenger.sealer.sealApprovalRequest(
                     content.display, bindingDigest: content.bindingDigest, deadline: deadline, launchTime: launchTime,
@@ -223,8 +236,10 @@ extension DeviceCoordinator {
         publishRemoteStatus()
         updateRemoteActivity()
         startRemoteLoopIfNeeded()
-        for responseID in sealed {
-            await transmitRemoteRequest(requestID, responseID: responseID)
+        await withTaskGroup(of: Void.self) { group in
+            for responseID in sealed {
+                group.addTask { await self.transmitRemoteRequest(requestID, responseID: responseID) }
+            }
         }
     }
 
@@ -275,25 +290,32 @@ extension DeviceCoordinator {
         updateRemoteActivity()
         guard environment.automaticPolling, remoteLoopTask == nil, remoteNeedsLoop else { return }
         let sleep = environment.sleep
+        remoteLoopGeneration += 1
+        let generation = remoteLoopGeneration
         remoteLoopTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await sleep(Self.remoteLoopInterval)
                 guard let self, !Task.isCancelled, self.remoteNeedsLoop else { break }
-                await self.remoteApprovalTick()
+                // A slow fetch must not hold back sends, retries or closing.
+                await self.remoteApprovalTick(waitingForFetch: false)
             }
-            self?.remoteLoopTask = nil
+            // Only the current loop clears its handle.
+            if self?.remoteLoopGeneration == generation { self?.remoteLoopTask = nil }
         }
     }
 
     /// One turn of the schedule: checks the Broker's requests, resends what
-    /// failed, retries closing messages and fetches the known records when due.
-    func remoteApprovalTick() async {
+    /// failed, retries closing messages and fetches the known records when
+    /// due. A send is marked before its task starts, so overlapping turns
+    /// never send the same bytes twice at once.
+    func remoteApprovalTick(waitingForFetch: Bool = true) async {
         guard services != nil else { return }
         reconcileRemoteRequests()
         let now = self.now
         for (requestID, track) in remoteRequests {
-            for entry in track.entries where !entry.decided {
+            for (index, entry) in track.entries.enumerated() where !entry.decided {
                 guard case .retry(let at) = entry.delivery, at <= now, track.deadline.map({ now < $0 }) == true else { continue }
+                remoteRequests[requestID]?.entries[index].delivery = .sending
                 Task { [weak self] in await self?.transmitRemoteRequest(requestID, responseID: entry.responseID) }
             }
         }
@@ -303,9 +325,14 @@ extension DeviceCoordinator {
                 closedMessages[messageID] = nil
                 continue
             }
+            closedMessages[messageID]?.retryAt = nil
             Task { [weak self] in await self?.transmitClosedMessage(messageID) }
         }
-        await fetchKnownRecordsIfDue()
+        if waitingForFetch {
+            await fetchKnownRecordsIfDue()
+        } else {
+            Task { [weak self] in await self?.fetchKnownRecordsIfDue() }
+        }
         updateRemoteActivity()
     }
 
@@ -315,8 +342,7 @@ extension DeviceCoordinator {
         let approverExists = hasActiveApprover
         let needed = remoteRequests.values.contains { track in
             switch track.phase {
-            case .waiting: return approverExists
-            case .sending: return true
+            case .waiting, .sending: return approverExists
             case .sent: return !track.entries.isEmpty
             case .stayingOnMac: return false
             }
@@ -340,6 +366,7 @@ extension DeviceCoordinator {
         guard !isFetchingKnownRecords, let services, account == .available else { return }
         let start = now
         if let next = nextKnownRecordFetch, start < next { return }
+        if let backoff = knownRecordBackoffUntil, start < backoff { return }
         let entries = remoteRequests.values.flatMap(\.entries).filter { !$0.decided }
         let names = entries.flatMap { entry in
             [entry.responseID.text] + (entry.deliveredAt == nil ? [entry.receiptID.text] : [])
@@ -349,7 +376,8 @@ extension DeviceCoordinator {
             return
         }
         let fast = entries.contains { start.timeIntervalSince($0.sealedAt) < Self.fastFetchWindow }
-        var wait = fast ? Self.fastFetchInterval : Self.slowFetchInterval
+        let interval = fast ? Self.fastFetchInterval : Self.slowFetchInterval
+        var retryAfter: TimeInterval?
         isFetchingKnownRecords = true
         defer { isFetchingKnownRecords = false }
         let lifecycle = self.lifecycle
@@ -362,12 +390,12 @@ extension DeviceCoordinator {
                 let report = try await messenger.fetchNamedMessages(batch)
                 guard lifecycle == self.lifecycle else { return }
                 for case .refused(let refusal) in report.outcomes.values { environment.log(.messageRefused(refusal)) }
-                if let retryAfter = report.retryAfter {
-                    wait = max(wait, retryAfter)
+                if let wait = report.retryAfter {
+                    retryAfter = wait
                     break
                 }
-            } catch DeviceTransportError.rateLimited(let retryAfter) {
-                wait = max(wait, retryAfter ?? Self.slowFetchInterval)
+            } catch DeviceTransportError.rateLimited(let wait) {
+                retryAfter = wait ?? Self.slowFetchInterval
                 break
             } catch DeviceIdentityError.unusable {
                 guard lifecycle == self.lifecycle else { return }
@@ -380,7 +408,8 @@ extension DeviceCoordinator {
             }
         }
         guard lifecycle == self.lifecycle else { return }
-        nextKnownRecordFetch = start.addingTimeInterval(wait)
+        nextKnownRecordFetch = start.addingTimeInterval(interval)
+        if let retryAfter { knownRecordBackoffUntil = now.addingTimeInterval(retryAfter) }
     }
 
     // MARK: Publishing

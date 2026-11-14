@@ -128,7 +128,8 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
         try harness.submitDirect(.create)
         try harness.submitDirect(.read, display: nil)
         await harness.coordinator.remoteApprovalTick()
-        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(harness.coordinator.remoteRequests.count, 2)
+        XCTAssertTrue(harness.coordinator.remoteRequests.values.allSatisfy { $0.phase == .stayingOnMac })
         XCTAssertTrue(harness.macSent(.approvalRequest).isEmpty)
     }
 
@@ -174,7 +175,7 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
         try await harness.pairApprover()
         for _ in 0..<17 { try harness.submitDirect(.read, display: DeviceCoordinatorHarness.syntheticDisplay) }
         try await harness.waitForRequests(16)
-        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(harness.coordinator.remoteRequests.values.filter { $0.phase == .stayingOnMac }.count, 1)
         XCTAssertEqual(harness.macSent(.approvalRequest).count, 16)
         XCTAssertEqual(harness.coordinator.outstandingCount(for: harness.phone.deviceID), 16)
     }
@@ -236,6 +237,30 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
         }
         // 1 asks for 10 s; 11 succeeds; 12 is refused with 7 s; 19 resumes.
         XCTAssertEqual(fetchTimes, [1, 11] + Array(19...30))
+    }
+
+    func testRetryAfterCountsFromTheAnswerAndPushesDoNotBreakIt() async throws {
+        try await harness.pairApprover()
+        try harness.submitRead()
+        try await harness.waitForRequests(1)
+        let clock = harness.clock
+        // The fetch takes 8 seconds and then asks to wait 10.
+        harness.backend.beforeFetch = { clock.advance(by: 8) }
+        harness.backend.askNextNamedFetchesToWait([10])
+        try await harness.macFetches()
+        harness.backend.beforeFetch = nil
+        let afterAnswer = harness.transport.namedFetchRequests.count
+        for _ in 0..<9 {
+            harness.clock.advance(by: 1)
+            harness.coordinator.screenDidUnlockOrWake()
+            harness.coordinator.handleRemoteNotification(FakeDeviceServicesBackend.pushHint(for: try XCTUnwrap(harness.macDeviceID)))
+            await harness.coordinator.remoteApprovalTick()
+        }
+        try await Task.sleep(for: .milliseconds(20))
+        XCTAssertEqual(harness.transport.namedFetchRequests.count, afterAnswer, "nothing fetched within 10 s of the answer")
+        harness.clock.advance(by: 1)
+        await harness.coordinator.remoteApprovalTick()
+        XCTAssertEqual(harness.transport.namedFetchRequests.count, afterAnswer + 1)
     }
 
     func testNamedFetchesGoInBatchesOfAtMostOneHundred() async throws {

@@ -161,7 +161,11 @@ package final class DeviceCoordinator {
     @ObservationIgnored var remoteRequests: [String: RemoteRequestTrack] = [:]
     @ObservationIgnored var closedMessages: [MessageID: PendingClosedMessage] = [:]
     @ObservationIgnored var remoteLoopTask: Task<Void, Never>?
+    @ObservationIgnored var remoteLoopGeneration = 0
     @ObservationIgnored var nextKnownRecordFetch: Date?
+    /// CloudKit's retry-after, counted from its answer; push hints, unlocks
+    /// and wakes never fetch before it.
+    @ObservationIgnored var knownRecordBackoffUntil: Date?
     @ObservationIgnored var isFetchingKnownRecords = false
     @ObservationIgnored var remoteActivity: AnyObject?
     /// Whether the Broker's active-approver set was loaded from the list for
@@ -351,6 +355,8 @@ package final class DeviceCoordinator {
         finishPairingSession()
         deliveryPollTask?.cancel()
         deliveryPollTask = nil
+        // Nothing can be sealed or opened any more.
+        forgetOutstandingRemoteRequests()
         availability = .identityUnusable
     }
 
@@ -381,7 +387,11 @@ package final class DeviceCoordinator {
         switch answer {
         case .available(let name), .accountChanged(let name):
             var isListAccount = true
-            if case .accountChanged = answer { isListAccount = false }
+            if case .accountChanged = answer {
+                isListAccount = false
+                // Every approver's authority ends before anything awaits.
+                suspendRemoteApproval()
+            }
             if state.listAccount == nil || !isListAccount {
                 // No account recorded, or another one: this account becomes the
                 // list's only while nothing is paired.
@@ -400,9 +410,6 @@ package final class DeviceCoordinator {
                 if account != .accountChanged { environment.log(.accountChanged) }
                 account = .accountChanged
             }
-            // An account change ends every approver's authority before the
-            // messenger moves to the other account's inbox.
-            if account != .available { suspendRemoteApproval() }
             await use(account: name, state: state, check: check)
         case .noAccount:
             account = .noAccount

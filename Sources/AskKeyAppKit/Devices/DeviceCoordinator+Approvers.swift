@@ -150,6 +150,8 @@ extension DeviceCoordinator {
                 do {
                     try vault.activateStoredApprovers(only: row.pairingID)
                 } catch {
+                    // The next account check loads the whole set again.
+                    approversLoaded = false
                     environment.log(.approverActivationFailed)
                 }
             } else {
