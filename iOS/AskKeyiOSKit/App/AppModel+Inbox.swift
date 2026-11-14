@@ -8,6 +8,8 @@ extension AppModel {
     static let pushHintLifetime = MessageKind.deliveryCheckLifetime + 5 * 60
     /// The most pushes kept while the app launches.
     static let earlyPushLimit = 20
+    /// The most push hints kept.
+    static let pushHintLimit = 100
     /// How long a reset waits for CloudKit to delete the inbox.
     static let inboxRemovalTimeout: TimeInterval = 10
 
@@ -19,15 +21,19 @@ extension AppModel {
         await processInbox()
     }
 
-    /// A push arrived while the app runs, or the person opened one. It is
-    /// only a hint: the app fetches its inbox and acts on what it verifies,
-    /// never on the notification's text, category or action.
-    public func receivedPush(userInfo: [AnyHashable: Any], arrivedAt: Date, notificationIdentifier: String?) async {
+    /// A push arrived while the app runs, or the person opened one
+    /// (`opened`). It is only a hint: the app fetches its inbox and acts on
+    /// what it verifies, never on the notification's text, category or
+    /// action. Opening one opens its request's card when the app holds or,
+    /// within a minute, verifies that request.
+    public func receivedPush(userInfo: [AnyHashable: Any], arrivedAt: Date, notificationIdentifier: String?,
+                             opened: Bool = false) async {
         guard let services else {
             // Opening a notification launched the app, and the identity is
             // not restored yet: keep the push until it is.
             if stage == .starting, earlyPushes.count < Self.earlyPushLimit {
-                earlyPushes.append(EarlyPush(userInfo: userInfo, arrivedAt: arrivedAt, identifier: notificationIdentifier))
+                earlyPushes.append(EarlyPush(userInfo: userInfo, arrivedAt: arrivedAt, identifier: notificationIdentifier,
+                                             opened: opened))
             }
             return
         }
@@ -35,6 +41,10 @@ extension AppModel {
                                              notificationIdentifier: notificationIdentifier,
                                              for: services.deviceID) else { return }
         remember([hint])
+        if opened {
+            open(hint.recordName)
+            rebuildRequests()
+        }
         await processInbox()
     }
 
@@ -42,29 +52,66 @@ extension AppModel {
     func adoptEarlyPushes(for device: DeviceID) {
         let pushes = earlyPushes
         earlyPushes = []
-        remember(pushes.compactMap {
-            PushHintReader.hint(userInfo: $0.userInfo, arrivedAt: $0.arrivedAt, notificationIdentifier: $0.identifier,
-                                for: device)
-        })
+        for push in pushes {
+            guard let hint = PushHintReader.hint(userInfo: push.userInfo, arrivedAt: push.arrivedAt,
+                                                 notificationIdentifier: push.identifier, for: device) else { continue }
+            remember([hint])
+            if push.opened { open(hint.recordName) }
+        }
     }
 
+    private func open(_ recordName: String) {
+        pendingOpen = recordName
+        pendingOpenSince = environment.clock.now()
+    }
+
+    /// Keeps each record's first hint and every delivered notification for
+    /// it. A notification for a request already settled here is removed at
+    /// once; hints older than their lifetime go with their notifications.
     func remember(_ hints: [PushHint]) {
         let now = environment.clock.now()
         var stale: [String] = []
-        for hint in hints where pushHints[hint.recordName] == nil {
-            pushHints[hint.recordName] = hint
+        for hint in hints {
+            let name = hint.recordName
+            if settledRequests.contains(name) {
+                if let identifier = hint.notificationIdentifier { stale.append(identifier) }
+                continue
+            }
+            guard let known = pushHints[name] else {
+                pushHints[name] = hint
+                continue
+            }
+            guard let identifier = hint.notificationIdentifier, identifier != known.notificationIdentifier else { continue }
+            if known.notificationIdentifier == nil {
+                pushHints[name] = PushHint(recordName: name, arrivedAt: known.arrivedAt, notificationIdentifier: identifier)
+            } else {
+                extraNotifications[name, default: []].insert(identifier)
+            }
         }
         for (name, hint) in pushHints where now.timeIntervalSince(hint.arrivedAt) > Self.pushHintLifetime {
             pushHints[name] = nil
             if let identifier = hint.notificationIdentifier { stale.append(identifier) }
+            stale += extraNotifications.removeValue(forKey: name) ?? []
         }
+        // A flood of pushes keeps only the newest hints.
+        if pushHints.count > Self.pushHintLimit {
+            let oldest = pushHints.values.sorted { $0.arrivedAt < $1.arrivedAt }.prefix(pushHints.count - Self.pushHintLimit)
+            for hint in oldest {
+                pushHints[hint.recordName] = nil
+                if let identifier = hint.notificationIdentifier { stale.append(identifier) }
+                stale += extraNotifications.removeValue(forKey: hint.recordName) ?? []
+            }
+        }
+        namedFetched.formIntersection(pushHints.keys)
         environment.notifications.removeDeliveredNotifications(identifiers: stale)
     }
 
     /// Fetches and processes the inbox: challenges, confirmations,
     /// cancellations, delivery checks (answered at once with the message key,
-    /// without a prompt) and unpair notices. Calls made while a fetch runs
-    /// wait for it and fetch once more afterwards.
+    /// without a prompt), unpair notices, approval requests and closed
+    /// messages; then fetches by name the records pushes named that the
+    /// zone poll did not settle, and sends what is due. Calls made while a
+    /// fetch runs wait for it and fetch once more afterwards.
     public func processInbox() async {
         if let running = inboxWork {
             pollAgain = true
@@ -77,10 +124,11 @@ extension AppModel {
                 self.pollAgain = false
                 await self.pollOnce()
             } while self.pollAgain && self.stage == .ready
+            // Cleared in the same step as the last check, so no call is lost.
+            self.inboxWork = nil
         }
         inboxWork = work
         await work.value
-        inboxWork = nil
     }
 
     private func pollOnce() async {
@@ -88,51 +136,84 @@ extension AppModel {
         if !accountChecked || accountNotice != nil { await refreshAccount() }
         guard accountNotice == nil, self.services === services else { return }
         let before = try? await services.registry.list()
-        let report: InboxReport
+        var outcomes: [String: InboxMessageOutcome] = [:]
         do {
-            report = try await services.messenger.poll()
+            // The zone poll goes first: within one fetch a closed message is
+            // handled before its request, so it keeps the request hidden.
+            let report = try await services.messenger.poll()
+            guard self.services === services else { return }
+            if let token = await services.messenger.inboxToken, var position = environment.localState.inboxPosition {
+                position.token = token.data
+                environment.localState.inboxPosition = position
+            }
+            outcomes = report.outcomes
+            AppLog.refusals(report.refusals)
         } catch is DeviceIdentityError {
             guard self.services === services else { return }
             identityBecameUnusable()
             return
         } catch {
             AppLog.failure("Fetching the inbox", error)
-            return
         }
         guard self.services === services else { return }
-        if let token = await services.messenger.inboxToken, var position = environment.localState.inboxPosition {
-            position.token = token.data
-            environment.localState.inboxPosition = position
-        }
-        recordDeliveries(report, kinds: services.transport.takeKinds())
-        AppLog.refusals(report.refusals)
+        guard await fetchPushedRecords(services, skipping: outcomes, into: &outcomes) else { return }
+        recordDeliveries(outcomes, kinds: services.transport.takeKinds())
         await refreshList(previous: before)
+        // Sends and local expiry go on even when the inbox could not be read.
+        await serviceApprovals()
+    }
+
+    /// Fetches by name, once each, the records pushes named that the zone
+    /// poll did not report, waiting as long as CloudKit asked. Returns false
+    /// when this iPhone's own key failed.
+    private func fetchPushedRecords(_ services: DeviceServices, skipping polled: [String: InboxMessageOutcome],
+                                    into outcomes: inout [String: InboxMessageOutcome]) async -> Bool {
+        let now = environment.clock.now()
+        if let notBefore = namedFetchNotBefore, now < notBefore { return true }
+        let names = Array(pushHints.keys.filter { !namedFetched.contains($0) && polled[$0] == nil }.sorted().prefix(100))
+        guard !names.isEmpty else { return true }
+        namedFetched.formUnion(names)
+        do {
+            let report = try await services.messenger.fetchNamedMessages(names)
+            outcomes.merge(report.outcomes) { polled, _ in polled }
+            namedFetchNotBefore = report.retryAfter.map { environment.clock.now().addingTimeInterval($0) }
+        } catch is DeviceIdentityError {
+            guard self.services === services else { return false }
+            identityBecameUnusable()
+            return false
+        } catch {
+            if let transportError = error as? DeviceTransportError, case .rateLimited(let retryAfter?) = transportError {
+                namedFetchNotBefore = environment.clock.now().addingTimeInterval(retryAfter)
+            }
+            AppLog.failure("Fetching pushed messages", error)
+        }
+        return self.services === services
     }
 
     /// Records each answered delivery check, found through a push when one
     /// pointed to its record and by polling otherwise, and clears the
-    /// notifications of messages that are settled.
-    func recordDeliveries(_ report: InboxReport, kinds: [String: Int64]) {
+    /// notifications of messages that are settled. A request still waiting
+    /// for a decision keeps its notification until it settles.
+    func recordDeliveries(_ outcomes: [String: InboxMessageOutcome], kinds: [String: Int64]) {
         let now = environment.clock.now()
         var settled: [String] = []
-        for name in report.outcomes.keys.sorted() {
-            switch report.outcomes[name] {
+        for name in outcomes.keys.sorted() {
+            switch outcomes[name] {
             case .processed?:
                 if kinds[name] == Int64(MessageKind.deliveryCheck.rawValue) {
                     let hint = pushHints[name]
                     append(DeliveryRecord(recordName: name, arrivedAt: hint?.arrivedAt ?? now,
                                           source: hint == nil ? .polling : .push))
                 }
+                if isPendingRequest(name) { continue }
             case .refused?:
                 break
             default:
                 continue
             }
-            if let identifier = pushHints.removeValue(forKey: name)?.notificationIdentifier {
-                settled.append(identifier)
-            }
+            settled.append(name)
         }
-        environment.notifications.removeDeliveredNotifications(identifiers: settled)
+        removeNotifications(of: settled)
     }
 
     private func append(_ record: DeliveryRecord) {
@@ -165,9 +246,22 @@ extension AppModel {
             return
         }
         environment.localState.removeAll()
+        do {
+            try environment.approvals.removeApprovals()
+        } catch {
+            AppLog.failure("Deleting the stored requests", error)
+        }
+        dropAllApprovals()
+        revokedPairings = []
         deliveryRecords = []
         pairedMacs = []
         pushHints = [:]
+        namedFetched = []
+        namedFetchNotBefore = nil
+        extraNotifications = [:]
+        settledRequests = []
+        knownList = nil
+        seenPairings = nil
         locallyRemoved = []
         listNotice = nil
         accountNotice = nil

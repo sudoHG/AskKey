@@ -3,8 +3,18 @@ import Foundation
 import XCTest
 @testable import AskKeyiOSKit
 
-/// One iPhone app with fakes for keys, keychain and transport, and a Mac
-/// played by a real `DeviceMessenger` on the same in-memory account.
+/// A Mac played by a real `DeviceMessenger` on the same in-memory account.
+struct MacPeer {
+    let identity: SoftwareIdentity
+    let messenger: DeviceMessenger
+    let name: String
+
+    var deviceID: DeviceID { identity.deviceID }
+}
+
+/// One iPhone app with fakes for keys, keychain and transport, and Macs
+/// played by real `DeviceMessenger`s on the same in-memory account, on
+/// their own clock (`macClock`, which can run fast or slow).
 @MainActor
 final class TestWorld {
     let clock = ManualClock()
@@ -16,22 +26,40 @@ final class TestWorld {
     let biometry = FakeBiometry()
     let camera = FakeCamera()
     let notifications = FakeNotifications()
+    let approvalStore = InMemoryApprovalStore()
+    let macClock: OffsetClock
+    /// What every Mac's messenger verified: decisions, receipts, confirmations.
+    let macInbox = MacInbox()
     private(set) lazy var model = AppModel(environment: environment)
 
     let macIdentity = SoftwareIdentity()
-    private(set) lazy var mac = DeviceMessenger(identity: macIdentity, platform: .macOS,
-                                                registry: PairedDeviceRegistry(store: InMemoryListStore()),
-                                                transport: cloud.transport(for: macIdentity.deviceID), clock: clock)
+    private(set) lazy var mac = makeMessenger(for: macIdentity)
     static let macName = "Studio Mac"
 
     init() {
         factory = FakeCloudFactory(cloud: cloud)
+        macClock = OffsetClock(base: clock)
     }
 
     var environment: AppEnvironment {
         AppEnvironment(identities: identities, keychain: keychain, localState: localState, biometry: biometry,
                        camera: camera, notifications: notifications, cloud: factory, clock: clock,
-                       deviceName: { "iPhone" })
+                       approvals: approvalStore, deviceName: { "iPhone" })
+    }
+
+    /// The Mac most tests pair with.
+    var primaryMac: MacPeer { MacPeer(identity: macIdentity, messenger: mac, name: Self.macName) }
+
+    /// Another Mac on the same account.
+    func makeMac(name: String) -> MacPeer {
+        let identity = SoftwareIdentity()
+        return MacPeer(identity: identity, messenger: makeMessenger(for: identity), name: name)
+    }
+
+    private func makeMessenger(for identity: SoftwareIdentity) -> DeviceMessenger {
+        DeviceMessenger(identity: identity, platform: .macOS, registry: PairedDeviceRegistry(store: InMemoryListStore()),
+                        transport: cloud.transport(for: identity.deviceID), clock: macClock,
+                        approvalHandler: macInbox.handler)
     }
 
     /// The iPhone's identity once the welcome checks created it.
@@ -66,8 +94,9 @@ final class TestWorld {
     }
 
     /// Starts pairing on the Mac and scans its QR code on the iPhone.
-    func scanMacCode() async throws -> PairingFlowModel {
-        let qr = try await mac.startPairing(displayName: Self.macName)
+    func scanMacCode(_ peer: MacPeer? = nil) async throws -> PairingFlowModel {
+        let peer = peer ?? primaryMac
+        let qr = try await peer.messenger.startPairing(displayName: peer.name)
         model.startPairing()
         let flow = try XCTUnwrap(model.pairing)
         await flow.handleScanned(qr.text)
@@ -76,9 +105,10 @@ final class TestWorld {
 
     /// Runs pairing up to the code on the iPhone: the Mac answers the
     /// request, and the iPhone verifies the challenge and saves its reveal.
-    func reachCode() async throws -> (PairingFlowModel, PairingCodeDisplay) {
-        let flow = try await scanMacCode()
-        _ = try await mac.poll()
+    func reachCode(_ peer: MacPeer? = nil) async throws -> (PairingFlowModel, PairingCodeDisplay) {
+        let peer = peer ?? primaryMac
+        let flow = try await scanMacCode(peer)
+        _ = try await peer.messenger.poll()
         await flow.refresh()
         guard case .code(let display) = flow.stage else {
             XCTFail("expected the code, got \(flow.stage)")
@@ -88,15 +118,16 @@ final class TestWorld {
     }
 
     /// Completes pairing on both sides.
-    func pair() async throws {
-        let (flow, display) = try await reachCode()
-        _ = try await mac.poll()
-        try await mac.enterPairingCode(display.digits)
-        try await mac.confirmPairing(approvalReason: "Pair")
+    func pair(_ peer: MacPeer? = nil) async throws {
+        let peer = peer ?? primaryMac
+        let (flow, display) = try await reachCode(peer)
+        _ = try await peer.messenger.poll()
+        try await peer.messenger.enterPairingCode(display.digits)
+        try await peer.messenger.confirmPairing(approvalReason: "Pair")
         await flow.confirm()
         await flow.refresh()
-        _ = try await mac.poll()
-        XCTAssertEqual(flow.stage, .paired(macName: Self.macName))
+        _ = try await peer.messenger.poll()
+        XCTAssertEqual(flow.stage, .paired(macName: peer.name))
         await model.closePairingAndWait()
     }
 }

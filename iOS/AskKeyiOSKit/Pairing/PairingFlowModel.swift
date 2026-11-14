@@ -173,6 +173,9 @@ public final class PairingFlowModel: Identifiable {
         confirmProblem = nil
         defer { isConfirming = false }
         let reason = String(localized: "pairing.confirm.reason \(display.macName)", bundle: .kit)
+        // The Face ID prompt makes the app inactive; the privacy cover stays off for it.
+        host?.isAuthenticating = true
+        defer { host?.isAuthenticating = false }
         do {
             try await messenger.confirmPairing(approvalReason: reason)
         } catch let error as DeviceIdentityError {

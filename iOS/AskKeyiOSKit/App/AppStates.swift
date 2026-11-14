@@ -56,16 +56,37 @@ public struct PairedMacRow: Identifiable, Hashable, Sendable {
     public let pairedAt: Date
     /// Nil until the first delivery check from that Mac arrived.
     public let lastReachedAt: Date?
+    /// This iPhone accepts approval requests from this Mac.
+    public let isApprover: Bool
 
-    public init(id: String, name: String, pairedAt: Date, lastReachedAt: Date?) {
+    public init(id: String, name: String, pairedAt: Date, lastReachedAt: Date?, isApprover: Bool = false) {
         self.id = id
         self.name = name
         self.pairedAt = pairedAt
         self.lastReachedAt = lastReachedAt
+        self.isApprover = isApprover
     }
 
     init(_ device: PairedDevice) {
         self.init(id: device.deviceID.text, name: device.displayName, pairedAt: device.pairedAt,
-                  lastReachedAt: device.lastReachedAt)
+                  lastReachedAt: device.lastReachedAt, isApprover: device.isApprover)
     }
+}
+
+/// A newly paired Mac whose proposed name another Mac already had.
+public struct RenamePrompt: Identifiable, Hashable, Sendable {
+    public var id: String { macID }
+    public let macID: String
+    /// The name the Mac proposed, which another Mac already has.
+    public let takenName: String
+    /// The numbered name it got instead.
+    public let newName: String
+}
+
+/// Why a rename was refused.
+public enum RenameProblem: Hashable, Sendable {
+    case empty
+    /// Another Mac already has this name.
+    case duplicate(String)
+    case failed
 }

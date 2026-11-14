@@ -40,8 +40,9 @@ public final class AskKeyAppDelegate: NSObject, UIApplicationDelegate, UNUserNot
         }
     }
 
-    /// The person opened a notification: the app opens and fetches its
-    /// inbox; which action was chosen does not matter.
+    /// The person opened a notification: the app opens, fetches its inbox
+    /// and opens the request it named if it verifies one; which action was
+    /// chosen does not matter.
     public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                        withCompletionHandler completionHandler: @escaping () -> Void) {
         let notification = response.notification
@@ -50,7 +51,8 @@ public final class AskKeyAppDelegate: NSObject, UIApplicationDelegate, UNUserNot
         let identifier = notification.request.identifier
         completionHandler()
         Task { @MainActor in
-            await model.receivedPush(userInfo: userInfo, arrivedAt: arrivedAt, notificationIdentifier: identifier)
+            await model.receivedPush(userInfo: userInfo, arrivedAt: arrivedAt, notificationIdentifier: identifier,
+                                     opened: true)
         }
     }
 }

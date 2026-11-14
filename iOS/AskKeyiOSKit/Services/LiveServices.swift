@@ -146,6 +146,6 @@ extension AppEnvironment {
                        localState: UserDefaultsLocalState(), biometry: LocalAuthenticationBiometry(),
                        camera: AVCameraAccess(), notifications: UserNotificationCenterAccess(),
                        cloud: CloudKitTransportFactory(), clock: SystemDeviceClock(),
-                       deviceName: { UIDevice.current.name })
+                       approvals: FileApprovalStateStore(), deviceName: { UIDevice.current.name })
     }
 }

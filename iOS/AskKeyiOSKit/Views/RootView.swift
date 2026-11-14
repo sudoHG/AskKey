@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The app's only scene content.
+/// The app's only scene content, covered in the app switcher.
 public struct AskKeyRootView: View {
     @Bindable var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
@@ -17,15 +17,24 @@ public struct AskKeyRootView: View {
             case .welcome:
                 WelcomeView(model: model)
             case .ready:
-                PairedMacsView(model: model)
+                NavigationStack {
+                    PairedMacsView(model: model)
+                }
             case .unusableIdentity:
                 UnusableIdentityView(model: model)
             }
         }
+        .privacyCover(isAuthenticating: model.isAuthenticating)
         .sheet(item: $model.pairing, onDismiss: model.closePairing) { flow in
             PairingFlowView(model: flow, onClose: model.closePairing)
+                .privacyCover(isAuthenticating: model.isAuthenticating)
         }
         .task { await model.start() }
+        .task(id: model.stage == .ready && scenePhase == .active) {
+            // The foreground poll: every 10 seconds, every 2 while a request waits.
+            guard model.stage == .ready, scenePhase == .active else { return }
+            await model.runForegroundPolling()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.becameActive() } }
         }

@@ -94,13 +94,16 @@ public struct AppEnvironment {
     public var notifications: any NotificationCenterAccess
     public var cloud: any InboxTransportFactory
     public var clock: any DeviceClock
+    /// The stored requests, decisions and markers of the approver.
+    public var approvals: any ApprovalStateStore
     /// The name proposed to the Mac, which can rename the device.
     public var deviceName: @MainActor () -> String
 
     public init(identities: any DeviceIdentityFactory, keychain: any SecureItemStore, localState: any LocalStateStore,
                 biometry: any BiometryChecking, camera: any CameraAccessChecking,
                 notifications: any NotificationCenterAccess, cloud: any InboxTransportFactory,
-                clock: any DeviceClock, deviceName: @escaping @MainActor () -> String) {
+                clock: any DeviceClock, approvals: any ApprovalStateStore,
+                deviceName: @escaping @MainActor () -> String) {
         self.identities = identities
         self.keychain = keychain
         self.localState = localState
@@ -109,6 +112,7 @@ public struct AppEnvironment {
         self.notifications = notifications
         self.cloud = cloud
         self.clock = clock
+        self.approvals = approvals
         self.deviceName = deviceName
     }
 }

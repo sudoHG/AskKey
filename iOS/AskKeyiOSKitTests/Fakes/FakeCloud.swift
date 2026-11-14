@@ -15,11 +15,15 @@ final class FakeCloud: @unchecked Sendable {
     private var sequence = 0
     private var sent: [DeviceEnvelope] = []
     private var sendFilter: (@Sendable (DeviceEnvelope) -> Bool)?
+    private var hook: (@Sendable (DeviceEnvelope) async -> Void)?
+    private var fetchesFail = false
     private var state: CloudKitAccountState = .available(userRecordName: "_user-a")
     private var preparationError: DeviceTransportError?
     private var preparationIncomplete = false
     private(set) var preparedDevices: [DeviceID] = []
     private(set) var removedInboxes: [DeviceID] = []
+    /// The record names of every fetch by name, in order.
+    private(set) var namedFetches: [[String]] = []
 
     func transport(for device: DeviceID) -> FakeInboxTransport {
         FakeInboxTransport(cloud: self, device: device)
@@ -45,6 +49,18 @@ final class FakeCloud: @unchecked Sendable {
         lock.withLock { sendFilter = filter }
     }
 
+    /// Runs before every send, while the sender waits for it.
+    var sendHook: (@Sendable (DeviceEnvelope) async -> Void)? {
+        get { lock.withLock { hook } }
+        set { lock.withLock { hook = newValue } }
+    }
+
+    /// Zone-change fetches fail as if the network were down; fetches by name work.
+    var zoneFetchesFail: Bool {
+        get { lock.withLock { fetchesFail } }
+        set { lock.withLock { fetchesFail = newValue } }
+    }
+
     /// Every envelope a device tried to send, in order, including failed sends.
     var sentEnvelopes: [DeviceEnvelope] { lock.withLock { sent } }
 
@@ -67,11 +83,27 @@ final class FakeCloud: @unchecked Sendable {
         }
     }
 
-    fileprivate func fetch(_ device: DeviceID, since token: InboxChangeToken?) -> InboxChanges {
-        lock.withLock {
+    fileprivate func fetch(_ device: DeviceID, since token: InboxChangeToken?) throws -> InboxChanges {
+        try lock.withLock {
+            if fetchesFail { throw DeviceTransportError.networkUnavailable }
             let after = token.map { Int(String(decoding: $0.data, as: UTF8.self)) ?? 0 } ?? 0
             let changed = (inboxes[device.text] ?? [:]).values.filter { $0.sequence > after }.sorted { $0.sequence < $1.sequence }
             return InboxChanges(envelopes: changed.map(\.envelope), newToken: InboxChangeToken(data: Data(String(sequence).utf8)))
+        }
+    }
+
+    fileprivate func fetch(named names: [String], from device: DeviceID) -> NamedInboxFetch {
+        lock.withLock {
+            namedFetches.append(names)
+            var fetch = NamedInboxFetch()
+            for name in names {
+                if let record = inboxes[device.text]?[name] {
+                    fetch.envelopes.append(record.envelope)
+                } else {
+                    fetch.missingRecordNames.append(name)
+                }
+            }
+            return fetch
         }
     }
 
@@ -95,7 +127,7 @@ final class FakeCloud: @unchecked Sendable {
     }
 }
 
-final class FakeInboxTransport: InboxTransport, @unchecked Sendable {
+final class FakeInboxTransport: InboxTransport, NamedInboxFetching, @unchecked Sendable {
     let cloud: FakeCloud
     let device: DeviceID
 
@@ -105,15 +137,20 @@ final class FakeInboxTransport: InboxTransport, @unchecked Sendable {
     }
 
     func send(_ envelope: DeviceEnvelope) async throws {
+        await cloud.sendHook?(envelope)
         try cloud.send(envelope)
     }
 
     func fetchInboxChanges(of device: DeviceID, since token: InboxChangeToken?) async throws -> InboxChanges {
-        cloud.fetch(device, since: token)
+        try cloud.fetch(device, since: token)
     }
 
     func deleteMessages(_ recordNames: [String], from device: DeviceID) async throws {
         cloud.delete(recordNames, from: device)
+    }
+
+    func fetchMessages(named recordNames: [String], from device: DeviceID) async throws -> NamedInboxFetch {
+        cloud.fetch(named: recordNames, from: device)
     }
 
     func accountState(storedUserRecordName: String?) async -> CloudKitAccountState {
