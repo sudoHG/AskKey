@@ -37,7 +37,8 @@ class BuildAppCloudKitTests(unittest.TestCase):
         for name in ("build-app.sh", "cloudkit-signing.py", "sparkle-public-key.txt"):
             shutil.copyfile(ROOT / "scripts" / name, scripts / name)
         stubs = {
-            "release-gate.py": "import sys\nsys.exit(0)\n",
+            "release-gate.py": "from pathlib import Path\nPath('.build').mkdir(exist_ok=True)\n"
+                               "Path('.build/release-gate-ran').touch()\n",
             "product-version.sh": "echo 9.9.9\n",
             "check_sdk_markers.py": "import sys\nsys.exit(0)\n",
             "compile-app-icon.sh": "#!/bin/bash\nexit 0\n",
@@ -120,6 +121,7 @@ class BuildAppCloudKitTests(unittest.TestCase):
         self.assertIn("it is not set", result.stderr)
         self.assertNoSecrets(result)
         self.assertEqual(self.calls(), [])
+        self.assertFalse((self.root / ".build/release-gate-ran").exists(), "the release gate ran first")
         self.assertFalse((self.root / APP).exists())
         result = self.run_build("Release", profile=False, ASKKEY_PROVISIONING_PROFILE="")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
@@ -147,6 +149,7 @@ class BuildAppCloudKitTests(unittest.TestCase):
         self.assertEqual((info["CFBundleIdentifier"], info["CFBundleVersion"]), (fixtures.BUNDLE_ID, "9.9.9"))
         self.assertEqual(info["SUFeedURL"], "https://askkey.sudohg.com/appcast.xml")
         self.assertIn("Read back: the signed entitlements and the embedded provisioning profile", result.stdout)
+        self.assertTrue((self.root / ".build/release-gate-ran").exists())
         calls = self.calls()
         self.assertIn(["codesign", "-dv", "--verbose=4", str(APP)], calls)
         self.assertTrue([call for call in calls if call[:4] == ["codesign", "--verify", "--strict", "-R"]])
@@ -211,11 +214,11 @@ class BuildAppCloudKitTests(unittest.TestCase):
             (fixtures.synthetic_profile(**{"com.apple.application-identifier": "FAKETEAM01.com.example.other"}),
              "App ID"),
         )
-        for profile, message in cases:
-            with self.subTest(message=message):
+        for (profile, message), mode in zip(cases, ("Local", "Release", "Local")):
+            with self.subTest(message=message, mode=mode):
                 self.trace.unlink(missing_ok=True)
                 self.write_profile(profile)
-                result = self.run_build("Local")
+                result = self.run_build(mode)
                 self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
                 self.assertIn(message, result.stderr)
                 self.assertNoSecrets(result)
