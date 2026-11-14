@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>隐私政策 · 请旨 Ask Key</title>
+  <meta name="description" content="请旨 iPhone 版和 Mac 版处理哪些信息、存在哪里、如何删除。请旨没有服务器，开发者收不到你的任何数据。">
+  <link rel="canonical" href="https://askkey.sudohg.com/zh/privacy/">
+  <link rel="alternate" hreflang="en" href="https://askkey.sudohg.com/privacy/">
+  <link rel="alternate" hreflang="zh-Hans" href="https://askkey.sudohg.com/zh/privacy/">
+  <link rel="alternate" hreflang="x-default" href="https://askkey.sudohg.com/privacy/">
+  <meta property="og:title" content="隐私政策 · 请旨 Ask Key">
+  <meta property="og:description" content="请旨处理哪些信息、存在哪里、如何删除。开发者收不到你的任何数据。">
+  <meta property="og:url" content="https://askkey.sudohg.com/zh/privacy/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="请旨 Ask Key">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:image" content="https://askkey.sudohg.com/assets/og-zh.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="请旨 Ask Key：取用密钥，先来请旨。给 AI 用的 Mac 密钥管家。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image:alt" content="请旨 Ask Key：取用密钥，先来请旨。给 AI 用的 Mac 密钥管家。">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" href="/assets/favicon-64.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="/style.css?v=6a97785f0c">
+  <script defer src="https://vibecafe.ai/telemetry/v1.js" data-vc-product-id="cmv8u919f000006jn7drz77nq" data-vc-auth-key="vc_web_c-yibzSfTCQbiSeKM5aP14a9oOlJiH0uTZucIU_pzRU"></script>
+  <style>
+    .policy-head { padding-top: 36px; }
+    .policy { padding: clamp(56px, 8vw, 104px) 0 clamp(80px, 10vw, 136px); }
+    .policy > * { max-width: 40em; }
+    .policy h1 { margin: 0; font-size: clamp(32px, 3.2vw, 44px); line-height: 1.35; }
+    .policy .updated { margin: 14px 0 0; font-size: 14px; color: var(--faint); }
+    .policy .lede { margin: 30px 0 0; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.85; color: var(--ink); }
+    .policy h2 { margin: clamp(48px, 5vw, 64px) 0 14px; font-size: clamp(21px, 1.9vw, 25px); line-height: 1.4; }
+    .policy p, .policy li { color: #3d3d3d; line-height: 1.85; }
+    .policy p { margin: 0 0 14px; }
+    .policy ul { margin: 0 0 14px; padding-left: 1.2em; }
+    .policy li { margin-bottom: 10px; padding-left: 4px; }
+    .policy li::marker { color: var(--zhu); }
+    .policy b { font-weight: 500; color: var(--ink); }
+    .policy a:not(.link) { text-decoration-color: var(--zhu); text-underline-offset: 3px; }
+    .policy a:not(.link):hover { color: var(--zhu); }
+  </style>
+</head>
+<body>
+  <header class="wrap policy-head">
+    <nav class="nav" aria-label="网站">
+      <a class="brand" href="/zh/"><img src="/assets/icon-256.png" alt="" width="22" height="22">请旨 <small>Ask Key</small></a>
+      <a href="https://github.com/sudoHG/AskKey">GitHub</a>
+      <a href="/privacy/" hreflang="en" lang="en">English</a>
+    </nav>
+  </header>
+
+  <main class="wrap policy">
+    <h1>隐私政策</h1>
+    <p class="updated">请旨 iPhone 版与 Mac 版 · 最后更新于 2026 年 11 月 14 日</p>
+    <p class="lede">请旨没有服务器，也没有账号。iPhone 版处理的信息只留在你自己的设备和你自己的 iCloud 里，在你的 Mac 和 iPhone 之间端到端加密。开发者收不到其中任何内容。</p>
+
+    <h2>iPhone 版处理哪些信息</h2>
+    <ul>
+      <li><b>来自你自己 Mac 的请求。</b>当你的 Mac 上有 Agent 请求使用凭证，而你已在那台 Mac 上为这台 iPhone 开启审批时，Mac 会把请求发过来：Agent 的名称、凭证的名称、Mac 的名称、命令、所在文件夹，以及凭证交付时使用的变量名。请求里永远不含凭证的值。</li>
+      <li><b>你的决定。</b>允许或拒绝，在这台 iPhone 上签名后发回那台 Mac。允许需要面容 ID 或触控 ID：由 iOS 验证你的面容或指纹，应用只知道验证是否通过。</li>
+      <li><b>配对。</b>相机只用来扫描请旨在你的 Mac 上显示的配对二维码，不保存也不发送任何画面。配对时两台设备交换公钥和名称，例如 iOS 为这台 iPhone 提供的名称。</li>
+    </ul>
+
+    <h2>信息怎么传递</h2>
+    <ul>
+      <li>Mac 与 iPhone 之间的消息经由你在两台设备上登录的 Apple 账户的 iCloud 私有数据库传递，并且端到端加密，只有你配对的设备能读取。运营 iCloud 的 Apple 能看到哪些设备在何时互发消息，但看不到消息内容和其中的名称。</li>
+      <li>接收方读取消息后会把它从 iCloud 删除，检查收件箱时也会删除已过期的消息。大多数消息在 10 分钟内过期；设备被移除的通知保留 30 天。发给一台不再检查收件箱的设备的消息会以加密形式留在 iCloud 中。</li>
+      <li>iCloud 通过 Apple 推送通知服务唤醒应用。推送不含任何请求详情，应用会自己取回并解密消息。</li>
+    </ul>
+
+    <h2>留在 iPhone 上的信息</h2>
+    <ul>
+      <li>iPhone 钥匙串里（仅限这台设备）：这台 iPhone 的密钥，其私钥在安全隔区中生成且从不离开；已配对 Mac 的列表及你看到的名称；通知扩展用来限制时效性通知数量的一个小计数。</li>
+      <li>应用文件里：请求和你的决定，以加密形式保存到过期为止，过期后应用下次运行时删除。</li>
+      <li>应用设置里：它在 iCloud 收件箱中的位置、这台 iPhone 的设备 ID，以及最近 50 次送达检查的记录名和时间，不含内容。</li>
+    </ul>
+
+    <h2>通知</h2>
+    <p>通知扩展会先取回、解密并验证请求，再把它显示为一句话：Agent、Mac、凭证和程序名称。无法验证的请求只显示“一台已配对的设备发来一条消息。”</p>
+    <p>已送达的通知由 iOS 保存在通知中心，直到你清除；应用得知请求已结束后，也会移除对应的通知。锁定屏幕上是否显示详情，取决于“设置”→“通知”→“显示预览”。</p>
+
+    <h2>开发者能收到什么</h2>
+    <p>什么也收不到。请旨没有服务器、没有账号、没有统计分析、没有广告、不做跟踪，应用里也没有任何第三方代码。</p>
+    <p>Apple 可能会替你把部分信息分享给开发者。如果你在“设置”→“隐私与安全性”→“分析与改进”中打开了“与 App 开发者共享”，Apple 可能把崩溃报告发给开发者。如果你通过 TestFlight 安装测试版，Apple 会按照 <a href="https://www.apple.com/legal/privacy/data/en/test-flight/">TestFlight 与隐私</a>的说明分享信息，例如安装、使用次数、崩溃以及你提交的反馈。</p>
+
+    <h2>如何删除</h2>
+    <ul>
+      <li><b>已配对的 Mac。</b>在 iPhone 上打开“已配对的 Mac”里的那台 Mac，选择移除：iPhone 立即停止信任它，并通知那台 Mac。在 Mac 上，到“设置”→“设备”中移除这台 iPhone。</li>
+      <li><b>通知。</b>在通知中心清除。</li>
+      <li><b>应用。</b>删除应用会移除它的文件和设置。删除应用后，iOS 可能保留它的钥匙串项目：这些项目留在这台 iPhone 上，只有请旨能读取，重新安装后请旨会再次使用它们。“抹掉所有内容和设置”会移除它们。</li>
+      <li><b>iCloud。</b>只要收件设备还在检查收件箱，消息在读取或过期后就会删除。剩下的是每台设备创建的收件箱，其中留下的任何内容都是加密的。</li>
+    </ul>
+    <p>开发者不持有你的任何数据，因此无需向我们申请查询或删除。</p>
+
+    <h2>请旨 Mac 版</h2>
+    <p>请旨 Mac 版把你的凭证加密保存在你的 Mac 上，只交给你允许的程序。它唯一的其他网络请求是检查更新：应用请求 askkey.sudohg.com/appcast.xml，由 Cloudflare 重定向到 GitHub。两者能看到你的 IP 地址和应用版本，不发送任何系统信息。配对了设备的 Mac 还会按上文所述使用你的 iCloud。</p>
+
+    <h2>本网站</h2>
+    <p>askkey.sudohg.com 由 Cloudflare Pages 提供，并用 VibeCafé 的统计脚本统计访问量。两者都不在应用里。</p>
+
+    <h2>变更与联系</h2>
+    <p>本政策的变更会发布在本页，修改历史公开在 <a href="https://github.com/sudoHG/AskKey">GitHub 仓库</a>中。有问题请<a href="https://github.com/sudoHG/AskKey/issues">提交 Issue</a>；安全问题请按 <a href="https://github.com/sudoHG/AskKey/blob/main/SECURITY.md">SECURITY.md</a> 报告。</p>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>请旨 Ask Key · MIT 许可</span>
+      <nav aria-label="页脚">
+        <a href="https://github.com/sudoHG/AskKey">GitHub</a>
+        <a href="https://github.com/sudoHG/AskKey/releases">版本发布</a>
+        <a href="https://github.com/sudoHG/AskKey/blob/main/CHANGELOG.md">更新日志</a>
+        <a href="/privacy/" hreflang="en" lang="en">English</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

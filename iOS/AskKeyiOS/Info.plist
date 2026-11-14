@@ -22,6 +22,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CloudKitContainerIdentifier</key>
 	<string>$(CLOUDKIT_CONTAINER_IDENTIFIER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>KeychainAccessGroup</key>
 	<string>$(AppIdentifierPrefix)com.sudohg.askkey.ios.shared</string>
 	<key>LSRequiresIPhoneOS</key>
