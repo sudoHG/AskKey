@@ -17580,7 +17580,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Sent to iPhone" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已发到 iPhone" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已发送到 iPhone" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Sent to iPhone!!]" } }
       }
     },
@@ -17592,12 +17592,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Type This Code on “%@”!!]" } }
       }
     },
-    "In Ask Key on that iPhone, open this Mac in Paired Macs, choose Approve Requests from This Mac, type this code and confirm with Face ID or Touch ID.": {
+    "In Ask Key on that iPhone, open this Mac in Paired Macs, choose Approve Requests from This Mac or Enter a New Approval Code, type this code and confirm with Face ID or Touch ID.": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "In Ask Key on that iPhone, open this Mac in Paired Macs, choose Approve Requests from This Mac, type this code and confirm with Face ID or Touch ID." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "在那台 iPhone 上的请旨中，从“已配对的 Mac”打开这台 Mac，选择“审批这台 Mac 的请求”，输入这个审批码，然后用面容 ID 或触控 ID 确认。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!In Ask Key on that iPhone, open this Mac in Paired Macs, choose Approve Requests from This Mac, type this code and confirm with Face ID or Touch ID.!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "In Ask Key on that iPhone, open this Mac in Paired Macs, choose Approve Requests from This Mac or Enter a New Approval Code, type this code and confirm with Face ID or Touch ID." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "在那台 iPhone 上的请旨中，从“已配对的 Mac”打开这台 Mac，选择“审批这台 Mac 的请求”或“重新输入审批码”，输入这个审批码，然后用面容 ID 或触控 ID 确认。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!In Ask Key on that iPhone, open this Mac in Paired Macs, choose Approve Requests from This Mac or Enter a New Approval Code, type this code and confirm with Face ID or Touch ID.!!]" } }
       }
     },
     "The code typed on the iPhone doesn't match. %lld attempts left.": {
@@ -17772,16 +17772,16 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Agent requests can also be decided on this iPhone." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 请求也可以在这台 iPhone 上处理。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 请求也可以在这台 iPhone 上审批。" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent requests can also be decided on this iPhone.!!]" } }
       }
     },
-    "Agent requests are decided only on this Mac.": {
+    "Agent requests aren't sent to this iPhone.": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Agent requests are decided only on this Mac." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 请求只在这台 Mac 上处理。" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent requests are decided only on this Mac.!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Agent requests aren't sent to this iPhone." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Agent 请求不会发到这台 iPhone。" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Agent requests aren't sent to this iPhone.!!]" } }
       }
     },
     "Before you scan, install Ask Key on the iPhone:": {
@@ -17790,6 +17790,14 @@
         "en": { "stringUnit": { "state": "translated", "value": "Before you scan, install Ask Key on the iPhone:" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "扫描前，请先在 iPhone 上安装请旨：" } },
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Before you scan, install Ask Key on the iPhone:!!]" } }
+      }
+    },
+    "Approve agent requests on “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Approve agent requests on “%@”" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "在“%@”上审批 Agent 请求" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Approve agent requests on “%@”!!]" } }
       }
     }
   },

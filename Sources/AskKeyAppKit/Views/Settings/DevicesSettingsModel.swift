@@ -278,6 +278,12 @@ final class DevicesSettingsModel {
         coordinator.cancelApproverConfirmation()
     }
 
+    /// The section left the screen, for example because management locked:
+    /// the approver sheet must not come back on the next visit.
+    func sectionClosed() {
+        if approverSheetDevice != nil { closeApproverSheet() }
+    }
+
     /// The coordinator dropped an open attempt itself, for example when
     /// management locked; the sheet closes with it.
     func approverStateChanged(from old: ApproverConfirmationState?, to new: ApproverConfirmationState?) {

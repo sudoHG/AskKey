@@ -64,7 +64,7 @@ final class DevicesApproverSheetTests: AskKeyAppTestCase {
 
     func testApprovalIsOffAndTurningItOnFirstSaysWhatLeavesTheMac() async throws {
         XCTAssertFalse(try row().isApprover)
-        XCTAssertEqual(DevicesPresentation.approverCaption(try row()), "Agent requests are decided only on this Mac.")
+        XCTAssertEqual(DevicesPresentation.approverCaption(try row()), "Agent requests aren't sent to this iPhone.")
         await model.setApprover(try row(), enabled: true)
         let intro = try sheet()
         XCTAssertEqual(intro.stage, .intro)
@@ -184,6 +184,16 @@ final class DevicesApproverSheetTests: AskKeyAppTestCase {
         await model.setApprover(try row(), enabled: false)
         XCTAssertFalse(try row().isApprover)
         XCTAssertNil(try harness.generation(of: harness.phone))
+    }
+
+    func testLeavingTheSectionClosesTheSheetAndDiscardsTheCode() async throws {
+        await model.setApprover(try row(), enabled: true)
+        await model.continueApprover()
+        XCTAssertNotNil(coordinator.approverCode)
+        model.sectionClosed()
+        XCTAssertFalse(model.isApproverSheetPresented, "the next visit opens no sheet")
+        XCTAssertNil(coordinator.approverCode)
+        XCTAssertNil(coordinator.approverConfirmation)
     }
 
     func testEveryEndReasonSaysWhetherStartingAgainHelps() {

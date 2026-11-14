@@ -51,7 +51,7 @@ struct ApproverSheetPresentation: Equatable {
             device = row
             stage = .code(expiresAt: expiresAt)
             title = appLocalizedFormat("Type This Code on “%@”", row.displayName)
-            message = appLocalized("In Ask Key on that iPhone, open this Mac in Paired Macs, choose Approve Requests from This Mac, type this code and confirm with Face ID or Touch ID.")
+            message = appLocalized("In Ask Key on that iPhone, open this Mac in Paired Macs, choose Approve Requests from This Mac or Enter a New Approval Code, type this code and confirm with Face ID or Touch ID.")
             if remaining < DeviceCoordinator.approverCodeAttempts {
                 feedback = AppLanguage.localizedCount("The code typed on the iPhone doesn't match. %lld attempts left.",
                                                       oneKey: "The code typed on the iPhone doesn't match. %lld attempt left.",

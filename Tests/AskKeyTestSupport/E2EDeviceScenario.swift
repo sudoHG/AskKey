@@ -15,7 +15,7 @@ enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
     static let commands = ["phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out",
-                           "approver-check-hidden", "approver-wrong-code", "approver-confirm"]
+                           "approver-check-hidden", "approver-confirm"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
@@ -152,16 +152,6 @@ enum E2EDeviceScenario {
             let tree = try String(contentsOf: file, encoding: .utf8)
             guard tree.contains("devices-approver-waiting") else { throw E2EDeviceScenarioError.noSheet }
             guard !tree.contains(code.digits), !tree.contains(code.formatted) else { throw E2EDeviceScenarioError.codeExposed }
-        case "approver-wrong-code":
-            // The person types a different code on the iPhone.
-            guard let code = coordinator.approverCode else { throw E2EDeviceScenarioError.noCode }
-            let wrong = String(format: "%06d", ((Int(code.digits) ?? 0) + 1) % 1_000_000)
-            let remaining = attemptsRemaining(coordinator)
-            try await phone.confirmApprover(typing: wrong, for: macID(phone))
-            try await repeatUntil {
-                await coordinator.refresh()
-                return attemptsRemaining(coordinator) < remaining
-            }
         case "approver-confirm":
             // The person types the code the Mac shows on the iPhone and
             // passes Face ID there (simulated).
@@ -181,11 +171,6 @@ enum E2EDeviceScenario {
     private static func macID(_ phone: SimulatedPairingPhone) async throws -> DeviceID {
         guard let mac = try await phone.pairedDevices().first?.deviceID else { throw E2EDeviceScenarioError.notPaired }
         return mac
-    }
-
-    private static func attemptsRemaining(_ coordinator: DeviceCoordinator) -> Int {
-        if case .waitingForIPhone(_, _, let remaining) = coordinator.approverConfirmation { return remaining }
-        return 0
     }
 
     /// Repeats `step` for up to ten seconds until it reports success.

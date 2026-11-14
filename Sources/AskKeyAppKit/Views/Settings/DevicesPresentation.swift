@@ -127,7 +127,7 @@ enum DevicesPresentation {
     static func approverCaption(_ row: PairedDeviceRow) -> String {
         row.isApprover
             ? appLocalized("Agent requests can also be decided on this iPhone.")
-            : appLocalized("Agent requests are decided only on this Mac.")
+            : appLocalized("Agent requests aren't sent to this iPhone.")
     }
 
     static func issueMessage(_ issue: DeviceActionIssue) -> String {

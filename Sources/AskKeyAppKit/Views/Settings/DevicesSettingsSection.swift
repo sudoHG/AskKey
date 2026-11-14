@@ -107,6 +107,9 @@ private struct DevicesSectionContent: View {
             model.approverStateChanged(from: old, to: new)
         }
         .onAppear { Task { await model.sectionOpened() } }
+        // Locking management replaces the page; an open approver sheet and
+        // its code go with it (ADR 0014 → Approvers).
+        .onDisappear { model.sectionClosed() }
     }
 
     /// Stands in for the list while no device is listed.
@@ -246,6 +249,7 @@ private struct DeviceRow: View {
             ))
             .toggleStyle(.switch)
             .labelsHidden()
+            .accessibilityLabel(appLocalizedFormat("Approve agent requests on “%@”", row.displayName))
             .dimmedAndDisabled(!model.canChangeApprover(row))
             .accessibilityIdentifier("devices-approver-toggle")
         }

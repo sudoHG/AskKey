@@ -79,6 +79,10 @@ struct FrozenAgentApprovalPrompt: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(.ultraThinMaterial)
         .environment(\.locale, AppLanguage.store.locale)
+        // The decision shows above Details; collapse them so it is in view.
+        .onChange(of: remote?.outcome) { _, outcome in
+            if outcome != nil { showsDetails = false }
+        }
     }
 
     @ViewBuilder
@@ -107,7 +111,7 @@ struct FrozenAgentApprovalPrompt: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Theme.Spacing.md)
                     }
-                    if let message = authenticationMessageKey {
+                    if let message = shownAuthenticationMessageKey {
                         Text(appLocalized(message))
                             .font(Theme.Fonts.secondary)
                             .foregroundStyle(Theme.textSecondary)
@@ -153,6 +157,12 @@ struct FrozenAgentApprovalPrompt: View {
         default: cancelledAuthenticationDecision != nil
             ? "Authentication cancelled. Nothing was handed over." : nil
         }
+    }
+
+    /// A paired iPhone's decision replaces an earlier local authentication
+    /// result; both together would contradict each other.
+    var shownAuthenticationMessageKey: String? {
+        remote?.outcome == nil ? authenticationMessageKey : nil
     }
 
     /// Title and subtitle wrap freely; they scroll only when a name is too

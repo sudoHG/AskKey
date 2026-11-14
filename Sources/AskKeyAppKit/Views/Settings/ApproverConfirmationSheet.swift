@@ -21,7 +21,6 @@ struct ApproverConfirmationSheet: View {
                     actions(sheet)
                 }
                 .controlSize(.large)
-                .accessibilityIdentifier("devices-approver-sheet")
             }
         }
         .onAppear { shown = model.approverSheet }

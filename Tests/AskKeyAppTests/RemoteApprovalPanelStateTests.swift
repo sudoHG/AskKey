@@ -86,6 +86,21 @@ final class RemoteApprovalPanelStateTests: XCTestCase {
         XCTAssertEqual(step(finished, ended: true, after: 0.25), .close, "the apply returned without a decision")
     }
 
+    /// "Authentication cancelled. Nothing was handed over." gives way to the
+    /// iPhone's decision; the card's sentence and buttons stay as they were.
+    func testAnApproversDecisionReplacesALocalAuthenticationResult() {
+        let request = ApprovalCardFixtures.request(.read, display: ApprovalCardFixtures.display())
+        let remote = RemoteApprovalPanelState(requestID: "request")
+        let prompt = FrozenAgentApprovalPrompt(request: request, timedAllowanceEnabled: true, remote: remote,
+                                               cancelledAuthenticationDecision: .once, authenticationOutcome: .cancelled,
+                                               finish: { _ in })
+        XCTAssertEqual(prompt.shownAuthenticationMessageKey, "Authentication cancelled. Nothing was handed over.")
+        remote.record(decision(), now: start)
+        XCTAssertNil(prompt.shownAuthenticationMessageKey)
+        let plain = FrozenAgentApprovalPrompt(request: request, timedAllowanceEnabled: true, finish: { _ in })
+        XCTAssertEqual(prompt.presentation.content, plain.presentation.content)
+    }
+
     func testTheDecisionIsKeptWhenAnotherOneFollows() {
         let state = RemoteApprovalPanelState(requestID: "request")
         state.record(decision(), now: start)
