@@ -149,6 +149,14 @@ package enum DeviceServicesEvent: Hashable, Sendable {
     case accountChanged
     case inboxPreparationFailed
     case pollFailed
+    /// The Broker's active-approver set could not be loaded from the list.
+    case approverActivationFailed
+    case approverEnabled
+    /// A matching approver code arrived from a device other than the one selected.
+    case approverCodeEnteredElsewhere
+    case remoteRequestNotSealed
+    case closedMessageNotSealed
+    case knownRecordFetchFailed
 
     package static let systemLog: @Sendable (DeviceServicesEvent) -> Void = { event in
         let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "AskKeyAppKit", category: "Devices")

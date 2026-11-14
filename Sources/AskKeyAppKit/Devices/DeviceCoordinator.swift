@@ -21,6 +21,15 @@ package struct DeviceCoordinatorEnvironment {
     /// Runs the polling schedules; tests turn it off and poll explicitly.
     package var automaticPolling: Bool
     package var sleep: @Sendable (TimeInterval) async throws -> Void
+    /// Whether the Mac's screen is unlocked; locked or unknown is false. It
+    /// decides when a request goes to the approvers (ADR 0014).
+    package var isScreenUnlocked: @MainActor () -> Bool
+    /// When this App process started; nil uses the clock when the
+    /// coordinator is created.
+    package var launchTime: Date?
+    /// Registers for remote notifications once this Mac has an identity.
+    package var registerForRemoteNotifications: @MainActor () -> Void
+    package var processActivity: DeviceProcessActivity
 
     package init(
         vault: Vault,
@@ -31,7 +40,11 @@ package struct DeviceCoordinatorEnvironment {
         displayName: @escaping @MainActor () -> String = DeviceCoordinatorEnvironment.computerName,
         log: @escaping @Sendable (DeviceServicesEvent) -> Void = DeviceServicesEvent.systemLog,
         automaticPolling: Bool = true,
-        sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+        sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
+        isScreenUnlocked: @escaping @MainActor () -> Bool = DeviceCoordinatorEnvironment.screenIsUnlocked,
+        launchTime: Date? = nil,
+        registerForRemoteNotifications: @escaping @MainActor () -> Void = {},
+        processActivity: DeviceProcessActivity = .system
     ) {
         self.vault = vault
         self.backend = backend
@@ -42,10 +55,18 @@ package struct DeviceCoordinatorEnvironment {
         self.log = log
         self.automaticPolling = automaticPolling
         self.sleep = sleep
+        self.isScreenUnlocked = isScreenUnlocked
+        self.launchTime = launchTime
+        self.registerForRemoteNotifications = registerForRemoteNotifications
+        self.processActivity = processActivity
     }
 
     package static func computerName() -> String {
         (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? "Mac"
+    }
+
+    package static func screenIsUnlocked() -> Bool {
+        AgentApprovalScreenSession.current() == .unlocked
     }
 }
 
@@ -124,9 +145,40 @@ package final class DeviceCoordinator {
     /// Changes with every account check, so only the latest one applies.
     @ObservationIgnored var accountCheck = 0
 
+    // MARK: Remote approval (ADR 0014)
+
+    /// Requests that went to approvers, by Broker request ID, with when each
+    /// was sent and delivered; nothing else about them.
+    package internal(set) var remoteApprovals: [String: RemoteApprovalStatus] = [:]
+    /// The last decision from an approver that moved a request out of pending.
+    package internal(set) var lastRemoteDecision: RemoteAppliedDecision?
+    /// The open "Approve agent requests" sheet's state; nil when none is open.
+    package internal(set) var approverConfirmation: ApproverConfirmationState?
+    /// The code the open sheet shows while it waits for the iPhone. Its
+    /// description is redacted; only the sheet shows `formatted`.
+    package internal(set) var approverCode: ApproverCode?
+    @ObservationIgnored let launchTime: Date
+    @ObservationIgnored var remoteRequests: [String: RemoteRequestTrack] = [:]
+    @ObservationIgnored var closedMessages: [MessageID: PendingClosedMessage] = [:]
+    @ObservationIgnored var remoteLoopTask: Task<Void, Never>?
+    @ObservationIgnored var nextKnownRecordFetch: Date?
+    @ObservationIgnored var isFetchingKnownRecords = false
+    @ObservationIgnored var remoteActivity: AnyObject?
+    /// Whether the Broker's active-approver set was loaded from the list for
+    /// the current services and account.
+    @ObservationIgnored var approversLoaded = false
+    @ObservationIgnored var approverAttempt: ApproverAttempt?
+    /// Changes whenever an approver confirmation starts or is left.
+    @ObservationIgnored var approverGeneration = 0
+    @ObservationIgnored var approverAuthentication: Task<ManagementAuthenticationResult, Never>?
+    @ObservationIgnored var approverPollTask: Task<Void, Never>?
+    @ObservationIgnored var approverExpiryHold: SessionExpiryHold?
+    @ObservationIgnored var registeredForRemoteNotifications = false
+
     package init(environment: DeviceCoordinatorEnvironment) {
         self.environment = environment
         availability = environment.backend == nil ? .notConfigured : .loading
+        launchTime = environment.launchTime ?? environment.backend?.clock.now() ?? Date()
     }
 
     var vault: Vault { environment.vault }
@@ -194,6 +246,7 @@ package final class DeviceCoordinator {
         pairingAuthentication = nil
         releaseExpiryHold()
         vault.endDevicePairingAuthorization()
+        stopRemoteApproval()
         services = nil
         hasIdentity = false
         pairing = nil
@@ -222,7 +275,11 @@ package final class DeviceCoordinator {
     package func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) {
         guard let backend = environment.backend, let services,
               backend.isPushHint(userInfo, for: services.deviceID) else { return }
-        Task { [weak self] in await self?.refresh() }
+        nextKnownRecordFetch = nil
+        Task { [weak self] in
+            await self?.refresh()
+            await self?.remoteApprovalTick()
+        }
     }
 
     // MARK: Services
@@ -271,13 +328,13 @@ package final class DeviceCoordinator {
             guard let self else { throw DeviceIdentityError.authenticationCancelled }
             try await self.authorizePairingSignature(reason: reason)
         }
-        let messenger = DeviceMessenger(identity: identity, platform: .macOS, registry: registry, transport: inbox,
-                                        clock: backend.clock)
+        let messenger = makeMessenger(identity: identity, registry: registry, inbox: inbox, clock: backend.clock)
         services = DeviceServices(identity: identity, inbox: inbox, registry: registry, messenger: messenger)
         lifecycle += 1
         hasIdentity = true
         availability = .ready
         storageFailureMessage = nil
+        registerForRemoteNotificationsOnce()
         return true
     }
 
@@ -343,6 +400,9 @@ package final class DeviceCoordinator {
                 if account != .accountChanged { environment.log(.accountChanged) }
                 account = .accountChanged
             }
+            // An account change ends every approver's authority before the
+            // messenger moves to the other account's inbox.
+            if account != .available { suspendRemoteApproval() }
             await use(account: name, state: state, check: check)
         case .noAccount:
             account = .noAccount
@@ -350,6 +410,11 @@ package final class DeviceCoordinator {
             account = .restricted
         case .temporarilyUnavailable:
             account = .temporarilyUnavailable
+        }
+        if account == .available {
+            activateApproversIfNeeded()
+        } else {
+            suspendRemoteApproval()
         }
         publishRows()
     }
@@ -368,8 +433,8 @@ package final class DeviceCoordinator {
                   self.services === services, services.messengerAccount != name else { return }
         }
         let token = state.tokenAccount == name ? state.inboxToken.map(InboxChangeToken.init(data:)) : nil
-        services.messenger = DeviceMessenger(identity: services.identity, platform: .macOS, registry: services.registry,
-                                             transport: services.inbox, clock: backend.clock, inboxToken: token)
+        services.messenger = makeMessenger(identity: services.identity, registry: services.registry, inbox: services.inbox,
+                                           clock: backend.clock, inboxToken: token)
         services.messengerAccount = name
         let lifecycle = self.lifecycle
         do {
@@ -481,7 +546,8 @@ package final class DeviceCoordinator {
             }
             return PairedDeviceRow(id: device.deviceID, pairingID: device.pairingID, displayName: device.displayName,
                                    platform: device.platform, pairedAt: device.pairedAt,
-                                   lastDeliveryCheck: device.lastDeliveryCheck, reachability: reachability)
+                                   lastDeliveryCheck: device.lastDeliveryCheck, reachability: reachability,
+                                   isApprover: device.isApprover)
         }
     }
 }

@@ -21,6 +21,8 @@ package final class FakeDeviceServicesBackend: DeviceServicesBackend, @unchecked
     private var answerGate: (@Sendable () async -> Void)?
     private var fetchHook: (@Sendable () async -> Void)?
     private var preparationError: DeviceTransportError?
+    private var namedFetchFailures: [DeviceTransportError] = []
+    private var namedFetchWaits: [TimeInterval] = []
     private var continuations: [UUID: AsyncStream<Void>.Continuation] = [:]
 
     package init(transport: InMemoryDeviceTransport = InMemoryDeviceTransport(), clock: any DeviceClock = SystemDeviceClock(),
@@ -78,6 +80,24 @@ package final class FakeDeviceServicesBackend: DeviceServicesBackend, @unchecked
     }
 
     package var registersForRemoteNotifications: Bool { false }
+
+    /// Makes the next named fetches throw these errors, one per fetch.
+    package func failNextNamedFetches(with errors: [DeviceTransportError]) {
+        lock.withLock { namedFetchFailures = errors }
+    }
+
+    /// Makes the next named fetches ask to wait this long, one per fetch,
+    /// as CloudKit's retry-after does.
+    package func askNextNamedFetchesToWait(_ seconds: [TimeInterval]) {
+        lock.withLock { namedFetchWaits = seconds }
+    }
+
+    fileprivate func namedFetchAnswer() throws -> TimeInterval? {
+        try lock.withLock {
+            if !namedFetchFailures.isEmpty { throw namedFetchFailures.removeFirst() }
+            return namedFetchWaits.isEmpty ? nil : namedFetchWaits.removeFirst()
+        }
+    }
 
     package func createIdentity() throws -> (identity: any DeviceIdentity, blobs: DeviceIdentityKeyBlobs) {
         let message = P256.Signing.PrivateKey()
@@ -190,17 +210,34 @@ final class FakeDeviceInbox: DeviceInbox, @unchecked Sendable {
     }
 }
 
-/// A pairing-only iPhone in the same process: software keys, its own list in
-/// memory, and the backend's transport and clock. The person's steps on the
+extension FakeDeviceInbox: NamedInboxFetching {
+    func fetchMessages(named recordNames: [String], from device: DeviceID) async throws -> NamedInboxFetch {
+        await backend.beforeFetch?()
+        let wait = try backend.namedFetchAnswer()
+        var fetch = try await backend.transport.fetchMessages(named: recordNames, from: device)
+        fetch.retryAfter = wait
+        return fetch
+    }
+}
+
+/// An iPhone in the same process: software keys, its own list in memory,
+/// and the backend's transport and clock. It pairs, and acts as an approver
+/// (ADR 0014): it keeps every verified request and closed message, and sends
+/// decisions, receipts and approver confirmations. The person's steps on the
 /// phone are its methods.
 package final class SimulatedPairingPhone: @unchecked Sendable {
     package let identity = SoftwareDeviceIdentity()
     package let store = InMemoryPairedDeviceListStore()
     package let messenger: DeviceMessenger
+    package let approvals = SimulatedApproverInbox()
+    private let transport: any DeviceTransport
 
     package init(transport: any DeviceTransport, clock: any DeviceClock) {
+        self.transport = transport
+        let approvals = self.approvals
         messenger = DeviceMessenger(identity: identity, platform: .iOS, registry: PairedDeviceRegistry(store: store),
-                                    transport: transport, clock: clock)
+                                    transport: transport, clock: clock,
+                                    approvalHandler: { approvals.handle($0) })
     }
 
     package var deviceID: DeviceID { messenger.deviceID }
@@ -234,5 +271,67 @@ package final class SimulatedPairingPhone: @unchecked Sendable {
 
     package var phase: PairingPhase? {
         get async { await messenger.pairingPhase }
+    }
+
+    // MARK: Approver
+
+    /// Every verified approval request this phone received, oldest first.
+    package var requests: [VerifiedApprovalMessage] { approvals.requests }
+    /// Every verified closed message this phone received, oldest first.
+    package var closedMessages: [VerifiedApprovalMessage] { approvals.closed }
+
+    /// Seals a decision for a received request and saves it to the Mac's inbox.
+    @discardableResult
+    package func decide(_ code: ApprovalDecisionCode, on request: VerifiedApprovalMessage) async throws -> SealedDeviceMessage {
+        let sealed = try await messenger.sealer.sealApprovalDecision(code, answering: request,
+                                                                     approvalReason: "Synthetic phone decision")
+        try await transport.send(sealed.envelope)
+        return sealed
+    }
+
+    @discardableResult
+    package func sendReceipt(for request: VerifiedApprovalMessage) async throws -> SealedDeviceMessage {
+        let sealed = try messenger.sealer.sealApprovalReceipt(answering: request)
+        try await transport.send(sealed.envelope)
+        return sealed
+    }
+
+    /// Types the code under the Mac's entry and sends the confirmation.
+    package func confirmApprover(typing code: String, for mac: DeviceID) async throws {
+        guard let entry = try await messenger.pairedDevices().first(where: { $0.deviceID == mac }),
+              let typed = ApproverCode(typed: code) else { throw DeviceMessengerError.unknownDevice }
+        let sealed = try await messenger.sealer.sealApproverConfirmation(typed, to: entry,
+                                                                         approvalReason: "Synthetic phone confirmation")
+        try await transport.send(sealed.envelope)
+    }
+
+    /// Saves an envelope to the Mac's inbox as it is, for example to re-insert one.
+    package func send(_ envelope: DeviceEnvelope) async throws {
+        try await transport.send(envelope)
+    }
+}
+
+/// What a simulated approver keeps from the Mac's approval messages.
+package final class SimulatedApproverInbox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var receivedRequests: [VerifiedApprovalMessage] = []
+    private var receivedClosed: [VerifiedApprovalMessage] = []
+
+    package var requests: [VerifiedApprovalMessage] { lock.withLock { receivedRequests } }
+    package var closed: [VerifiedApprovalMessage] { lock.withLock { receivedClosed } }
+
+    func handle(_ message: VerifiedApprovalMessage) -> ApprovalMessageHandling {
+        lock.withLock {
+            switch message.message {
+            case .request:
+                receivedRequests.append(message)
+                return .processed
+            case .closed:
+                receivedClosed.append(message)
+                return .processed
+            case .decision, .receipt, .confirmation:
+                return .refused(.unexpectedKind)
+            }
+        }
     }
 }
