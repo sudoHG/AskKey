@@ -100,6 +100,18 @@ public enum HelperHostApplicationError: Error, LocalizedError {
 /// Resolves the host `.app` that sealed this helper, then opens it only after
 /// the install-topology, identity, and signature gates pass.
 public enum HelperHostApplication {
+    /// Passed by `askkey open` so the App starts with only its menu bar icon.
+    /// `open` hands it to a new App process only; an App that is already
+    /// running receives a reopen event instead.
+    public static let backgroundLaunchArgument = "--askkey-background-launch"
+
+    /// `-g` keeps the App from taking focus while it starts. Development hosts
+    /// get no argument: a `make install` copy runs `scripts/run-dev-app.sh`,
+    /// which reads its only argument as an app path.
+    public static func openArguments(for bundleURL: URL, backgroundLaunch: Bool) -> [String] {
+        ["-g", bundleURL.path] + (backgroundLaunch ? ["--args", backgroundLaunchArgument] : [])
+    }
+
     public static func bundleURL(fromHelperExecutable url: URL) -> URL? {
         structuralBundleURL(from: url.standardizedFileURL.resolvingSymlinksInPath())
     }
@@ -123,7 +135,7 @@ public enum HelperHostApplication {
         bundleIdentifier: ((URL) -> String?)? = nil,
         resolvedURL: ((URL) -> URL)? = nil
     ) throws {
-        let opener = opener ?? { try open($0) }
+        let opener = opener ?? { try open($0, backgroundLaunch: !isDevelopmentBuild) }
         let signingFacts = signingFacts ?? Self.signingFacts(at:)
         let bundleIdentifier = bundleIdentifier ?? Self.bundleIdentifier(ofHost:)
         let resolvedURL = resolvedURL ?? { $0.resolvingSymlinksInPath() }
@@ -162,10 +174,10 @@ public enum HelperHostApplication {
         try opener(bundle)
     }
 
-    private static func open(_ bundleURL: URL) throws {
+    private static func open(_ bundleURL: URL, backgroundLaunch: Bool) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = [bundleURL.path]
+        process.arguments = openArguments(for: bundleURL, backgroundLaunch: backgroundLaunch)
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

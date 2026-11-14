@@ -36,9 +36,10 @@ class AppLanguageExperienceTestSupport: AskKeyAppTestCase {
             transactionID: AETransactionID(kAnyTransactionID)
         )
         if loginItem {
+            // The shape loginwindow sends: keyAEPropData = keyAELaunchedAsLogInItem.
             event.setParam(
-                NSAppleEventDescriptor(boolean: true),
-                forKeyword: AEKeyword(keyAELaunchedAsLogInItem)
+                NSAppleEventDescriptor(enumCode: OSType(keyAELaunchedAsLogInItem)),
+                forKeyword: AEKeyword(keyAEPropData)
             )
         }
         return event

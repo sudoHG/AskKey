@@ -13,7 +13,9 @@ extension AppDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in self?.vault.refreshAgentAccessPauseState() }
         }
-        launchSource = AppLaunchSource(event: NSAppleEventManager.shared().currentAppleEvent)
+        let launchEvent = NSAppleEventManager.shared().currentAppleEvent
+        launchSource = AppLaunchSource(event: launchEvent, arguments: CommandLine.arguments)
+        launchSource.log(event: launchEvent)
         ensureManagementWindow()
         _ = managementDockPolicy.handle(
             .launch(isActive: launchSource == .active)
@@ -24,10 +26,8 @@ extension AppDelegate {
                 self?.scheduleManagementDockPolicyApplication()
             },
             activateApplication: { NSApp.activate(ignoringOtherApps: true) },
-            hideMainWindow: {
-                self.hideManagementWindow()
-                DispatchQueue.main.async { [weak self] in self?.hideManagementWindow() }
-            }
+            hideMainWindow: { [weak self] in self?.hideManagementWindow() },
+            isStillInBackground: { [weak self] in self.map { $0.launchSource != .active } ?? false }
         )
         if launchSource == .active {
             managementWindow?.makeKeyAndOrderFront(nil)

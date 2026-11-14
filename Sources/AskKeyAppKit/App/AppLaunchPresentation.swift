@@ -13,7 +13,10 @@ struct AppLaunchPresentation: Equatable {
                 activatesApplication: true,
                 hidesMainWindow: false
             )
-        case .loginItem:
+        case .loginItem, .helper:
+            // Menu bar only. Approval prompts are their own panels and still
+            // appear; the menu bar icon or opening Ask Key again brings the
+            // management window.
             return .init(
                 activationPolicy: .accessory,
                 activatesApplication: false,
@@ -22,16 +25,25 @@ struct AppLaunchPresentation: Equatable {
         }
     }
 
+    /// A launch kept in the menu bar hides management now and once more on
+    /// the next run-loop turn, unless something opened management in between
+    /// (a queued second-instance activation, a notification or a reopen).
     func apply(
         setActivationPolicy: (NSApplication.ActivationPolicy) -> Void,
         activateApplication: () -> Void,
-        hideMainWindow: () -> Void
+        hideMainWindow: @escaping () -> Void,
+        isStillInBackground: @escaping () -> Bool = { true },
+        nextTurn: (@escaping () -> Void) -> Void = { DispatchQueue.main.async(execute: $0) }
     ) {
         setActivationPolicy(activationPolicy)
         if activatesApplication {
             activateApplication()
         } else if hidesMainWindow {
             hideMainWindow()
+            nextTurn {
+                guard isStillInBackground() else { return }
+                hideMainWindow()
+            }
         }
     }
 }
