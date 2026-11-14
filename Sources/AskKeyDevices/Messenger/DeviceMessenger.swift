@@ -30,6 +30,8 @@ public enum DeviceMessengerError: Error, Equatable, Sendable {
     case keyConflict
     /// The device is not on the paired-device list.
     case unknownDevice
+    /// The transport cannot fetch records by name (`NamedInboxFetching`).
+    case namedFetchUnavailable
 }
 
 /// What became of one fetched message in a poll (ADR 0013 → Change tokens).
@@ -86,6 +88,8 @@ public actor DeviceMessenger {
     let registry: PairedDeviceRegistry
     let transport: any DeviceTransport
     let clock: any DeviceClock
+    let approvalHandler: ApprovalMessageHandler?
+    let removalHook: PairedDeviceRemovalHook?
 
     var session: PairingSession?
     /// Changes whenever `session` is replaced, so work that awaited can tell.
@@ -95,6 +99,10 @@ public actor DeviceMessenger {
     /// its result until its expiry.
     var retiredSessions: [PairingSession] = []
     var processed = ProcessedMessageIDs()
+    /// Message IDs being handled right now, reserved before any suspension,
+    /// so a message that the zone poll and a named fetch both found takes
+    /// effect once.
+    var inFlight: Set<MessageID> = []
     var pendingChecks: [MessageID: PendingCheck] = [:]
     /// When each record was first fetched, for the 30-second freezing rule.
     var firstFetched: [String: Date] = [:]
@@ -105,15 +113,27 @@ public actor DeviceMessenger {
     /// The inbox change token after the last fully processed fetch.
     public internal(set) var inboxToken: InboxChangeToken?
 
+    /// `approvalHandler` receives every verified kind 10–14 message (ADR
+    /// 0014); without one they are refused as `unexpectedKind`.
+    /// `removalHook` is called with each entry before any removal of it
+    /// commits, including one caused by an unpair notice or by pairing again.
     public init(identity: any DeviceIdentity, platform: DevicePlatform, registry: PairedDeviceRegistry,
-                transport: any DeviceTransport, clock: any DeviceClock, inboxToken: InboxChangeToken? = nil) {
+                transport: any DeviceTransport, clock: any DeviceClock, inboxToken: InboxChangeToken? = nil,
+                approvalHandler: ApprovalMessageHandler? = nil, removalHook: PairedDeviceRemovalHook? = nil) {
         self.identity = identity
         self.platform = platform
         self.registry = registry
         self.transport = transport
         self.clock = clock
         self.inboxToken = inboxToken
+        self.approvalHandler = approvalHandler
+        self.removalHook = removalHook
         deviceID = DeviceID(messagePublicKey: identity.messagePublicKey)
+    }
+
+    /// Seals kind 10–14 messages with this device's identity and clock.
+    public nonisolated var sealer: DeviceMessageSealer {
+        DeviceMessageSealer(identity: identity, clock: clock)
     }
 
     // MARK: Pairing
@@ -328,11 +348,11 @@ public actor DeviceMessenger {
             guard entry.card.compressedPublicKeys.isDisjoint(with: identity.compressedPublicKeys) else {
                 throw PairedDeviceListError.keyConflict
             }
-            try await registry.apply(.add(entry))
+            try await commit(.add(entry))
             // The session may have ended while the list was written, for
             // example by Cancel, a cancellation or a removal; then it stores nothing.
             guard generation == sessionGeneration, let current = session, current.isOpen(at: clock.now()) else {
-                _ = try? await registry.apply(.remove(entry.deviceID, pairingID: entry.pairingID))
+                _ = try? await commit(.remove(entry.deviceID, pairingID: entry.pairingID))
                 return
             }
             session?.peerAdded()
@@ -368,6 +388,14 @@ public actor DeviceMessenger {
                 continue
             }
         }
+    }
+
+    /// Commits a list change, calling the removal hook first for every
+    /// entry the change removes.
+    @discardableResult
+    func commit(_ change: PairedDeviceChange) async throws -> PairedDeviceChangeOutcome {
+        guard let removalHook else { return try await registry.apply(change) }
+        return try await registry.apply(change, beforeRemoving: removalHook)
     }
 
     func dropChecks(for peer: DeviceID) {

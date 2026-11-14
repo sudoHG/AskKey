@@ -294,7 +294,7 @@ public actor CloudKitDeviceTransport: DeviceTransport {
 
     /// Someone deleted this device's inbox zone: create it again, log it,
     /// and check the subscriptions as a preparation would.
-    private func recreateOwnZone() async throws {
+    func recreateOwnZone() async throws {
         inboxReady = false
         do {
             try await service.saveZone(ownZoneID)

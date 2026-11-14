@@ -92,7 +92,7 @@ struct ByteReader {
     }
 }
 
-/// Every domain label in ADR 0013 is ASCII followed by one NUL byte.
+/// Every domain label in ADR 0013 and ADR 0014 is ASCII followed by one NUL byte.
 enum DomainLabel {
     static let deviceID = label("AskKey device id v1")
     static let deviceCard = label("AskKey device card v1")
@@ -104,6 +104,11 @@ enum DomainLabel {
     static let comparisonCode = label("AskKey comparison code v1")
     static let pairingConfirmation = label("AskKey pairing confirmation v1")
     static let pairingID = label("AskKey pairing id v1")
+    static let approvalBinding = label("AskKey approval binding v1")
+    static let approvalDecision = label("AskKey approval decision v1")
+    static let approvalReceiptID = label("AskKey approval receipt id v1")
+    static let approverConfirmation = label("AskKey approver confirmation v1")
+    static let approverCode = label("AskKey approver code v1")
 
     private static func label(_ text: String) -> Data {
         precondition(text.allSatisfy(\.isASCII))

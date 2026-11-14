@@ -7,8 +7,9 @@ public enum MessageRecordType: String, Hashable, Sendable, CaseIterable {
     case quiet = "QuietMessage"
 }
 
-/// The stage 2 message kinds and what ADR 0013 → Sealed messages fixes for
-/// each: the record type, the HPKE mode, and the longest allowed lifetime.
+/// The message kinds and what ADR 0013 → Sealed messages and ADR 0014 →
+/// Encodings fix for each: the record type, the HPKE mode, and the longest
+/// allowed lifetime.
 public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
     case pairingRequest = 1
     case pairingChallenge = 2
@@ -19,14 +20,23 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
     case deliveryCheck = 7
     case deliveryCheckReply = 8
     case pairingReveal = 9
+    case approvalRequest = 10
+    case approvalDecision = 11
+    case approvalClosed = 12
+    case approvalReceipt = 13
+    case approverConfirmation = 14
 
     /// Pairing messages live at most as long as a session.
     public static let pairingLifetime: TimeInterval = 10 * 60
     public static let deliveryCheckLifetime: TimeInterval = 10 * 60
     public static let unpairNoticeLifetime: TimeInterval = 30 * 24 * 60 * 60
+    /// Kinds 10–14 (ADR 0014).
+    public static let approvalLifetime: TimeInterval = 10 * 60
 
+    /// Delivery checks and approval requests may show a notification on an
+    /// iPhone; every other kind is quiet.
     public var recordType: MessageRecordType {
-        self == .deliveryCheck ? .alert : .quiet
+        self == .deliveryCheck || self == .approvalRequest ? .alert : .quiet
     }
 
     /// Pairing requests and withdrawals use HPKE PSK mode; every other kind
@@ -41,7 +51,18 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
         case .pairingRequest, .pairingChallenge, .pairingConfirmation, .pairingCancellation, .pairingWithdrawal,
              .pairingReveal:
             return true
-        case .unpairNotice, .deliveryCheck, .deliveryCheckReply:
+        case .unpairNotice, .deliveryCheck, .deliveryCheckReply, .approvalRequest, .approvalDecision, .approvalClosed,
+             .approvalReceipt, .approverConfirmation:
+            return false
+        }
+    }
+
+    /// Kinds 10–14, which carry remote approval (ADR 0014).
+    public var isApproval: Bool {
+        switch self {
+        case .approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt, .approverConfirmation:
+            return true
+        default:
             return false
         }
     }
@@ -55,6 +76,8 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
             return Self.deliveryCheckLifetime
         case .unpairNotice:
             return Self.unpairNoticeLifetime
+        case .approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt, .approverConfirmation:
+            return Self.approvalLifetime
         }
     }
 }

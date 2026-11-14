@@ -16,9 +16,13 @@ final class DeviceHarness {
     }
 
     func makeDevice(_ platform: DevicePlatform, list: PairedDeviceList = PairedDeviceList(),
-                    identity: SoftwareDeviceIdentity = SoftwareDeviceIdentity()) -> SimulatedDevice {
+                    identity: SoftwareDeviceIdentity = SoftwareDeviceIdentity(), clockOffset: TimeInterval = 0,
+                    approvalHandler: ApprovalMessageHandler? = nil,
+                    removalHook: PairedDeviceRemovalHook? = nil) -> SimulatedDevice {
         let store = InMemoryPairedDeviceListStore(list)
-        return SimulatedDevice(identity: identity, store: store, platform: platform, harness: self)
+        return SimulatedDevice(identity: identity, store: store, platform: platform, harness: self,
+                               options: .init(clockOffset: clockOffset, approvalHandler: approvalHandler,
+                                              removalHook: removalHook))
     }
 
     /// Runs every pairing step: the person types the phone's code on the
@@ -48,22 +52,33 @@ final class DeviceHarness {
 }
 
 final class SimulatedDevice {
+    /// The device's own clock offset from the harness clock, and its hooks.
+    struct Options {
+        var clockOffset: TimeInterval = 0
+        var approvalHandler: ApprovalMessageHandler?
+        var removalHook: PairedDeviceRemovalHook?
+    }
+
     let identity: SoftwareDeviceIdentity
     let store: InMemoryPairedDeviceListStore
     let platform: DevicePlatform
+    let clock: any DeviceClock
     private let registryStore: any PairedDeviceListStore
+    private let options: Options
     private(set) var messenger: DeviceMessenger
     private unowned let harness: DeviceHarness
 
     /// `registryStore` replaces `store` behind the messenger when given.
     init(identity: SoftwareDeviceIdentity, store: InMemoryPairedDeviceListStore, platform: DevicePlatform,
-         harness: DeviceHarness, registryStore: (any PairedDeviceListStore)? = nil) {
+         harness: DeviceHarness, registryStore: (any PairedDeviceListStore)? = nil, options: Options = Options()) {
         self.identity = identity
         self.store = store
         self.platform = platform
         self.harness = harness
         self.registryStore = registryStore ?? store
-        messenger = Self.messenger(identity, self.registryStore, platform, harness)
+        self.options = options
+        clock = options.clockOffset == 0 ? harness.clock : OffsetDeviceClock(base: harness.clock, offset: options.clockOffset)
+        messenger = Self.messenger(identity, self.registryStore, platform, harness, clock, options)
     }
 
     var id: DeviceID { messenger.deviceID }
@@ -71,7 +86,7 @@ final class SimulatedDevice {
     /// The same keys and stored list in a new process: sessions, processed
     /// message IDs and pending checks are gone.
     func restart() {
-        messenger = Self.messenger(identity, registryStore, platform, harness)
+        messenger = Self.messenger(identity, registryStore, platform, harness, clock, options)
     }
 
     func devices() async throws -> [PairedDevice] {
@@ -132,10 +147,25 @@ final class SimulatedDevice {
     }
 
     private static func messenger(_ identity: SoftwareDeviceIdentity, _ store: any PairedDeviceListStore,
-                                  _ platform: DevicePlatform, _ harness: DeviceHarness) -> DeviceMessenger {
+                                  _ platform: DevicePlatform, _ harness: DeviceHarness, _ clock: any DeviceClock,
+                                  _ options: Options) -> DeviceMessenger {
         DeviceMessenger(identity: identity, platform: platform, registry: PairedDeviceRegistry(store: store),
-                        transport: harness.transport(for: identity.deviceID, platform: platform), clock: harness.clock)
+                        transport: harness.transport(for: identity.deviceID, platform: platform), clock: clock,
+                        approvalHandler: options.approvalHandler, removalHook: options.removalHook)
     }
+}
+
+/// A device clock that runs a fixed offset ahead of (or behind) another.
+final class OffsetDeviceClock: DeviceClock, @unchecked Sendable {
+    let base: any DeviceClock
+    let offset: TimeInterval
+
+    init(base: any DeviceClock, offset: TimeInterval) {
+        self.base = base
+        self.offset = offset
+    }
+
+    func now() -> Date { base.now().addingTimeInterval(offset) }
 }
 
 extension DeviceMessenger {

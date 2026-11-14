@@ -67,7 +67,7 @@ extension DeviceMessenger {
                     continue
                 }
                 dropChecks(for: id)
-                try await registry.apply(.remove(id, pairingID: pairingID))
+                try await commit(.remove(id, pairingID: pairingID))
                 if retired {
                     retiredSessions.removeAll { $0.qr.sessionID == sessionID }
                 } else if session?.qr.sessionID == sessionID {

@@ -73,7 +73,7 @@ final class PairedDeviceListTests: XCTestCase {
 
         var json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let damaged: [(String, ([String: Any]) -> [String: Any])] = [
-            ("newer version", { var j = $0; j["version"] = 2; return j }),
+            ("newer version", { var j = $0; j["version"] = 3; return j }),
             ("damaged card", { j in
                 var j = j
                 var devices = j["devices"] as! [[String: Any]]

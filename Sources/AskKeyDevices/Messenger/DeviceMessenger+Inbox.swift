@@ -6,6 +6,9 @@ extension DeviceMessenger {
         /// `authenticated` tells whether the sender's signature verified.
         case refused(DeviceMessageRefusal, authenticated: Bool)
         case held
+        /// The same message ID is being handled by another fetch right now.
+        /// It is not deleted and does not count as a failure.
+        case busy
     }
 
     static let failureLimit = 3
@@ -43,7 +46,8 @@ extension DeviceMessenger {
                 held = []
                 continue
             }
-            let page = try await process(changes, carrying: held, into: &report)
+            let page = try await process(changes.envelopes, malformed: changes.malformedRecordNames,
+                                         failed: changes.failedRecordNames, carrying: held, into: &report)
             held = page.held
             committable = committable && page.settled
             if committable, held.isEmpty {
@@ -57,24 +61,25 @@ extension DeviceMessenger {
         return report
     }
 
-    /// Processes one page, with the messages still held from earlier pages,
-    /// and deletes what settled. Pairing messages go first, in protocol
-    /// order (a reveal before a confirmation); held messages are retried
-    /// after any message took effect.
-    private func process(_ changes: InboxChanges, carrying carried: [DeviceEnvelope],
-                         into report: inout InboxReport) async throws -> (settled: Bool, held: [DeviceEnvelope]) {
+    /// Processes one page, or the records of a named fetch, with the
+    /// messages still held from earlier pages, and deletes what settled.
+    /// Pairing messages go first, in protocol order (a reveal before a
+    /// confirmation), then approval-closed messages, then the rest; held
+    /// messages are retried after any message took effect.
+    func process(_ envelopes: [DeviceEnvelope], malformed: [String], failed: [String], carrying carried: [DeviceEnvelope],
+                 into report: inout InboxReport) async throws -> (settled: Bool, held: [DeviceEnvelope]) {
         let fetchedAt = clock.now()
-        for envelope in changes.envelopes where firstFetched[envelope.recordName] == nil {
+        for envelope in envelopes where firstFetched[envelope.recordName] == nil {
             firstFetched[envelope.recordName] = fetchedAt
         }
-        var deletable = changes.malformedRecordNames
-        report.refusals += changes.malformedRecordNames.map { _ in DeviceMessageRefusal.malformed }
-        for name in changes.malformedRecordNames { report.outcomes[name] = .refused(.malformed) }
-        var settled = changes.failedRecordNames.isEmpty
-        report.failed += changes.failedRecordNames.count
-        for name in changes.failedRecordNames { report.outcomes[name] = .failed }
-        let fetchedNames = Set(changes.envelopes.map(\.recordName))
-        var pending = (carried.filter { !fetchedNames.contains($0.recordName) } + changes.envelopes).enumerated()
+        var deletable = malformed
+        report.refusals += malformed.map { _ in DeviceMessageRefusal.malformed }
+        for name in malformed { report.outcomes[name] = .refused(.malformed) }
+        var settled = failed.isEmpty
+        report.failed += failed.count
+        for name in failed { report.outcomes[name] = .failed }
+        let fetchedNames = Set(envelopes.map(\.recordName))
+        var pending = (carried.filter { !fetchedNames.contains($0.recordName) } + envelopes).enumerated()
             .sorted { (Self.rank($0.element), $0.offset) < (Self.rank($1.element), $1.offset) }
             .map(\.element)
         var progressed = true
@@ -111,6 +116,10 @@ extension DeviceMessenger {
                 case .held:
                     report.outcomes[envelope.recordName] = .keptForSession
                     held.append(envelope)
+                case .busy:
+                    report.failed += 1
+                    report.outcomes[envelope.recordName] = .failed
+                    settled = false
                 }
             }
             pending = held
@@ -125,16 +134,21 @@ extension DeviceMessenger {
         return (settled, pending)
     }
 
+    /// Within one transport fetch (one page of a poll, or one named fetch),
+    /// pairing kinds come first (ADR 0013), then approval-closed, so a closed
+    /// message stored before its request keeps the request from being shown
+    /// (ADR 0014), then every other kind.
     static func rank(_ envelope: DeviceEnvelope) -> Int {
         let order: [MessageKind] = [.pairingRequest, .pairingChallenge, .pairingReveal, .pairingConfirmation,
-                                    .pairingCancellation, .pairingWithdrawal]
+                                    .pairingCancellation, .pairingWithdrawal, .approvalClosed]
         return order.firstIndex { Int64($0.rawValue) == envelope.kind } ?? order.count
     }
 
     /// Applies the refusal rules of ADR 0013 → Sealed messages in order: the
     /// plaintext routing fields, the HPKE mode from the plaintext kind,
     /// decryption, the signed fields against the plaintext ones, the time
-    /// rules, replay, the sender's signature, and the kind's binding.
+    /// rules, replay, the sender's signature, and the kind's binding. The
+    /// message ID is reserved before the first suspension.
     private func processOne(_ envelope: DeviceEnvelope) async throws -> Outcome {
         let now = clock.now()
         let routing: MessageCodec.Routing
@@ -154,13 +168,15 @@ extension DeviceMessenger {
         }
         let inner = opened.inner
         guard !processed.contains(inner.messageID) else { return .refused(.replayed, authenticated: false) }
+        guard inFlight.insert(inner.messageID).inserted else { return .busy }
+        defer { inFlight.remove(inner.messageID) }
         let outcome = routing.kind.isPairing
             ? try await handlePairingMessage(inner, recordName: envelope.recordName, pskSession: opened.session, now: now)
-            : try await handlePeerMessage(inner, now: now)
+            : try await handlePeerMessage(inner, envelope: envelope, now: now)
         switch outcome {
         case .processed, .refused(_, authenticated: true):
             processed.insert(inner.messageID, until: UnixTime.date(inner.expiresAt))
-        case .refused, .held:
+        case .refused, .held, .busy:
             break
         }
         return outcome
@@ -191,12 +207,12 @@ extension DeviceMessenger {
         return nil
     }
 
-    /// Kinds 6–8 come from a device on the list. A message from the open
+    /// Kinds 6–8 and 10–14 come from a device on the list. A message from the open
     /// session's peer that is not on the list yet, that is bound to the
     /// pairing this session is replacing, or that is an unpair notice, is
     /// held until the session ends, so a notice from before a removal and a
     /// new pairing cannot end the new pairing.
-    private func handlePeerMessage(_ inner: InnerMessage, now: Date) async throws -> Outcome {
+    private func handlePeerMessage(_ inner: InnerMessage, envelope: DeviceEnvelope, now: Date) async throws -> Outcome {
         let list = try await registry.list()
         let open = session.flatMap { $0.isOpen(at: now) && !$0.added ? $0 : nil }
         let fromSessionPeer = open?.peerID == inner.sender
@@ -210,6 +226,9 @@ extension DeviceMessenger {
             return .refused(.badSignature, authenticated: false)
         }
         if fromSessionPeer, inner.kind == .unpairNotice { return .held }
+        if inner.kind.isApproval {
+            return try await applyApproval(inner, envelope: envelope, from: entry, holdingMismatch: fromSessionPeer)
+        }
         let outcome = try await apply(inner, from: entry, now: now)
         if case .refused(.bindingMismatch, _) = outcome, fromSessionPeer { return .held }
         return outcome
@@ -224,7 +243,7 @@ extension DeviceMessenger {
             guard payload.pairingID == entry.pairingID else { return .refused(.bindingMismatch, authenticated: true) }
             let effects = endSessions(with: entry.deviceID)
             dropChecks(for: entry.deviceID)
-            try await registry.apply(.remove(entry.deviceID, pairingID: entry.pairingID))
+            try await commit(.remove(entry.deviceID, pairingID: entry.pairingID))
             await perform(effects)
             return .processed
         case .deliveryCheck:
