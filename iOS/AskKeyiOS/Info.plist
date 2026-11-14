@@ -29,7 +29,11 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Ask Key uses the camera only to scan the pairing QR code that Ask Key shows on your own Mac.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Ask Key uses Face ID to confirm that you approve pairing this iPhone with a Mac.</string>
+	<string>Ask Key uses Face ID to confirm pairing this iPhone with a Mac and to approve requests from your Macs.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

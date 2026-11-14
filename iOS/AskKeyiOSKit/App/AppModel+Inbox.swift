@@ -12,22 +12,28 @@ extension AppModel {
     static let inboxRemovalTimeout: TimeInterval = 10
 
     /// The app became active: collect the pushes still in Notification
-    /// Center, then process the inbox.
+    /// Center, then process the inbox. A request a tapped notification
+    /// named opens if this fetch shows it.
     public func becameActive() async {
         guard stage == .ready, let services else { return }
         remember(await environment.notifications.deliveredPushHints(for: services.deviceID))
         await processInbox()
+        pendingOpen = nil
     }
 
-    /// A push arrived while the app runs, or the person opened one. It is
-    /// only a hint: the app fetches its inbox and acts on what it verifies,
-    /// never on the notification's text, category or action.
-    public func receivedPush(userInfo: [AnyHashable: Any], arrivedAt: Date, notificationIdentifier: String?) async {
+    /// A push arrived while the app runs, or the person opened one
+    /// (`opened`). It is only a hint: the app fetches its inbox and acts on
+    /// what it verifies, never on the notification's text, category or
+    /// action. Opening one opens its request's card when the app holds or
+    /// now verifies that request.
+    public func receivedPush(userInfo: [AnyHashable: Any], arrivedAt: Date, notificationIdentifier: String?,
+                             opened: Bool = false) async {
         guard let services else {
             // Opening a notification launched the app, and the identity is
             // not restored yet: keep the push until it is.
             if stage == .starting, earlyPushes.count < Self.earlyPushLimit {
-                earlyPushes.append(EarlyPush(userInfo: userInfo, arrivedAt: arrivedAt, identifier: notificationIdentifier))
+                earlyPushes.append(EarlyPush(userInfo: userInfo, arrivedAt: arrivedAt, identifier: notificationIdentifier,
+                                             opened: opened))
             }
             return
         }
@@ -35,17 +41,24 @@ extension AppModel {
                                              notificationIdentifier: notificationIdentifier,
                                              for: services.deviceID) else { return }
         remember([hint])
+        if opened {
+            pendingOpen = hint.recordName
+            rebuildRequests()
+        }
         await processInbox()
+        if opened, pendingOpen == hint.recordName { pendingOpen = nil }
     }
 
     /// Turns the pushes kept during launch into hints for this device.
     func adoptEarlyPushes(for device: DeviceID) {
         let pushes = earlyPushes
         earlyPushes = []
-        remember(pushes.compactMap {
-            PushHintReader.hint(userInfo: $0.userInfo, arrivedAt: $0.arrivedAt, notificationIdentifier: $0.identifier,
-                                for: device)
-        })
+        for push in pushes {
+            guard let hint = PushHintReader.hint(userInfo: push.userInfo, arrivedAt: push.arrivedAt,
+                                                 notificationIdentifier: push.identifier, for: device) else { continue }
+            remember([hint])
+            if push.opened { pendingOpen = hint.recordName }
+        }
     }
 
     func remember(_ hints: [PushHint]) {
@@ -58,13 +71,16 @@ extension AppModel {
             pushHints[name] = nil
             if let identifier = hint.notificationIdentifier { stale.append(identifier) }
         }
+        namedFetched.formIntersection(pushHints.keys)
         environment.notifications.removeDeliveredNotifications(identifiers: stale)
     }
 
     /// Fetches and processes the inbox: challenges, confirmations,
     /// cancellations, delivery checks (answered at once with the message key,
-    /// without a prompt) and unpair notices. Calls made while a fetch runs
-    /// wait for it and fetch once more afterwards.
+    /// without a prompt), unpair notices, approval requests and closed
+    /// messages; then sends what is due. A record a push named is fetched
+    /// by name first. Calls made while a fetch runs wait for it and fetch
+    /// once more afterwards.
     public func processInbox() async {
         if let running = inboxWork {
             pollAgain = true
@@ -88,7 +104,22 @@ extension AppModel {
         if !accountChecked || accountNotice != nil { await refreshAccount() }
         guard accountNotice == nil, self.services === services else { return }
         let before = try? await services.registry.list()
-        let report: InboxReport
+        var named: [String: InboxMessageOutcome] = [:]
+        let hinted = Array(pushHints.keys.filter { !namedFetched.contains($0) }.sorted().prefix(100))
+        if !hinted.isEmpty {
+            namedFetched.formUnion(hinted)
+            do {
+                named = try await services.messenger.fetchNamedMessages(hinted).outcomes
+            } catch is DeviceIdentityError {
+                guard self.services === services else { return }
+                identityBecameUnusable()
+                return
+            } catch {
+                AppLog.failure("Fetching pushed messages", error)
+            }
+            guard self.services === services else { return }
+        }
+        var report: InboxReport
         do {
             report = try await services.messenger.poll()
         } catch is DeviceIdentityError {
@@ -104,14 +135,17 @@ extension AppModel {
             position.token = token.data
             environment.localState.inboxPosition = position
         }
+        report.outcomes.merge(named) { polled, _ in polled }
         recordDeliveries(report, kinds: services.transport.takeKinds())
         AppLog.refusals(report.refusals)
         await refreshList(previous: before)
+        await serviceApprovals()
     }
 
     /// Records each answered delivery check, found through a push when one
     /// pointed to its record and by polling otherwise, and clears the
-    /// notifications of messages that are settled.
+    /// notifications of messages that are settled. A request still waiting
+    /// for a decision keeps its notification until it settles.
     func recordDeliveries(_ report: InboxReport, kinds: [String: Int64]) {
         let now = environment.clock.now()
         var settled: [String] = []
@@ -123,6 +157,7 @@ extension AppModel {
                     append(DeliveryRecord(recordName: name, arrivedAt: hint?.arrivedAt ?? now,
                                           source: hint == nil ? .polling : .push))
                 }
+                if isPendingRequest(name) { continue }
             case .refused?:
                 break
             default:
@@ -165,9 +200,19 @@ extension AppModel {
             return
         }
         environment.localState.removeAll()
+        do {
+            try environment.approvals.removeApprovals()
+        } catch {
+            AppLog.failure("Deleting the stored requests", error)
+        }
+        dropAllApprovals()
+        revokedPairings = []
         deliveryRecords = []
         pairedMacs = []
         pushHints = [:]
+        namedFetched = []
+        knownList = nil
+        seenPairings = nil
         locallyRemoved = []
         listNotice = nil
         accountNotice = nil

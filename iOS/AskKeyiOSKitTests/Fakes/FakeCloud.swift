@@ -20,6 +20,8 @@ final class FakeCloud: @unchecked Sendable {
     private var preparationIncomplete = false
     private(set) var preparedDevices: [DeviceID] = []
     private(set) var removedInboxes: [DeviceID] = []
+    /// The record names of every fetch by name, in order.
+    private(set) var namedFetches: [[String]] = []
 
     func transport(for device: DeviceID) -> FakeInboxTransport {
         FakeInboxTransport(cloud: self, device: device)
@@ -75,6 +77,21 @@ final class FakeCloud: @unchecked Sendable {
         }
     }
 
+    fileprivate func fetch(named names: [String], from device: DeviceID) -> NamedInboxFetch {
+        lock.withLock {
+            namedFetches.append(names)
+            var fetch = NamedInboxFetch()
+            for name in names {
+                if let record = inboxes[device.text]?[name] {
+                    fetch.envelopes.append(record.envelope)
+                } else {
+                    fetch.missingRecordNames.append(name)
+                }
+            }
+            return fetch
+        }
+    }
+
     fileprivate func delete(_ names: [String], from device: DeviceID) {
         lock.withLock { for name in names { inboxes[device.text]?[name] = nil } }
     }
@@ -95,7 +112,7 @@ final class FakeCloud: @unchecked Sendable {
     }
 }
 
-final class FakeInboxTransport: InboxTransport, @unchecked Sendable {
+final class FakeInboxTransport: InboxTransport, NamedInboxFetching, @unchecked Sendable {
     let cloud: FakeCloud
     let device: DeviceID
 
@@ -114,6 +131,10 @@ final class FakeInboxTransport: InboxTransport, @unchecked Sendable {
 
     func deleteMessages(_ recordNames: [String], from device: DeviceID) async throws {
         cloud.delete(recordNames, from: device)
+    }
+
+    func fetchMessages(named recordNames: [String], from device: DeviceID) async throws -> NamedInboxFetch {
+        cloud.fetch(named: recordNames, from: device)
     }
 
     func accountState(storedUserRecordName: String?) async -> CloudKitAccountState {

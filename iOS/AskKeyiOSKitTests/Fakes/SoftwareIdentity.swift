@@ -19,6 +19,7 @@ final class SoftwareIdentity: DeviceIdentity, @unchecked Sendable {
     private var unusable = false
     private var behavior = ApprovalBehavior.sign
     private var reasons: [String] = []
+    private var promptHook: (@Sendable () async -> Void)?
 
     var messagePublicKey: P256.Signing.PublicKey { messageKey.publicKey }
     var agreementPublicKey: P256.KeyAgreement.PublicKey { agreementKey.publicKey }
@@ -38,16 +39,23 @@ final class SoftwareIdentity: DeviceIdentity, @unchecked Sendable {
     /// The prompt reason of every approval signature asked for.
     var approvalReasons: [String] { lock.withLock { reasons } }
 
+    /// Runs while the simulated Face ID prompt is open, before it answers.
+    var duringApprovalPrompt: (@Sendable () async -> Void)? {
+        get { lock.withLock { promptHook } }
+        set { lock.withLock { promptHook = newValue } }
+    }
+
     func signWithMessageKey(_ data: Data) throws -> Data {
         guard !isUnusable else { throw DeviceIdentityError.unusable }
         return try messageKey.signature(for: data).rawRepresentation
     }
 
     func signWithApprovalKey(_ data: Data, reason: String) async throws -> Data {
-        let behavior: ApprovalBehavior = lock.withLock {
+        let (behavior, hook): (ApprovalBehavior, (@Sendable () async -> Void)?) = lock.withLock {
             reasons.append(reason)
-            return self.behavior
+            return (self.behavior, promptHook)
         }
+        await hook?()
         guard !isUnusable else { throw DeviceIdentityError.unusable }
         switch behavior {
         case .sign: return try approvalKey.signature(for: data).rawRepresentation

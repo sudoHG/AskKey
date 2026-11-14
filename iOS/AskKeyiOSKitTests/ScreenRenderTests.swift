@@ -1,3 +1,4 @@
+import AskKeyDevices
 import SwiftUI
 import XCTest
 @testable import AskKeyiOSKit
@@ -81,7 +82,7 @@ final class ScreenRenderTests: XCTestCase {
         let row = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt, lastReachedAt: nil)
         try render("11-paired-macs-one-mac",
                    PairedMacsContent(rows: [row], accountNotice: nil, listNotice: nil, records: [], onPair: {},
-                                     onRemove: { _ in }, onDismissNotice: {}))
+                                     onSelect: { _ in }, onDismissNotice: {}))
         let reached = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
                                    lastReachedAt: Self.pairedAt.addingTimeInterval(600))
         let records = [
@@ -91,13 +92,134 @@ final class ScreenRenderTests: XCTestCase {
         try render("12-paired-macs-reached",
                    PairedMacsContent(rows: [reached], accountNotice: nil,
                                      listNotice: .removed(name: "Office Mac", macWasTold: true), records: records,
-                                     onPair: {}, onRemove: { _ in }, onDismissNotice: {}))
+                                     onPair: {}, onSelect: { _ in }, onDismissNotice: {}))
         try render("13-paired-macs-empty-signed-out",
                    PairedMacsContent(rows: [], accountNotice: .signedOut, listNotice: .removedByMac(name: Self.mac),
-                                     records: [], onPair: {}, onRemove: { _ in }, onDismissNotice: {}))
+                                     records: [], onPair: {}, onSelect: { _ in }, onDismissNotice: {}))
     }
 
     func testUnusableIdentity() throws {
         try render("14-unusable-identity", UnusableIdentityContent(isResetting: false, resetFailed: false, onReset: {}))
+    }
+
+    // MARK: Approver (#314)
+
+    private static let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private static let display = RequestDisplay(
+        requesterName: "Codex", purpose: "Deploy the preview site", credentialName: "GitHub Token",
+        commandLine: "./deploy.sh --prod --region eu-west-1 --notes 'release candidate for the docs site'",
+        workingDirectory: "~/src/app", executableName: "deploy.sh",
+        deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "", variable: "GITHUB_TOKEN")],
+        offers: .all, timedDuration: 1_800)
+
+    private static func card(_ display: RequestDisplay = display, decision: ApprovalDecisionCode? = nil,
+                             isSent: Bool = false, outcome: RequestOutcome? = nil, isGone: Bool = false,
+                             secondsLeft: TimeInterval = 272) -> RequestCard {
+        RequestCard(id: UUID().uuidString, macID: "mac", macName: mac, macPairedAt: pairedAt, display: display,
+                    countdownEnd: now.addingTimeInterval(secondsLeft), decision: decision, isSent: isSent, outcome: outcome,
+                    isGone: isGone)
+    }
+
+    private func renderCard(_ name: String, _ card: RequestCard, details: Bool = false,
+                            problem: DecisionProblem? = nil) throws {
+        try render(name, RequestCardContent(card: card, now: Self.now, problem: problem, showsDetails: details,
+                                            onDecide: { _ in }, onDismiss: {})
+            .padding(20))
+    }
+
+    func testRequestsHome() throws {
+        let rows = [PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
+                                 lastReachedAt: Self.pairedAt.addingTimeInterval(600), isApprover: true),
+                    PairedMacRow(id: "office", name: "Office Mac", pairedAt: Self.pairedAt, lastReachedAt: nil)]
+        try render("15-requests-home",
+                   PairedMacsContent(rows: rows, accountNotice: nil, listNotice: nil, records: [], hasRequests: true,
+                                     onPair: {}, onSelect: { _ in }, onDismissNotice: {}) {
+                       RequestCardContent(card: Self.card(), now: Self.now, onDecide: { _ in }, onDismiss: {})
+                   })
+    }
+
+    func testRequestCard() throws {
+        try renderCard("16-request-card", Self.card())
+        try renderCard("17-request-details", Self.card(), details: true)
+        let shortened = RequestDisplay(requesterName: "", purpose: "", credentialName: "Prod Database",
+                                   commandLine: "psql " + String(repeating: "--set=x ", count: 40) + "…",
+                                   workingDirectory: "", executableName: "psql",
+                                   deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "Password",
+                                                                      variable: "PGPASSWORD"),
+                                                  ApprovalDeliveryRow(kind: .temporaryFile, label: "Client certificate",
+                                                                      variable: "PGSSLCERT")],
+                                   shortened: [.commandLine], offers: .denyOnly)
+        try renderCard("18-request-deny-only-shortened", Self.card(shortened), details: true)
+        let unavailable = RequestDisplay(requesterName: "Claude Code", purpose: "", credentialName: "NAS Admin",
+                                         commandLine: "ssh admin@nas.local", workingDirectory: "~", executableName: "ssh",
+                                         deliveryRows: [], deliveryMetadataUnavailable: true, offers: .denyOnly)
+        try renderCard("19-request-delivery-unavailable", Self.card(unavailable), details: true)
+        try renderCard("20-request-face-id-cancelled", Self.card(), problem: .cancelled)
+    }
+
+    func testRequestProgress() throws {
+        try renderCard("21-request-sending", Self.card(decision: .allowOnce))
+        try renderCard("22-request-waiting", Self.card(decision: .timedAllowance, isSent: true))
+    }
+
+    func testRequestOutcomes() throws {
+        let outcomes: [(String, RequestOutcome, ApprovalDecisionCode?)] = [
+            ("23-outcome-allowed-once", .allowedOnce, .allowOnce),
+            ("24-outcome-allowed-timed", .allowedTimed(seconds: 1_800), .timedAllowance),
+            ("25-outcome-denied", .denied, .deny),
+            ("26-outcome-decided-on-mac", .decidedOnMac, nil),
+            ("27-outcome-decided-elsewhere", .decidedElsewhere, nil),
+            ("28-outcome-expired", .expired, nil),
+            ("29-outcome-cancelled", .cancelled, nil),
+            ("30-outcome-not-applied", .notApplied, .allowOnce),
+        ]
+        for (name, outcome, decision) in outcomes {
+            try renderCard(name, Self.card(decision: decision, isSent: decision != nil, outcome: outcome))
+        }
+        try renderCard("31-request-timed-out-check-mac", Self.card(decision: .allowOnce, isSent: true, secondsLeft: 0))
+        try renderCard("32-request-mac-restarted", Self.card(isGone: true))
+    }
+
+    func testOpenedRequest() throws {
+        try render("33-opened-request",
+                   OpenedRequestContent(card: Self.card(), onClose: {}) { card in
+                       RequestCardContent(card: card, now: Self.now, onDecide: { _ in }, onDismiss: {})
+                   })
+    }
+
+    func testMacDetail() throws {
+        let row = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
+                               lastReachedAt: Self.pairedAt.addingTimeInterval(600))
+        try render("34-mac-detail-not-approving",
+                   MacDetailContent(row: row, onRename: {}, onApprove: {}, onStop: {}, onRemove: {}))
+        let approving = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
+                                     lastReachedAt: Self.pairedAt.addingTimeInterval(600), isApprover: true)
+        try render("35-mac-detail-approving",
+                   MacDetailContent(row: approving, renameProblem: .duplicate("Office Mac"), onRename: {}, onApprove: {},
+                                    onStop: {}, onRemove: {}))
+    }
+
+    func testApproverConfirmation() throws {
+        let field = Text("approver.field", bundle: .kit).font(.title2.monospaced()).foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        try render("36-approver-confirmation",
+                   ApproverConfirmationContent(flow: ApproverConfirmationFlow(macID: "mac", macName: Self.mac),
+                                               onConfirm: {}, onClose: {}) { field })
+        try render("37-approver-confirmation-invalid-code",
+                   ApproverConfirmationContent(flow: ApproverConfirmationFlow(macID: "mac", macName: Self.mac,
+                                                                              problem: .invalidCode),
+                                               onConfirm: {}, onClose: {}) { field })
+        try render("38-approver-confirmation-sending",
+                   ApproverConfirmationContent(flow: ApproverConfirmationFlow(macID: "mac", macName: Self.mac,
+                                                                              stage: .sending, problem: .retrying),
+                                               onConfirm: {}, onClose: {}) { field })
+        try render("39-approver-confirmation-sent",
+                   ApproverConfirmationContent(flow: ApproverConfirmationFlow(macID: "mac", macName: Self.mac,
+                                                                              stage: .sent),
+                                               onConfirm: {}, onClose: {}) { field })
+    }
+
+    func testPrivacyCover() throws {
+        try render("40-privacy-cover", PrivacyCoverView())
     }
 }
