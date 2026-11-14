@@ -13,12 +13,16 @@ class RemoteApprovalVaultTestCase: XCTestCase {
         let run: BrokerTextRunRequest
     }
 
-    func makeLibrary() throws -> AgentAccessPolicyLibrary {
-        let library = try AgentAccessPolicyLibrary()
+    func makeLibrary(now: @escaping () -> Date = Date.init, groupName: String? = nil) throws -> AgentAccessPolicyLibrary {
+        let library = try AgentAccessPolicyLibrary(now: now)
         addTeardownBlock { try library.close() }
         try library.vault.beginManagementSession(using: .allow)
-        _ = try library.vault.createTextCredential(.init(name: "ASK", value: "synthetic", environmentVariable: "TOKEN",
-                                                         permission: .ask), using: .allow)
+        _ = try library.vault.createTextCredential(.init(name: "ASK", value: "synthetic", groupName: groupName,
+                                                         environmentVariable: "TOKEN", permission: .ask), using: .allow)
+        if let groupName {
+            _ = try library.vault.createTextCredential(.init(name: "OTHER", value: "synthetic", groupName: groupName,
+                                                             environmentVariable: "OTHER_TOKEN", permission: .ask), using: .allow)
+        }
         return library
     }
 
@@ -76,4 +80,15 @@ class RemoteApprovalVaultTestCase: XCTestCase {
     func runtimeReadRecords(_ vault: Vault) throws -> [CredentialAccessEvent] {
         try vault.listCredentialAccessRecords().filter { $0.operation == .runtimeRead }
     }
+}
+
+final class RemoteApprovalTestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Date
+
+    init(_ value: Date) { stored = value }
+
+    var now: Date { lock.lock(); defer { lock.unlock() }; return stored }
+
+    func advance(by interval: TimeInterval) { lock.lock(); stored = stored.addingTimeInterval(interval); lock.unlock() }
 }

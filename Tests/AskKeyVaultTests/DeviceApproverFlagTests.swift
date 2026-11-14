@@ -122,6 +122,77 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
         }
     }
 
+    func testAnAttemptEndedDuringItsAuthenticationInstallsNothing() async throws {
+        for end in ["sheet", "management", "epoch"] {
+            let library = try makeLibrary()
+            let device = try syntheticDevice()
+            try await pair(device, in: library)
+            let vault = library.vault
+            let late = ManagementAuthenticator { _ in
+                switch end {
+                case "sheet": vault.endDeviceApproverAuthorization()
+                case "management": vault.endManagementSession()
+                default: vault.deviceState.endEpoch()
+                }
+                return true
+            }
+            XCTAssertThrowsError(try vault.authorizeDeviceApprover(device.deviceID, pairingID: device.pairingID, using: late), end)
+            try vault.beginManagementSession(using: .allow)
+            XCTAssertFalse(vault.deviceState.isApproverAuthorized(.init(deviceID: device.deviceID, pairingID: device.pairingID),
+                                                                  at: Date()), end)
+            if end != "epoch" {
+                do {
+                    try await setApprover(device, true, in: library)
+                    XCTFail("A cancelled attempt cannot turn approval on (\(end))")
+                } catch {
+                    XCTAssertEqual(error as? DeviceStorageError, .approverNotAuthorized, end)
+                }
+            }
+        }
+    }
+
+    func testTheAuthorizationLapsesAfterFiveMinutes() async throws {
+        let clock = RemoteApprovalTestClock(Date(timeIntervalSince1970: 1_800_000_000))
+        let library = try makeLibrary(now: { clock.now })
+        let device = try syntheticDevice()
+        try await pair(device, in: library)
+        try library.vault.authorizeDeviceApprover(device.deviceID, pairingID: device.pairingID, using: .allow)
+        clock.advance(by: 200)
+        // The open sheet keeps the management session from expiring for idleness.
+        try library.vault.requireDeviceManagementSession()
+        clock.advance(by: 101)
+        do {
+            try await setApprover(device, true, in: library)
+            XCTFail("The authorization lasts 5 minutes")
+        } catch {
+            XCTAssertEqual(error as? DeviceStorageError, .approverNotAuthorized)
+        }
+    }
+
+    func testActivatingStoredApproversAddsFlaggedEntriesWithNewGenerations() async throws {
+        let library = try makeLibrary()
+        let phone = try syntheticDevice()
+        let tablet = try syntheticDevice(name: "Synthetic Tablet")
+        let unflagged = try syntheticDevice(name: "Unflagged Phone")
+        for device in [phone, tablet, unflagged] { try await pair(device, in: library) }
+        try await enable(phone, in: library)
+        let approvals = library.vault.approvalRequests
+        let first = try library.vault.activateStoredApprovers()
+        XCTAssertEqual(Set(first.keys), [phone.pairingID])
+        try await enable(tablet, in: library)
+        // After the tablet's flag write, only the tablet is added; the phone keeps its generation.
+        let added = try library.vault.activateStoredApprovers(only: tablet.pairingID)
+        XCTAssertEqual(Set(added.keys), [tablet.pairingID])
+        XCTAssertEqual(approvals.activeApproverGeneration(pairingID: phone.pairingID.rawValue), first[phone.pairingID])
+        XCTAssertNil(approvals.activeApproverGeneration(pairingID: unflagged.pairingID.rawValue))
+        XCTAssertTrue(try library.vault.activateStoredApprovers(only: unflagged.pairingID).isEmpty)
+        // When the device services become ready again, every flagged entry gets a new generation.
+        approvals.removeAllActiveApprovers()
+        let reloaded = try library.vault.activateStoredApprovers()
+        XCTAssertEqual(Set(reloaded.keys), [phone.pairingID, tablet.pairingID])
+        XCTAssertGreaterThan(try XCTUnwrap(reloaded[phone.pairingID]), try XCTUnwrap(added[tablet.pairingID]))
+    }
+
     func testOtherChangesToAnApproverNeedNoAuthorization() async throws {
         let library = try makeLibrary()
         let device = try syntheticDevice()

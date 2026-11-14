@@ -14,11 +14,11 @@ extension BrokerApprovalStateMachine {
 
     /// Adds approvers whose flag the caller read on the list after reading
     /// `revocationCount`. Refuses the whole addition if any removal or
-    /// emptying happened since. An approver not yet in the set gets a new
-    /// generation from a counter that only grows, so neither a reload nor
-    /// turning approval off and on revives an earlier generation; one still
-    /// in the set has held authority without interruption and keeps its own.
-    /// Returns the generation of every given pairing ID.
+    /// emptying happened since. Every added entry gets a new generation from
+    /// a counter that only grows, also one already in the set, so neither a
+    /// reload nor turning approval off and on revives an earlier generation
+    /// (ADR 0014). After a flag write, add only the newly enabled device, so
+    /// other approvers keep theirs. Returns the generation of every given ID.
     @discardableResult
     package func addActiveApprovers(
         _ pairingIDs: [Data], revocationCount: UInt64
@@ -32,10 +32,6 @@ extension BrokerApprovalStateMachine {
         }
         var generations: [Data: UInt64] = [:]
         for pairingID in pairingIDs {
-            if let current = activeApprovers[pairingID] {
-                generations[pairingID] = current
-                continue
-            }
             lastApproverGeneration += 1
             activeApprovers[pairingID] = lastApproverGeneration
             generations[pairingID] = lastApproverGeneration

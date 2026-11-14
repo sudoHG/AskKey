@@ -34,7 +34,7 @@ extension Vault {
         guard code != .deny else {
             return try approvalRequests.decideRemotely(
                 requestID: requestID, capability: capability, operationRequest: operationRequest,
-                approver: approver, code: .deny, durationCeiling: durationCeiling
+                approver: approver, code: .deny, durationCeiling: durationCeiling, revalidate: {}
             )
         }
         guard try pairedDeviceCarriesApprovalFlag(deviceID, pairingID: pairingID) else { return .approverInactive }
@@ -61,6 +61,30 @@ extension Vault {
                 defer { self.agentAccessGate.endSpawnAuthorization() }
             }
         )
+    }
+
+    /// Adds approvers from the stored list to the Broker's active-approver set
+    /// (ADR 0014 → Approvers): reads the revocation counter, then the list,
+    /// then adds the entries whose flag is on, and starts again if a
+    /// revocation raced, at most three times. Every added entry gets a new
+    /// generation. Pass the pairing ID a flag write just turned on, so other
+    /// approvers keep their generations; pass nil when the device services
+    /// become ready. Returns the generations of the added entries.
+    @discardableResult
+    package func activateStoredApprovers(only pairingID: PairingID? = nil) throws -> [PairingID: UInt64] {
+        for _ in 0..<3 {
+            let count = approvalRequests.activeApproverRevocationCount()
+            let flagged = try storedPairedDeviceList().devices
+                .filter { $0.isApprover && (pairingID == nil || $0.pairingID == pairingID) }
+                .map(\.pairingID)
+            do {
+                let generations = try approvalRequests.addActiveApprovers(flagged.map(\.rawValue), revocationCount: count)
+                return flagged.reduce(into: [:]) { result, id in result[id] = generations[id.rawValue] }
+            } catch BrokerActiveApproverError.revocationRaced {
+                continue
+            }
+        }
+        throw BrokerActiveApproverError.revocationRaced
     }
 
     /// Reads the stored list, not a registry snapshot, under the device lock.

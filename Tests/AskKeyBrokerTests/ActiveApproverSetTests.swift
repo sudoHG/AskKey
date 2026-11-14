@@ -29,18 +29,22 @@ final class ActiveApproverSetTests: RemoteApprovalTestCase {
         XCTAssertEqual(machine.activeApproverRevocationCount(), start + 3)
     }
 
-    func testGenerationsOnlyGrowAndAnApproverStillInTheSetKeepsItsOwn() throws {
+    func testEveryAdditionGetsANewGenerationAndOthersKeepTheirs() throws {
         let machine = configuredMachine()
         let first = try machine.addActiveApprovers([phone], revocationCount: machine.activeApproverRevocationCount())
         let phoneGeneration = try XCTUnwrap(first[phone])
-        // A flag write for another device reloads every flagged entry.
-        let reload = try machine.addActiveApprovers([phone, tablet], revocationCount: machine.activeApproverRevocationCount())
-        XCTAssertEqual(reload[phone], phoneGeneration)
-        let tabletGeneration = try XCTUnwrap(reload[tablet])
+        // After the tablet's flag write only the tablet is added; the phone keeps its generation.
+        let tabletGeneration = try XCTUnwrap(try machine.addActiveApprovers(
+            [tablet], revocationCount: machine.activeApproverRevocationCount())[tablet])
         XCTAssertGreaterThan(tabletGeneration, phoneGeneration)
+        XCTAssertEqual(machine.activeApproverGeneration(pairingID: phone), phoneGeneration)
+        // A reload adds every flagged entry again, each with a new generation.
+        let reload = try machine.addActiveApprovers([phone, tablet], revocationCount: machine.activeApproverRevocationCount())
+        XCTAssertGreaterThan(try XCTUnwrap(reload[phone]), tabletGeneration)
+        XCTAssertGreaterThan(try XCTUnwrap(reload[tablet]), tabletGeneration)
         machine.removeActiveApprover(pairingID: phone)
         let again = try machine.addActiveApprovers([phone], revocationCount: machine.activeApproverRevocationCount())
-        XCTAssertGreaterThan(try XCTUnwrap(again[phone]), tabletGeneration)
+        XCTAssertGreaterThan(try XCTUnwrap(again[phone]), try XCTUnwrap(reload[tablet]))
         machine.removeAllActiveApprovers()
         XCTAssertNil(machine.activeApproverGeneration(pairingID: phone))
         XCTAssertNil(machine.activeApproverGeneration(pairingID: tablet))

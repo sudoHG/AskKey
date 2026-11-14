@@ -89,6 +89,59 @@ final class RemoteDecisionRaceTests: RemoteApprovalTestCase {
         }
     }
 
+    func testRevalidationThatRefusesAfterARemoteWinEndsDecidedElsewhere() throws {
+        for decision in [BrokerApprovalDecision.once, .timedAllow(duration: 60)] {
+            let machine = configuredMachine(authenticate: { _ in true })
+            let operation = request(operationID: "revalidation-after-remote")
+            let ticket = try machine.submit(operation, trustedCredentialDeadline: .none)
+            let approver = try activate(machine)
+            XCTAssertThrowsError(try machine.decide(requestID: ticket.requestID, capability: ticket.capability,
+                                                    decision: decision, revalidate: {
+                _ = try self.remote(machine, ticket, operation, approver, .deny)
+                // As the Vault's group revalidation does for a request no longer pending.
+                throw SyntheticRevalidationFailure()
+            })) {
+                XCTAssertEqual($0 as? BrokerApprovalError, .decidedElsewhere, "\(decision)")
+            }
+            XCTAssertEqual(try state(machine, ticket), .denied)
+        }
+    }
+
+    func testRevalidationFailureWithoutARemoteDecisionKeepsItsError() throws {
+        let machine = configuredMachine(authenticate: { _ in true })
+        try activate(machine)
+        let ticket = try machine.submit(request(operationID: "revalidation-local"), trustedCredentialDeadline: .none)
+        XCTAssertThrowsError(try machine.decide(requestID: ticket.requestID, capability: ticket.capability,
+                                                decision: .once, revalidate: { throw SyntheticRevalidationFailure() })) {
+            XCTAssertTrue($0 is SyntheticRevalidationFailure)
+        }
+        XCTAssertEqual(try state(machine, ticket), .pending)
+    }
+
+    func testAnInactiveApproverIsRefusedBeforeTheRequestIsLookedUp() throws {
+        let machine = configuredMachine()
+        let operation = request(operationID: "looked-up-later")
+        let ticket = try machine.submit(operation, trustedCredentialDeadline: .none)
+        let inactive = BrokerRemoteApprover(pairingID: tablet, generation: 1, deviceName: "Inactive")
+        let unknown = BrokerApprovalTicket(requestID: "evicted", capability: ticket.capability, state: .pending, retryCount: 0)
+        let mismatched = request(operationID: "looked-up-later", digest: String(repeating: "f", count: 64))
+        for code in [BrokerRemoteDecisionCode.deny, .allowOnce] {
+            XCTAssertEqual(try remote(machine, unknown, operation, inactive, code), .approverInactive)
+            XCTAssertEqual(try remote(machine, ticket, mismatched, inactive, code), .approverInactive)
+        }
+    }
+
+    func testAddingAnApproverAgainRefusesDecisionsSealedUnderItsEarlierGeneration() throws {
+        let machine = configuredMachine()
+        let operation = request(operationID: "reloaded")
+        let ticket = try machine.submit(operation, trustedCredentialDeadline: .none)
+        let sealed = try activate(machine)
+        let reloaded = try activate(machine)
+        XCTAssertGreaterThan(reloaded.generation, sealed.generation)
+        XCTAssertEqual(try remote(machine, ticket, operation, sealed, .deny), .approverInactive)
+        XCTAssertEqual(try remote(machine, ticket, operation, reloaded, .deny), .applied(.denied, grantedSeconds: 0))
+    }
+
     func testLocalAuthenticationFailureWithoutARemoteDecisionStillFails() throws {
         let machine = configuredMachine(authenticate: { _ in false })
         try activate(machine)
@@ -200,6 +253,8 @@ final class RemoteDecisionRaceTests: RemoteApprovalTestCase {
         XCTAssertEqual(try state(machine, ticket), .pending)
     }
 }
+
+struct SyntheticRevalidationFailure: Error {}
 
 final class LockedOutcome: @unchecked Sendable {
     private let lock = NSLock()

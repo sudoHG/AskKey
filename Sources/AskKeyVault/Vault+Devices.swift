@@ -64,7 +64,10 @@ final class VaultDeviceState: @unchecked Sendable {
     private var epoch = 0
     private var registry: PairedDeviceRegistry?
     private var authorizedPeer: DeviceID?
-    private var authorizedApprover: Approver?
+    private var authorizedApprover: (approver: Approver, expiresAt: Date)?
+    /// Advances whenever the approver authorization is installed or ended,
+    /// so an authentication that started before an end cannot install one.
+    private var approverRevision: UInt64 = 0
     private var stopHandler: (@Sendable () -> Void)?
 
     func withLock<T>(_ body: () throws -> T) rethrows -> T {
@@ -90,15 +93,37 @@ final class VaultDeviceState: @unchecked Sendable {
 
     func isAuthorized(_ peer: DeviceID) -> Bool { withLock { authorizedPeer == peer } }
 
-    func authorizeApprover(_ approver: Approver?) { withLock { authorizedApprover = approver } }
+    /// Read before the system authentication that grants an approver authorization.
+    func approverAuthorizationMark() -> (revision: UInt64, epoch: Int) { withLock { (approverRevision, epoch) } }
 
-    func isApproverAuthorized(_ approver: Approver) -> Bool { withLock { authorizedApprover == approver } }
+    /// Installs the authorization only if none was installed or ended, and
+    /// the epoch did not end, since `mark`.
+    func authorizeApprover(_ approver: Approver, until expiresAt: Date,
+                           ifUnchangedSince mark: (revision: UInt64, epoch: Int)) -> Bool {
+        withLock {
+            guard approverRevision == mark.revision, epoch == mark.epoch else { return false }
+            approverRevision &+= 1
+            authorizedApprover = (approver, expiresAt)
+            return true
+        }
+    }
+
+    func endApproverAuthorization() {
+        withLock {
+            approverRevision &+= 1
+            authorizedApprover = nil
+        }
+    }
+
+    func isApproverAuthorized(_ approver: Approver, at now: Date) -> Bool {
+        withLock { authorizedApprover.map { $0.approver == approver && now < $0.expiresAt } ?? false }
+    }
 
     /// Drops both authorizations, when the management session has ended.
     func dropAuthorizations() {
         withLock {
             authorizedPeer = nil
-            authorizedApprover = nil
+            endApproverAuthorization()
         }
     }
 
@@ -110,7 +135,7 @@ final class VaultDeviceState: @unchecked Sendable {
             epoch += 1
             registry = nil
             authorizedPeer = nil
-            authorizedApprover = nil
+            endApproverAuthorization()
             return stopHandler
         }
     }
@@ -328,21 +353,33 @@ extension Vault {
         deviceState.authorize(nil)
     }
 
+    /// How long an approver authorization lasts: the approver sheet's code
+    /// exists for at most 5 minutes (ADR 0014 → Approvers).
+    static let deviceApproverAuthorizationLifetime: TimeInterval = 5 * 60
+
     /// Records step 1's system authentication for turning on approval for one
     /// paired device (ADR 0014 → Approvers). The App writes the flag only
     /// after a verified confirmation whose code proof matches; that one list
-    /// write uses the authorization up. Requires the management session; an
-    /// authenticator that does not confirm stores nothing.
+    /// write uses the authorization up, and it lapses after 5 minutes.
+    /// Requires the management session before and after the authentication;
+    /// stores nothing if the authenticator does not confirm, or if the
+    /// attempt was ended, another one was authorized, or the storage epoch
+    /// ended while it ran.
     package func authorizeDeviceApprover(_ deviceID: DeviceID, pairingID: PairingID,
                                          using authenticator: ManagementAuthenticator) throws {
+        let mark = deviceState.approverAuthorizationMark()
         try requireManagementSession()
         try authorizeManagement(authenticator, reason: Self.devicePairingReason)
-        deviceState.authorizeApprover(.init(deviceID: deviceID, pairingID: pairingID))
+        try requireManagementSession()
+        guard deviceState.authorizeApprover(
+            .init(deviceID: deviceID, pairingID: pairingID),
+            until: currentDate.addingTimeInterval(Self.deviceApproverAuthorizationLifetime), ifUnchangedSince: mark
+        ) else { throw DeviceStorageError.approverNotAuthorized }
     }
 
     /// The approver sheet closed, its code expired or was refused, or management locked.
     package func endDeviceApproverAuthorization() {
-        deviceState.authorizeApprover(nil)
+        deviceState.endApproverAuthorization()
     }
 
     /// Renaming and removing a device need the management session; an open
@@ -398,7 +435,7 @@ extension Vault {
             if !enabled.isEmpty {
                 guard enabled.count == 1,
                       deviceState.isApproverAuthorized(.init(deviceID: enabled[0].deviceID,
-                                                             pairingID: enabled[0].pairingID)) else {
+                                                             pairingID: enabled[0].pairingID), at: currentDate) else {
                     throw DeviceStorageError.approverNotAuthorized
                 }
             }
@@ -409,7 +446,7 @@ extension Vault {
             }
             try keys.saveDeviceItem(PairedDeviceListAuthentication.seal(list, using: vaultKey), account: .pairedDevices)
             if !added.isEmpty { deviceState.authorize(nil) }
-            if !enabled.isEmpty { deviceState.authorizeApprover(nil) }
+            if !enabled.isEmpty { deviceState.endApproverAuthorization() }
         }
     }
 

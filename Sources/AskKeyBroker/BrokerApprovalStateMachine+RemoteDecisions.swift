@@ -10,7 +10,9 @@ extension BrokerApprovalStateMachine {
     /// local read approval asks for, so the local authentication is never
     /// called. `revalidate` is the App's persisted-policy check; it runs
     /// outside the lock, like a local decision's, and never for a Deny, which
-    /// grants nothing and does not wait for policy I/O. Every outcome is
+    /// grants nothing and does not wait for policy I/O. It has no default:
+    /// the App applies decisions through `Vault.decideRemoteAgentApproval`,
+    /// which also re-reads the approval flag. Every outcome is
     /// decided again inside the single locked transition from pending, where
     /// the approver must be in the active set with the recorded generation,
     /// Deny included. First decision wins: a later one finds the request no
@@ -22,23 +24,27 @@ extension BrokerApprovalStateMachine {
         approver: BrokerRemoteApprover,
         code: BrokerRemoteDecisionCode,
         durationCeiling: TimeInterval,
-        revalidate: () throws -> Void = {}
+        revalidate: () throws -> Void
     ) throws -> BrokerRemoteDecisionOutcome {
         if code != .deny {
             // Skip policy I/O for a decision that cannot apply anyway.
             let early: BrokerRemoteDecisionOutcome? = try mutate {
+                guard isActiveApproverLocked(approver) else { return .approverInactive }
                 expireUnconsumedLocked(now: clock())
                 let (_, entry) = try remoteEntryLocked(requestID, capability, operationRequest)
-                return preliminaryRemoteOutcomeLocked(entry, approver: approver)
+                return preliminaryRemoteOutcomeLocked(entry)
             }
             if let early { return early }
             try revalidate()
         }
         return try mutate {
+            // The approver check comes first, so a revoked approver learns
+            // nothing about the request, not even whether it still exists.
+            guard isActiveApproverLocked(approver) else { return .approverInactive }
             let now = clock()
             expireUnconsumedLocked(now: now)
             var (operationID, entry) = try remoteEntryLocked(requestID, capability, operationRequest)
-            if let refusal = preliminaryRemoteOutcomeLocked(entry, approver: approver) { return refusal }
+            if let refusal = preliminaryRemoteOutcomeLocked(entry) { return refusal }
             var grantedSeconds: UInt64 = 0
             switch code {
             case .deny:
@@ -81,12 +87,7 @@ extension BrokerApprovalStateMachine {
         return (operationID, entry)
     }
 
-    /// The approver check comes first, so a revoked approver never learns
-    /// more than that it was refused.
-    private func preliminaryRemoteOutcomeLocked(
-        _ entry: Entry, approver: BrokerRemoteApprover
-    ) -> BrokerRemoteDecisionOutcome? {
-        guard isActiveApproverLocked(approver) else { return .approverInactive }
+    private func preliminaryRemoteOutcomeLocked(_ entry: Entry) -> BrokerRemoteDecisionOutcome? {
         guard entry.state == .pending else {
             return .notPending(entry.state, decidedBy: entry.remoteDecision?.pairingID)
         }

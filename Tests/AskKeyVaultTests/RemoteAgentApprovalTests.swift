@@ -67,6 +67,29 @@ final class RemoteAgentApprovalTests: RemoteApprovalVaultTestCase {
         XCTAssertEqual(try state(library.vault, pending), .pending)
     }
 
+    func testLocalGroupDecisionThatLosesToARemoteDecisionEndsDecidedElsewhere() async throws {
+        let library = try makeLibrary(groupName: "Project")
+        let device = try syntheticDevice()
+        try await pair(device, in: library)
+        let generation = try activate(device, in: library.vault)
+        let pending = try pendingRead(in: library.vault)
+        XCTAssertNotNil(pending.approval.groupAllowanceSnapshot)
+        let vault = library.vault
+        // The iPhone's Deny lands while Touch ID is open; the person then finishes Touch ID.
+        vault.approvalRequests.configureAuthentication { [unowned self] _ in
+            XCTAssertEqual(try? self.decide(vault, pending, by: device, generation: generation, .deny),
+                           .applied(.denied, grantedSeconds: 0))
+            return true
+        }
+        XCTAssertThrowsError(try vault.decideAgentApproval(requestID: pending.approval.requestID,
+                                                           capability: pending.approval.capability,
+                                                           decision: .timedAllowGroup(duration: 60))) {
+            XCTAssertEqual($0 as? BrokerApprovalError, .decidedElsewhere)
+        }
+        XCTAssertEqual(try state(vault, pending), .denied)
+        XCTAssertTrue(vault.approvalRequests.activeTimedAllowances().isEmpty)
+    }
+
     func testRecordsWrittenBeforeTheDeviceFieldDecodeUnchanged() throws {
         let legacy = LegacyAccessEvent(timestamp: Date(timeIntervalSinceReferenceDate: 800_000_000.5), credentialID: "synthetic",
                                        operation: "runtimeRead", result: "allowed", callerHint: "Synthetic Agent",

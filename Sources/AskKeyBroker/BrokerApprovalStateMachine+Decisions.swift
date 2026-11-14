@@ -74,15 +74,16 @@ extension BrokerApprovalStateMachine {
             guard authenticate(purpose) else {
                 // The App ends an open authentication once the request stops
                 // being pending; a remote decision that won is not a failure.
-                // A plain read: no expiry pass, screen sample or observer.
-                lock.lock()
-                let current = matchingEntry(requestID: requestID, capability: capability)
-                lock.unlock()
-                throw current.map { Self.lostDecisionError($0, otherwise: .authenticationFailed) }
+                throw remoteWinAfterWait(requestID: requestID, capability: capability)
                     ?? BrokerApprovalError.authenticationFailed
             }
         }
-        try revalidate()
+        do {
+            try revalidate()
+        } catch {
+            // Revalidation can refuse a request that is no longer pending.
+            throw remoteWinAfterWait(requestID: requestID, capability: capability) ?? error
+        }
         let verifiedAt = decision == .deny ? now : max(now, clock())
         return try updateEntry(requestID: requestID, capability: capability, now: verifiedAt) { entry in
             guard entry.state == .pending else { throw Self.lostDecisionError(entry, otherwise: .invalidDecision) }
@@ -149,6 +150,16 @@ extension BrokerApprovalStateMachine {
         entry.approvedByTimedAllowance = true
         entry.approvingDeviceName = approvingDeviceName
         return effectiveWindowEnd
+    }
+
+    /// After waiting outside the lock: "decided elsewhere" if a remote decision
+    /// moved the request meanwhile. A plain read: no expiry pass, screen
+    /// sample or observer, so local-only failures keep their own error.
+    private func remoteWinAfterWait(requestID: String, capability: String) -> BrokerApprovalError? {
+        lock.lock(); defer { lock.unlock() }
+        guard let entry = matchingEntry(requestID: requestID, capability: capability),
+              Self.lostDecisionError(entry, otherwise: .invalidDecision) == .decidedElsewhere else { return nil }
+        return .decidedElsewhere
     }
 
     /// A local decision that finds the request decided by a remote approver
