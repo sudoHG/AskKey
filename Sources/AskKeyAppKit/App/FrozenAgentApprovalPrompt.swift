@@ -278,18 +278,38 @@ struct FrozenAgentApprovalPrompt: View {
         }
     }
 
+    /// One moving number at a time: the send countdown while the request
+    /// waits for a paired iPhone, otherwise the expiry (ADR 0014 → Mac App).
+    /// A footer too long for one line, as the English "Also on iPhone" form
+    /// is, puts the text and "Esc to decide later" on a line each, so
+    /// neither breaks.
     private var footer: some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(appLocalizedFormat("Expires in %@", FrozenCountdown.format(deadline: expiresAt, now: context.date)))
-                    .monospacedDigit()
+        let hint = remote?.footer
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.xs) {
+                footerText(hint)
+                Text(verbatim: "·")
+                decideLaterButton
             }
-            Text(verbatim: "·")
-            Button(appLocalized("Esc to decide later")) { finish(nil) }
-                .buttonStyle(.plain)
-                .keyboardShortcut(.cancelAction)
+            VStack(spacing: Theme.Spacing.xs) {
+                footerText(hint)
+                decideLaterButton
+            }
         }
         .font(Theme.Fonts.caption)
         .foregroundStyle(Theme.textTertiary)
+    }
+
+    private func footerText(_ hint: RemoteApprovalFooterHint?) -> some View {
+        TimelineView(RemoteApprovalFooterSchedule(anchor: RemoteApprovalFooter.anchor(hint, expiresAt: expiresAt))) { context in
+            Text(RemoteApprovalFooter.text(hint, expiresAt: expiresAt, now: context.date))
+                .monospacedDigit()
+        }
+    }
+
+    private var decideLaterButton: some View {
+        Button(appLocalized("Esc to decide later")) { finish(nil) }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.cancelAction)
     }
 }
