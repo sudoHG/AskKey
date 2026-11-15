@@ -152,11 +152,6 @@ package final class DeviceCoordinator {
     package internal(set) var remoteApprovals: [String: RemoteApprovalStatus] = [:]
     /// The last decision from an approver that moved a request out of pending.
     package internal(set) var lastRemoteDecision: RemoteAppliedDecision?
-    /// The open "Approve agent requests" sheet's state; nil when none is open.
-    package internal(set) var approverConfirmation: ApproverConfirmationState?
-    /// The code the open sheet shows while it waits for the iPhone. Its
-    /// description is redacted; only the sheet shows `formatted`.
-    package internal(set) var approverCode: ApproverCode?
     @ObservationIgnored let launchTime: Date
     @ObservationIgnored var remoteRequests: [String: RemoteRequestTrack] = [:]
     @ObservationIgnored var closedMessages: [MessageID: PendingClosedMessage] = [:]
@@ -174,14 +169,8 @@ package final class DeviceCoordinator {
     /// Whether the Broker's active-approver set was loaded from the list for
     /// the current services and account.
     @ObservationIgnored var approversLoaded = false
-    /// Approvers whose flag was written but whose activation failed.
-    @ObservationIgnored var approversAwaitingActivation: Set<PairingID> = []
-    @ObservationIgnored var approverAttempt: ApproverAttempt?
-    /// Changes whenever an approver confirmation starts or is left.
-    @ObservationIgnored var approverGeneration = 0
-    @ObservationIgnored var approverAuthentication: Task<ManagementAuthenticationResult, Never>?
-    @ObservationIgnored var approverPollTask: Task<Void, Never>?
-    @ObservationIgnored var approverExpiryHold: SessionExpiryHold?
+    /// Pairing IDs whose removal began; they never join the set again.
+    @ObservationIgnored var revokedApprovers: Set<PairingID> = []
     @ObservationIgnored var registeredForRemoteNotifications = false
 
     package init(environment: DeviceCoordinatorEnvironment) {
@@ -363,7 +352,6 @@ package final class DeviceCoordinator {
         // Nothing can be sealed or opened any more; sealed closing messages
         // still go out.
         forgetOutstandingRemoteRequests(keepingClosed: true)
-        if approverConfirmation?.isActive == true { endApproverAttempt(.unavailable) }
         availability = .identityUnusable
     }
 
@@ -541,6 +529,7 @@ package final class DeviceCoordinator {
         if let list {
             listedDevices = list.devices
             unreachableDevices = unreachableDevices.filter { id in list.device(id) != nil }
+            reconcileActiveApprovers(with: list.devices)
             publishRows()
         }
         if services.messenger === messenger { applyPairingPhase(phase) }

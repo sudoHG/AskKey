@@ -90,6 +90,7 @@ final class ApprovalRequestTests: XCTestCase {
     func testARequestFromAMacWithoutTheApprovalFlagIsRefused() async throws {
         let other = world.makeMac(name: "Office Mac")
         try await world.pair(other)
+        try await world.storeWithoutApprovalFlag(other)
         let phoneID = try world.phone.deviceID
         try await world.sendRequest(from: other)
         await world.model.processInbox()
@@ -158,6 +159,7 @@ final class ApprovalRequestTests: XCTestCase {
     func testAClosedMessageFromAMacWithoutTheFlagIsRefused() async throws {
         let other = world.makeMac(name: "Office Mac")
         try await world.pair(other)
+        try await world.storeWithoutApprovalFlag(other)
         let foreign = try await world.sealRequest(from: other)
         try await world.sendClosed(.expired, for: foreign, from: other)
         await world.model.processInbox()

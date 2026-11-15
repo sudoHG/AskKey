@@ -115,6 +115,21 @@ final class PairingFlowTests: XCTestCase {
         XCTAssertEqual(macList.map(\.deviceID), [phone.deviceID])
     }
 
+    /// The Face ID that confirms pairing is the consent (#336): its reason
+    /// names the Mac and approval, and the paired Mac's requests are accepted
+    /// with no further step, on both sides.
+    func testPairingMakesThisIPhoneAcceptTheMacsRequests() async throws {
+        let phone = try world.phone
+        try await world.pair()
+        XCTAssertEqual(phone.approvalReasons.first, String(localized: "pairing.confirm.reason \(TestWorld.macName)", bundle: .kit))
+        XCTAssertEqual(world.model.pairedMacs.first?.isApprover, true, "the iPhone's entry for the Mac carries the flag")
+        let macEntry = try await world.phoneEntry()
+        XCTAssertTrue(macEntry.isApprover, "the Mac's entry for the iPhone carries it too")
+        try await world.sendRequest()
+        await world.model.processInbox()
+        XCTAssertEqual(world.model.requests.count, 1, "no approve step before the first request")
+    }
+
     func testCancelledFaceIDSendsNothingAndCanBeRetried() async throws {
         let phone = try world.phone
         let (flow, _) = try await world.reachCode()

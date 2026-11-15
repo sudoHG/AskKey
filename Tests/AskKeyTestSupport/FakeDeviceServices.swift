@@ -221,9 +221,9 @@ extension FakeDeviceInbox: NamedInboxFetching {
 }
 
 /// An iPhone in the same process: software keys, its own list in memory,
-/// and the backend's transport and clock. It pairs, and acts as an approver
-/// (ADR 0014): it keeps every verified request and closed message, and sends
-/// decisions, receipts and approver confirmations. The person's steps on the
+/// and the backend's transport and clock. It pairs, which makes it an
+/// approver (ADR 0014, #336): it keeps every verified request and closed
+/// message, and sends decisions and receipts. The person's steps on the
 /// phone are its methods.
 package final class SimulatedPairingPhone: @unchecked Sendable {
     package let identity = SoftwareDeviceIdentity()
@@ -296,13 +296,17 @@ package final class SimulatedPairingPhone: @unchecked Sendable {
         return sealed
     }
 
-    /// Types the code under the Mac's entry and sends the confirmation.
-    package func confirmApprover(typing code: String, for mac: DeviceID) async throws {
-        guard let entry = try await messenger.pairedDevices().first(where: { $0.deviceID == mac }),
-              let typed = ApproverCode(typed: code) else { throw DeviceMessengerError.unknownDevice }
-        let sealed = try await messenger.sealer.sealApproverConfirmation(typed, to: entry,
+    /// Sends an approver confirmation (kind 14) of an older build, which an
+    /// amended Mac refuses (#336). Goes with kind 14's code.
+    @discardableResult
+    package func sendRetiredApproverConfirmation(to mac: DeviceID) async throws -> SealedDeviceMessage {
+        guard let entry = try await messenger.pairedDevices().first(where: { $0.deviceID == mac }) else {
+            throw DeviceMessengerError.unknownDevice
+        }
+        let sealed = try await messenger.sealer.sealApproverConfirmation(.random(), to: entry,
                                                                          approvalReason: "Synthetic phone confirmation")
         try await transport.send(sealed.envelope)
+        return sealed
     }
 
     /// Saves an envelope to the Mac's inbox as it is, for example to re-insert one.

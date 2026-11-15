@@ -16,10 +16,10 @@ extension DeviceCoordinatorHarness {
 
     var vault: Vault { library.vault }
 
-    /// Pairs the simulated iPhone and turns its approval on through the sheet.
+    /// Pairs the simulated iPhone, which makes it an approver (#336), and
+    /// adds an Ask credential.
     func pairApprover() async throws {
         try await pairPhone()
-        try await enableApprover(phone)
         try addCredential()
     }
 
@@ -43,18 +43,16 @@ extension DeviceCoordinatorHarness {
         await coordinator.refresh()
     }
 
-    /// Opens the approver sheet for `phone`, types the shown code on it and
-    /// lets the Mac process the confirmation.
-    func enableApprover(_ phone: SimulatedPairingPhone) async throws {
-        await coordinator.startApproverConfirmation(for: phone.deviceID)
-        let code = try XCTUnwrap(coordinator.approverCode, "the sheet shows a code")
-        try await phone.confirmApprover(typing: code.formatted, for: XCTUnwrap(macDeviceID))
+    /// An entry without the approval flag, as a pairing made before #336
+    /// left it: the Vault's pairing authorization allows the add, and the
+    /// default initializer never sets the flag.
+    func addUnflaggedEntry(for other: SimulatedPairingPhone, name: String) async throws {
+        let card = try DeviceCard.make(identity: other.identity, platform: .iOS, createdAt: clock.now())
+        let entry = PairedDevice(card: card, pairingID: try XCTUnwrap(PairingID(rawValue: RandomBytes.make(16))),
+                                 displayName: name, pairedAt: clock.now())
+        try vault.authorizeDevicePairing(with: entry.deviceID, using: .allow)
+        try await XCTUnwrap(coordinator.services).registry.apply(.add(entry))
         await coordinator.refresh()
-        guard case .enabled = coordinator.approverConfirmation else {
-            XCTFail("approval is on, not \(String(describing: coordinator.approverConfirmation))")
-            throw SyntheticRemoteFailure()
-        }
-        coordinator.cancelApproverConfirmation()
     }
 
     func addCredential(name: String = DeviceCoordinatorHarness.credentialName) throws {

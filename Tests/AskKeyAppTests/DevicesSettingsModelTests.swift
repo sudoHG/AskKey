@@ -113,7 +113,8 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
                        "the matching code asks for system authentication with the pairing reason at once")
         XCTAssertEqual(model.sheet?.stage, .codeEntry(accepted: true))
         XCTAssertEqual(model.sheet?.title, "Confirm Pairing")
-        XCTAssertEqual(model.sheet?.message, "The code matches. Confirm to finish pairing; Ask Key asks for system authentication.")
+        XCTAssertEqual(model.sheet?.message, "The code matches. If you confirm, “Synthetic Phone” can approve agents' requests to use credentials on this Mac, with Face ID or Touch ID. Ask Key then asks for system authentication.")
+        XCTAssertNotNil(model.sheet?.requestContents, "it says what a request sends before system authentication")
         XCTAssertEqual(model.sheet?.feedback, "System authentication was cancelled. Nothing was sent; you can confirm again.")
         XCTAssertEqual(model.codeEntry, "", "the accepted entry is not shown again")
         XCTAssertTrue(model.canConfirm, "confirming again needs no new entry")
@@ -210,8 +211,9 @@ final class DevicesSettingsModelTests: AskKeyAppTestCase {
         model.requestRemoval(row)
         XCTAssertEqual(model.removalCandidate, row.id)
         XCTAssertEqual(harness.coordinator.devices.count, 1, "asking removes nothing")
-        XCTAssertEqual(DevicesPresentation.removalWarning(row.displayName),
-                       "This Mac stops trusting “Synthetic Phone” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too.")
+        XCTAssertEqual(DevicesPresentation.removalWarning(row),
+                       "“Synthetic Phone” stops approving agent requests at once, and the requests sent to it close. Ask Key tries to tell the iPhone so it can remove this Mac. If it still lists this Mac, remove this Mac on that iPhone too.")
+        XCTAssertEqual(DevicesPresentation.rowApproval(row)?.text, "Can approve agent requests.")
         model.cancelRemoval()
         await model.confirmRemoval()
         XCTAssertEqual(harness.coordinator.devices.count, 1, "a cancelled confirmation removes nothing")

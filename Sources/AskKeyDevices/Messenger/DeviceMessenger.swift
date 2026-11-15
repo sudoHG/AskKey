@@ -340,6 +340,10 @@ public actor DeviceMessenger {
         await flushOutbox()
     }
 
+    /// Adds the session's peer with the entry the session built, which
+    /// carries the approval flag when a macOS initiator pairs with an iOS
+    /// responder (ADR 0014 → Approvers), on both sides. On the Mac the
+    /// Vault accepts that flag only in this add.
     private func addSessionPeer(generation: Int) async {
         let now = clock.now()
         guard let current = session, current.needsAdd, current.isOpen(at: now),

@@ -186,9 +186,25 @@ struct PairingSession {
         }
     }
 
+    /// The entry this session adds to its own list. It carries the approval
+    /// flag (ADR 0014 → Approvers) when the initiator's card says macOS and
+    /// the responder's card says iOS, on both sides: the Mac's entry for the
+    /// iPhone and the iPhone's entry for the Mac. Any other pairing, such as
+    /// two Macs, adds its entry without the flag. Each platform is what that
+    /// device's card declares, so this is a policy filter, not a check
+    /// against impostors.
     func entry(pairedAt: Date) -> PairedDevice? {
         guard let peer, let pairingID else { return nil }
-        return PairedDevice(card: peer.card, pairingID: pairingID, displayName: peer.displayName, pairedAt: pairedAt)
+        var entry = PairedDevice(card: peer.card, pairingID: pairingID, displayName: peer.displayName, pairedAt: pairedAt)
+        entry.isApprover = Self.addsApprover(initiator: role == .initiator ? ownCard : peer.card,
+                                             responder: role == .initiator ? peer.card : ownCard)
+        return entry
+    }
+
+    /// Whether a pairing of these two cards makes the iPhone an approver and
+    /// the Mac one whose requests the iPhone accepts.
+    static func addsApprover(initiator: DeviceCard, responder: DeviceCard) -> Bool {
+        initiator.platform == .macOS && responder.platform == .iOS
     }
 
     // MARK: Incoming messages

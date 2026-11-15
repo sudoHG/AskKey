@@ -8,20 +8,18 @@ import Observation
 /// factory from #287. The runner clicks the App's real controls and plays
 /// the iPhone and the iCloud account through one-shot fixture commands.
 /// The iPhone's code never leaves this process: the step that enters it
-/// plays the person typing it, and nothing writes it anywhere. The same
-/// holds for the Mac's approver code, which the iPhone's steps type (#313).
+/// plays the person typing it, and nothing writes it anywhere. Pairing makes
+/// the simulated iPhone an approver (#336).
 @MainActor
 enum E2EDeviceScenario {
     static let scenarioPrefix = "screenshots-devices"
     static let phoneName = "Synthetic iPhone"
-    static let commands = ["phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out",
-                           "approver-check-hidden", "approver-confirm"]
+    static let commands = ["phone-scan", "phone-reveal", "phone-complete", "phone-poll", "account-signed-out"]
 
     private static var backend: FakeDeviceServicesBackend?
     private static var phone: SimulatedPairingPhone?
     private static var task: Task<Void, Never>?
     private static var transitions: [String] = []
-    private static var control: URL?
 
     static func isRequested(_ scenario: String) -> Bool {
         scenario.hasPrefix(scenarioPrefix)
@@ -38,7 +36,6 @@ enum E2EDeviceScenario {
     /// Runs each command once when its file appears, then removes the file
     /// and writes `device-<command>.json` with the outcome.
     static func start(control: URL) {
-        self.control = control
         recordPairingTransitions(control: control)
         task = Task { @MainActor in
             while !Task.isCancelled {
@@ -142,35 +139,9 @@ enum E2EDeviceScenario {
         case "account-signed-out":
             backend.accountState = .noAccount
             backend.signalAccountChange()
-        case "approver-check-hidden":
-            // The runner wrote the App's accessibility tree while the sheet
-            // showed the approver code; the code must not be in it (#313).
-            // Only the outcome leaves this process, and the tree is deleted.
-            guard let code = coordinator.approverCode, let control else { throw E2EDeviceScenarioError.noCode }
-            let file = control.appendingPathComponent("approver-accessibility-tree.txt")
-            defer { try? FileManager.default.removeItem(at: file) }
-            let tree = try String(contentsOf: file, encoding: .utf8)
-            guard tree.contains("devices-approver-waiting") else { throw E2EDeviceScenarioError.noSheet }
-            guard !tree.contains(code.digits), !tree.contains(code.formatted) else { throw E2EDeviceScenarioError.codeExposed }
-        case "approver-confirm":
-            // The person types the code the Mac shows on the iPhone and
-            // passes Face ID there (simulated).
-            guard let code = coordinator.approverCode else { throw E2EDeviceScenarioError.noCode }
-            try await phone.confirmApprover(typing: code.formatted, for: macID(phone))
-            try await repeatUntil {
-                await coordinator.refresh()
-                if case .enabled = coordinator.approverConfirmation { return true }
-                return false
-            }
         default:
             throw E2EDeviceScenarioError.unknownCommand
         }
-    }
-
-    /// The Mac as the simulated iPhone lists it.
-    private static func macID(_ phone: SimulatedPairingPhone) async throws -> DeviceID {
-        guard let mac = try await phone.pairedDevices().first?.deviceID else { throw E2EDeviceScenarioError.notPaired }
-        return mac
     }
 
     /// Repeats `step` for up to ten seconds until it reports success.
@@ -184,5 +155,5 @@ enum E2EDeviceScenario {
 }
 
 enum E2EDeviceScenarioError: Error {
-    case notInstalled, noQRCode, noCode, timedOut, unknownCommand, notPaired, noSheet, codeExposed
+    case notInstalled, noQRCode, noCode, timedOut, unknownCommand
 }

@@ -13,6 +13,9 @@ final class ApproverTests: XCTestCase {
         world = TestWorld()
         await world.setUpPhone()
         try await world.pair()
+        // The approver confirmation applies to a Mac paired before #336
+        // without approval; pairing now sets the flag.
+        try await world.storeWithoutApprovalFlag()
     }
 
     override func tearDown() async throws {

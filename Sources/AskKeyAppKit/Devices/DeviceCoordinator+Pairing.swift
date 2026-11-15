@@ -171,9 +171,7 @@ extension DeviceCoordinator {
     }
 
     /// The management session ended (locked, expired or its window closed).
-    /// An open approver sheet ends too, with its code and authorization.
     package func managementSessionEnded() async {
-        if approverConfirmation?.isActive == true { cancelApproverConfirmation() }
         guard pairingIsLive else {
             finishPairingSession()
             return
@@ -250,7 +248,7 @@ extension DeviceCoordinator {
             pairing = .codeAccepted(peer: peer)
         case .waitingForPeer(let peer):
             pairing = .waitingForIPhoneConfirmation(peer: peer)
-        case .paired(let peer, _):
+        case .paired(let peer, let pairingID):
             pairing = .paired(peer: peer)
             pairingFeedback = nil
             environment.log(.devicePaired)
@@ -260,6 +258,9 @@ extension DeviceCoordinator {
             isAuthenticatingPairing = false
             vault.endDevicePairingAuthorization()
             deliveryCheckAfterPairing = peer.deviceID
+            // The add wrote the iPhone's flag; it joins the set now. A sheet
+            // that closed first is covered by the next list read.
+            pairingAdded(pairingID)
         case .ended(let reason):
             pairing = .ended(reason)
             environment.log(.pairingEnded(reason))

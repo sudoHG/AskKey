@@ -27,48 +27,6 @@ package struct RemoteAppliedDecision: Equatable, Sendable {
     package let approved: Bool
 }
 
-/// The "Approve agent requests" sheet (ADR 0014 → Approvers). No case
-/// carries the approver code; `DeviceCoordinator.approverCode` holds it
-/// while the sheet waits for the iPhone.
-package enum ApproverConfirmationState: Equatable, Sendable {
-    /// System authentication for turning approval on is open.
-    case authenticating(device: PairedDeviceRow)
-    /// Show the code until `expiresAt`, with what will leave the Mac; the
-    /// person types it on that iPhone.
-    case waitingForIPhone(device: PairedDeviceRow, expiresAt: Date, attemptsRemaining: Int)
-    /// The device is an approver now.
-    case enabled(device: PairedDeviceRow)
-    case ended(ApproverConfirmationEndReason)
-
-    var isActive: Bool {
-        switch self {
-        case .authenticating, .waitingForIPhone: return true
-        case .enabled, .ended: return false
-        }
-    }
-}
-
-package enum ApproverConfirmationEndReason: Equatable, Sendable {
-    /// Turning approval on needs the management session.
-    case managementRequired
-    /// The device services, the iCloud account or the device's entry are
-    /// not available.
-    case unavailable
-    case authenticationCancelled
-    case authenticationFailed
-    /// Five minutes passed without a matching confirmation.
-    case expired
-    /// The selected iPhone sent three wrong codes.
-    case tooManyWrongCodes
-    /// The code was entered on a different device than the one selected,
-    /// named as the Mac calls it.
-    case enteredOnOtherDevice(name: String)
-    /// The selected device was removed, or paired again, meanwhile.
-    case deviceRemoved
-    /// The approval flag could not be saved.
-    case notSaved
-}
-
 /// Holds the process activity that keeps App Nap and idle sleep away while a
 /// request needs it (ADR 0014 → When a request goes to an approver).
 package struct DeviceProcessActivity {
@@ -161,15 +119,4 @@ struct PendingClosedMessage {
     let envelope: DeviceEnvelope
     /// Nil while a send is out.
     var retryAt: Date?
-}
-
-/// The open approver confirmation (ADR 0014 → Approvers, step 3).
-struct ApproverAttempt {
-    let device: PairedDeviceRow
-    let code: ApproverCode
-    let expiresAt: Date
-    var attemptsRemaining: Int
-    /// A matching confirmation arrived and the flag is being written; any
-    /// further confirmation is refused without counting.
-    var enabling = false
 }

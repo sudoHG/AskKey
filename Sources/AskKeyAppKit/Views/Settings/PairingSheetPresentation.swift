@@ -4,7 +4,9 @@ import Foundation
 /// What the pairing sheet shows for one coordinator state (ADR 0013 →
 /// Pairing). The state carries no code, so neither does anything here:
 /// the sheet never shows the Mac's code. Before the person confirms on the
-/// Mac, nothing says whether the iPhone has confirmed.
+/// Mac, nothing says whether the iPhone has confirmed. Pairing an iPhone
+/// makes it an approver (ADR 0014, #336), so the sheet says so before the
+/// QR code and again before the system authentication that confirms it.
 struct PairingSheetPresentation: Equatable {
     enum Stage: Equatable {
         case preparing
@@ -26,6 +28,9 @@ struct PairingSheetPresentation: Equatable {
     let peer: PairingPeer?
     /// A warning shown on the subtle warning surface.
     let notice: String?
+    /// What a request sends to the iPhone, shown before the person confirms
+    /// a pairing that makes it an approver.
+    let requestContents: String?
     /// The result of the person's last action, shown under the field.
     let feedback: String?
     /// A wrong or malformed entry, or a cancelled or failed authentication.
@@ -34,6 +39,7 @@ struct PairingSheetPresentation: Equatable {
     init(state: PairingSheetState, feedback: PairingFeedback?, isAuthenticating: Bool) {
         var peer: PairingPeer?
         var notice: String?
+        var requestContents: String?
         var feedbackText: String?
         var feedbackIsWarning = true
         let stage: Stage
@@ -65,7 +71,12 @@ struct PairingSheetPresentation: Equatable {
             stage = .codeEntry(accepted: true)
             peer = acceptedPeer
             title = appLocalized("Confirm Pairing")
-            message = appLocalized("The code matches. Confirm to finish pairing; Ask Key asks for system authentication.")
+            if Self.becomesApprover(acceptedPeer) {
+                message = appLocalizedFormat("The code matches. If you confirm, “%@” can approve agents' requests to use credentials on this Mac, with Face ID or Touch ID. Ask Key then asks for system authentication.", acceptedPeer.displayName)
+                requestContents = Self.requestContentsText
+            } else {
+                message = appLocalized("The code matches. Confirm to finish pairing; Ask Key asks for system authentication.")
+            }
             if isAuthenticating {
                 feedbackText = appLocalized("Waiting for system authentication…")
                 feedbackIsWarning = false
@@ -80,7 +91,9 @@ struct PairingSheetPresentation: Equatable {
         case .paired(let pairedPeer):
             stage = .paired
             title = appLocalized("Paired")
-            message = appLocalizedFormat("This Mac and “%@” are paired. Ask Key sent a delivery check; until the device answers, it shows as “Not reached yet”.", pairedPeer.displayName)
+            message = Self.becomesApprover(pairedPeer)
+                ? appLocalizedFormat("This Mac and “%@” are paired. The iPhone can now approve agents' requests to use credentials on this Mac. Ask Key sent a delivery check; until the iPhone answers, it shows as “Not reached yet”.", pairedPeer.displayName)
+                : appLocalizedFormat("This Mac and “%@” are paired. Ask Key sent a delivery check; until the device answers, it shows as “Not reached yet”.", pairedPeer.displayName)
         case .ended(let reason):
             stage = .ended(canPairAgain: reason != .identityUnusable && reason != .deviceLimitReached)
             title = appLocalized("Pairing Ended")
@@ -95,6 +108,7 @@ struct PairingSheetPresentation: Equatable {
         self.message = message
         self.peer = peer
         self.notice = notice
+        self.requestContents = requestContents
         self.feedback = feedbackText
         self.feedbackIsWarning = feedbackIsWarning
     }
@@ -114,6 +128,22 @@ struct PairingSheetPresentation: Equatable {
 
     static var installReminder: String {
         appLocalized("Before you scan, install Ask Key on the iPhone:")
+    }
+
+    /// Next to the install reminder, before the QR code.
+    static var approvalStatement: String {
+        appLocalized("The iPhone you pair can approve agents' requests to use credentials on this Mac. Pair only your own iPhone.")
+    }
+
+    /// What leaves the Mac in a request, encrypted to the iPhone.
+    static var requestContentsText: String {
+        appLocalized("Sent to this iPhone, encrypted: the agent's name, the credential's name, the command and folder, and the names the credential is delivered as. Never a credential value.")
+    }
+
+    /// A pairing with a device whose card says iOS adds it with the approval
+    /// flag; the platform is what the device declares (ADR 0014 → Approvers).
+    static func becomesApprover(_ peer: PairingPeer) -> Bool {
+        peer.platform == .iOS
     }
 
     static var codeInstruction: String {

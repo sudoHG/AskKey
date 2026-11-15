@@ -16,5 +16,5 @@
   "testClosingManagementWindowRequiresUnlockWhenReopened",
   "testAboutPanelFromAppMenuKeepsAskKeyInFront",
   "testPairADeviceOpensItsSheet",
-  "testApproveAgentRequestsTurnsOnWithTheCodeTypedOnTheIPhone"
+  "testPairedIPhoneApprovesAgentRequestsUntilRemoved"
 ]

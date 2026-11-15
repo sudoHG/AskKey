@@ -145,7 +145,6 @@ final class RemoteApprovalDecisionTests: AskKeyAppTestCase {
     func testEveryApproverThatHadTheRequestOpenLearnsHowItEnded() async throws {
         let second = SimulatedPairingPhone(transport: harness.transport, clock: harness.clock)
         try await harness.pair(second, name: "Synthetic Phone Two")
-        try await harness.enableApprover(second)
         let pending = try harness.submitRead()
         try await harness.waitForRequests(harness.macSent(.approvalRequest).count + 2)
         let fetched3 = try await harness.phoneRequests()
@@ -255,10 +254,12 @@ final class RemoteApprovalDecisionTests: AskKeyAppTestCase {
         let stale = try XCTUnwrap(harness.entries(first).first)
         harness.coordinator.remoteRequests[first.requestID]?.entries[0].decided = true
         harness.coordinator.remoteRequests[first.requestID]?.applying = 1
-        // Turned off and on again while that decision is being applied.
+        // The Broker lost the generation while that decision is being
+        // applied, and the next list read added the approver again (#336).
         let row = try XCTUnwrap(harness.coordinator.devices.first)
-        await harness.coordinator.disableApprover(row)
-        try await harness.enableApprover(harness.phone)
+        harness.vault.approvalRequests.removeActiveApprover(pairingID: row.pairingID.rawValue)
+        await harness.coordinator.refresh()
+        XCTAssertNotNil(try harness.generation(of: harness.phone))
         let (second, _) = try await outstandingRead()
         XCTAssertNotEqual(harness.entries(second).first?.generation, stale.generation)
         harness.coordinator.finishRemoteDecision(.outcome(.approverInactive), code: .allowOnce, entry: stale,
@@ -288,7 +289,6 @@ final class RemoteApprovalDecisionTests: AskKeyAppTestCase {
     func testRequestEndedDuringARevokedApproversDecisionStillClosesForTheOthers() async throws {
         let second = SimulatedPairingPhone(transport: harness.transport, clock: harness.clock)
         try await harness.pair(second, name: "Synthetic Phone Two")
-        try await harness.enableApprover(second)
         let pending = try harness.submitRead()
         try await harness.waitForRequests(harness.macSent(.approvalRequest).count + 2)
         let deciding = try XCTUnwrap(harness.entries(pending).first { $0.approverID == harness.phone.deviceID })

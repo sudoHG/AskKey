@@ -165,8 +165,10 @@ public final class PairingFlowModel: Identifiable {
     }
 
     /// Signs the confirmation with the approval key, which asks for Face ID
-    /// or Touch ID every time with no passcode button. A cancelled or failed
-    /// prompt sends nothing; the person can confirm again.
+    /// or Touch ID every time with no passcode button. This Face ID is also
+    /// the consent to approve the Mac's agent requests (ADR 0014, #336), so
+    /// its reason names the Mac and approval. A cancelled or failed prompt
+    /// sends nothing; the person can confirm again.
     public func confirm() async {
         guard case .code(let display) = stage, !display.confirmed, !isConfirming, !finished else { return }
         isConfirming = true

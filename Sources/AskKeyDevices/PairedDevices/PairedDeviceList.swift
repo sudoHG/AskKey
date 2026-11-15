@@ -29,7 +29,10 @@ public struct PairedDevice: Hashable, Sendable {
     public internal(set) var lastDeliveryCheck: DeliveryCheckResult?
     /// The approval flag (ADR 0014 → Approvers). On a Mac: this iPhone may
     /// decide its requests. On an iPhone: it accepts requests from this Mac.
-    /// Every entry starts with it off; only `setApprover` turns it on.
+    /// The initializer leaves it off. A pairing session sets it in the entry
+    /// it adds when the initiator's card says macOS and the responder's says
+    /// iOS, and it never changes for the life of the entry: the Mac's Vault
+    /// refuses any change to a stored entry's flag.
     public internal(set) var isApprover = false
 
     public init(card: DeviceCard, pairingID: PairingID, displayName: String, pairedAt: Date,
@@ -56,9 +59,9 @@ public struct PairedDevice: Hashable, Sendable {
 /// pairing cannot bring back or alter the wrong entry.
 public enum PairedDeviceChange: Hashable, Sendable {
     /// Adds a device; pairing again with a device already on the list
-    /// replaces its entry and pairing ID. The new entry's approval flag is
-    /// off; adding an entry with the stored pairing ID again keeps the
-    /// stored flag.
+    /// replaces its entry and pairing ID. The entry is stored as given,
+    /// approval flag included: the pairing session that adds it decides the
+    /// flag (ADR 0014 → Approvers).
     case add(PairedDevice)
     case rename(DeviceID, pairingID: PairingID, displayName: String)
     case remove(DeviceID, pairingID: PairingID)
@@ -67,8 +70,9 @@ public enum PairedDeviceChange: Hashable, Sendable {
     /// The state of the delivery check this device sent. A reply also marks
     /// the peer as reached; "no reply" applies only to the check still pending.
     case recordDeliveryCheck(DeviceID, pairingID: PairingID, result: DeliveryCheckResult)
-    /// Turns the entry's approval flag on or off. On the Mac the Vault
-    /// decides who may write it (ADR 0014 → Approvers).
+    /// Turns the entry's approval flag on or off. The Mac's Vault refuses
+    /// it, because a stored entry's flag never changes (ADR 0014 →
+    /// Approvers); it goes with the retired approver code.
     case setApprover(DeviceID, pairingID: PairingID, enabled: Bool)
 }
 
@@ -115,9 +119,7 @@ public struct PairedDeviceList: Hashable, Sendable {
     @discardableResult
     public mutating func apply(_ change: PairedDeviceChange) throws -> PairedDeviceChangeOutcome {
         switch change {
-        case .add(var device):
-            let stored = self.device(device.deviceID)
-            device.isApprover = stored?.pairingID == device.pairingID && stored?.isApprover == true
+        case .add(let device):
             try insert(device)
             return .applied
         case .rename(let id, let pairingID, let name):

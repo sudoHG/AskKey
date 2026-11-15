@@ -12,23 +12,22 @@ final class DevicesE2ETests: E2EBaseCase {
         XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "Pair a Device… opened no sheet")
     }
 
-    /// With exactly one paired iPhone, the runner turns **Approve agent
-    /// requests** on: the sheet first says what leaves the Mac, then shows
-    /// the code after (simulated) system authentication, the code is in no
-    /// accessibility label or value, and the iPhone typing it turns approval
-    /// on (#313).
-    func testApproveAgentRequestsTurnsOnWithTheCodeTypedOnTheIPhone() throws {
+    /// Pairing makes the iPhone an approver (#336): with exactly one paired
+    /// iPhone, its row says it approves agent requests, and the runner's real
+    /// clicks on **Remove** and its confirmation, the Mac's only way to stop
+    /// an iPhone approving, take the row away (#299, #300).
+    func testPairedIPhoneApprovesAgentRequestsUntilRemoved() throws {
         let page = openDevicesSettings(language: "en")
         pairSyntheticIPhone(page: page)
-        clickApproverToggle(page: page)
-        XCTAssertTrue(app.windows["settings"].sheets.firstMatch.waitForExistence(timeout: 8), "the switch opened no sheet")
-        click("devices-approver-continue")
-        XCTAssertTrue(app.descendants(matching: .any)["devices-approver-waiting"].waitForExistence(timeout: 8), "no code")
-        try writeAccessibilityTreeForApproverCheck()
-        try deviceFixture("approver-check-hidden")
-        try deviceFixture("approver-confirm")
-        click("devices-approver-done")
-        waitUntilShown("devices-approver-caption", "Agent requests can also be decided on this iPhone.")
+        page.scroll(byDeltaX: 0, deltaY: -900) // the whole row in view
+        waitUntilShown("devices-row-approval", "Can approve agent requests.")
+        clickInPage("devices-remove", page: page)
+        clickInPage("devices-confirm-remove", page: page)
+        let rename = app.buttons["devices-rename"].firstMatch
+        let gone = NSPredicate { _, _ in !rename.exists }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: gone, object: nil)], timeout: 8), .completed,
+                       "the removed iPhone is still listed")
+        XCTAssertTrue(app.staticTexts["settings-devices-empty"].firstMatch.waitForExistence(timeout: 8), "No empty list row")
     }
 }
 
@@ -83,23 +82,12 @@ extension E2EBaseCase {
         for _ in 0..<6 where !rename.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
     }
 
-    /// The real click on the one paired iPhone's **Approve agent requests** switch.
-    func clickApproverToggle(page: XCUIElement) {
-        let toggle = app.descendants(matching: .any)["devices-approver-toggle"].firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 8), "Missing control: devices-approver-toggle")
-        for _ in 0..<6 where !toggle.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
-        XCTAssertTrue(toggle.isHittable, "Control is not visible: devices-approver-toggle")
-        toggle.click()
-    }
-
-    /// Writes the approver sheet's accessibility tree, with every identifier,
-    /// label and value, for the App-side check that the code is not in it.
-    /// The code shows only in this sheet; a snapshot of the whole Settings
-    /// window can hang in CI once a text field had focus (#288).
-    func writeAccessibilityTreeForApproverCheck() throws {
-        let sheet = app.windows["settings"].sheets.firstMatch
-        XCTAssertTrue(sheet.waitForExistence(timeout: 8))
-        try Data(sheet.debugDescription.utf8).write(
-            to: runDirectory.appendingPathComponent("approver-accessibility-tree.txt"), options: .atomic)
+    /// The runner's real click on a Devices button, scrolled into view first.
+    func clickInPage(_ identifier: String, page: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        let button = app.buttons[identifier].firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 8), "Missing control: \(identifier)", file: file, line: line)
+        for _ in 0..<6 where !button.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
+        XCTAssertTrue(button.isHittable, "Control is not visible: \(identifier)", file: file, line: line)
+        button.click()
     }
 }
