@@ -16,8 +16,7 @@ final class RemoteApprovalFooterTests: XCTestCase {
     private var expiresAt: Date { start.addingTimeInterval(300) }
 
     private func footer(_ hint: RemoteApprovalFooterHint?, at seconds: TimeInterval) -> String {
-        RemoteApprovalFooter.text(hint, expiresAt: expiresAt, now: start.addingTimeInterval(seconds))
-            + " · " + appLocalized("Esc to decide later")
+        RemoteApprovalFooter.sentence(RemoteApprovalFooter.text(hint, expiresAt: expiresAt, now: start.addingTimeInterval(seconds)))
     }
 
     func testTheSendCountdownRunsFromTwentyToOneThenTheExpiryReturns() {

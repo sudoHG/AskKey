@@ -282,29 +282,30 @@ struct FrozenAgentApprovalPrompt: View {
     /// waits for a paired iPhone, otherwise the expiry (ADR 0014 → Mac App).
     /// A footer too long for one line, as the English "Also on iPhone" form
     /// is, puts the text and "Esc to decide later" on a line each, so
-    /// neither breaks.
+    /// neither breaks. VoiceOver reads it as one sentence and decides later
+    /// when it is activated; mouse and Esc work as before.
     private var footer: some View {
         let hint = remote?.footer
-        return ViewThatFits(in: .horizontal) {
-            HStack(spacing: Theme.Spacing.xs) {
-                footerText(hint)
-                Text(verbatim: "·")
-                decideLaterButton
+        return TimelineView(RemoteApprovalFooterSchedule(anchor: RemoteApprovalFooter.anchor(hint, expiresAt: expiresAt))) { context in
+            let text = RemoteApprovalFooter.text(hint, expiresAt: expiresAt, now: context.date)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(text).monospacedDigit()
+                    Text(verbatim: "·")
+                    decideLaterButton
+                }
+                VStack(spacing: Theme.Spacing.xs) {
+                    Text(text).monospacedDigit()
+                    decideLaterButton
+                }
             }
-            VStack(spacing: Theme.Spacing.xs) {
-                footerText(hint)
-                decideLaterButton
-            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: RemoteApprovalFooter.sentence(text)))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { finish(nil) }
         }
         .font(Theme.Fonts.caption)
         .foregroundStyle(Theme.textTertiary)
-    }
-
-    private func footerText(_ hint: RemoteApprovalFooterHint?) -> some View {
-        TimelineView(RemoteApprovalFooterSchedule(anchor: RemoteApprovalFooter.anchor(hint, expiresAt: expiresAt))) { context in
-            Text(RemoteApprovalFooter.text(hint, expiresAt: expiresAt, now: context.date))
-                .monospacedDigit()
-        }
     }
 
     private var decideLaterButton: some View {

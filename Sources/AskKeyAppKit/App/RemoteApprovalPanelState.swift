@@ -34,6 +34,12 @@ enum RemoteApprovalFooter {
         return appLocalizedFormat("Expires in %@", expiry)
     }
 
+    /// The whole footer as one sentence, for VoiceOver: the text, then
+    /// "Esc to decide later".
+    static func sentence(_ text: String) -> String {
+        text + " · " + appLocalized("Esc to decide later")
+    }
+
     /// Whole seconds left before the send, rounded up, from 20 to 1; nil
     /// once the send is due, when the footer is unchanged until it is saved.
     static func secondsUntilSend(_ sendAt: Date, now: Date) -> Int? {
