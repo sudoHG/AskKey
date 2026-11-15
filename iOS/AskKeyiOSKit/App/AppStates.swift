@@ -56,9 +56,11 @@ public struct PairedMacRow: Identifiable, Hashable, Sendable {
     public let pairedAt: Date
     /// Nil until the first delivery check from that Mac arrived.
     public let lastReachedAt: Date?
-    /// This iPhone accepts approval requests from this Mac. Pairing sets
-    /// it; only a Mac paired before #336 without approval lacks it, and
-    /// has to be removed and paired again.
+    /// This iPhone accepts approval requests from this Mac: its entry
+    /// carries the flag pairing sets, and its approval has not ended in this
+    /// process. Only a Mac paired before #336 without approval lacks the
+    /// flag, and has to be removed and paired again; a Mac whose removal
+    /// failed is refused until it is removed or the app restarts.
     public let isApprover: Bool
 
     public init(id: String, name: String, pairedAt: Date, lastReachedAt: Date?, isApprover: Bool = false) {
@@ -69,9 +71,10 @@ public struct PairedMacRow: Identifiable, Hashable, Sendable {
         self.isApprover = isApprover
     }
 
-    init(_ device: PairedDevice) {
+    /// `revoked`: this process already refuses the pairing's messages.
+    init(_ device: PairedDevice, revoked: Bool = false) {
         self.init(id: device.deviceID.text, name: device.displayName, pairedAt: device.pairedAt,
-                  lastReachedAt: device.lastReachedAt, isApprover: device.isApprover)
+                  lastReachedAt: device.lastReachedAt, isApprover: device.isApprover && !revoked)
     }
 }
 

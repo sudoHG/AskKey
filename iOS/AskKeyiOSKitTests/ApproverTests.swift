@@ -75,15 +75,26 @@ final class ApproverTests: XCTestCase {
     }
 
     func testARemovalWhoseListWriteFailsStillStopsThisIPhone() async throws {
+        let sealed = try await world.sendRequest()
+        world.notifications.delivered = [PushHint(recordName: sealed.sealed.messageID.text, arrivedAt: world.clock.now(),
+                                                  notificationIdentifier: "request")]
+        await world.model.becameActive()
+        XCTAssertEqual(world.model.requests.count, 1)
         world.keychain.writesFail = true
-        await world.model.removeMac(id: macID)
+        let removed = await world.model.removeMac(id: macID)
+        XCTAssertFalse(removed)
         XCTAssertEqual(world.model.listNotice, .removalFailed)
-        XCTAssertEqual(world.model.pairedMacs.count, 1, "the entry stays, so Remove can be tried again")
+        XCTAssertEqual(world.model.pairedMacs.map(\.isApprover), [false],
+                       "the entry stays, so Remove can be tried again, and no longer shows as approving")
+        XCTAssertTrue(world.model.requests.isEmpty)
+        XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
+        XCTAssertTrue(world.notifications.removedIdentifiers.contains("request"))
         world.keychain.writesFail = false
         try await world.sendRequest()
         await world.model.processInbox()
         XCTAssertTrue(world.model.requests.isEmpty, "this process refuses the Mac's requests anyway")
-        await world.model.removeMac(id: macID)
+        let retried = await world.model.removeMac(id: macID)
+        XCTAssertTrue(retried)
         XCTAssertTrue(world.model.pairedMacs.isEmpty)
     }
 

@@ -188,6 +188,12 @@ extension AppModel {
     /// Runs before any removal of a Mac commits: an unpair notice, a
     /// removal here, or pairing again. Its requests are refused from now on.
     func macWillBeRemoved(_ entry: PairedDevice) async {
+        revoke(entry)
+    }
+
+    /// Refuses the pairing's messages from now on and drops the Mac's
+    /// requests, without suspending. Running it again changes nothing.
+    func revoke(_ entry: PairedDevice) {
         revokedPairings.insert(entry.pairingID)
         dropApprovals(forMac: entry.deviceID.text)
     }

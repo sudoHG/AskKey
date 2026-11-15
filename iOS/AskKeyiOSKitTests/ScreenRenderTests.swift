@@ -216,8 +216,9 @@ final class ScreenRenderTests: XCTestCase {
                                       action: MacRemovalText.confirm) {
                        MacDetailContent(row: approving, onRename: {}, onRemove: {})
                    })
+        // A failed removal leaves the entry, which this process refuses.
         try render("37-mac-detail-rename-and-removal-failed",
-                   MacDetailContent(row: approving, renameProblem: .duplicate("Office Mac"), removalFailed: true,
+                   MacDetailContent(row: withoutFlag, renameProblem: .duplicate("Office Mac"), removalFailed: true,
                                     onRename: {}, onRemove: {}))
     }
 

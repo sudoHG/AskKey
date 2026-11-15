@@ -389,14 +389,19 @@ public final class AppModel {
 
     // MARK: Paired Macs
 
-    /// Removes the Mac at once, then sends it an unpair notice. The removal
-    /// hook has already stopped this iPhone approving the Mac's requests
-    /// and dropped them before the list write; the Mac stops trusting this
-    /// iPhone only when it processes the notice (ADR 0014 → Revocation).
-    public func removeMac(id: String) async {
+    /// Removes the Mac: this iPhone stops approving it before anything
+    /// waits, then the list write removes it and an unpair notice tells the
+    /// Mac, which stops trusting this iPhone only when it processes the
+    /// notice (ADR 0014 → Revocation). Returns false when the Mac could not
+    /// be removed; this process keeps refusing its requests anyway.
+    @discardableResult
+    public func removeMac(id: String) async -> Bool {
         guard let services, let deviceID = DeviceID(text: id),
-              let row = pairedMacs.first(where: { $0.id == id }) else { return }
+              let row = pairedMacs.first(where: { $0.id == id }) else { return false }
         locallyRemoved.insert(deviceID)
+        // The removal hook does the same again before the list write commits.
+        if let entry = knownList?.device(deviceID) { revoke(entry) }
+        var removed = true
         do {
             let told = try await services.messenger.removeDevice(deviceID)
             listNotice = .removed(name: row.name, macWasTold: told)
@@ -405,8 +410,12 @@ public final class AppModel {
         } catch {
             AppLog.failure("Removing a paired Mac", error)
             listNotice = .removalFailed
+            // Still listed: if its unpair notice removes it later, that is reported.
+            locallyRemoved.remove(deviceID)
+            removed = false
         }
         await refreshList()
+        return removed
     }
 
     /// Reloads the list. Entries that disappeared since `previous` and were
@@ -425,7 +434,7 @@ public final class AppModel {
             where list.device(device.deviceID) == nil && !locallyRemoved.contains(device.deviceID) {
                 listNotice = .removedByMac(name: device.displayName)
             }
-            pairedMacs = list.devices.map(PairedMacRow.init)
+            pairedMacs = list.devices.map { PairedMacRow($0, revoked: revokedPairings.contains($0.pairingID)) }
             rebuildRequests(list: list)
         } catch PairedDeviceListError.malformed {
             identityBecameUnusable()

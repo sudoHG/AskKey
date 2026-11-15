@@ -381,13 +381,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone stops approving this Mac's requests at once and drops the pending ones. Ask Key also tells the Mac, which stops trusting this iPhone when it next checks. To end approval on the Mac at once, remove this iPhone there too."
+            "value": "This iPhone stops approving this Mac's requests at once and drops the pending ones. Ask Key also tells the Mac, which stops trusting this iPhone only when it receives that notice; until then, a decision already sent can still apply. To end approval on the Mac at once, remove this iPhone there too."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 会立即停止审批这台 Mac 的请求，并丢弃待处理的请求。请旨也会通知 Mac，Mac 下次检查时才会不再信任这台 iPhone。如需立即在 Mac 上结束审批，请也在 Mac 上的请旨中移除这台 iPhone。"
+            "value": "这台 iPhone 会立即停止审批这台 Mac 的请求，并丢弃待处理的请求。请旨也会通知 Mac，Mac 收到通知后才会不再信任这台 iPhone，在此之前已发出的决定仍可能生效。如需立即在 Mac 上结束审批，请也在 Mac 上的请旨中移除这台 iPhone。"
           }
         }
       }
@@ -636,13 +636,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone can't approve agents' requests from this Mac. To approve them, remove this Mac and pair it again."
+            "value": "This iPhone can't approve agents' requests to use credentials on this Mac. To approve them, remove this Mac and pair it again."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 不能审批这台 Mac 上 Agent 的请求。如需审批，请移除这台 Mac 后重新配对。"
+            "value": "这台 iPhone 不能审批 Agent 使用这台 Mac 上凭证的请求。如需审批，请移除这台 Mac 后重新配对。"
           }
         }
       }

@@ -135,7 +135,8 @@ extension AppModel {
     /// Sends what is due: stored decisions until CloudKit saves them (every
     /// 2 seconds or after CloudKit's retry-after, "recipient unreachable"
     /// included) and again every 30 seconds without a closed message while
-    /// the countdown runs; receipts until saved or expired. Calls made while sending wait and send once more.
+    /// the countdown runs; receipts until saved or expired. Calls made while
+    /// sending wait and send once more.
     func sendDueMessages() async {
         if let running = sendWork {
             sendAgain = true

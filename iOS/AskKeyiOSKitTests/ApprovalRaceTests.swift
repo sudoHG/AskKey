@@ -48,6 +48,39 @@ final class ApprovalRaceTests: XCTestCase {
         XCTAssertTrue(world.model.requests.isEmpty)
     }
 
+    /// The pairing is refused and its requests dropped before the messenger
+    /// reads the list, so nothing waits between Remove and the refusal.
+    func testRemovalStopsThisIPhoneBeforeTheMessengerReadsTheList() async throws {
+        let id = try await receive()
+        world.cloud.failSends { $0.kind == Self.decisionKind }
+        await world.model.decide(.allowOnce, requestID: id)
+        XCTAssertEqual(try world.decisionAttempts().count, 1)
+        world.keychain.unreadableAccounts = ["paired-devices"]
+        let removed = await world.model.removeMac(id: macID)
+        XCTAssertFalse(removed, "the messenger could not read the list")
+        XCTAssertTrue(world.model.requests.isEmpty)
+        world.keychain.unreadableAccounts = []
+        world.cloud.failSends(where: nil)
+        world.clock.advance(by: 2)
+        await world.model.processInbox()
+        XCTAssertEqual(try world.decisionAttempts().count, 1, "the stored decision is never sent again")
+        XCTAssertEqual(world.model.pairedMacs.map(\.isApprover), [false])
+    }
+
+    func testRemovingTheMacDropsItsUnsentReceipts() async throws {
+        let phoneID = try world.phone.deviceID
+        world.cloud.failSends { $0.kind == Int64(MessageKind.approvalReceipt.rawValue) }
+        _ = try await receive()
+        XCTAssertEqual(world.model.outbox.count, 1)
+        let attempts = world.cloud.sent(.approvalReceipt, from: phoneID).count
+        await world.model.removeMac(id: macID)
+        XCTAssertTrue(world.model.outbox.isEmpty)
+        world.cloud.failSends(where: nil)
+        world.clock.advance(by: 2)
+        await world.model.processInbox()
+        XCTAssertEqual(world.cloud.sent(.approvalReceipt, from: phoneID).count, attempts)
+    }
+
     func testTheDecisionIsStoredBeforeItsFirstSend() async throws {
         let id = try await receive()
         let storedAtSend = Box<Bool?>(nil)

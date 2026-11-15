@@ -48,9 +48,9 @@ struct MacDetailView: View {
             Button(role: .destructive) {
                 removalFailed = false
                 Task {
-                    await model.removeMac(id: macID)
+                    let removed = await model.removeMac(id: macID)
                     // A removal that succeeded closes this screen.
-                    removalFailed = row != nil && model.listNotice == .removalFailed
+                    removalFailed = !removed && row != nil
                 }
             } label: {
                 MacRemovalText.confirm
@@ -102,7 +102,8 @@ struct MacDetailContent: View {
                 NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning, text: Self.text(renameProblem))
             }
             // Pairing sets the flag; only a Mac paired before #336 without
-            // approval lacks it, and only pairing again can set it.
+            // approval lacks it, and only pairing again can set it. A Mac
+            // whose removal failed is refused here too (`PairedMacRow`).
             if row.isApprover {
                 NoticeCard(symbol: "checkmark.shield.fill", tone: .success,
                            text: Text("mac.status.approving", bundle: .kit))
