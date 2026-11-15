@@ -58,6 +58,10 @@ targets:
       base:
         PRODUCT_NAME: AskKey
         PRODUCT_BUNDLE_IDENTIFIER: com.sudohg.askkey.ios
+        # XcodeGen's application preset sets "1,2" on the target, which
+        # overrides the project setting; the app is for iPhone only, and an
+        # iPad-capable portrait-only build fails App Store validation (90474).
+        TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_FILE: AskKeyiOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: AskKeyiOS/AskKeyiOS.entitlements
         # Empty unless the Ad Hoc export of scripts/build-ios.sh sets it; the
@@ -80,6 +84,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sudohg.askkey.ios.notification-service
         INFOPLIST_FILE: AskKeyiOSNotificationService/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_ENTITLEMENTS: AskKeyiOSNotificationService/AskKeyiOSNotificationService.entitlements
         # As for the app: empty unless the Ad Hoc export sets it.
         CLOUDKIT_CONTAINER_IDENTIFIER: ""

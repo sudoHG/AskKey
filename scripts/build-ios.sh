@@ -170,6 +170,10 @@ if not isinstance(app_info.get('ITSAppUsesNonExemptEncryption'), bool):
 icon = app_info.get('CFBundleIcons', {}).get('CFBundlePrimaryIcon', {})
 if icon.get('CFBundleIconName') != 'AppIcon' or not (app / 'Assets.car').is_file():
     problems.append('app: the AppIcon asset catalog is missing')
+# iPhone only: App Store validation refuses an iPad-capable app that supports only portrait (90474).
+for name, info in (('app', app_info), ('extension', extension_info)):
+    if info.get('UIDeviceFamily') != [1]:
+        problems.append(f'{name}: UIDeviceFamily is {info.get("UIDeviceFamily")!r}, expected [1] (iPhone only)')
 for key in ('CFBundleShortVersionString', 'CFBundleVersion'):
     if app_info.get(key) != extension_info.get(key):
         problems.append(f'{key} is {app_info.get(key)!r} in the app and {extension_info.get(key)!r} in the extension')
