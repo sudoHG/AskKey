@@ -113,6 +113,24 @@ final class RemoteApprovalPairingTests: AskKeyAppTestCase {
         XCTAssertNil(try harness.generation(of: harness.phone), "nor does a late add notice")
     }
 
+    /// A removal whose write failed or is still pending: reloading the set
+    /// after the account returns does not bring the pairing back either.
+    func testAReloadAfterAnAccountChangeSkipsAPairingWhoseRemovalBegan() async throws {
+        try await harness.pairApprover()
+        let registry = try XCTUnwrap(harness.coordinator.services?.registry)
+        let devices = try await registry.list().devices
+        let entry = try XCTUnwrap(devices.first)
+        harness.coordinator.deviceWillBeRemoved(entry)
+        harness.backend.accountState = .available(userRecordName: "_synthetic-account-2")
+        await harness.coordinator.devicesOpened()
+        XCTAssertEqual(harness.coordinator.account, .accountChanged)
+        harness.backend.accountState = .available(userRecordName: "_synthetic-account-1")
+        await harness.coordinator.devicesOpened()
+        XCTAssertEqual(harness.coordinator.account, .available)
+        XCTAssertEqual(harness.coordinator.devices.count, 1, "the entry is still stored")
+        XCTAssertNil(try harness.generation(of: harness.phone), "the reload skipped it")
+    }
+
     func testAnIPhoneThatUndoesThePairingRightAfterTheAddNeverStaysInTheSet() async throws {
         // The iPhone confirms first, so the Mac adds it as soon as it confirms.
         let code = try await harness.reachCodeEntry()

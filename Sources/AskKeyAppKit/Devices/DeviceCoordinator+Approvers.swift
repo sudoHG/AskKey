@@ -14,11 +14,12 @@ extension DeviceCoordinator {
     }
 
     /// Loads the set from the list once the services are ready with the
-    /// list's account: every flagged entry gets a new generation.
+    /// list's account: every flagged entry gets a new generation, except one
+    /// whose removal began, also when its write failed or is still pending.
     func activateApproversIfNeeded() {
         guard canActivateApprovers, !approversLoaded else { return }
         do {
-            try vault.activateStoredApprovers()
+            try vault.activateStoredApprovers(excluding: revokedApprovers)
             approversLoaded = true
         } catch {
             environment.log(.approverActivationFailed)

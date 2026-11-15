@@ -338,7 +338,7 @@ extension Vault {
     }
 
     /// Writes a list the registry prepared. A device that was not on the
-    /// stored list, or is there with another pairing ID, is an add: it needs
+    /// stored list, or is there with another pairing ID or card, is an add: it needs
     /// the management session and this pairing session's authorization for
     /// that device, which the write then uses up. The approval flag (ADR
     /// 0014 → Approvers) may be on only in that add, and only when the added
@@ -351,8 +351,13 @@ extension Vault {
         try withDeviceStorage(epoch: epoch) { keys in
             let vaultKey = try requireKey()
             let stored = try storedPairedDevices(keys: keys, vaultKey: vaultKey)
+            // An entry is the stored one only with the same card too, so a
+            // write cannot swap the card, and with it the approval key that
+            // checks every Allow, under a flag a pairing granted.
             func storedEntry(_ device: PairedDevice) -> PairedDevice? {
-                stored.devices.first { $0.deviceID == device.deviceID && $0.pairingID == device.pairingID }
+                stored.devices.first {
+                    $0.deviceID == device.deviceID && $0.pairingID == device.pairingID && $0.card == device.card
+                }
             }
             guard !list.devices.contains(where: { device in
                 storedEntry(device).map { $0.isApprover != device.isApprover } ?? false

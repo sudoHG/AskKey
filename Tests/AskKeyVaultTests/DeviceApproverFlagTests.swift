@@ -125,6 +125,30 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
         XCTAssertFalse(otherFlag)
     }
 
+    func testAWriteCannotSwapTheCardOfAFlaggedEntry() async throws {
+        let library = try makeLibrary()
+        let identity = SoftwareDeviceIdentity()
+        let created = Date(timeIntervalSince1970: 1_800_000_000)
+        let pairingID = try XCTUnwrap(PairingID(rawValue: Data(repeating: 0x3C, count: 16)))
+        let phone = PairedDevice(card: try DeviceCard.make(identity: identity, platform: .iOS, createdAt: created),
+                                 pairingID: pairingID, displayName: "Synthetic Phone", pairedAt: created)
+        try await pairApprover(phone, in: library)
+        // Same device ID and pairing ID, another card: an add, not the stored entry.
+        let swapped = PairedDevice(card: try DeviceCard.make(identity: identity, platform: .macOS, createdAt: created),
+                                   pairingID: pairingID, displayName: "Synthetic Phone", pairedAt: created)
+        XCTAssertEqual(swapped.deviceID, phone.deviceID)
+        let registry = try library.vault.pairedDeviceRegistry()
+        await assertRefused(.pairingNotAuthorized, library, "a card swap without the pairing authorization") {
+            try await registry.apply(.add(self.flagged(swapped)))
+        }
+        try library.vault.authorizeDevicePairing(with: phone.deviceID, using: .allow)
+        await assertRefused(.approverNotAuthorized, library, "a flagged card that is not iOS") {
+            try await registry.apply(.add(self.flagged(swapped)))
+        }
+        let stored = try await registry.list().device(phone.deviceID)
+        XCTAssertEqual(stored?.card, phone.card)
+    }
+
     func testOtherChangesToAnApproverNeedNoAuthorization() async throws {
         let library = try makeLibrary()
         let device = try syntheticDevice()

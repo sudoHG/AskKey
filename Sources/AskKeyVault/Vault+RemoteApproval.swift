@@ -70,13 +70,15 @@ extension Vault {
     /// generation. Pass the pairing ID of a flagged entry a pairing just
     /// added, or of one found missing from the set, so other approvers keep
     /// their generations; pass nil when the device services become ready.
+    /// Pairing IDs in `excluded`, whose removal has begun, are never added.
     /// Returns the generations of the added entries.
     @discardableResult
-    package func activateStoredApprovers(only pairingID: PairingID? = nil) throws -> [PairingID: UInt64] {
+    package func activateStoredApprovers(only pairingID: PairingID? = nil,
+                                         excluding excluded: Set<PairingID> = []) throws -> [PairingID: UInt64] {
         for _ in 0..<3 {
             let count = approvalRequests.activeApproverRevocationCount()
             let flagged = try storedPairedDeviceList().devices
-                .filter { $0.isApprover && (pairingID == nil || $0.pairingID == pairingID) }
+                .filter { $0.isApprover && (pairingID == nil || $0.pairingID == pairingID) && !excluded.contains($0.pairingID) }
                 .map(\.pairingID)
             do {
                 let generations = try approvalRequests.addActiveApprovers(flagged.map(\.rawValue), revocationCount: count)
