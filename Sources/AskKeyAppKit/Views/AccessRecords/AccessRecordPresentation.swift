@@ -128,9 +128,12 @@ struct AccessRecordPresentation: Equatable {
 
     /// The device name as the Mac called it when the record was written:
     /// renaming or removing the device later leaves old records as they were.
-    /// Only an Allow or a Deny comes from a paired device.
+    /// Only an Allow or a Deny comes from a paired device. A stored name that
+    /// is empty still shows the line, as the approval panel does, so a remote
+    /// decision never reads as one made on this Mac.
     static func remoteDecision(_ event: CredentialAccessEvent) -> String? {
-        guard let name = event.deviceName.map(DeviceDisplayName.clean), !name.isEmpty else { return nil }
+        guard let stored = event.deviceName else { return nil }
+        let name = DeviceDisplayName.clean(stored)
         switch event.result {
         case .allowed: return appLocalizedFormat("Approved on “%@”", name)
         case .denied: return appLocalizedFormat("Denied on “%@”", name)

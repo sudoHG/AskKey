@@ -57,7 +57,9 @@ final class AccessRecordDevicePresentationTests: AskKeyAppTestCase {
         }
     }
 
-    func testEveryReadUnderARemoteTimedAllowanceNamesTheDevice() {
+    /// The Vault writes the name on each read a remote timed allowance covers
+    /// (`DeviceApproverFlagTests`); every such record shows the same line.
+    func testEveryNamedAllowShowsTheSameLine() {
         AppLanguage.current = "en"
         let rows = rows([
             event(.allowed, device: "Synthetic iPhone", offset: 0),
@@ -76,13 +78,15 @@ final class AccessRecordDevicePresentationTests: AskKeyAppTestCase {
         XCTAssertEqual(rows.map(\.detail), [nil, nil, nil])
     }
 
-    func testTheNameIsShownAsRecordedAndCleanedForOneLine() {
+    /// The record carries the name, not the device: the line shows the stored
+    /// name whatever the device is called now.
+    func testTheStoredNameIsShownCleaned() {
         AppLanguage.current = "en"
-        // An earlier name stays: the record keeps what the Mac called the device then.
         XCTAssertEqual(AccessRecordPresentation.remoteDecision(event(.allowed, device: "Old Phone Name")),
                        "Approved on “Old Phone Name”")
-        XCTAssertNil(AccessRecordPresentation.remoteDecision(event(.allowed, device: "")))
-        XCTAssertNil(AccessRecordPresentation.remoteDecision(event(.denied, device: " \n\t ")))
+        // An empty stored name still marks the decision as remote, as the panel does.
+        XCTAssertEqual(AccessRecordPresentation.remoteDecision(event(.allowed, device: "")), "Approved on “”")
+        XCTAssertEqual(AccessRecordPresentation.remoteDecision(event(.denied, device: " \n\t ")), "Denied on “”")
         // Control and bidirectional formatting characters never reach the screen.
         XCTAssertEqual(AccessRecordPresentation.remoteDecision(event(.denied, device: "\u{202E}Synthetic\nPhone\u{2066}")),
                        "Denied on “SyntheticPhone”")

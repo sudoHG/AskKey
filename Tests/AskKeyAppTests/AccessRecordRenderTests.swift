@@ -116,8 +116,9 @@ final class AccessRecordRenderTests: AskKeyAppTestCase {
         window.appearance = NSAppearance(named: .aqua)
         settle(window)
         XCTAssertFalse(window.isVisible)
-        // Only the Access records page loads the records, so this proves the
-        // window shows that page.
+        // The default Library page never loads records; Access records loads
+        // them on appear, so the window left the default page.
+        XCTAssertEqual(navigation.route, .accessRecords, name)
         XCTAssertEqual(fixture.vault.credentialAccessRecords, records, name)
         try export(try XCTUnwrap(window.contentView?.superview), as: name, contentFrom: WorkspaceVisualContract.sidebarWidth)
         let presentation = AccessRecordPresentation(records: fixture.vault.credentialAccessRecords,
