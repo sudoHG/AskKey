@@ -46,7 +46,7 @@ final class OpenedRequestTests: XCTestCase {
             guard call.device == phone else { return }
             let shown = await MainActor.run { () -> String in
                 guard model.openedRequest?.id == name else { return "nothing" }
-                if model.requests.contains(where: { $0.id == name }) { return "card" }
+                if let card = model.requests.first(where: { $0.id == name }) { return card.isChecking ? "checking" : "card" }
                 return model.opening.map { "\($0.phase(at: Date.distantPast))" } ?? "gone"
             }
             trace.value.append((call.kind, shown))
@@ -76,10 +76,12 @@ final class OpenedRequestTests: XCTestCase {
                           try XCTUnwrap(calls.firstIndex(of: .prepareInbox)), "the inbox is prepared afterwards")
         XCTAssertEqual(try phoneFetches().first, .namedFetch([name]))
         let afterFetch = trace.value.drop { $0.0 != .namedFetch([name]) }.dropFirst()
-        XCTAssertEqual(afterFetch.first?.1, "card", "the card shows after that one fetch")
+        XCTAssertEqual(afterFetch.first?.1, "checking", "the card shows after that one fetch")
+        XCTAssertEqual(trace.value.first { $0.0 == .zoneFetch }?.1, "checking", "undecidable until the zone poll ran")
         XCTAssertEqual(trace.value.first { $0.0 == .namedFetch([name]) }?.1, "loading")
         XCTAssertEqual(launched.openedRequest, OpenedRequest(id: name))
         XCTAssertEqual(launched.requests.map(\.id), [name])
+        XCTAssertEqual(launched.requests.first?.isChecking, false, "decidable once the zone poll ran")
         XCTAssertNil(launched.opening)
         XCTAssertEqual(world.cloud.sent(.approvalReceipt, from: phone).count, 1)
     }
@@ -116,32 +118,80 @@ final class OpenedRequestTests: XCTestCase {
         XCTAssertEqual(try phoneFetches(), [.namedFetch([name]), .zoneFetch], "fetched by name once, never again")
         XCTAssertEqual(trace.value.first?.0, .namedFetch([name]))
         XCTAssertEqual(trace.value.first?.1, "loading")
-        XCTAssertEqual(trace.value.dropFirst().first?.1, "card")
+        XCTAssertEqual(trace.value.dropFirst().first?.1, "checking")
         XCTAssertEqual(world.model.openedRequest, OpenedRequest(id: name))
         XCTAssertNil(world.model.opening)
+        XCTAssertEqual(world.card?.isChecking, false)
     }
 
     func testATapWhileAPassWaitsForItsZonePollIsFetchedAlongsideIt() async throws {
         let phone = try world.phone.deviceID
         let name = try await world.sendRequest().sealed.messageID.text
         let gate = Gate()
-        let phoneText = phone.text
         world.cloud.callHook = { call in
-            if call.device == phoneText, call.kind == .zoneFetch { await gate.wait() }
+            if call.device == phone.text, call.kind == .zoneFetch { await gate.wait() }
         }
         let model = world.model
+        world.cloud.clearCalls()
         let pass = Task { await model.processInbox() }
         await waitUntil { self.world.cloud.calls(by: phone).contains(.zoneFetch) }
         let tapped = Task { try await self.tap(name) }
         await waitUntil { model.requests.contains { $0.id == name } }
         XCTAssertFalse(gate.isOpen, "the card showed while the zone poll was still waiting")
         XCTAssertEqual(model.openedRequest, OpenedRequest(id: name))
+        XCTAssertEqual(model.card(name)?.isChecking, true, "that zone poll started before the fetch")
         gate.open()
         await pass.value
         try await tapped.value
+        XCTAssertEqual(model.card(name)?.isChecking, false, "the next pass's zone poll checked it")
+        XCTAssertEqual(world.cloud.sent(.approvalReceipt, from: phone).count, 1)
+    }
+
+    func testARecordBothTheTappedFetchAndAZonePollHoldTakesEffectOnce() async throws {
+        let phone = try world.phone.deviceID
+        let name = try await world.sendRequest().sealed.messageID.text
+        let gate = Gate()
+        let armed = Box(true)
+        world.cloud.callHook = { call in
+            guard call.device == phone.text, call.kind == .delete([name]), armed.value else { return }
+            armed.value = false
+            await gate.wait()
+        }
+        let model = world.model
+        let tapped = Task { try await self.tap(name) }
+        await waitUntil { !armed.value }
+        // The tapped fetch handled the record and waits to delete it; a
+        // zone poll now finds the same record.
+        await model.processInbox()
+        gate.open()
+        try await tapped.value
         XCTAssertEqual(model.requests.map(\.id), [name])
-        XCTAssertEqual(world.cloud.sent(.approvalReceipt, from: phone).count, 1, "handled once")
+        XCTAssertEqual(world.approvalStore.stored.requests.map(\.recordName), [name])
+        XCTAssertEqual(world.cloud.sent(.approvalReceipt, from: phone).count, 1)
         XCTAssertTrue(world.cloud.records(in: phone).isEmpty)
+    }
+
+    func testASecondTapWhileTheFirstFetchWaitsIsFetchedAtOnce() async throws {
+        let phone = try world.phone.deviceID
+        let first = try await world.sendRequest().sealed.messageID.text
+        let second = try await world.sendRequest(launchTime: TestWorld.macLaunch).sealed.messageID.text
+        let gate = Gate()
+        world.cloud.callHook = { call in
+            if call.device == phone.text, call.kind == .namedFetch([first]) { await gate.wait() }
+        }
+        let model = world.model
+        let tappedFirst = Task { try await self.tap(first) }
+        await waitUntil { self.world.cloud.calls(by: phone).contains(.namedFetch([first])) }
+        let tappedSecond = Task { try await self.tap(second) }
+        await waitUntil { self.world.cloud.calls(by: phone).contains(.namedFetch([second])) }
+        XCTAssertFalse(gate.isOpen)
+        await waitUntil { model.card(second) != nil }
+        XCTAssertEqual(model.openedRequest, OpenedRequest(id: second))
+        gate.open()
+        try await tappedFirst.value
+        try await tappedSecond.value
+        XCTAssertEqual(model.openedRequest, OpenedRequest(id: second), "the first fetch does not take the sheet back")
+        XCTAssertEqual(Set(model.requests.map(\.id)), [first, second])
     }
 
     func testARequestTheAppAlreadyHoldsOpensWithoutAFetch() async throws {
@@ -188,23 +238,60 @@ final class OpenedRequestTests: XCTestCase {
         XCTAssertTrue(world.cloud.records(in: phone).isEmpty)
     }
 
-    func testARetryAfterTheTappedFetchGetsIsHonoredByLaterFetchesByName() async throws {
+    func testARetryAfterTheTappedFetchGetsDelaysItWithoutGivingItUp() async throws {
         let name = try await world.sendRequest().sealed.messageID.text
         world.cloud.namedFetchError = .rateLimited(retryAfter: 20)
         world.cloud.zoneFetchesFail = true
         try await tap(name)
-        XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .unavailable,
-                       "neither the fetch by name nor the zone poll found it")
+        XCTAssertEqual(world.model.openingPhase(at: world.clock.now()), .loading, "asking to wait is no answer")
         world.cloud.namedFetchError = nil
         world.cloud.clearCalls()
         world.notifications.delivered = [PushHint(recordName: MessageID.random().text, arrivedAt: world.clock.now(),
                                                   notificationIdentifier: "newer")]
         await world.model.becameActive()
-        XCTAssertTrue(try phoneFetches().allSatisfy { if case .namedFetch = $0 { false } else { true } })
-        world.cloud.zoneFetchesFail = false
+        XCTAssertTrue(try phoneFetches().allSatisfy { if case .namedFetch = $0 { false } else { true } },
+                      "no fetch by name during the retry-after")
+        world.clock.advance(by: 21)
         await world.model.processInbox()
-        XCTAssertEqual(world.model.requests.map(\.id), [name], "a later card replaces the unavailable state")
+        XCTAssertEqual(try phoneFetches().first { if case .namedFetch = $0 { true } else { false } }, .namedFetch([name]),
+                       "the tapped record still goes first")
+        XCTAssertEqual(world.model.requests.map(\.id), [name])
         XCTAssertNil(world.model.opening)
+    }
+
+    func testLoadingEndsAfterAMinuteAndALaterCardStillShows() async throws {
+        world.cloud.namedFetchRetryAfter = 90
+        world.notifications.delivered = [PushHint(recordName: MessageID.random().text, arrivedAt: world.clock.now(),
+                                                  notificationIdentifier: "older")]
+        await world.model.becameActive()
+        world.cloud.namedFetchRetryAfter = nil
+        let name = try await world.sendRequest().sealed.messageID.text
+        world.cloud.zoneFetchesFail = true
+        try await tap(name)
+        world.clock.advance(by: 61)
+        XCTAssertEqual(world.model.openingPhase(at: world.clock.now()), .unavailable)
+        XCTAssertEqual(world.model.foregroundPollInterval, 10)
+        world.clock.advance(by: 30)
+        await world.model.processInbox()
+        XCTAssertEqual(world.model.requests.map(\.id), [name], "a later card still replaces the unavailable state")
+        XCTAssertNil(world.model.opening)
+    }
+
+    func testWithoutICloudTheSheetSaysSoAndTheRecordIsStillFetchedFirstOnceItIsBack() async throws {
+        let phone = try world.phone.deviceID
+        let name = try await world.sendRequest().sealed.messageID.text
+        world.cloud.accountState = .temporarilyUnavailable
+        let launched = AppModel(environment: world.environment)
+        try await tap(name, on: launched)
+        await launched.start()
+        await launched.becameActive()
+        XCTAssertEqual(launched.openingPhase(at: world.clock.now()), .unavailable)
+        world.cloud.accountState = .available(userRecordName: "_user-a")
+        world.cloud.clearCalls()
+        await launched.processInbox()
+        XCTAssertEqual(Array(world.cloud.calls(by: phone).prefix(2)), [.accountState, .namedFetch([name])])
+        XCTAssertEqual(launched.requests.map(\.id), [name])
+        XCTAssertNil(launched.openingPhase(at: world.clock.now()))
     }
 
     func testAFailedFetchByNameLeavesTheZonePollToFindIt() async throws {
@@ -262,6 +349,25 @@ final class OpenedRequestTests: XCTestCase {
         XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .unavailable)
     }
 
+    func testStopApprovingDuringTheFetchKeepsTheRequestFromBecomingACard() async throws {
+        let phone = try world.phone.deviceID
+        let name = try await world.sendRequest().sealed.messageID.text
+        let gate = Gate()
+        world.cloud.callHook = { call in
+            if call.device == phone.text, call.kind == .namedFetch([name]) { await gate.wait() }
+        }
+        let model = world.model
+        let tapped = Task { try await self.tap(name) }
+        await waitUntil { self.world.cloud.calls(by: phone).contains(.namedFetch([name])) }
+        let stopped = await model.stopApproving(macID: world.macIdentity.deviceID.text)
+        XCTAssertTrue(stopped)
+        gate.open()
+        try await tapped.value
+        XCTAssertTrue(model.requests.isEmpty)
+        XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
+        XCTAssertEqual(model.openingPhase(at: world.clock.now()), .unavailable)
+    }
+
     func testAnAccountChangeDuringTheFetchKeepsTheRequestFromBecomingACard() async throws {
         let phone = try world.phone.deviceID
         let name = try await world.sendRequest().sealed.messageID.text
@@ -277,17 +383,33 @@ final class OpenedRequestTests: XCTestCase {
         XCTAssertTrue(model.requests.isEmpty, "the old messenger's request is not accepted")
         XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
         XCTAssertEqual(world.cloud.records(in: phone).map(\.recordName), [name], "it stays in the inbox")
-        XCTAssertEqual(model.opening?.phase(at: world.clock.now()), .loading, "the next pass settles it")
+        XCTAssertEqual(model.opening?.phase(at: world.clock.now()), .loading, "due again for the next pass")
     }
 
-    func testATappedRequestWhoseClosedMessageWaitsInTheZoneEndsClosed() async throws {
+    func testATappedRequestWhoseClosedMessageWaitsInTheZoneIsNeverDecidable() async throws {
+        let phone = try world.phone.deviceID
         let sealed = try await world.sealRequest()
+        let name = sealed.sealed.messageID.text
         try await world.deliver(sealed.sealed.envelope)
         try await world.sendClosed(.decidedOnMac, for: sealed)
-        try await tap(sealed.sealed.messageID.text)
-        let card = try XCTUnwrap(world.card)
+        let model = world.model
+        let decidable = Box(false)
+        world.cloud.callHook = { call in
+            guard call.device == phone.text else { return }
+            await MainActor.run {
+                if let card = model.card(name), !card.isChecking, card.phase(at: Date.distantPast) == .pending {
+                    decidable.value = true
+                }
+            }
+            // Deny needs no Face ID: try it while the card shows.
+            await model.decide(.deny, requestID: name)
+        }
+        try await tap(name)
+        XCTAssertFalse(decidable.value, "never a pending card that can be decided")
+        let card = try XCTUnwrap(model.card(name))
         XCTAssertEqual(card.phase(at: world.clock.now()), .closed(.decidedOnMac), "the zone poll right after closes it")
         XCTAssertTrue(try world.decisionAttempts().isEmpty)
+        XCTAssertTrue(world.cloud.sent(.approvalReceipt, from: phone).isEmpty, "no receipt for a closed request")
     }
 
     func testATappedDeliveryCheckClosesTheSheet() async throws {
@@ -298,13 +420,64 @@ final class OpenedRequestTests: XCTestCase {
         XCTAssertEqual(world.model.deliveryRecords.last?.recordName, name)
     }
 
+    /// The tapped fetch handles the delivery check while a zone poll finds it busy.
+    func testATappedDeliveryCheckTheTappedFetchWinsClosesTheSheet() async throws {
+        let phone = try world.phone.deviceID
+        let name = try await world.mac.sendDeliveryCheck(to: phone).text
+        let (gate, armed) = holdFirstSend(of: .deliveryCheckReply, by: phone)
+        let model = world.model
+        let tapped = Task { try await self.tap(name) }
+        await waitUntil { !armed.value }
+        await model.processInbox()
+        XCTAssertEqual(model.openedRequest, OpenedRequest(id: name), "still handled by the tapped fetch")
+        gate.open()
+        try await tapped.value
+        XCTAssertNil(model.openedRequest)
+        XCTAssertNil(model.opening)
+        XCTAssertEqual(model.deliveryRecords.filter { $0.recordName == name }.count, 1)
+    }
+
+    /// A zone poll handles the delivery check while the tapped fetch finds it busy.
+    func testATappedDeliveryCheckAZonePollWinsClosesTheSheet() async throws {
+        let phone = try world.phone.deviceID
+        let name = try await world.mac.sendDeliveryCheck(to: phone).text
+        let (gate, armed) = holdFirstSend(of: .deliveryCheckReply, by: phone)
+        let model = world.model
+        let pass = Task { await model.processInbox() }
+        await waitUntil { !armed.value }
+        let tapped = Task { try await self.tap(name) }
+        await waitUntil { self.world.cloud.calls(by: phone).contains(.namedFetch([name])) && model.opening?.step == .fetchDue }
+        gate.open()
+        await pass.value
+        try await tapped.value
+        XCTAssertNil(model.openedRequest)
+        XCTAssertNil(model.opening)
+        XCTAssertEqual(model.deliveryRecords.filter { $0.recordName == name }.count, 1)
+    }
+
     // MARK: Helpers
+
+    /// Holds the first send of `kind` by `device` until the gate opens.
+    private func holdFirstSend(of kind: MessageKind, by device: DeviceID) -> (Gate, Box<Bool>) {
+        let gate = Gate()
+        let armed = Box(true)
+        world.cloud.callHook = { call in
+            guard call.device == device.text, call.kind == .send(Int64(kind.rawValue)), armed.value else { return }
+            armed.value = false
+            await gate.wait()
+        }
+        return (gate, armed)
+    }
 
     /// Waits up to five seconds for work running in other tasks.
     private func waitUntil(_ condition: @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
         for _ in 0..<5_000 where !condition() { try? await Task.sleep(nanoseconds: 1_000_000) }
         XCTAssertTrue(condition(), "timed out", file: file, line: line)
     }
+}
+
+extension AppModel {
+    func card(_ id: String) -> RequestCard? { requests.first { $0.id == id } }
 }
 
 /// Holds a caller until the test opens it.

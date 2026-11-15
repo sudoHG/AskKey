@@ -2228,6 +2228,23 @@
         }
       }
     },
+    "request.state.checking": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking that this request is still pending."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在确认这个请求是否仍待处理。"
+          }
+        }
+      }
+    },
     "request.state.sending %@": {
       "extractionState": "manual",
       "localizations": {

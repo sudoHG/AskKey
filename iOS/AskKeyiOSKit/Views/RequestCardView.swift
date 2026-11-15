@@ -104,7 +104,7 @@ struct RequestCardContent: View {
             }
         }
         .buttonStyle(ActionButtonStyle(kind: kind))
-        .disabled(isDeciding || (chosen != nil && chosen != code))
+        .disabled(isDeciding || card.isChecking || (chosen != nil && chosen != code))
         .allowsHitTesting(chosen == nil)
         .accessibilityAddTraits(chosen == code ? .isSelected : [])
     }
@@ -114,6 +114,8 @@ struct RequestCardContent: View {
             NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning, text: RequestCopy.problem(problem))
         }
         switch phase {
+        case .pending where card.isChecking:
+            NoticeCard(symbol: "hourglass", text: Text("request.state.checking", bundle: .kit))
         case .pending:
             EmptyView()
         case .sending:
@@ -343,7 +345,7 @@ struct OpenedRequestView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             OpenedRequestContent(card: model.requests.first { $0.id == id },
-                                 opening: model.opening.flatMap { $0.id == id ? $0.phase(at: context.date) : nil },
+                                 opening: model.opening?.id == id ? model.openingPhase(at: context.date) : nil,
                                  onClose: onClose) { card in
                 RequestCardView(model: model, card: card, now: context.date)
             }

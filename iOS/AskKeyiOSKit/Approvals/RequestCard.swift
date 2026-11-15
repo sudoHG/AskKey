@@ -130,10 +130,14 @@ public struct RequestCard: Identifiable, Hashable, Sendable {
     public let isSent: Bool
     public let outcome: RequestOutcome?
     public let isGone: Bool
+    /// Fetched by name for a tapped notification: it cannot be decided
+    /// until a zone poll that started afterwards showed whether a closed
+    /// message for it was already waiting (#337).
+    public let isChecking: Bool
 
     public init(id: String, macID: String, macName: String, macPairedAt: Date, display: RequestDisplay,
                 countdownEnd: Date, decision: ApprovalDecisionCode? = nil, isSent: Bool = false,
-                outcome: RequestOutcome? = nil, isGone: Bool = false) {
+                outcome: RequestOutcome? = nil, isGone: Bool = false, isChecking: Bool = false) {
         self.id = id
         self.macID = macID
         self.macName = macName
@@ -144,6 +148,7 @@ public struct RequestCard: Identifiable, Hashable, Sendable {
         self.isSent = isSent
         self.outcome = outcome
         self.isGone = isGone
+        self.isChecking = isChecking
     }
 
     public func phase(at now: Date) -> RequestPhase {
@@ -197,12 +202,10 @@ public enum OpeningPhase: Hashable, Sendable {
 /// shown; the card appears only once the app verified the request itself.
 public struct OpeningRequest: Hashable, Sendable {
     enum Step: Hashable, Sendable {
-        /// Its own fetch by name has not started.
+        /// Its own fetch by name is due at `nextAttempt`.
         case fetchDue
         case fetching
-        /// The fetch gave no final answer; the first inbox pass that starts
-        /// after pass `after` settles it.
-        case waitingForPoll(after: Int)
+        /// Not found, refused, or ended without a card.
         case unavailable
     }
 
@@ -210,10 +213,23 @@ public struct OpeningRequest: Hashable, Sendable {
     public let id: String
     /// When the notification was tapped.
     let since: Date
-    var step: Step
+    var step: Step = .fetchDue
+    /// After an answer that settled nothing, the next fetch waits this long.
+    var nextAttempt: Date
+
+    init(id: String, since: Date, step: Step = .fetchDue) {
+        self.id = id
+        self.since = since
+        self.step = step
+        nextAttempt = since
+    }
 
     /// Loading lasts at most `AppModel.pendingOpenLifetime`.
     public func phase(at now: Date) -> OpeningPhase {
-        step == .unavailable || now.timeIntervalSince(since) >= AppModel.pendingOpenLifetime ? .unavailable : .loading
+        step == .unavailable || hasExpired(at: now) ? .unavailable : .loading
+    }
+
+    func hasExpired(at now: Date) -> Bool {
+        now.timeIntervalSince(since) >= AppModel.pendingOpenLifetime
     }
 }

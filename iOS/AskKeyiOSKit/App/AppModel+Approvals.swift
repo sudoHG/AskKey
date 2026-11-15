@@ -248,6 +248,7 @@ extension AppModel {
         decisionProblems = [:]
         openedRequest = nil
         opening = nil
+        uncheckedRequests = []
         rebuildRequests()
         settleRequestNotifications(also: dropped)
     }
@@ -301,6 +302,7 @@ extension AppModel {
             openedContent[name] = nil
             decisionProblems[name] = nil
             nextAttempts[name] = nil
+            uncheckedRequests.remove(name)
         }
         if let opened = openedRequest, recordNames.contains(opened.id) { openedRequest = nil }
         if let opening, recordNames.contains(opening.id) { self.opening = nil }
@@ -367,7 +369,7 @@ extension AppModel {
                                      macPairedAt: device.pairedAt, display: RequestDisplay(request),
                                      countdownEnd: entry.countdownEnd, decision: entry.decision?.decisionCode,
                                      isSent: entry.lastSentAt != nil, outcome: entry.closed.flatMap(RequestOutcome.init),
-                                     isGone: entry.gone))
+                                     isGone: entry.gone, isChecking: uncheckedRequests.contains(entry.recordName)))
         }
         let ordered = cards.sorted { lhs, rhs in
             let (left, right) = (lhs.phase(at: now).isFinished, rhs.phase(at: now).isFinished)

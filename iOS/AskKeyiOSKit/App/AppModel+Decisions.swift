@@ -26,7 +26,8 @@ extension AppModel {
         guard stage == .ready, let services, decidingRequest == nil, let message = openedContent[requestID],
               case .request(let request) = message.message, request.offers.contains(code),
               let index = approvals.index(of: requestID), approvals.requests[index].decision == nil,
-              !approvals.requests[index].isFinished(at: environment.clock.now()) else { return }
+              !approvals.requests[index].isFinished(at: environment.clock.now()),
+              !uncheckedRequests.contains(requestID) else { return }
         decidingRequest = requestID
         decisionProblems[requestID] = nil
         defer {
@@ -186,9 +187,14 @@ extension AppModel {
             let now = environment.clock.now()
             guard let message = outbox[name], message.envelope.expiresAt > now,
                   (nextAttempts[name] ?? .distantPast) <= now else { continue }
-            if case .receipt(let request) = message.purpose, approvals.index(of: request) == nil {
-                outbox[name] = nil
-                continue
+            if case .receipt(let request) = message.purpose {
+                // A request already closed needs no receipt; one a tapped
+                // fetch found waits until a zone poll checked it (#337).
+                guard let index = approvals.index(of: request), approvals.requests[index].closed == nil else {
+                    outbox[name] = nil
+                    continue
+                }
+                if uncheckedRequests.contains(request) { continue }
             }
             let saved = await send(message.envelope, retryKey: name, services: services)
             guard self.services === services else { return }

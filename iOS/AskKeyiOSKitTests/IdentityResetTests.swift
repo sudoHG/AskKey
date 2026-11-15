@@ -66,6 +66,15 @@ final class IdentityResetTests: XCTestCase {
         XCTAssertNil(try world.keychain.data(for: "notification-service-state"))
         XCTAssertTrue(world.keychain.accounts.isEmpty)
         XCTAssertEqual(DeviceKeychainAccount.notificationServiceState, "notification-service-state")
+
+        // An extension run that was still going during the reset writes its
+        // state again; the next identity still starts without it.
+        try world.keychain.setData(Data(#"{"version":1,"timeSensitive":{},"deliveryChecks":[]}"#.utf8),
+                                   for: "notification-service-state")
+        world.identities.restoringError = nil
+        await relaunched.runWelcomeChecks()
+        XCTAssertEqual(relaunched.stage, .ready)
+        XCTAssertNil(try world.keychain.data(for: "notification-service-state"))
     }
 
     func testIncompleteStoredKeysAreUnusable() async throws {

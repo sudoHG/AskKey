@@ -75,11 +75,12 @@ public final class AppModel {
     @ObservationIgnored var nextAttempts: [String: Date] = [:]
     @ObservationIgnored var sendWork: Task<Void, Never>?
     @ObservationIgnored var sendAgain = false
-    /// The tapped record's own fetch by name while it runs.
-    @ObservationIgnored var openingWork: Task<Void, Never>?
-    /// Counts the inbox passes started, so a tapped record whose fetch gave
-    /// no final answer is settled by the first pass that starts afterwards.
-    @ObservationIgnored var inboxPasses = 0
+    /// Tapped records' own fetches by name while they run, by record name.
+    @ObservationIgnored var openingWork: [String: Task<Void, Never>] = [:]
+    /// Records fetched by name for a tapped notification whose requests
+    /// cannot be decided, and whose receipts wait, until a zone poll that
+    /// started afterwards has run.
+    @ObservationIgnored var uncheckedRequests: Set<String> = []
     /// Push hints already fetched by name.
     @ObservationIgnored var namedFetched: Set<String> = []
     /// The pairings on the list when Mac names were last made unique;
@@ -267,6 +268,9 @@ public final class AppModel {
         let deviceID = DeviceID(messagePublicKey: setup.identity.messagePublicKey)
         if !setup.stored {
             do {
+                // The notification extension may have written its state again
+                // while a reset deleted it; a new identity starts without it (#331).
+                try environment.keychain.deleteData(for: DeviceKeychainAccount.notificationServiceState)
                 try keychain.save(setup.blobs)
                 try listStore.savePairedDeviceList(PairedDeviceList())
             } catch {

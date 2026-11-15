@@ -132,22 +132,27 @@ extension AppModel {
 
     private func pollOnce() async {
         guard stage == .ready, let services else { return }
-        inboxPasses += 1
-        let pass = inboxPasses
-        defer { settleOpening(afterPass: pass) }
         var preparing = false
         if !accountChecked || accountNotice != nil { preparing = await checkAccount(services) }
         guard accountNotice == nil, self.services === services else { return }
         // The tapped record goes before the inbox preparation and the zone
         // poll: one fetch by name shows its card (#337).
         await fetchOpenedRecord(services)
-        guard self.services === services, stage == .ready else { return }
-        if preparing { await prepareInbox(services) }
+        guard accountNotice == nil, self.services === services, stage == .ready else { return }
+        if preparing {
+            await prepareInbox(services)
+            guard accountNotice == nil, self.services === services else { return }
+        }
         let before = try? await services.registry.list()
         var outcomes: [String: InboxMessageOutcome] = [:]
+        // Requests a tapped fetch found before this zone poll started become
+        // decidable once it ran, as a request a push named is fetched by
+        // name after the zone poll, whether or not the poll succeeded.
+        let checking = uncheckedRequests
         do {
-            // The zone poll goes first: within one fetch a closed message is
-            // handled before its request, so it keeps the request hidden.
+            // The zone poll goes before the other pushed names: within one
+            // fetch a closed message is handled before its request, so it
+            // keeps the request hidden.
             let report = try await services.messenger.poll()
             guard self.services === services else { return }
             if let token = await services.messenger.inboxToken, var position = environment.localState.inboxPosition {
@@ -164,6 +169,7 @@ extension AppModel {
             AppLog.failure("Fetching the inbox", error)
         }
         guard self.services === services else { return }
+        uncheckedRequests.subtract(checking)
         guard await fetchPushedRecords(services, skipping: outcomes, into: &outcomes) else { return }
         recordDeliveries(outcomes, kinds: services.transport.takeKinds())
         await refreshList(previous: before)
@@ -204,7 +210,8 @@ extension AppModel {
     /// Records each answered delivery check, found through a push when one
     /// pointed to its record and by polling otherwise, and clears the
     /// notifications of messages that are settled. A request still waiting
-    /// for a decision keeps its notification until it settles.
+    /// for a decision keeps its notification until it settles. Only
+    /// processed messages need their kinds.
     func recordDeliveries(_ outcomes: [String: InboxMessageOutcome], kinds: [String: Int64]) {
         let now = environment.clock.now()
         var settled: [String] = []
@@ -215,6 +222,12 @@ extension AppModel {
                     let hint = pushHints[name]
                     append(DeliveryRecord(recordName: name, arrivedAt: hint?.arrivedAt ?? now,
                                           source: hint == nil ? .polling : .push))
+                    // A tapped delivery check is not a request: its sheet
+                    // closes, whichever fetch handled it.
+                    if opening?.id == name {
+                        if openedRequest?.id == name { openedRequest = nil }
+                        opening = nil
+                    }
                 }
                 if isPendingRequest(name) { continue }
             case .refused?:
@@ -247,7 +260,7 @@ extension AppModel {
         let services = self.services
         self.services = nil
         await inboxWork?.value
-        await openingWork?.value
+        for work in openingWork.values { await work.value }
         let transport: (any InboxTransport)? = services?.transport
             ?? environment.localState.deviceID.flatMap(DeviceID.init(text:)).flatMap(environment.cloud.makeTransport(for:))
         do {
@@ -274,6 +287,7 @@ extension AppModel {
         settledRequests = []
         openedRequest = nil
         opening = nil
+        uncheckedRequests = []
         knownList = nil
         seenPairings = nil
         locallyRemoved = []
