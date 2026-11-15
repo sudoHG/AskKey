@@ -13,7 +13,7 @@ enum NoticeLayoutFixtures {
         private let defaults: UserDefaults
 
         init(language: String, state: SettingsEntryState, recovery: Bool, broker: Bool, longContent: Bool = false,
-             metadataIssue: ComponentMetadataUpgradeError? = nil) throws {
+             metadataIssue: ComponentMetadataUpgradeError? = nil, accessRecords: [CredentialAccessEvent] = []) throws {
             defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
             defaults.set(language, forKey: "languageMode")
             defaults.set("light", forKey: "appearanceMode")
@@ -37,7 +37,7 @@ enum NoticeLayoutFixtures {
             mutations.componentMetadataIssue = { metadataIssue }
             vault = VaultViewModel(
                 runtimeFileCleanupFailures: { false },
-                accessRecords: .empty,
+                accessRecords: accessRecords.isEmpty ? .empty : .readOnly { accessRecords },
                 eraseLocalLibrary: { _, _, _ in XCTFail("Rendering must not erase a library") },
                 unlockVault: { XCTFail("Rendering must not unlock a library") },
                 beginManagementSession: { _ in XCTFail("Rendering must not authenticate") },
