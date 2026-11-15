@@ -18,6 +18,7 @@ extension DeviceCoordinator {
     /// whose removal began, also when its write failed or is still pending.
     func activateApproversIfNeeded() {
         guard canActivateApprovers, !approversLoaded else { return }
+        trackPendingRequestsBeforeActivation()
         do {
             try vault.activateStoredApprovers(excluding: revokedApprovers)
             approversLoaded = true
@@ -53,6 +54,7 @@ extension DeviceCoordinator {
     private func activateMissingApprover(_ pairingID: PairingID) {
         guard !revokedApprovers.contains(pairingID),
               vault.approvalRequests.activeApproverGeneration(pairingID: pairingID.rawValue) == nil else { return }
+        trackPendingRequestsBeforeActivation()
         do {
             if !(try vault.activateStoredApprovers(only: pairingID)).isEmpty {
                 environment.log(.approverActivated)
@@ -61,5 +63,14 @@ extension DeviceCoordinator {
             // The next list read tries again.
             environment.log(.approverActivationFailed)
         }
+    }
+
+    /// Eligibility is decided when a request is created, but the Broker's
+    /// notification reaches the coordinator later, and can be merged into a
+    /// later one. Tracking every pending request against the set as it is
+    /// before an addition keeps a request the coordinator has not seen yet
+    /// from going to an approver that joined after it.
+    private func trackPendingRequestsBeforeActivation() {
+        reconcileRemoteRequests()
     }
 }

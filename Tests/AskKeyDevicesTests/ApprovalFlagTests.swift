@@ -195,6 +195,43 @@ final class ApprovalFlagTests: XCTestCase {
         await XCTAssertNilAsync(try await mac.entry(for: phone), "the ended session stores nothing")
     }
 
+    /// The rollback of an add whose session ended fails to write: the
+    /// flagged entry is removed at the next timer pass, not left behind.
+    func testAFailedRollbackOfAFlaggedAddIsRetriedUntilItCommits() async throws {
+        let harness = DeviceHarness()
+        let store = InMemoryPairedDeviceListStore()
+        let canceller = Canceller()
+        let failer = FailFirstRollback()
+        let mac = SimulatedDevice(identity: SoftwareDeviceIdentity(), store: store, platform: .macOS, harness: harness,
+                                  options: .init(removalHook: { entry in
+                                      await canceller.cancel(onRemovalOf: entry)
+                                      if failer.shouldFail(entry) { store.failNextSaves(1) }
+                                  }))
+        let phone = harness.makeDevice(.iOS)
+        try await harness.pair(mac, phone)
+        harness.clock.advance(by: 11 * 60)
+        let old = try await XCTUnwrapAsync(try await mac.entry(for: phone))
+        canceller.arm(mac.messenger, cancellingOn: old.pairingID)
+        failer.arm(keeping: old.pairingID)
+
+        // Pairing again; Cancel arrives while the replacing write waits for
+        // the hook, and the rollback's own write then fails.
+        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        try await mac.poll()
+        try await phone.poll()
+        try await mac.poll()
+        try await mac.confirm()
+        try await phone.confirm()
+        try await mac.poll()
+        if try await mac.entry(for: phone) != nil {
+            // The poll's own timer pass had not run yet.
+            await mac.messenger.advanceTimers()
+        }
+        XCTAssertEqual(failer.rollbackAttempts, 2, "the failed rollback, then its retry")
+        await XCTAssertNilAsync(try await mac.entry(for: phone), "the retried rollback removed the flagged entry")
+    }
+
     func testTheRegistryAnnouncesEveryEntryAWriteRemovesEvenWhenTheListChangesDuringTheHook() async throws {
         let identity = SoftwareDeviceIdentity()
         let first = try entry(identity, pairing: 1)
@@ -255,5 +292,26 @@ private final class Canceller: @unchecked Sendable {
             return messenger
         }
         await target?.cancelPairing()
+    }
+}
+
+/// Makes the first removal of an entry other than `kept` fail its write.
+private final class FailFirstRollback: @unchecked Sendable {
+    private let lock = NSLock()
+    private var kept: PairingID?
+    private var attempts = 0
+
+    var rollbackAttempts: Int { lock.withLock { attempts } }
+
+    func arm(keeping pairingID: PairingID) {
+        lock.withLock { kept = pairingID }
+    }
+
+    func shouldFail(_ entry: PairedDevice) -> Bool {
+        lock.withLock {
+            guard let kept, entry.pairingID != kept else { return false }
+            attempts += 1
+            return attempts == 1
+        }
     }
 }

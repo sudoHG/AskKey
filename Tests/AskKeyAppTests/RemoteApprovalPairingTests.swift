@@ -150,6 +150,31 @@ final class RemoteApprovalPairingTests: AskKeyAppTestCase {
         XCTAssertNil(harness.vault.approvalRequests.activeApproverGeneration(pairingID: pairingID.rawValue))
     }
 
+    /// The Broker's notification of a request has not reached the
+    /// coordinator when the first iPhone joins: the request still stays on
+    /// the Mac.
+    func testARequestNotSeenYetWhenTheFirstIPhoneJoinsStaysOnTheMac() async throws {
+        try harness.addCredential()
+        let code = try await harness.reachCodeEntry()
+        await harness.coordinator.enterPairingCode(code)
+        await harness.coordinator.confirmPairing()
+        // Created now; the observer has not told the coordinator yet.
+        let run = BrokerTextRunRequest(command: ["/usr/bin/true"], credentialNames: [DeviceCoordinatorHarness.credentialName],
+                                       callerName: "Synthetic Agent")
+        guard case .approvalRequired = try harness.vault.brokerTextCredentials(for: run, cancellation: .init()) else {
+            return XCTFail("a pending read")
+        }
+        let pending = try XCTUnwrap(harness.vault.approvalRequests.pendingRequests().last)
+        XCTAssertNil(harness.coordinator.remoteRequests[pending.requestID])
+        try await harness.phone.confirm()
+        await harness.coordinator.refresh()
+        XCTAssertNotNil(try harness.generation(of: harness.phone), "the iPhone joined")
+        XCTAssertEqual(harness.coordinator.remoteRequests[pending.requestID]?.phase, .stayingOnMac)
+        harness.coordinator.approvalRequestsChanged()
+        await harness.coordinator.remoteApprovalTick()
+        XCTAssertTrue(harness.macSent(.approvalRequest).isEmpty)
+    }
+
     func testAnEligibleRequestStillWaitingReachesANewlyPairedIPhoneAtItsMark() async throws {
         try await harness.pairApprover()
         harness.script.screenUnlocked = true
