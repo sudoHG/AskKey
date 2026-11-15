@@ -102,7 +102,7 @@
     <p>The developer holds none of the data the apps handle. Crash reports and TestFlight information that Apple passes on stay in App Store Connect; to have something you sent deleted, open an issue without including the data itself.</p>
 
     <h2>Ask Key for Mac</h2>
-    <p>Ask Key for Mac keeps your credentials encrypted on your Mac and gives them only to the programs you allow. Without a paired device, its only network request is the update check: the app requests askkey.sudohg.com/appcast.xml, which Cloudflare redirects to GitHub, and an update you install downloads from GitHub. Both see your IP address, the versions of Ask Key and its updater, and the standard headers macOS adds, including your preferred languages; cookies they set are stored for Ask Key. No system profile is sent. A Mac that pairs a device also uses your iCloud as described above.</p>
+    <p>Ask Key for Mac keeps your credentials encrypted on your Mac and gives them only to the programs you allow. Until you first start pairing a device, its only network request is the update check: the app requests askkey.sudohg.com/appcast.xml, which Cloudflare redirects to GitHub, and an update you install downloads from GitHub. Both see your IP address, the versions of Ask Key and its updater, and the standard headers macOS adds, including your preferred languages; cookies they set are stored for Ask Key. No system profile is sent. Once you start pairing, the Mac also uses your iCloud as described above, even if you cancel that pairing or later remove every device, until you choose Erase Local Data in Settings.</p>
 
     <h2>This website</h2>
     <p>askkey.sudohg.com is served by Cloudflare Pages and counts visits with VibeCafé’s analytics script. Neither is part of the apps.</p>

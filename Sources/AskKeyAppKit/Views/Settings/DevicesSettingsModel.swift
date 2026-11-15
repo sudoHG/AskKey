@@ -32,8 +32,8 @@ final class DevicesSettingsModel {
         self.coordinator = coordinator
     }
 
-    /// Builds without CloudKit, and every Release build until stage 4, have
-    /// no Devices section.
+    /// Builds without CloudKit (Debug, E2E and Local builds without a
+    /// provisioning profile) have no Devices section.
     var isSectionVisible: Bool { coordinator.availability != .notConfigured }
 
     var notice: DevicesPresentation.Notice {
