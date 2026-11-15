@@ -1,3 +1,4 @@
+import AppKit
 import AskKeyBroker
 import AskKeyDevices
 import Foundation
@@ -100,5 +101,49 @@ final class RemoteApprovalFooterTests: XCTestCase {
         XCTAssertEqual(step(ended: true, footer: .sent), .close)
         XCTAssertNil(state.footer, "a request that left pending never says the iPhone can decide")
         XCTAssertEqual(step(unlocked: false, footer: .sent), .close, "a lock closes the panel as before")
+    }
+    func testAnApproversDecisionClearsTheHintAtOnce() {
+        let state = RemoteApprovalPanelState(requestID: "request", footer: .sent)
+        state.record(RemoteAppliedDecision(requestID: "request", deviceName: "Synthetic iPhone", approved: true), now: start)
+        XCTAssertNil(state.footer, "\"Also on iPhone\" never shows next to \"Approved on\"")
+        XCTAssertEqual(state.step(requestEnded: false, screenUnlocked: true, expired: false, now: start, status: nil,
+                                  footer: .sent, lastDecision: nil, applying: true), .keepOpen)
+        XCTAssertNil(state.footer)
+    }
+
+    /// The panel follows its state's hint, and a footer that needs a second
+    /// line, as the English sent form does, grows the panel downward: its top
+    /// edge, and with it every button, stays where it was.
+    func testTheFooterFollowsTheHintAndAGrowingFooterKeepsTheButtonsInPlace() throws {
+        _ = NSApplication.shared
+        try ApprovalCardFixtures.withLanguages { language in
+            let request = ApprovalCardFixtures.request(.read, display: ApprovalCardFixtures.display())
+            let remote = RemoteApprovalPanelState(requestID: "synthetic", footer: .waiting(sendAt: Date(timeIntervalSinceNow: 18)))
+            let prompt = FrozenAgentApprovalPrompt(request: request, trustedCredentialName: "Staging API",
+                expiresAt: Date(timeIntervalSinceNow: 300), timedAllowanceEnabled: true, remote: remote,
+                finish: { _ in XCTFail("Laying out must never decide") })
+            let panel = AppDelegate.makeFrozenApprovalPanel(prompt, visibleFrame: { _ in NSRect(x: 0, y: 0, width: 1440, height: 900) })
+            defer { panel.contentViewController = nil; panel.close() }
+            func show(_ hint: RemoteApprovalFooterHint?) -> NSRect {
+                _ = remote.step(requestEnded: false, screenUnlocked: true, expired: false, now: Date(), status: nil,
+                                footer: hint, lastDecision: nil, applying: false)
+                for _ in 0..<12 {
+                    panel.layoutIfNeeded()
+                    panel.contentView?.layoutSubtreeIfNeeded()
+                    RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.02))
+                }
+                return panel.frame
+            }
+            let waiting = show(.waiting(sendAt: Date(timeIntervalSinceNow: 18)))
+            let sent = show(.sent)
+            XCTAssertFalse(panel.isVisible)
+            XCTAssertEqual(sent.maxY, waiting.maxY, accuracy: 0.5, "the top edge stays")
+            if language == "en" {
+                XCTAssertGreaterThan(sent.height, waiting.height, "the English sent form takes a second line")
+            } else {
+                XCTAssertEqual(sent.height, waiting.height, accuracy: 0.5, "every Chinese form fits on one line")
+            }
+            XCTAssertEqual(show(nil), waiting, "the unchanged footer is one line again")
+        }
     }
 }

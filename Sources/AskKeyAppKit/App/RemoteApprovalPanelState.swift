@@ -91,7 +91,7 @@ final class RemoteApprovalPanelState {
     /// pending, when the coordinator drops it.
     private(set) var status: RemoteApprovalStatus?
     /// What the footer says about the approvers; nil once the request left
-    /// pending.
+    /// pending or an approver's decision was recorded.
     private(set) var footer: RemoteApprovalFooterHint?
     /// The approver's decision that moved this request out of pending.
     private(set) var outcome: RemoteAppliedDecision?
@@ -105,10 +105,13 @@ final class RemoteApprovalPanelState {
     }
 
     /// Records the coordinator's latest decision when it decided this request.
+    /// The footer's hint goes with it, so "Also on iPhone" never shows next
+    /// to the approver's decision.
     func record(_ decision: RemoteAppliedDecision?, now: Date) {
         guard outcome == nil, let decision, decision.requestID == requestID else { return }
         outcome = decision
         outcomeShownAt = now
+        footer = nil
     }
 
     /// One privacy check. A locked screen closes the panel at once; an
@@ -119,9 +122,9 @@ final class RemoteApprovalPanelState {
               status: RemoteApprovalStatus?, footer: RemoteApprovalFooterHint? = nil,
               lastDecision: RemoteAppliedDecision?, applying: Bool) -> Step {
         if !requestEnded, status != self.status { self.status = status }
-        let footer = requestEnded ? nil : footer
-        if footer != self.footer { self.footer = footer }
         record(lastDecision, now: now)
+        let footer = requestEnded || outcome != nil ? nil : footer
+        if footer != self.footer { self.footer = footer }
         guard screenUnlocked else { return .close }
         if let shownAt = outcomeShownAt {
             return now.timeIntervalSince(shownAt) >= Self.outcomeDuration ? .close : .keepOpen

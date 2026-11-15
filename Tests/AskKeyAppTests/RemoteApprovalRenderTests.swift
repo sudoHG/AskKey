@@ -217,8 +217,9 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
                                                    deliveredAt: delivered ? sent.addingTimeInterval(2) : nil)])
         }
         let cases: [(String, RemoteApprovalPanelState, Bool)] = [
-            ("11", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: false)), true),
-            ("12", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: true)), true),
+            // Saved and still open, so the footer says "Also on iPhone" (#350).
+            ("11", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: false), footer: .sent), true),
+            ("12", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: true), footer: .sent), true),
             ("13", outcome(approved: true, status: status(delivered: true)), false),
             ("14", outcome(approved: false, status: status(delivered: true)), false),
         ]
@@ -245,18 +246,25 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
         // The footer ticks just after each whole second before its anchor, so
         // an anchor 0.05 s short of a whole second keeps the number for almost
         // a second, longer than a render takes.
+        // A render that took longer is taken again, so the PNG shows `number`.
         func footer(_ label: String, expiresIn: TimeInterval, shows number: String,
                     state: (Date) -> RemoteApprovalPanelState) throws {
-            let now = Date()
-            let remote = state(now)
-            let expiresAt = now.addingTimeInterval(expiresIn)
-            let schedule = RemoteApprovalFooterSchedule(anchor: RemoteApprovalFooter.anchor(remote.footer, expiresAt: expiresAt))
-            let tick = try XCTUnwrap(schedule.entries(from: now, mode: .normal).next())
-            let shown = RemoteApprovalFooter.text(remote.footer, expiresAt: expiresAt, now: tick)
-            XCTAssertTrue(shown.contains(number), "\(label) shows \(shown)")
             let name = "\(label.prefix(2))-\(tag)-\(label.dropFirst(3))"
-            try renderPanel(remote: remote, expanded: false, expiresAt: expiresAt, as: name)
-            names.append(name)
+            for _ in 0..<3 {
+                let now = Date()
+                let remote = state(now)
+                let expiresAt = now.addingTimeInterval(expiresIn)
+                let schedule = RemoteApprovalFooterSchedule(anchor: RemoteApprovalFooter.anchor(remote.footer, expiresAt: expiresAt))
+                let tick = try XCTUnwrap(schedule.entries(from: now, mode: .normal).next())
+                let shown = RemoteApprovalFooter.text(remote.footer, expiresAt: expiresAt, now: tick)
+                XCTAssertTrue(shown.contains(number), "\(label) shows \(shown)")
+                try renderPanel(remote: remote, expanded: false, expiresAt: expiresAt, as: name)
+                if Date().timeIntervalSince(now) < 0.9 {
+                    names.append(name)
+                    return
+                }
+            }
+            XCTFail("\(name) took longer than 0.9 s to render three times")
         }
         try footer("17-panel-footer-iphone-in-18s", expiresIn: 297.95, shows: "18") {
             RemoteApprovalPanelState(requestID: "synthetic", footer: .waiting(sendAt: $0.addingTimeInterval(17.95)))
