@@ -44,6 +44,18 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// Pairing makes this iPhone an approver (#336): no approver code,
+    /// approver confirmation or Stop Approving remains (#342).
+    func testNoRetiredApproverStringRemains() throws {
+        let english = try table("en")
+        for key in english.keys {
+            XCTAssertFalse(key.hasPrefix("approver.") || key.hasPrefix("mac.approve") || key.hasPrefix("mac.stop"), key)
+            let value = try XCTUnwrap(english[key])
+            XCTAssertFalse(value.localizedCaseInsensitiveContains("approver code"), key)
+            XCTAssertFalse(value.localizedCaseInsensitiveContains("stop approving for"), key)
+        }
+    }
+
     func testAlertKeysMatchTheSubscription() {
         XCTAssertEqual(CloudKitInboxLayout.alertTitleLocalizationKey, "push.message.title")
         XCTAssertEqual(CloudKitInboxLayout.alertBodyLocalizationKey, "push.message.body")

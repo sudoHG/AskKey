@@ -1,17 +1,11 @@
 import AskKeyDevices
 import Foundation
 
-/// A message sealed once and sent until CloudKit saves it.
+/// A receipt sealed once and sent until CloudKit saves it.
 struct OutgoingMessage: Hashable, Sendable {
-    enum Purpose: Hashable, Sendable {
-        /// The receipt for the request with this record name.
-        case receipt(request: String)
-        /// An approver confirmation; once saved, the flag for this pairing is set.
-        case confirmation(mac: DeviceID, pairingID: PairingID)
-    }
-
     let envelope: DeviceEnvelope
-    let purpose: Purpose
+    /// The record name of the request it acknowledges.
+    let request: String
 }
 
 /// The approver's inbox side (ADR 0014 → iPhone app): which verified
@@ -31,7 +25,8 @@ extension AppModel {
 
     // MARK: Handler
 
-    /// Verified kinds 10–14. `AskKeyDevices` checked the envelope, the
+    /// Verified kinds 10–13 (a retired kind 14 approver confirmation is
+    /// refused as unexpected). `AskKeyDevices` checked the envelope, the
     /// signatures, the payload and the pairing ID; this checks the
     /// direction and the approval flag: a Mac sends only requests and
     /// closed messages, and only a Mac whose entry carries this iPhone's
@@ -129,8 +124,7 @@ extension AppModel {
         openedContent[recordName] = message
         forget(expired)
         if let receipt = try? services.sealer.sealApprovalReceipt(answering: message) {
-            outbox[receipt.envelope.recordName] = OutgoingMessage(envelope: receipt.envelope,
-                                                                  purpose: .receipt(request: recordName))
+            outbox[receipt.envelope.recordName] = OutgoingMessage(envelope: receipt.envelope, request: recordName)
         }
         rebuildRequests()
         settleRequestNotifications(also: expired)
@@ -194,13 +188,12 @@ extension AppModel {
     /// Runs before any removal of a Mac commits: an unpair notice, a
     /// removal here, or pairing again. Its requests are refused from now on.
     func macWillBeRemoved(_ entry: PairedDevice) async {
-        revocationCount += 1
         revokedPairings.insert(entry.pairingID)
         dropApprovals(forMac: entry.deviceID.text)
     }
 
     /// Drops a Mac's requests, stored decisions, markers, unsent receipts
-    /// and confirmations, and their notifications.
+    /// and their notifications.
     func dropApprovals(forMac mac: String) {
         var state = approvals
         let dropped = state.requests.filter { $0.macID == mac }.map(\.recordName)
@@ -208,23 +201,9 @@ extension AppModel {
         state.markers.removeAll { $0.macID == mac }
         if state != approvals { commitApprovals(state) }
         forget(dropped)
-        outbox = outbox.filter { _, message in
-            switch message.purpose {
-            case .receipt(let request): return !dropped.contains(request)
-            case .confirmation(let target, _): return target.text != mac
-            }
-        }
-        if approverConfirmation?.macID == mac { stopSendingConfirmation() }
+        outbox = outbox.filter { _, message in !dropped.contains(message.request) }
         rebuildRequests()
         settleRequestNotifications(also: dropped)
-    }
-
-    /// A confirmation that will no longer be sent leaves its sheet waiting
-    /// for the person again.
-    private func stopSendingConfirmation() {
-        guard approverConfirmation?.stage == .sending else { return }
-        approverConfirmation?.stage = .entering
-        approverConfirmation?.problem = .notSent
     }
 
     /// After an account change, a sign-out or an identity reset: every
@@ -240,7 +219,6 @@ extension AppModel {
             // `loadApprovals` drops.
             AppLog.failure("Deleting the stored requests", error)
         }
-        stopSendingConfirmation()
         approvals = StoredApprovals()
         openedContent = [:]
         outbox = [:]

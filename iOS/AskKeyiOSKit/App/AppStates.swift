@@ -56,7 +56,9 @@ public struct PairedMacRow: Identifiable, Hashable, Sendable {
     public let pairedAt: Date
     /// Nil until the first delivery check from that Mac arrived.
     public let lastReachedAt: Date?
-    /// This iPhone accepts approval requests from this Mac.
+    /// This iPhone accepts approval requests from this Mac. Pairing sets
+    /// it; only a Mac paired before #336 without approval lacks it, and
+    /// has to be removed and paired again.
     public let isApprover: Bool
 
     public init(id: String, name: String, pairedAt: Date, lastReachedAt: Date?, isApprover: Bool = false) {

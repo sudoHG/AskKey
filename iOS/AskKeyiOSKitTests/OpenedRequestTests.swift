@@ -13,7 +13,6 @@ final class OpenedRequestTests: XCTestCase {
         world = TestWorld()
         await world.setUpPhone()
         try await world.pair()
-        await world.approveMac()
         await world.model.processInbox()
     }
 
@@ -341,17 +340,17 @@ final class OpenedRequestTests: XCTestCase {
         XCTAssertTrue(world.cloud.records(in: try world.phone.deviceID).isEmpty, "refused and deleted")
     }
 
-    func testARequestFromAMacWhoseApprovalWasStoppedShowsUnavailable() async throws {
+    func testARequestFromARemovedMacShowsUnavailable() async throws {
         let sealed = try await world.sealRequest()
-        let stopped = await world.model.stopApproving(macID: world.macIdentity.deviceID.text)
-        XCTAssertTrue(stopped)
+        await world.model.removeMac(id: world.macIdentity.deviceID.text)
+        XCTAssertTrue(world.model.pairedMacs.isEmpty)
         try await world.deliver(sealed.sealed.envelope)
         try await tap(sealed.sealed.messageID.text)
         XCTAssertTrue(world.model.requests.isEmpty)
         XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .unavailable)
     }
 
-    func testStopApprovingDuringTheFetchKeepsTheRequestFromBecomingACard() async throws {
+    func testRemovingTheMacDuringTheFetchKeepsTheRequestFromBecomingACard() async throws {
         let phone = try world.phone.deviceID
         let name = try await world.sendRequest().sealed.messageID.text
         let gate = Gate()
@@ -361,8 +360,8 @@ final class OpenedRequestTests: XCTestCase {
         let model = world.model
         let tapped = Task { try await self.tap(name) }
         await waitUntil { self.world.cloud.calls(by: phone).contains(.namedFetch([name])) }
-        let stopped = await model.stopApproving(macID: world.macIdentity.deviceID.text)
-        XCTAssertTrue(stopped)
+        await model.removeMac(id: world.macIdentity.deviceID.text)
+        XCTAssertTrue(model.pairedMacs.isEmpty)
         gate.open()
         try await tapped.value
         XCTAssertTrue(model.requests.isEmpty)

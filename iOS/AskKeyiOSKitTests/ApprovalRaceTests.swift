@@ -12,7 +12,6 @@ final class ApprovalRaceTests: XCTestCase {
         world = TestWorld()
         await world.setUpPhone()
         try await world.pair()
-        await world.approveMac()
     }
 
     override func tearDown() async throws {
@@ -28,7 +27,7 @@ final class ApprovalRaceTests: XCTestCase {
         return sealed.sealed.messageID.text
     }
 
-    func testStopApprovingDuringASendKeepsTheNextStoredDecisionFromLeaving() async throws {
+    func testRemovingTheMacDuringASendKeepsTheNextStoredDecisionFromLeaving() async throws {
         let first = try await receive()
         let second = try await receive()
         world.cloud.failSends { $0.kind == Self.decisionKind }
@@ -40,7 +39,7 @@ final class ApprovalRaceTests: XCTestCase {
         world.cloud.sendHook = { [model = world.model, macID] envelope in
             guard envelope.kind == Self.decisionKind, !fired.value else { return }
             fired.value = true
-            _ = await model.stopApproving(macID: macID)
+            await model.removeMac(id: macID)
         }
         world.clock.advance(by: 2)
         await world.model.processInbox()
@@ -141,16 +140,6 @@ final class ApprovalRaceTests: XCTestCase {
         XCTAssertEqual(world.approvalStore.storedData, stored)
     }
 
-    func testStopApprovingReportsAFlagThatCouldNotBeCleared() async throws {
-        world.keychain.writesFail = true
-        let stopped = await world.model.stopApproving(macID: macID)
-        XCTAssertFalse(stopped)
-        world.keychain.writesFail = false
-        try await world.sendRequest()
-        await world.model.processInbox()
-        XCTAssertTrue(world.model.requests.isEmpty, "this process refuses the Mac's requests anyway")
-    }
-
     func testStoredRequestsAreCappedPerMacFinishedOnesIncluded() async throws {
         for _ in 0..<2 {
             var sealed: [SealedApprovalRequest] = []
@@ -193,16 +182,5 @@ final class ApprovalRaceTests: XCTestCase {
         try await world.sendClosed(.expired, for: sealed)
         await world.model.processInbox()
         XCTAssertEqual(Set(world.notifications.removedIdentifiers), ["first", "second"])
-    }
-
-    func testAnAccountChangeWhileAConfirmationIsSendingResetsTheSheet() async throws {
-        world.cloud.failSends { $0.kind == Int64(MessageKind.approverConfirmation.rawValue) }
-        world.model.startApproverConfirmation(macID: macID)
-        await world.model.confirmApprover(typed: TestWorld.approverCode)
-        XCTAssertEqual(world.model.approverConfirmation?.stage, .sending)
-        world.cloud.accountState = .available(userRecordName: "_user-b")
-        await world.model.refreshAccount()
-        XCTAssertEqual(world.model.approverConfirmation?.stage, .entering)
-        XCTAssertEqual(world.model.approverConfirmation?.problem, .notSent)
     }
 }

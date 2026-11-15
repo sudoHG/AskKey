@@ -53,9 +53,10 @@ struct PairedMacsView: View {
     }
 }
 
-/// The requests, then the paired Macs: name, paired date, last reached and
-/// whether this iPhone approves its requests; the iCloud state and the
-/// outcome of the last removal; and the delivery checks this iPhone answered.
+/// The requests, then the paired Macs: name, paired date, last reached and,
+/// for a Mac paired before #336 without approval, that this iPhone can't
+/// approve its requests; the iCloud state and the outcome of the last
+/// removal; and the delivery checks this iPhone answered.
 struct PairedMacsContent<Requests: View>: View {
     let rows: [PairedMacRow]
     let accountNotice: AccountNotice?
@@ -151,7 +152,9 @@ extension PairedMacsContent where Requests == EmptyView {
     }
 }
 
-/// A Mac's row; tapping it opens the Mac's detail.
+/// A Mac's row; tapping it opens the Mac's detail. Pairing makes this iPhone
+/// approve a Mac's requests, so only the exception is marked: an entry
+/// without the flag.
 private struct MacRow: View {
     let row: PairedMacRow
     let onSelect: () -> Void
@@ -181,10 +184,13 @@ private struct MacRow: View {
                             .font(.footnote)
                             .foregroundStyle(.orange)
                     }
-                    if row.isApprover {
-                        Label { Text("list.approver", bundle: .kit) } icon: { Image(systemName: "checkmark.shield.fill") }
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.green)
+                    if !row.isApprover {
+                        Label { Text("list.notApprover", bundle: .kit) } icon: {
+                            Image(systemName: "exclamationmark.shield.fill")
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.leading)
                     }
                 }
                 Spacer(minLength: 8)

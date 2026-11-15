@@ -79,12 +79,12 @@ final class ScreenRenderTests: XCTestCase {
     }
 
     func testPairedMacs() throws {
-        let row = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt, lastReachedAt: nil)
+        let row = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt, lastReachedAt: nil, isApprover: true)
         try render("11-paired-macs-one-mac",
                    PairedMacsContent(rows: [row], accountNotice: nil, listNotice: nil, records: [], onPair: {},
                                      onSelect: { _ in }, onDismissNotice: {}))
         let reached = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
-                                   lastReachedAt: Self.pairedAt.addingTimeInterval(600))
+                                   lastReachedAt: Self.pairedAt.addingTimeInterval(600), isApprover: true)
         let records = [
             DeliveryRecord(recordName: "a", arrivedAt: Self.pairedAt.addingTimeInterval(300), source: .polling),
             DeliveryRecord(recordName: "b", arrivedAt: Self.pairedAt.addingTimeInterval(600), source: .push),
@@ -127,6 +127,8 @@ final class ScreenRenderTests: XCTestCase {
             .padding(20))
     }
 
+    /// The second Mac was paired before #336 without approval: its row is
+    /// the only one marked.
     func testRequestsHome() throws {
         let rows = [PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
                                  lastReachedAt: Self.pairedAt.addingTimeInterval(600), isApprover: true),
@@ -200,39 +202,74 @@ final class ScreenRenderTests: XCTestCase {
         })
     }
 
+    /// #342: the status line, Rename and Remove; only a Mac paired before
+    /// #336 without approval lacks the flag.
     func testMacDetail() throws {
-        let row = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
-                               lastReachedAt: Self.pairedAt.addingTimeInterval(600))
-        try render("34-mac-detail-not-approving",
-                   MacDetailContent(row: row, onRename: {}, onApprove: {}, onStop: {}, onRemove: {}))
         let approving = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
                                      lastReachedAt: Self.pairedAt.addingTimeInterval(600), isApprover: true)
-        try render("35-mac-detail-approving",
-                   MacDetailContent(row: approving, renameProblem: .duplicate("Office Mac"), onRename: {}, onApprove: {},
-                                    onStop: {}, onRemove: {}))
-    }
-
-    func testApproverConfirmation() throws {
-        let field = Text("approver.field", bundle: .kit).font(.title2.monospaced()).foregroundStyle(.tertiary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        try render("36-approver-confirmation",
-                   ApproverConfirmationContent(flow: ApproverConfirmationFlow(macID: "mac", macName: Self.mac),
-                                               onConfirm: {}, onClose: {}) { field })
-        try render("37-approver-confirmation-invalid-code",
-                   ApproverConfirmationContent(flow: ApproverConfirmationFlow(macID: "mac", macName: Self.mac,
-                                                                              problem: .invalidCode),
-                                               onConfirm: {}, onClose: {}) { field })
-        try render("38-approver-confirmation-sending",
-                   ApproverConfirmationContent(flow: ApproverConfirmationFlow(macID: "mac", macName: Self.mac,
-                                                                              stage: .sending, problem: .retrying),
-                                               onConfirm: {}, onClose: {}) { field })
-        try render("39-approver-confirmation-sent",
-                   ApproverConfirmationContent(flow: ApproverConfirmationFlow(macID: "mac", macName: Self.mac,
-                                                                              stage: .sent),
-                                               onConfirm: {}, onClose: {}) { field })
+        try render("34-mac-detail-approving", MacDetailContent(row: approving, onRename: {}, onRemove: {}))
+        let withoutFlag = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
+                                       lastReachedAt: Self.pairedAt.addingTimeInterval(600))
+        try render("35-mac-detail-without-approval-flag", MacDetailContent(row: withoutFlag, onRename: {}, onRemove: {}))
+        try render("36-mac-detail-remove-confirmation",
+                   ActionSheetStandIn(title: MacRemovalText.title(Self.mac), message: MacRemovalText.message,
+                                      action: MacRemovalText.confirm) {
+                       MacDetailContent(row: approving, onRename: {}, onRemove: {})
+                   })
+        try render("37-mac-detail-rename-and-removal-failed",
+                   MacDetailContent(row: approving, renameProblem: .duplicate("Office Mac"), removalFailed: true,
+                                    onRename: {}, onRemove: {}))
     }
 
     func testPrivacyCover() throws {
         try render("40-privacy-cover", PrivacyCoverView())
+    }
+}
+
+/// iOS draws a `confirmationDialog` itself, so `ImageRenderer` cannot capture
+/// it. This stand-in lays out the dialog's own texts the way an action sheet
+/// shows them, over the screen it opens from, for the wording review.
+private struct ActionSheetStandIn<Background: View>: View {
+    let title: Text
+    let message: Text
+    let action: Text
+    @ViewBuilder var background: Background
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            background
+                .frame(maxHeight: .infinity, alignment: .top)
+            Color.black.opacity(0.2)
+            VStack(spacing: 8) {
+                VStack(spacing: 0) {
+                    VStack(spacing: 6) {
+                        title.font(.footnote.weight(.semibold))
+                        message.font(.footnote)
+                    }
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    Divider()
+                    action
+                        .font(.title3)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                }
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemBackground)))
+                Text("common.cancel", bundle: .kit)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(uiColor: .systemBackground)))
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 8)
+        }
+        // A fixed height, the render's screen height, keeps the sheet at the bottom.
+        .frame(height: 852)
     }
 }
