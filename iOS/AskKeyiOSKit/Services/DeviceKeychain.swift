@@ -76,13 +76,17 @@ public final class DataProtectionKeychain: SecureItemStore, @unchecked Sendable 
 }
 
 /// The keychain accounts of the iPhone's identity and list, the same names
-/// the Mac uses (ADR 0013 → Identifiers).
+/// the Mac uses (ADR 0013 → Identifiers), and the notification extension's
+/// own state (ADR 0014 → Time-sensitive budget).
 enum DeviceKeychainAccount {
     static let messageKey = "device-message-key"
     static let agreementKey = "device-agreement-key"
     static let approvalKey = "device-approval-key"
     static let pairedDevices = "paired-devices"
-    static let all = [messageKey, agreementKey, approvalKey, pairedDevices]
+    /// Written only by the notification extension; deleted by an identity reset.
+    static let notificationServiceState = "notification-service-state"
+    /// Everything an identity reset deletes.
+    static let all = [messageKey, agreementKey, approvalKey, pairedDevices, notificationServiceState]
 }
 
 enum StoredIdentityError: Error, Equatable {
@@ -111,7 +115,9 @@ struct IdentityKeychain {
         try store.setData(blobs.approval, for: DeviceKeychainAccount.approvalKey)
     }
 
-    /// Deletes the keys and the paired-device list; every deletion is tried.
+    /// Deletes the keys, the paired-device list and the notification
+    /// extension's state, so nothing of the old identity is left; every
+    /// deletion is tried.
     func deleteEverything() throws {
         var firstError: Error?
         for account in DeviceKeychainAccount.all {

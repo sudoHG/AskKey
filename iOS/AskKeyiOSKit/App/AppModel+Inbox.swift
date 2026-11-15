@@ -24,8 +24,9 @@ extension AppModel {
     /// A push arrived while the app runs, or the person opened one
     /// (`opened`). It is only a hint: the app fetches its inbox and acts on
     /// what it verifies, never on the notification's text, category or
-    /// action. Opening one opens its request's card when the app holds or,
-    /// within a minute, verifies that request.
+    /// action. Opening one opens its request's sheet at once: the card when
+    /// the app holds that request, otherwise a loading state while the app
+    /// fetches the named record first (#337).
     public func receivedPush(userInfo: [AnyHashable: Any], arrivedAt: Date, notificationIdentifier: String?,
                              opened: Bool = false) async {
         guard let services else {
@@ -43,7 +44,9 @@ extension AppModel {
         remember([hint])
         if opened {
             open(hint.recordName)
-            rebuildRequests()
+            // At once when the account is known, even while a pass runs;
+            // otherwise the next pass fetches it right after the account check.
+            await fetchOpenedRecord(services)
         }
         await processInbox()
     }
@@ -58,11 +61,6 @@ extension AppModel {
             remember([hint])
             if push.opened { open(hint.recordName) }
         }
-    }
-
-    private func open(_ recordName: String) {
-        pendingOpen = recordName
-        pendingOpenSince = environment.clock.now()
     }
 
     /// Keeps each record's first hint and every delivered notification for
@@ -106,12 +104,13 @@ extension AppModel {
         environment.notifications.removeDeliveredNotifications(identifiers: stale)
     }
 
-    /// Fetches and processes the inbox: challenges, confirmations,
-    /// cancellations, delivery checks (answered at once with the message key,
-    /// without a prompt), unpair notices, approval requests and closed
-    /// messages; then fetches by name the records pushes named that the
-    /// zone poll did not settle, and sends what is due. Calls made while a
-    /// fetch runs wait for it and fetch once more afterwards.
+    /// Fetches and processes the inbox: first the record a tapped
+    /// notification named, by name; then the zone poll with challenges,
+    /// confirmations, cancellations, delivery checks (answered at once with
+    /// the message key, without a prompt), unpair notices, approval requests
+    /// and closed messages; then by name the records pushes named that the
+    /// zone poll did not settle; then it sends what is due. Calls made while
+    /// a fetch runs wait for it and fetch once more afterwards.
     public func processInbox() async {
         if let running = inboxWork {
             pollAgain = true
@@ -133,13 +132,27 @@ extension AppModel {
 
     private func pollOnce() async {
         guard stage == .ready, let services else { return }
-        if !accountChecked || accountNotice != nil { await refreshAccount() }
+        var preparing = false
+        if !accountChecked || accountNotice != nil { preparing = await checkAccount(services) }
         guard accountNotice == nil, self.services === services else { return }
+        // The tapped record goes before the inbox preparation and the zone
+        // poll: one fetch by name shows its card (#337).
+        await fetchOpenedRecord(services)
+        guard accountNotice == nil, self.services === services, stage == .ready else { return }
+        if preparing {
+            await prepareInbox(services)
+            guard accountNotice == nil, self.services === services else { return }
+        }
         let before = try? await services.registry.list()
         var outcomes: [String: InboxMessageOutcome] = [:]
+        // Requests a tapped fetch found before this zone poll started become
+        // decidable once it ran, as a request a push named is fetched by
+        // name after the zone poll, whether or not the poll succeeded.
+        let checking = uncheckedRequests
         do {
-            // The zone poll goes first: within one fetch a closed message is
-            // handled before its request, so it keeps the request hidden.
+            // The zone poll goes before the other pushed names: within one
+            // fetch a closed message is handled before its request, so it
+            // keeps the request hidden.
             let report = try await services.messenger.poll()
             guard self.services === services else { return }
             if let token = await services.messenger.inboxToken, var position = environment.localState.inboxPosition {
@@ -156,6 +169,7 @@ extension AppModel {
             AppLog.failure("Fetching the inbox", error)
         }
         guard self.services === services else { return }
+        uncheckedRequests.subtract(checking)
         guard await fetchPushedRecords(services, skipping: outcomes, into: &outcomes) else { return }
         recordDeliveries(outcomes, kinds: services.transport.takeKinds())
         await refreshList(previous: before)
@@ -164,26 +178,29 @@ extension AppModel {
     }
 
     /// Fetches by name, once each, the records pushes named that the zone
-    /// poll did not report, waiting as long as CloudKit asked. Returns false
-    /// when this iPhone's own key failed.
+    /// poll did not report and that are not requests stored already, waiting
+    /// as long as CloudKit asked. Returns false when this iPhone's own key
+    /// failed.
     private func fetchPushedRecords(_ services: DeviceServices, skipping polled: [String: InboxMessageOutcome],
                                     into outcomes: inout [String: InboxMessageOutcome]) async -> Bool {
         let now = environment.clock.now()
         if let notBefore = namedFetchNotBefore, now < notBefore { return true }
-        let names = Array(pushHints.keys.filter { !namedFetched.contains($0) && polled[$0] == nil }.sorted().prefix(100))
+        let names = Array(pushHints.keys.filter {
+            !namedFetched.contains($0) && polled[$0] == nil && approvals.index(of: $0) == nil
+        }.sorted().prefix(100))
         guard !names.isEmpty else { return true }
         namedFetched.formUnion(names)
         do {
             let report = try await services.messenger.fetchNamedMessages(names)
             outcomes.merge(report.outcomes) { polled, _ in polled }
-            namedFetchNotBefore = report.retryAfter.map { environment.clock.now().addingTimeInterval($0) }
+            if let wait = report.retryAfter { postponeNamedFetches(by: wait) }
         } catch is DeviceIdentityError {
             guard self.services === services else { return false }
             identityBecameUnusable()
             return false
         } catch {
             if let transportError = error as? DeviceTransportError, case .rateLimited(let retryAfter?) = transportError {
-                namedFetchNotBefore = environment.clock.now().addingTimeInterval(retryAfter)
+                postponeNamedFetches(by: retryAfter)
             }
             AppLog.failure("Fetching pushed messages", error)
         }
@@ -193,7 +210,8 @@ extension AppModel {
     /// Records each answered delivery check, found through a push when one
     /// pointed to its record and by polling otherwise, and clears the
     /// notifications of messages that are settled. A request still waiting
-    /// for a decision keeps its notification until it settles.
+    /// for a decision keeps its notification until it settles. Only
+    /// processed messages need their kinds.
     func recordDeliveries(_ outcomes: [String: InboxMessageOutcome], kinds: [String: Int64]) {
         let now = environment.clock.now()
         var settled: [String] = []
@@ -204,6 +222,12 @@ extension AppModel {
                     let hint = pushHints[name]
                     append(DeliveryRecord(recordName: name, arrivedAt: hint?.arrivedAt ?? now,
                                           source: hint == nil ? .polling : .push))
+                    // A tapped delivery check is not a request: its sheet
+                    // closes, whichever fetch handled it.
+                    if opening?.id == name {
+                        if openedRequest?.id == name { openedRequest = nil }
+                        opening = nil
+                    }
                 }
                 if isPendingRequest(name) { continue }
             case .refused?:
@@ -236,6 +260,7 @@ extension AppModel {
         let services = self.services
         self.services = nil
         await inboxWork?.value
+        for work in openingWork.values { await work.value }
         let transport: (any InboxTransport)? = services?.transport
             ?? environment.localState.deviceID.flatMap(DeviceID.init(text:)).flatMap(environment.cloud.makeTransport(for:))
         do {
@@ -260,6 +285,9 @@ extension AppModel {
         namedFetchNotBefore = nil
         extraNotifications = [:]
         settledRequests = []
+        openedRequest = nil
+        opening = nil
+        uncheckedRequests = []
         knownList = nil
         seenPairings = nil
         locallyRemoved = []

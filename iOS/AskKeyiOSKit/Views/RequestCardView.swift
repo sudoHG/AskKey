@@ -104,7 +104,7 @@ struct RequestCardContent: View {
             }
         }
         .buttonStyle(ActionButtonStyle(kind: kind))
-        .disabled(isDeciding || (chosen != nil && chosen != code))
+        .disabled(isDeciding || card.isChecking || (chosen != nil && chosen != code))
         .allowsHitTesting(chosen == nil)
         .accessibilityAddTraits(chosen == code ? .isSelected : [])
     }
@@ -114,6 +114,8 @@ struct RequestCardContent: View {
             NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning, text: RequestCopy.problem(problem))
         }
         switch phase {
+        case .pending where card.isChecking:
+            NoticeCard(symbol: "hourglass", text: Text("request.state.checking", bundle: .kit))
         case .pending:
             EmptyView()
         case .sending:
@@ -342,7 +344,9 @@ struct OpenedRequestView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            OpenedRequestContent(card: model.requests.first { $0.id == id }, onClose: onClose) { card in
+            OpenedRequestContent(card: model.requests.first { $0.id == id },
+                                 opening: model.opening?.id == id ? model.openingPhase(at: context.date) : nil,
+                                 onClose: onClose) { card in
                 RequestCardView(model: model, card: card, now: context.date)
             }
         }
@@ -350,8 +354,12 @@ struct OpenedRequestView: View {
     }
 }
 
+/// The card once the app verified the request; until then, while the app
+/// fetches it, a loading state, and when it cannot, an unavailable state.
+/// Neither shows anything from the notification.
 struct OpenedRequestContent<Card: View>: View {
     let card: RequestCard?
+    var opening: OpeningPhase?
     let onClose: () -> Void
     @ViewBuilder var content: (RequestCard) -> Card
 
@@ -359,11 +367,50 @@ struct OpenedRequestContent<Card: View>: View {
         ScreenContent(title: "request.sheet.title") {
             if let card {
                 content(card)
+            } else if let opening {
+                OpeningCard(phase: opening)
             } else {
                 NoticeCard(symbol: "tray", text: Text("request.sheet.gone", bundle: .kit))
             }
             Button(action: onClose) { Text("common.done", bundle: .kit) }
                 .buttonStyle(ActionButtonStyle(kind: .secondary))
         }
+    }
+}
+
+/// The tapped request before its card, in the card's shape: one sentence
+/// with a subject and one subtitle line.
+struct OpeningCard: View {
+    let phase: OpeningPhase
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: phase == .loading ? "hourglass" : "exclamationmark.triangle.fill")
+                .font(.title3)
+                .foregroundStyle(phase == .loading ? Color.accentColor : Color.orange)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title, bundle: .kit)
+                    .font(.title3)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(subtitle, bundle: .kit)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(Color(uiColor: .secondarySystemGroupedBackground)))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var title: LocalizedStringKey {
+        phase == .loading ? "request.opening.title" : "request.opening.failed.title"
+    }
+
+    private var subtitle: LocalizedStringKey {
+        phase == .loading ? "request.opening.subtitle" : "request.opening.failed.subtitle"
     }
 }

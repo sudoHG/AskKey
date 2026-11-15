@@ -1820,6 +1820,74 @@
         }
       }
     },
+    "request.opening.failed.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It may have ended, or this iPhone couldn't reach iCloud or verify it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它可能已经结束，或者这台 iPhone 无法连接 iCloud 或无法核实它。"
+          }
+        }
+      }
+    },
+    "request.opening.failed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key couldn't open this request"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨无法打开这个请求"
+          }
+        }
+      }
+    },
+    "request.opening.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It appears here once this iPhone has fetched and verified it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 取回并核实后，请求会显示在这里。"
+          }
+        }
+      }
+    },
+    "request.opening.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key is checking this request"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨正在核实这个请求"
+          }
+        }
+      }
+    },
     "request.outcome.allowedOnce %@": {
       "extractionState": "manual",
       "localizations": {
@@ -2156,6 +2224,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "请求"
+          }
+        }
+      }
+    },
+    "request.state.checking": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking that this request is still pending."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在确认这个请求是否仍待处理。"
           }
         }
       }

@@ -10,6 +10,7 @@ final class KindRecordingTransport: InboxTransport, NamedInboxFetching, @uncheck
     let base: any InboxTransport
     private let lock = NSLock()
     private var kinds: [String: Int64] = [:]
+    private var watched: [String: Int64?] = [:]
 
     init(base: any InboxTransport) {
         self.base = base
@@ -23,15 +24,33 @@ final class KindRecordingTransport: InboxTransport, NamedInboxFetching, @uncheck
         }
     }
 
+    /// Also keeps the kind of `recordName` apart until `takeWatchedKind`,
+    /// so a poll running alongside cannot take it.
+    func watchKind(of recordName: String) {
+        lock.withLock { watched[recordName] = .some(nil) }
+    }
+
+    /// The kind recorded for a watched record since `watchKind`; stops watching it.
+    func takeWatchedKind(of recordName: String) -> Int64? {
+        lock.withLock { watched.removeValue(forKey: recordName) ?? nil }
+    }
+
+    private func record(_ envelopes: [DeviceEnvelope]) {
+        lock.withLock {
+            for envelope in envelopes {
+                kinds[envelope.recordName] = envelope.kind
+                if watched[envelope.recordName] != nil { watched[envelope.recordName] = envelope.kind }
+            }
+        }
+    }
+
     func send(_ envelope: DeviceEnvelope) async throws {
         try await base.send(envelope)
     }
 
     func fetchInboxChanges(of device: DeviceID, since token: InboxChangeToken?) async throws -> InboxChanges {
         let changes = try await base.fetchInboxChanges(of: device, since: token)
-        lock.withLock {
-            for envelope in changes.envelopes { kinds[envelope.recordName] = envelope.kind }
-        }
+        record(changes.envelopes)
         return changes
     }
 
@@ -44,9 +63,7 @@ final class KindRecordingTransport: InboxTransport, NamedInboxFetching, @uncheck
     func fetchMessages(named recordNames: [String], from device: DeviceID) async throws -> NamedInboxFetch {
         guard let fetcher = base as? any NamedInboxFetching else { throw DeviceMessengerError.namedFetchUnavailable }
         let fetch = try await fetcher.fetchMessages(named: recordNames, from: device)
-        lock.withLock {
-            for envelope in fetch.envelopes { kinds[envelope.recordName] = envelope.kind }
-        }
+        record(fetch.envelopes)
         return fetch
     }
 

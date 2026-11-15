@@ -114,10 +114,10 @@ final class ScreenRenderTests: XCTestCase {
 
     private static func card(_ display: RequestDisplay = display, decision: ApprovalDecisionCode? = nil,
                              isSent: Bool = false, outcome: RequestOutcome? = nil, isGone: Bool = false,
-                             secondsLeft: TimeInterval = 272) -> RequestCard {
+                             isChecking: Bool = false, secondsLeft: TimeInterval = 272) -> RequestCard {
         RequestCard(id: UUID().uuidString, macID: "mac", macName: mac, macPairedAt: pairedAt, display: display,
                     countdownEnd: now.addingTimeInterval(secondsLeft), decision: decision, isSent: isSent, outcome: outcome,
-                    isGone: isGone)
+                    isGone: isGone, isChecking: isChecking)
     }
 
     private func renderCard(_ name: String, _ card: RequestCard, details: Bool = false,
@@ -185,6 +185,19 @@ final class ScreenRenderTests: XCTestCase {
                    OpenedRequestContent(card: Self.card(), onClose: {}) { card in
                        RequestCardContent(card: card, now: Self.now, onDecide: { _ in }, onDismiss: {})
                    })
+    }
+
+    /// #337: a tapped notification's request before its card.
+    func testOpeningRequest() throws {
+        for (name, phase) in [("41-opened-request-loading", OpeningPhase.loading),
+                              ("42-opened-request-unavailable", OpeningPhase.unavailable)] {
+            try render(name, OpenedRequestContent(card: nil, opening: phase, onClose: {}) { card in
+                RequestCardContent(card: card, now: Self.now, onDecide: { _ in }, onDismiss: {})
+            })
+        }
+        try render("43-opened-request-checking", OpenedRequestContent(card: Self.card(isChecking: true), onClose: {}) { card in
+            RequestCardContent(card: card, now: Self.now, onDecide: { _ in }, onDismiss: {})
+        })
     }
 
     func testMacDetail() throws {

@@ -26,8 +26,8 @@ extension AppModel {
     /// and closing requests cannot grow the store without bound.
     static let storedLimitPerMac = 32
     static let storedLimit = 128
-    /// How long a tapped notification waits for its request's card.
-    static let pendingOpenLifetime: TimeInterval = 60
+    /// How long a tapped notification's sheet shows the loading state at most.
+    nonisolated static let pendingOpenLifetime: TimeInterval = 60
 
     // MARK: Handler
 
@@ -247,6 +247,8 @@ extension AppModel {
         nextAttempts = [:]
         decisionProblems = [:]
         openedRequest = nil
+        opening = nil
+        uncheckedRequests = []
         rebuildRequests()
         settleRequestNotifications(also: dropped)
     }
@@ -300,8 +302,10 @@ extension AppModel {
             openedContent[name] = nil
             decisionProblems[name] = nil
             nextAttempts[name] = nil
+            uncheckedRequests.remove(name)
         }
         if let opened = openedRequest, recordNames.contains(opened.id) { openedRequest = nil }
+        if let opening, recordNames.contains(opening.id) { self.opening = nil }
     }
 
     /// At launch: opens every stored request again with the stateless
@@ -365,7 +369,7 @@ extension AppModel {
                                      macPairedAt: device.pairedAt, display: RequestDisplay(request),
                                      countdownEnd: entry.countdownEnd, decision: entry.decision?.decisionCode,
                                      isSent: entry.lastSentAt != nil, outcome: entry.closed.flatMap(RequestOutcome.init),
-                                     isGone: entry.gone))
+                                     isGone: entry.gone, isChecking: uncheckedRequests.contains(entry.recordName)))
         }
         let ordered = cards.sorted { lhs, rhs in
             let (left, right) = (lhs.phase(at: now).isFinished, rhs.phase(at: now).isFinished)
@@ -373,14 +377,8 @@ extension AppModel {
             return left ? lhs.countdownEnd > rhs.countdownEnd : lhs.countdownEnd < rhs.countdownEnd
         }
         if ordered != requests { requests = ordered }
-        if let pendingOpen {
-            if requests.contains(where: { $0.id == pendingOpen }) {
-                openedRequest = OpenedRequest(id: pendingOpen)
-                self.pendingOpen = nil
-            } else if let since = pendingOpenSince, now.timeIntervalSince(since) > Self.pendingOpenLifetime {
-                self.pendingOpen = nil
-            }
-        }
+        // The tapped request's card replaces its loading or unavailable state.
+        if let opening, requests.contains(where: { $0.id == opening.id }) { self.opening = nil }
     }
 
     /// Whether the record is a request whose card still waits for a decision.
