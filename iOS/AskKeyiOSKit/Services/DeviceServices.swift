@@ -23,6 +23,16 @@ final class KindRecordingTransport: InboxTransport, NamedInboxFetching, @uncheck
         }
     }
 
+    /// The kinds recorded for these record names only; the others stay for
+    /// the next `takeKinds()`.
+    func takeKinds(for recordNames: some Sequence<String>) -> [String: Int64] {
+        lock.withLock {
+            var taken: [String: Int64] = [:]
+            for name in recordNames { taken[name] = kinds.removeValue(forKey: name) }
+            return taken
+        }
+    }
+
     func send(_ envelope: DeviceEnvelope) async throws {
         try await base.send(envelope)
     }

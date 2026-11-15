@@ -47,6 +47,27 @@ final class IdentityResetTests: XCTestCase {
         XCTAssertNotEqual(try world.phone.deviceID, phone.deviceID, "pairing again starts from a new identity")
     }
 
+    /// #331: the notification extension's own item, which it writes in the
+    /// app's keychain service, goes with the identity.
+    func testResetDeletesTheNotificationExtensionsState() async throws {
+        let world = TestWorld()
+        await world.setUpPhone()
+        try await world.pair()
+        // Synthetic state, as the extension stores it: no request content.
+        try world.keychain.setData(Data(#"{"version":1,"timeSensitive":{},"deliveryChecks":[]}"#.utf8),
+                                   for: "notification-service-state")
+        world.identities.restoringError = .unusable
+        let relaunched = AppModel(environment: world.environment)
+        await relaunched.start()
+        XCTAssertEqual(relaunched.stage, .unusableIdentity)
+
+        await relaunched.resetIdentity()
+        XCTAssertEqual(relaunched.stage, .welcome)
+        XCTAssertNil(try world.keychain.data(for: "notification-service-state"))
+        XCTAssertTrue(world.keychain.accounts.isEmpty)
+        XCTAssertEqual(DeviceKeychainAccount.notificationServiceState, "notification-service-state")
+    }
+
     func testIncompleteStoredKeysAreUnusable() async throws {
         let world = TestWorld()
         try world.keychain.setData(Data([1]), for: "device-message-key")

@@ -8,7 +8,7 @@ struct ExtensionKeychain: Sendable {
     /// ADR 0014 → Time-sensitive budget: in the service of the app's items
     /// (`DataProtectionKeychain.service`), the shared access group, after
     /// first unlock, this device only.
-    static let stateAccount = "notification-service-state"
+    static let stateAccount = DeviceKeychainAccount.notificationServiceState
 
     private let store: any SecureItemStore
 

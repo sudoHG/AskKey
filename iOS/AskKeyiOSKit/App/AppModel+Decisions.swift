@@ -264,10 +264,12 @@ extension AppModel {
     // MARK: Polling
 
     /// While the app is in front: every 2 seconds while a pending or sent
-    /// request is shown or a message waits to be sent, otherwise every 10.
+    /// request is shown, a tapped request is loading or a message waits to
+    /// be sent, otherwise every 10.
     public var foregroundPollInterval: TimeInterval {
         let now = environment.clock.now()
         let busy = requests.contains { !$0.phase(at: now).isFinished } || !outbox.isEmpty
+            || isLoadingOpenedRequest(at: now)
         return busy ? Self.activePollInterval : Self.idlePollInterval
     }
 

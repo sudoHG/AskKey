@@ -182,3 +182,38 @@ public struct OpenedRequest: Identifiable, Hashable, Sendable {
         self.id = id
     }
 }
+
+/// What the sheet of a tapped notification shows while its request has no card.
+public enum OpeningPhase: Hashable, Sendable {
+    /// The app is fetching and verifying the record the notification named.
+    case loading
+    /// The record was not found or did not verify, the request ended, or
+    /// iCloud did not answer in time.
+    case unavailable
+}
+
+/// A tapped notification's record while its request has no card (#337).
+/// Only the record name comes from the notification, whose text is never
+/// shown; the card appears only once the app verified the request itself.
+public struct OpeningRequest: Hashable, Sendable {
+    enum Step: Hashable, Sendable {
+        /// Its own fetch by name has not started.
+        case fetchDue
+        case fetching
+        /// The fetch gave no final answer; the first inbox pass that starts
+        /// after pass `after` settles it.
+        case waitingForPoll(after: Int)
+        case unavailable
+    }
+
+    /// The record name.
+    public let id: String
+    /// When the notification was tapped.
+    let since: Date
+    var step: Step
+
+    /// Loading lasts at most `AppModel.pendingOpenLifetime`.
+    public func phase(at now: Date) -> OpeningPhase {
+        step == .unavailable || now.timeIntervalSince(since) >= AppModel.pendingOpenLifetime ? .unavailable : .loading
+    }
+}

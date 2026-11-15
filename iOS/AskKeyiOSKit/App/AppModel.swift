@@ -27,8 +27,10 @@ public final class AppModel {
     /// A Face ID or Touch ID prompt for the approval key is open; the
     /// privacy cover stays off while the app is inactive for it.
     public internal(set) var isAuthenticating = false
-    /// The request a tapped notification opened.
+    /// The request a tapped notification opened; its sheet shows at once.
     public var openedRequest: OpenedRequest?
+    /// The tapped record while its request has no card yet.
+    public internal(set) var opening: OpeningRequest?
     /// The approver confirmation while its sheet is open.
     public var approverConfirmation: ApproverConfirmationFlow?
     /// A newly paired Mac got a numbered name; the person may rename it.
@@ -73,10 +75,11 @@ public final class AppModel {
     @ObservationIgnored var nextAttempts: [String: Date] = [:]
     @ObservationIgnored var sendWork: Task<Void, Never>?
     @ObservationIgnored var sendAgain = false
-    /// The record a tapped notification named, until its card shows or a
-    /// minute passed.
-    @ObservationIgnored var pendingOpen: String?
-    @ObservationIgnored var pendingOpenSince: Date?
+    /// The tapped record's own fetch by name while it runs.
+    @ObservationIgnored var openingWork: Task<Void, Never>?
+    /// Counts the inbox passes started, so a tapped record whose fetch gave
+    /// no final answer is settled by the first pass that starts afterwards.
+    @ObservationIgnored var inboxPasses = 0
     /// Push hints already fetched by name.
     @ObservationIgnored var namedFetched: Set<String> = []
     /// The pairings on the list when Mac names were last made unique;
@@ -310,10 +313,17 @@ public final class AppModel {
     /// change, a sign-out or a restriction drops the stored requests,
     /// decisions and markers; the approval flags stay (ADR 0014 → Revocation).
     func refreshAccount() async {
-        guard let services else { return }
+        guard let services, await checkAccount(services) else { return }
+        await prepareInbox(services)
+    }
+
+    /// The account part of `refreshAccount`. Returns true when an account is
+    /// signed in, so the inbox is to be prepared; an inbox pass prepares it
+    /// only after the tapped record's own fetch (#337).
+    func checkAccount(_ services: DeviceServices) async -> Bool {
         let stored = environment.localState.inboxPosition?.userRecordName
         let state = await services.transport.accountState(storedUserRecordName: stored)
-        guard self.services === services else { return }
+        guard self.services === services else { return false }
         accountChecked = true
         switch state {
         case .available(let name):
@@ -328,15 +338,19 @@ public final class AppModel {
         case .noAccount:
             accountNotice = .signedOut
             dropAllApprovals()
-            return
+            return false
         case .restricted:
             accountNotice = .restricted
             dropAllApprovals()
-            return
+            return false
         case .temporarilyUnavailable:
             accountNotice = .unavailable
-            return
+            return false
         }
+        return true
+    }
+
+    func prepareInbox(_ services: DeviceServices) async {
         do {
             _ = try await services.transport.prepareInbox()
         } catch {

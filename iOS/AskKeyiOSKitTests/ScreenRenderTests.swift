@@ -187,6 +187,16 @@ final class ScreenRenderTests: XCTestCase {
                    })
     }
 
+    /// #337: a tapped notification's request before its card.
+    func testOpeningRequest() throws {
+        for (name, phase) in [("41-opened-request-loading", OpeningPhase.loading),
+                              ("42-opened-request-unavailable", OpeningPhase.unavailable)] {
+            try render(name, OpenedRequestContent(card: nil, opening: phase, onClose: {}) { card in
+                RequestCardContent(card: card, now: Self.now, onDecide: { _ in }, onDismiss: {})
+            })
+        }
+    }
+
     func testMacDetail() throws {
         let row = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
                                lastReachedAt: Self.pairedAt.addingTimeInterval(600))
