@@ -65,7 +65,8 @@ jobs:
 
       - name: Test
         env:
-          # RemoteApprovalRenderTests keeps its zh/en PNGs here (#313).
+          # RemoteApprovalRenderTests keeps its zh/en PNGs here (#313), and
+          # AccessRecordRenderTests in its access-records folder (#329).
           REMOTE_APPROVAL_RENDER_DIRECTORY: ${{ runner.temp }}/remote-approval-renders
         run: |
           swift test

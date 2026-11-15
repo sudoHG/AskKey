@@ -1,13 +1,18 @@
 import Foundation
+import AskKeyDevices
 import AskKeyVault
 
 /// Access records as date-grouped rows: a time, one sentence and one
-/// colored result.
+/// colored result. A request a paired iPhone decided adds one detail line
+/// naming that device (ADR 0014).
 struct AccessRecordPresentation: Equatable {
     struct Row: Equatable {
         let id: Int
         let time: String
         let sentence: EmphasizedSentence
+        /// "Approved on “iPhone”" or "Denied on “iPhone”"; nil when the
+        /// request was decided on this Mac.
+        let detail: String?
         let resultTitle: String
         let resultRole: StatusLabel.Role
     }
@@ -115,9 +120,25 @@ struct AccessRecordPresentation: Equatable {
             id: index,
             time: formatter.string(from: event.timestamp),
             sentence: sentence,
+            detail: Self.remoteDecision(event),
             resultTitle: result.title,
             resultRole: result.role
         )
+    }
+
+    /// The device name as the Mac called it when the record was written:
+    /// renaming or removing the device later leaves old records as they were.
+    /// Only an Allow or a Deny comes from a paired device. A stored name that
+    /// is empty still shows the line, as the approval panel does, so a remote
+    /// decision never reads as one made on this Mac.
+    static func remoteDecision(_ event: CredentialAccessEvent) -> String? {
+        guard let stored = event.deviceName else { return nil }
+        let name = DeviceDisplayName.clean(stored)
+        switch event.result {
+        case .allowed: return appLocalizedFormat("Approved on “%@”", name)
+        case .denied: return appLocalizedFormat("Denied on “%@”", name)
+        case .expired, .failed, .hiddenNameRejected: return nil
+        }
     }
 
     private static func result(_ event: CredentialAccessEvent) -> (title: String, role: StatusLabel.Role) {
