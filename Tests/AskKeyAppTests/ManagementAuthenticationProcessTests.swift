@@ -84,11 +84,12 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
         }
     }
 
-    /// Pairing confirmation asks with its own reason (#288), which the
-    /// authentication subprocess accepts and shows in either language.
+    /// Pairing confirmation asks with its own reason (#288), which says the
+    /// iPhone will approve agent requests (#336); the authentication
+    /// subprocess accepts it and shows it in either language.
     func testPackagedSubprocessAcceptsAndDescribesThePairingReason() throws {
         let action = ManagementAuthenticationAction.pairDevice
-        XCTAssertEqual(action.reasonKey, "Pair a device with this Mac")
+        XCTAssertEqual(action.reasonKey, "Pair an iPhone that can approve Agent requests")
         XCTAssertNotEqual(action.reasonKey, CredentialManagementCopy.manageReason)
         XCTAssertTrue(ManagementAuthenticationSubprocess.accepts(reasonKey: action.reasonKey, argumentCount: 0))
         XCTAssertFalse(ManagementAuthenticationSubprocess.accepts(reasonKey: action.reasonKey, argumentCount: 1))
@@ -96,27 +97,11 @@ final class ManagementAuthenticationProcessTests: AskKeyAppTestCase {
             presentation: ManagementAuthenticationPresentation(reasonKey: action.reasonKey, language: "zh-Hans")
         )
         XCTAssertEqual(chinese.title, "请旨")
-        XCTAssertEqual(chinese.reason, "确认将设备与这台 Mac 配对")
+        XCTAssertEqual(chinese.reason, "确认配对一台可以审批 Agent 请求的 iPhone")
         let english = try describePackagedAuthentication(
             presentation: ManagementAuthenticationPresentation(reasonKey: action.reasonKey, language: "en")
         )
-        XCTAssertEqual(english.reason, "Pair a device with this Mac")
-    }
-
-    /// Turning a paired iPhone's approval on asks with its own reason (#313).
-    func testPackagedSubprocessAcceptsAndDescribesTheApproverReason() throws {
-        let action = ManagementAuthenticationAction.approveDevice
-        XCTAssertEqual(action.reasonKey, "Let a paired iPhone approve Agent requests")
-        XCTAssertNotEqual(action.reasonKey, CredentialManagementCopy.manageReason)
-        XCTAssertTrue(ManagementAuthenticationSubprocess.accepts(reasonKey: action.reasonKey, argumentCount: 0))
-        let chinese = try describePackagedAuthentication(
-            presentation: ManagementAuthenticationPresentation(reasonKey: action.reasonKey, language: "zh-Hans")
-        )
-        XCTAssertEqual(chinese.reason, "确认让已配对的 iPhone 审批 Agent 请求") // i18n-literal: Assert the Simplified Chinese catalog value.
-        let english = try describePackagedAuthentication(
-            presentation: ManagementAuthenticationPresentation(reasonKey: action.reasonKey, language: "en")
-        )
-        XCTAssertEqual(english.reason, "Let a paired iPhone approve Agent requests")
+        XCTAssertEqual(english.reason, "Pair an iPhone that can approve Agent requests")
     }
 
     func testAuthenticationArgumentsRejectUnknownDuplicateAndMixedModes() {

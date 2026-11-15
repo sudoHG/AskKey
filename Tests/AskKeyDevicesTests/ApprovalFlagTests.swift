@@ -29,33 +29,36 @@ final class ApprovalFlagTests: XCTestCase {
                                                    enabled: true)), .dropped)
     }
 
-    func testEveryListChangeKeepsTheFlagAndPairingAgainClearsIt() throws {
+    func testEveryListChangeKeepsTheFlagAndAnAddStoresTheFlagItCarries() throws {
         let identity = SoftwareDeviceIdentity()
         let device = try entry(identity)
         let id = device.deviceID
-        var list = try PairedDeviceList(devices: [device, try entry(pairing: 2, name: "Other")])
-        try list.apply(.setApprover(id, pairingID: device.pairingID, enabled: true))
+        var flagged = device
+        flagged.isApprover = true
+        var list = try PairedDeviceList(devices: [flagged, try entry(pairing: 2, name: "Other")])
         let changes: [PairedDeviceChange] = [
             .rename(id, pairingID: device.pairingID, displayName: "Renamed"),
             .recordReached(id, pairingID: device.pairingID, at: now.addingTimeInterval(5)),
             .recordDeliveryCheck(id, pairingID: device.pairingID, result: .pending(sentAt: now.addingTimeInterval(6))),
             .recordDeliveryCheck(id, pairingID: device.pairingID, result: .noReply(sentAt: now.addingTimeInterval(6))),
             .recordDeliveryCheck(id, pairingID: device.pairingID, result: .replied(at: now.addingTimeInterval(7))),
-            .add(device),
+            .add(flagged),
             .remove(list.devices[1].deviceID, pairingID: list.devices[1].pairingID),
         ]
         for change in changes {
             try list.apply(change)
             XCTAssertTrue(try XCTUnwrap(list.device(id)).isApprover, "\(change) keeps the flag")
         }
-        var flagged = device
-        flagged.isApprover = true
         try list.apply(.remove(id, pairingID: device.pairingID))
         try list.apply(.add(flagged))
-        XCTAssertFalse(try XCTUnwrap(list.device(id)).isApprover, "a new entry starts with the flag off")
-        try list.apply(.setApprover(id, pairingID: device.pairingID, enabled: true))
+        XCTAssertTrue(try XCTUnwrap(list.device(id)).isApprover, "an add stores the flag the pairing set (#336)")
         try list.apply(.add(try entry(identity, pairing: 3)))
-        XCTAssertFalse(try XCTUnwrap(list.device(id)).isApprover, "pairing again gives a new entry with the flag off")
+        XCTAssertFalse(try XCTUnwrap(list.device(id)).isApprover, "an entry added without the flag replaces it as given")
+        var again = try entry(identity, pairing: 4)
+        again.isApprover = true
+        try list.apply(.add(again))
+        XCTAssertEqual(list.device(id)?.pairingID, again.pairingID)
+        XCTAssertTrue(try XCTUnwrap(list.device(id)).isApprover, "pairing again stores the new entry's flag")
     }
 
     func testSerializationVersionTwoCarriesTheFlag() throws {
@@ -144,7 +147,7 @@ final class ApprovalFlagTests: XCTestCase {
         try await mac.poll()
         let new = try await fixture.macEntryForPhone()
         XCTAssertNotEqual(new.pairingID, old.pairingID)
-        XCTAssertFalse(new.isApprover, "pairing again starts with approval off")
+        XCTAssertTrue(new.isApprover, "pairing again flags the new entry (#336)")
         XCTAssertEqual(fixture.removals.entries.map(\.pairingID), [old.pairingID], "the replaced entry was announced")
         XCTAssertTrue(fixture.removals.allBeforeCommit)
 
@@ -190,6 +193,43 @@ final class ApprovalFlagTests: XCTestCase {
         XCTAssertNotEqual(log.entries.last?.pairingID, old.pairingID)
         XCTAssertTrue(log.allBeforeCommit)
         await XCTAssertNilAsync(try await mac.entry(for: phone), "the ended session stores nothing")
+    }
+
+    /// The rollback of an add whose session ended fails to write: the
+    /// flagged entry is removed at the next timer pass, not left behind.
+    func testAFailedRollbackOfAFlaggedAddIsRetriedUntilItCommits() async throws {
+        let harness = DeviceHarness()
+        let store = InMemoryPairedDeviceListStore()
+        let canceller = Canceller()
+        let failer = FailFirstRollback()
+        let mac = SimulatedDevice(identity: SoftwareDeviceIdentity(), store: store, platform: .macOS, harness: harness,
+                                  options: .init(removalHook: { entry in
+                                      await canceller.cancel(onRemovalOf: entry)
+                                      if failer.shouldFail(entry) { store.failNextSaves(1) }
+                                  }))
+        let phone = harness.makeDevice(.iOS)
+        try await harness.pair(mac, phone)
+        harness.clock.advance(by: 11 * 60)
+        let old = try await XCTUnwrapAsync(try await mac.entry(for: phone))
+        canceller.arm(mac.messenger, cancellingOn: old.pairingID)
+        failer.arm(keeping: old.pairingID)
+
+        // Pairing again; Cancel arrives while the replacing write waits for
+        // the hook, and the rollback's own write then fails.
+        let qr = try await mac.messenger.startPairing(displayName: "Studio Mac")
+        try await phone.messenger.joinPairing(scannedText: qr.text, displayName: "Pocket Phone")
+        try await mac.poll()
+        try await phone.poll()
+        try await mac.poll()
+        try await mac.confirm()
+        try await phone.confirm()
+        try await mac.poll()
+        if try await mac.entry(for: phone) != nil {
+            // The poll's own timer pass had not run yet.
+            await mac.messenger.advanceTimers()
+        }
+        XCTAssertEqual(failer.rollbackAttempts, 2, "the failed rollback, then its retry")
+        await XCTAssertNilAsync(try await mac.entry(for: phone), "the retried rollback removed the flagged entry")
     }
 
     func testTheRegistryAnnouncesEveryEntryAWriteRemovesEvenWhenTheListChangesDuringTheHook() async throws {
@@ -252,5 +292,26 @@ private final class Canceller: @unchecked Sendable {
             return messenger
         }
         await target?.cancelPairing()
+    }
+}
+
+/// Makes the first removal of an entry other than `kept` fail its write.
+private final class FailFirstRollback: @unchecked Sendable {
+    private let lock = NSLock()
+    private var kept: PairingID?
+    private var attempts = 0
+
+    var rollbackAttempts: Int { lock.withLock { attempts } }
+
+    func arm(keeping pairingID: PairingID) {
+        lock.withLock { kept = pairingID }
+    }
+
+    func shouldFail(_ entry: PairedDevice) -> Bool {
+        lock.withLock {
+            guard let kept, entry.pairingID != kept else { return false }
+            attempts += 1
+            return attempts == 1
+        }
     }
 }

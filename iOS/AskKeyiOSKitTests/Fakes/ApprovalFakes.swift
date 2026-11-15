@@ -116,6 +116,22 @@ extension TestWorld {
         model.closeApproverConfirmation()
     }
 
+    /// Stores the iPhone's entry for `peer` again without the approval flag,
+    /// as a Mac paired before #336 without approval is stored: every pairing
+    /// with a Mac now sets the flag, and the default initializer never does.
+    func storeWithoutApprovalFlag(_ peer: MacPeer? = nil) async throws {
+        let peer = peer ?? primaryMac
+        let store = PairedDeviceListKeychainStore(store: keychain)
+        let devices = try store.loadPairedDeviceList().devices.map { device in
+            guard device.deviceID == peer.deviceID else { return device }
+            return PairedDevice(card: device.card, pairingID: device.pairingID, displayName: device.displayName,
+                                pairedAt: device.pairedAt, lastReachedAt: device.lastReachedAt,
+                                lastDeliveryCheck: device.lastDeliveryCheck)
+        }
+        try store.savePairedDeviceList(try PairedDeviceList(devices: devices))
+        await model.refreshList()
+    }
+
     /// Pairs another Mac and turns approval on for it.
     func pairAndApprove(_ peer: MacPeer) async throws {
         try await pair(peer)

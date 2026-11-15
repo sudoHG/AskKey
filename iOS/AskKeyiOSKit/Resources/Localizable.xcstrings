@@ -1004,6 +1004,23 @@
         }
       }
     },
+    "pairing.approval %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirming lets this iPhone approve agents' requests to use credentials on “%@”. Each request shows the agent, the credential, the command and folder, and the names it's delivered as, never a credential value. Allowing always needs Face ID or Touch ID."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认后，这台 iPhone 可以审批 Agent 使用“%@”上凭证的请求。每个请求会显示 Agent、凭证、命令、目录和交出的名称，绝不包括凭证的值。允许时始终需要面容 ID 或触控 ID。"
+          }
+        }
+      }
+    },
     "pairing.cancel": {
       "extractionState": "manual",
       "localizations": {
@@ -1129,13 +1146,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Confirm pairing with “%@”"
+            "value": "Pair with “%@” to approve its agent requests"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "确认与“%@”配对"
+            "value": "与“%@”配对，以审批它的 Agent 请求"
           }
         }
       }
@@ -1163,13 +1180,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Confirmed on this iPhone. Enter the code on your Mac to finish pairing."
+            "value": "Confirmed on this iPhone. Enter the code on your Mac to finish pairing. Agent requests from that Mac will then appear in Ask Key."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已在这台 iPhone 上确认。请在 Mac 上输入配对码以完成配对。"
+            "value": "已在这台 iPhone 上确认。请在 Mac 上输入配对码以完成配对，之后那台 Mac 上 Agent 的请求会出现在请旨里。"
           }
         }
       }
@@ -1350,13 +1367,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone and “%@” are paired."
+            "value": "This iPhone and “%@” are paired. Agent requests from that Mac will appear in Ask Key. Allowing always needs Face ID or Touch ID."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 已与“%@”配对。"
+            "value": "这台 iPhone 已与“%@”配对。那台 Mac 上 Agent 的请求会出现在请旨里。允许时始终需要面容 ID 或触控 ID。"
           }
         }
       }

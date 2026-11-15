@@ -8,7 +8,7 @@ enum ManagementAuthenticationAction: CaseIterable {
     case clearAccessRecords, eraseLibrary, revealFrozenFile
     case approveRead, approveWrite, permanentlyDelete, replaceImportedCredential
     case disableReadAuthentication, changeTimedAllowanceEnd, legacyRelease, legacyUnlock
-    case exportBackup, importBackup, pairDevice, approveDevice
+    case exportBackup, importBackup, pairDevice
 
     var reasonKey: String {
         switch self {
@@ -29,8 +29,7 @@ enum ManagementAuthenticationAction: CaseIterable {
         case .legacyUnlock: "Unlock the AskKey vault for %@"
         case .exportBackup: CredentialManagementCopy.exportBackupReason
         case .importBackup: CredentialManagementCopy.importBackupReason
-        case .pairDevice: "Pair a device with this Mac"
-        case .approveDevice: "Let a paired iPhone approve Agent requests"
+        case .pairDevice: "Pair an iPhone that can approve Agent requests"
         }
     }
 

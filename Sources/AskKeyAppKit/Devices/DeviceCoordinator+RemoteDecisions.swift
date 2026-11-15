@@ -14,16 +14,15 @@ extension DeviceCoordinator {
     /// The handler `AskKeyDevices` calls with every verified kind 10–14
     /// message, after it checked the envelope, the payload, the pairing ID and
     /// the approval-key signature (checks 1, 3 and 6). The Mac accepts only
-    /// what an iPhone sends it.
+    /// a decision or a receipt; an approver confirmation, retired by #336,
+    /// is refused like any kind the Mac does not expect.
     func handleApprovalMessage(_ message: VerifiedApprovalMessage) async -> ApprovalMessageHandling {
         switch message.message {
         case .decision(let decision):
             return await handleRemoteDecision(message, decision)
         case .receipt(let receipt):
             return handleReceipt(message, receipt)
-        case .confirmation(let confirmation):
-            return await handleApproverConfirmation(message, confirmation)
-        case .request, .closed:
+        case .request, .closed, .confirmation:
             return .refused(.unexpectedKind)
         }
     }
@@ -199,7 +198,7 @@ extension DeviceCoordinator {
     }
 
     /// Ends one approver's outstanding requests with outcome 5 after it was
-    /// turned off, removed, paired again or found inactive; for an inactive
+    /// removed, paired again or found inactive; for an inactive
     /// generation, only the requests sealed under it. Entries whose decision
     /// is being applied keep their own outcome.
     func closeRemoteRequests(of device: DeviceID, pairingID: PairingID, generation: UInt64? = nil) {
@@ -264,13 +263,13 @@ extension DeviceCoordinator {
     /// The removal hook `AskKeyDevices` calls before any removal of `entry`
     /// commits: a removal here, an unpair notice, an undone pairing or
     /// pairing again. The device leaves the Broker's set first; then its
-    /// requests close (ADR 0014 → Revocation).
+    /// requests close (ADR 0014 → Revocation). A removed pairing ID never
+    /// joins the set again, so an addition that runs after this, before the
+    /// write commits, cannot bring it back.
     func deviceWillBeRemoved(_ entry: PairedDevice) {
+        revokedApprovers.insert(entry.pairingID)
         vault.approvalRequests.removeActiveApprover(pairingID: entry.pairingID.rawValue)
         closeRemoteRequests(of: entry.deviceID, pairingID: entry.pairingID)
-        if let attempt = approverAttempt, attempt.device.id == entry.deviceID, attempt.device.pairingID == entry.pairingID {
-            endApproverAttempt(.deviceRemoved)
-        }
     }
 
     // MARK: Helpers

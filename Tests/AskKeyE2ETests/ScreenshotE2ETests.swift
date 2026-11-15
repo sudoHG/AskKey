@@ -344,23 +344,23 @@ final class ScreenshotE2ETests: E2EBaseCase {
     }
 
     func testDevicesScreensInEnglish() throws {
-        try captureDevicesScreens(language: "en", tag: "en", firstNumber: 30, emptyNumber: 40, approverNumber: 42)
+        try captureDevicesScreens(language: "en", tag: "en", firstNumber: 30, emptyNumber: 40, approvalNumber: 42)
     }
 
     func testDevicesScreensInChinese() throws {
-        try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35, emptyNumber: 41, approverNumber: 45)
+        try captureDevicesScreens(language: "zh-Hans", tag: "zh", firstNumber: 35, emptyNumber: 41, approvalNumber: 44)
     }
 
-    /// The empty list, the sheet's QR code, waiting and code entry steps, the list with one iPhone,
-    /// the approver sheet's first and last steps and the list with approval on, and iCloud signed out. The runner
-    /// clicks Pair a Device… and Approve agent requests; the fixture plays the iPhone, including
-    /// typing the codes. Texts are found by identifier: after the code field had focus,
+    /// The empty list, the sheet's QR code, waiting and code entry steps, the paired step that says the
+    /// iPhone now approves agent requests, the list with one approving iPhone, Remove's confirmation, and
+    /// iCloud signed out (#336). The runner clicks Pair a Device… and Remove; the fixture plays the
+    /// iPhone, including typing its code. Texts are found by identifier: after the code field had focus,
     /// whole-window snapshots can hang on the cursor's remote element in CI.
     private func captureDevicesScreens(language: String, tag: String, firstNumber: Int, emptyNumber: Int,
-                                       approverNumber: Int) throws {
+                                       approvalNumber: Int) throws {
         func name(_ offset: Int, _ label: String) -> String { String(format: "%02d-%@-%@", firstNumber + offset, tag, label) }
-        func approverName(_ offset: Int, _ label: String) -> String {
-            String(format: "%02d-%@-%@", approverNumber + offset, tag, label)
+        func approvalName(_ offset: Int, _ label: String) -> String {
+            String(format: "%02d-%@-%@", approvalNumber + offset, tag, label)
         }
         func fixture(_ command: String) throws { try deviceFixture(command) }
         let page = openDevicesSettings(language: language)
@@ -378,6 +378,8 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertTrue(app.textFields["devices-pairing-code"].waitForExistence(timeout: 8))
         captureSheet(name(3, "devices-pairing-code-entry"))
         try fixture("phone-complete")
+        XCTAssertTrue(app.buttons["devices-pairing-done"].waitForExistence(timeout: 8))
+        captureSheet(approvalName(0, "devices-pairing-paired"))
         click("devices-pairing-done")
         try fixture("phone-poll")
         let rename = app.buttons["devices-rename"].firstMatch
@@ -385,21 +387,13 @@ final class ScreenshotE2ETests: E2EBaseCase {
         for _ in 0..<6 where !rename.isHittable { page.scroll(byDeltaX: 0, deltaY: -300) }
         page.scroll(byDeltaX: 0, deltaY: -900) // the whole row in view, whatever the language's line breaks
         waitUntilShown("devices-row-reachability", language == "en" ? "Last reached" : "\u{4E0A}\u{6B21}\u{8054}\u{7CFB}")
+        waitUntilShown("devices-row-approval", language == "en" ? "Can approve" : "\u{53EF}\u{4EE5}\u{5BA1}\u{6279}")
         attachScreenshot(of: app.windows["settings"].firstMatch, name(0, "devices-list"))
-        clickApproverToggle(page: page)
-        XCTAssertTrue(app.buttons["devices-approver-continue"].waitForExistence(timeout: 8), "No approver sheet")
-        captureSheet(approverName(0, "devices-approver-intro"))
-        // No capture shows the code: the offscreen renders draw a placeholder for that step.
-        click("devices-approver-continue")
-        XCTAssertTrue(app.descendants(matching: .any)["devices-approver-waiting"].waitForExistence(timeout: 8))
-        try fixture("approver-confirm")
-        XCTAssertTrue(app.buttons["devices-approver-done"].waitForExistence(timeout: 8))
-        captureSheet(approverName(1, "devices-approver-enabled"))
-        click("devices-approver-done")
-        waitUntilShown("devices-approver-caption", language == "en"
-            ? "can also be decided" : "Agent \u{8BF7}\u{6C42}\u{4E5F}\u{53EF}\u{4EE5}")
-        page.scroll(byDeltaX: 0, deltaY: -900) // the whole row in view
-        attachScreenshot(of: app.windows["settings"].firstMatch, approverName(2, "devices-approval-on"))
+        clickInPage("devices-remove", page: page)
+        XCTAssertTrue(app.buttons["devices-confirm-remove"].waitForExistence(timeout: 8), "No removal confirmation")
+        page.scroll(byDeltaX: 0, deltaY: -900) // the row and its confirmation in view
+        attachScreenshot(of: app.windows["settings"].firstMatch, approvalName(1, "devices-remove-confirmation"))
+        clickInPage("devices-cancel-remove", page: page)
         try fixture("account-signed-out")
         waitUntilShown("settings-devices-notice", language == "en" ? "iCloud is signed out" : "iCloud \u{5DF2}\u{9000}\u{51FA}\u{767B}\u{5F55}")
         attachScreenshot(of: app.windows["settings"].firstMatch, name(4, "devices-icloud-signed-out"))

@@ -82,6 +82,13 @@ public actor DeviceMessenger {
         let expiresAt: Date
     }
 
+    /// An entry added for a session that ended during the write, whose
+    /// removal has not committed yet.
+    struct PendingRollback: Hashable {
+        let deviceID: DeviceID
+        let pairingID: PairingID
+    }
+
     public nonisolated let deviceID: DeviceID
     public nonisolated let platform: DevicePlatform
     let identity: any DeviceIdentity
@@ -104,6 +111,8 @@ public actor DeviceMessenger {
     /// effect once.
     var inFlight: Set<MessageID> = []
     var pendingChecks: [MessageID: PendingCheck] = [:]
+    /// Rollbacks whose removal failed; `advanceTimers()` retries them.
+    var pendingRollbacks: [PendingRollback] = []
     /// When each record was first fetched, for the 30-second freezing rule.
     var firstFetched: [String: Date] = [:]
     var failureCounts: [String: Int] = [:]
@@ -297,6 +306,7 @@ public actor DeviceMessenger {
         let now = clock.now()
         processed.prune(now: now)
         await adoptStoredChecks()
+        for rollback in pendingRollbacks { await roll(back: rollback) }
         retiredSessions.removeAll { !$0.isOpen(at: now) }
         await perform(session?.tick(now: now) ?? [])
         if session?.needsAdd == true { await perform([.addPeer]) }
@@ -340,6 +350,10 @@ public actor DeviceMessenger {
         await flushOutbox()
     }
 
+    /// Adds the session's peer with the entry the session built, which
+    /// carries the approval flag when a macOS initiator pairs with an iOS
+    /// responder (ADR 0014 → Approvers), on both sides. On the Mac the
+    /// Vault accepts that flag only in this add.
     private func addSessionPeer(generation: Int) async {
         let now = clock.now()
         guard let current = session, current.needsAdd, current.isOpen(at: now),
@@ -352,7 +366,7 @@ public actor DeviceMessenger {
             // The session may have ended while the list was written, for
             // example by Cancel, a cancellation or a removal; then it stores nothing.
             guard generation == sessionGeneration, let current = session, current.isOpen(at: clock.now()) else {
-                _ = try? await commit(.remove(entry.deviceID, pairingID: entry.pairingID))
+                await roll(back: PendingRollback(deviceID: entry.deviceID, pairingID: entry.pairingID))
                 return
             }
             session?.peerAdded()
@@ -363,6 +377,19 @@ public actor DeviceMessenger {
             for case .send(let envelope) in effects { session?.outbox.append(envelope) }
         } catch {
             // The store failed; `advanceTimers()` tries again while the session is open.
+        }
+    }
+
+    /// Removes an entry whose session ended while it was written. A removal
+    /// that fails is kept and retried by `advanceTimers()` until it commits
+    /// or the entry is gone or replaced, because the entry can carry the
+    /// approval flag of a pairing the person cancelled (ADR 0014, #336).
+    func roll(back rollback: PendingRollback) async {
+        do {
+            try await commit(.remove(rollback.deviceID, pairingID: rollback.pairingID))
+            pendingRollbacks.removeAll { $0 == rollback }
+        } catch {
+            if !pendingRollbacks.contains(rollback) { pendingRollbacks.append(rollback) }
         }
     }
 

@@ -7,18 +7,27 @@ import XCTest
 @testable import AskKeyAppKit
 @testable import AskKeyDevices
 
-/// Renders every new remote-approval state of the Mac App offscreen, in
-/// English and Simplified Chinese, as 2x PNGs (#313): the pending-requests
-/// list in the real management window, Settings → Devices with approval off
-/// and on at the window's content width, each step of the approver sheet and
-/// the pairing sheet's install reminder at their own size (a SwiftUI sheet
-/// can't be captured offscreen), and the approval panel through the
-/// production panel factory. No window is
-/// ordered in. Set `REMOTE_APPROVAL_RENDER_DIRECTORY` to keep the PNGs.
+/// Renders every remote-approval state of the Mac App offscreen, in English
+/// and Simplified Chinese, as 2x PNGs (#313, #336): the pending-requests
+/// list in the real management window; Settings → Devices at the window's
+/// content width with an iPhone that approves, one paired before #336
+/// without approval, and Remove's confirmation; every step of the pairing
+/// sheet with its approval statements at its own size (a SwiftUI sheet can't
+/// be captured offscreen); and the approval panel through the production
+/// panel factory. No window is ordered in. Set
+/// `REMOTE_APPROVAL_RENDER_DIRECTORY` to keep the PNGs, and also
+/// `REMOTE_APPROVAL_WINDOW_RENDERS=1` on a desktop session to render the
+/// Devices section in the real Settings window, scrolled to it.
 @MainActor
 final class RemoteApprovalRenderTests: AskKeyAppTestCase {
     private var directory: URL!
     private var keepsRenders = false
+    /// On the CI runner a programmatic scroll of the offscreen Settings
+    /// window draws an empty content column (184335b), so the scrolled
+    /// window is rendered only when asked for.
+    private var rendersWindow: Bool {
+        keepsRenders && ProcessInfo.processInfo.environment["REMOTE_APPROVAL_WINDOW_RENDERS"] == "1"
+    }
     private var previousIcon: NSImage?
 
     override func setUp() async throws {
@@ -55,128 +64,142 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
         for language in ["en", "zh-Hans"] {
             AppLanguage.current = language
             let tag = language == "en" ? "en" : "zh"
+            names += try await renderPairingSheet(tag: tag)
             let harness = try DeviceCoordinatorHarness()
             defer { try? harness.close() }
             await harness.coordinator.launch()
             try await harness.pairPhone()
             DeviceServicesHost.install(harness.coordinator)
             names += try await renderDevices(harness, language: language, tag: tag)
-            names += try await renderApproverSheet(harness, tag: tag)
             names += try renderPanel(tag: tag)
             names += try renderPendingList(harness, language: language, tag: tag)
-            names += try await renderPairingReminder(tag: tag)
         }
         let files = try FileManager.default.contentsOfDirectory(atPath: directory.path).filter { $0.hasSuffix(".png") }
         XCTAssertEqual(Set(files), Set(names.map { $0 + ".png" }))
-        XCTAssertEqual(names.count, 44)
+        XCTAssertEqual(names.count, rendersWindow ? 32 : 30)
     }
 
     // MARK: Settings → Devices
 
-    /// The Devices section at the management window's content width. A
-    /// programmatic scroll of the offscreen Settings window drew nothing on
-    /// the CI runner, so the real window's Devices captures come from the
-    /// desktop screenshot flow (30/35 off, 44/47 on).
+    /// The Devices section at the management window's content width: an
+    /// iPhone that approves, Remove's confirmation, and an iPhone paired
+    /// before #336 without approval next to it. A programmatic scroll of the
+    /// offscreen Settings window drew nothing on the CI runner, so the real
+    /// window's capture is taken only when asked for; CI's desktop
+    /// screenshot flow captures the window (30/35, 43/45).
     private func renderDevices(_ harness: DeviceCoordinatorHarness, language: String, tag: String) async throws -> [String] {
         let model = DevicesSettingsModel(coordinator: harness.coordinator)
         let width = WorkspaceVisualContract.windowWidth - WorkspaceVisualContract.sidebarWidth
         var names: [String] = []
-        for enabled in [false, true] {
-            try await drain(harness)
-            if enabled { try await enable(harness) }
-            let name = "\(enabled ? "02" : "01")-\(tag)-devices-approval-\(enabled ? "on" : "off")"
+        func section(_ name: String) throws {
             try renderAlone(DevicesSettingsSection(model: model)
                 .padding(Theme.Spacing.xxl)
                 .frame(width: width)
                 .background(Theme.windowBackground), as: name)
             names.append(name)
         }
-        XCTAssertTrue(try XCTUnwrap(harness.coordinator.devices.first).isApprover)
         try await drain(harness)
-        // Off again for the sheet's steps; turning it off asks for nothing.
-        await model.setApprover(try XCTUnwrap(harness.coordinator.devices.first), enabled: false)
-        XCTAssertFalse(try XCTUnwrap(harness.coordinator.devices.first).isApprover)
+        let row = try XCTUnwrap(harness.coordinator.devices.first)
+        XCTAssertTrue(row.isApprover, "pairing made the iPhone an approver")
+        try section("01-\(tag)-devices-iphone-approves")
+        model.requestRemoval(row)
+        try section("03-\(tag)-devices-remove-confirmation")
+        model.cancelRemoval()
+        let older = SimulatedPairingPhone(transport: harness.transport, clock: harness.clock)
+        try await harness.addUnflaggedEntry(for: older, name: "Older iPhone")
+        try await drain(harness)
+        XCTAssertEqual(harness.coordinator.devices.map(\.isApprover), [true, false])
+        try section("02-\(tag)-devices-iphone-cannot-approve")
+        if rendersWindow { names.append(try renderSettingsWindow(language: language, tag: tag)) }
         return names
     }
 
-    // MARK: Approver sheet
+    /// Settings in the real management window, built as
+    /// `ensureManagementWindow` builds it, scrolled to the Devices section.
+    private func renderSettingsWindow(language: String, tag: String) throws -> String {
+        let fixture = try NoticeLayoutFixtures.Model(language: language, state: .management, recovery: false, broker: false)
+        defer { fixture.close() }
+        let navigation = ManagementNavigation()
+        navigation.route = .settings
+        let window = ManagementWindowConfiguration.makeWindow(rootView: SettingsView(navigation: navigation)
+            .environment(fixture.vault)
+            .environment(\.locale, fixture.vault.appLocale))
+        defer { window.close() }
+        ManagementWindowConfiguration.apply(to: window)
+        window.appearance = NSAppearance(named: .aqua)
+        settle(window)
+        XCTAssertFalse(window.isVisible)
+        let scroll = try settingsScrollView(in: try XCTUnwrap(window.contentView))
+        let document = try XCTUnwrap(scroll.documentView)
+        let bottom = max(0, document.bounds.height - scroll.contentView.bounds.height)
+        scroll.contentView.scroll(to: NSPoint(x: 0, y: document.isFlipped ? bottom : 0))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        settle(window)
+        let name = "16-\(tag)-settings-window-devices"
+        try export(try XCTUnwrap(window.contentView?.superview), as: name, contentFrom: WorkspaceVisualContract.sidebarWidth)
+        return name
+    }
 
-    private func renderApproverSheet(_ harness: DeviceCoordinatorHarness, tag: String) async throws -> [String] {
+    private func settingsScrollView(in root: NSView) throws -> NSScrollView {
+        var pending = [root]
+        var found: [NSScrollView] = []
+        while let view = pending.popLast() {
+            if let scroll = view as? NSScrollView,
+               scroll.convert(scroll.bounds, to: nil).midX > WorkspaceVisualContract.sidebarWidth {
+                found.append(scroll)
+            }
+            pending.append(contentsOf: view.subviews)
+        }
+        return try XCTUnwrap(found.max { $0.bounds.height < $1.bounds.height })
+    }
+
+    // MARK: Pairing sheet
+
+    /// Every step of the pairing sheet: the QR code with the install reminder
+    /// and the approval statement, the code matched with what a request
+    /// sends, system authentication, waiting for the iPhone, and paired.
+    private func renderPairingSheet(tag: String) async throws -> [String] {
+        let harness = try DeviceCoordinatorHarness()
+        defer { try? harness.close() }
+        await harness.coordinator.launch()
         let coordinator = harness.coordinator
         let model = DevicesSettingsModel(coordinator: coordinator)
-        let mac = try XCTUnwrap(harness.macDeviceID)
         var names: [String] = []
-        @discardableResult
-        func sheet(_ number: Int, _ label: String) throws -> NSView {
-            let name = String(format: "%02d-%@-approver-sheet-%@", number, tag, label)
+        func sheet(_ number: Int, _ label: String) throws {
+            let name = String(format: "%02d-%@-pairing-%@", number, tag, label)
             names.append(name)
-            return try renderAlone(ApproverConfirmationSheet(model: model), as: name)
+            try renderAlone(DevicePairingSheet(model: model), as: name)
         }
-        func wrong(_ code: ApproverCode) -> String { String(format: "%06d", ((Int(code.digits) ?? 0) + 1) % 1_000_000) }
-        func remaining() -> Int {
-            if case .waitingForIPhone(_, _, let remaining)? = coordinator.approverConfirmation { return remaining }
-            return 0
-        }
-        func type(_ code: String, on phone: SimulatedPairingPhone, until done: () -> Bool) async throws {
-            try await phone.confirmApprover(typing: code, for: mac)
-            try await refresh(coordinator, until: done)
-        }
-        let row = try XCTUnwrap(coordinator.devices.first { $0.id == harness.phone.deviceID })
-        await model.setApprover(row, enabled: true)
-        _ = try sheet(3, "intro")
-        coordinator.approverConfirmation = .authenticating(device: row)
-        _ = try sheet(4, "authenticating")
-        coordinator.approverConfirmation = nil
-
-        await model.continueApprover()
-        let code = try XCTUnwrap(coordinator.approverCode)
-        // The PNGs show a fixed placeholder, never a code that was issued.
-        let placeholder = try XCTUnwrap(ApproverCode(typed: "123456"))
-        func codeSheet(_ number: Int, _ label: String) throws {
-            coordinator.approverCode = placeholder
-            defer { coordinator.approverCode = code }
-            _ = try sheet(number, label)
-        }
-        try codeSheet(5, "code")
-        try await type(wrong(code), on: harness.phone, until: { remaining() == 2 })
-        try codeSheet(6, "wrong-code")
-        try await type(wrong(code), on: harness.phone, until: { remaining() == 1 })
-        try await type(wrong(code), on: harness.phone, until: { coordinator.approverConfirmation == .ended(.tooManyWrongCodes) })
-        _ = try sheet(7, "too-many-wrong-codes")
-
-        await model.startApproverAgain()
-        harness.clock.advance(by: DeviceCoordinator.approverCodeLifetime + 1)
-        _ = await coordinator.approverLoopStep()
-        _ = try sheet(8, "expired")
-
-        try await drain(harness)
-        let spare = SimulatedPairingPhone(transport: harness.transport, clock: harness.clock)
-        try await harness.pair(spare, name: "Spare iPhone")
-        await model.startApproverAgain()
-        try await type(try XCTUnwrap(coordinator.approverCode).formatted, on: spare, until: {
-            coordinator.approverConfirmation == .ended(.enteredOnOtherDevice(name: "Spare iPhone"))
-        })
-        _ = try sheet(9, "entered-on-other-device")
-        let ends: [(ApproverConfirmationEndReason, String)] = [
-            (.managementRequired, "management-required"), (.unavailable, "unavailable"),
-            (.authenticationCancelled, "authentication-cancelled"), (.authenticationFailed, "authentication-failed"),
-            (.deviceRemoved, "device-removed"), (.notSaved, "not-saved"),
-        ]
-        let other = coordinator.approverConfirmation
-        for (offset, (reason, label)) in ends.enumerated() {
-            coordinator.approverConfirmation = .ended(reason)
-            _ = try sheet(17 + offset, "ended-" + label)
-        }
-        coordinator.approverConfirmation = other
-
-        await model.startApproverAgain()
-        try await type(try XCTUnwrap(coordinator.approverCode).formatted, on: harness.phone, until: {
-            if case .enabled? = coordinator.approverConfirmation { return true }
-            return false
-        })
-        guard case .enabled = coordinator.approverConfirmation else { throw SyntheticRemoteFailure() }
-        _ = try sheet(10, "enabled")
-        model.closeApproverSheet()
+        await model.pairDevice()
+        guard case .qrCode(let text, _) = try XCTUnwrap(model.sheet).stage else { throw SyntheticRemoteFailure() }
+        XCTAssertEqual(model.sheet?.showsInstallReminder, true)
+        try sheet(4, "qr-code")
+        try await harness.phone.scan(text)
+        await coordinator.refresh()
+        try sheet(5, "waiting")
+        try await harness.phone.poll()
+        await coordinator.refresh()
+        try sheet(6, "code-entry")
+        let shown = await harness.phone.shownCode()
+        // The code matched; the person has not confirmed yet.
+        harness.script.authenticationResults = [.cancelled]
+        model.codeEntry = try XCTUnwrap(shown)
+        await model.confirm()
+        coordinator.pairingFeedback = nil
+        XCTAssertNotNil(model.sheet?.requestContents, "the sheet says what a request sends")
+        try sheet(7, "code-accepted")
+        coordinator.isAuthenticatingPairing = true
+        try sheet(8, "authenticating")
+        coordinator.isAuthenticatingPairing = false
+        await model.confirm()
+        guard case .waitingForIPhoneConfirmation = coordinator.pairing else { throw SyntheticRemoteFailure() }
+        try sheet(9, "waiting-for-iphone")
+        try await harness.phone.confirm()
+        try await harness.phone.poll()
+        await coordinator.refresh()
+        guard case .paired = coordinator.pairing else { throw SyntheticRemoteFailure() }
+        try sheet(10, "paired")
+        await model.closeSheet()
         return names
     }
 
@@ -264,21 +287,6 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
         return [name]
     }
 
-    // MARK: Pairing sheet
-
-    private func renderPairingReminder(tag: String) async throws -> [String] {
-        let harness = try DeviceCoordinatorHarness()
-        defer { try? harness.close() }
-        await harness.coordinator.launch()
-        let model = DevicesSettingsModel(coordinator: harness.coordinator)
-        await model.pairDevice()
-        XCTAssertEqual(model.sheet?.showsInstallReminder, true)
-        let name = "16-\(tag)-pairing-install-reminder"
-        _ = try renderAlone(DevicePairingSheet(model: model), as: name)
-        await model.closeSheet()
-        return [name]
-    }
-
     // MARK: Coordinator
 
     /// The Devices section's window starts a poll when it appears. A refresh
@@ -289,28 +297,6 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
         try await Task.sleep(for: .milliseconds(50))
         await harness.coordinator.devicesOpened()
         try await harness.waitUntil { harness.coordinator.pollTask == nil }
-    }
-
-    private func refresh(_ coordinator: DeviceCoordinator, until done: () -> Bool) async throws {
-        for _ in 0..<100 where !done() {
-            await coordinator.refresh()
-            if done() { return }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        XCTAssertTrue(done(), "the Mac processed the iPhone's message")
-    }
-
-    /// Turns approval on through the sheet's coordinator steps.
-    private func enable(_ harness: DeviceCoordinatorHarness) async throws {
-        let coordinator = harness.coordinator
-        await coordinator.startApproverConfirmation(for: harness.phone.deviceID)
-        let code = try XCTUnwrap(coordinator.approverCode, "the sheet shows a code")
-        try await harness.phone.confirmApprover(typing: code.formatted, for: XCTUnwrap(harness.macDeviceID))
-        try await refresh(coordinator) {
-            if case .enabled? = coordinator.approverConfirmation { return true }
-            return false
-        }
-        coordinator.cancelApproverConfirmation()
     }
 
     // MARK: Rendering
@@ -349,6 +335,7 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
             }
         }
         XCTAssertGreaterThan(colors.count, 8, "\(name) drew nothing")
+        XCTAssertGreaterThan(colors.count, 1, "\(name) is a single color")
         let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
         XCTAssertGreaterThan(png.count, 5_000, "\(name) did not render")
         try png.write(to: directory.appendingPathComponent(name + ".png"), options: .atomic)

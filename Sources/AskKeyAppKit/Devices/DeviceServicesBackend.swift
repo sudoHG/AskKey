@@ -149,11 +149,11 @@ package enum DeviceServicesEvent: Hashable, Sendable {
     case accountChanged
     case inboxPreparationFailed
     case pollFailed
-    /// The Broker's active-approver set could not be loaded from the list.
+    /// The Broker's active-approver set could not be loaded from the list,
+    /// or a newly paired or missing approver could not be added to it.
     case approverActivationFailed
-    case approverEnabled
-    /// A matching approver code arrived from a device other than the one selected.
-    case approverCodeEnteredElsewhere
+    /// A newly paired or missing approver joined the active-approver set.
+    case approverActivated
     case remoteRequestNotSealed
     case closedMessageNotSealed
     case knownRecordFetchFailed

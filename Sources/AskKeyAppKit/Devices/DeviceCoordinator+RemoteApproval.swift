@@ -48,28 +48,6 @@ extension DeviceCoordinator {
 
     // MARK: Approvers
 
-    /// Loads the Broker's active-approver set from the list once the services
-    /// are ready with the list's account (ADR 0014 → Approvers).
-    func activateApproversIfNeeded() {
-        guard services != nil, availability == .ready, account == .available else { return }
-        guard approversLoaded else {
-            do {
-                try vault.activateStoredApprovers()
-                approversLoaded = true
-                approversAwaitingActivation = []
-            } catch {
-                environment.log(.approverActivationFailed)
-            }
-            return
-        }
-        // A device whose flag was written but whose activation failed is
-        // added alone, so the others keep their generations.
-        for pairingID in approversAwaitingActivation {
-            guard (try? vault.activateStoredApprovers(only: pairingID)) != nil else { continue }
-            approversAwaitingActivation.remove(pairingID)
-        }
-    }
-
     /// An account change, sign-out or restriction: empties the set first,
     /// then forgets every outstanding request without sending, because
     /// nothing is sent while the account is unavailable. The flags stay.
@@ -77,7 +55,6 @@ extension DeviceCoordinator {
         vault.approvalRequests.removeAllActiveApprovers()
         approversLoaded = false
         forgetOutstandingRemoteRequests()
-        if approverConfirmation?.isActive == true { endApproverAttempt(.unavailable) }
     }
 
     /// The requests still pending stay on the Mac, also once the account is
@@ -94,15 +71,13 @@ extension DeviceCoordinator {
         }
     }
 
-    /// The services stopped or were replaced.
+    /// The services stopped or were replaced. Requests still pending stay on
+    /// the Mac, also once services open again, for example at the next
+    /// first pairing.
     func stopRemoteApproval() {
         approversLoaded = false
-        dropRemoteState()
-        if approverConfirmation != nil {
-            approverGeneration += 1
-            finishApproverAttempt()
-            approverConfirmation = nil
-        }
+        revokedApprovers = []
+        forgetOutstandingRemoteRequests()
     }
 
     private func dropRemoteState() {
@@ -146,8 +121,10 @@ extension DeviceCoordinator {
         startRemoteLoopIfNeeded()
     }
 
+    /// Runs also without device services, so a request pending before the
+    /// first pairing is marked as staying on the Mac and never goes to the
+    /// iPhone that pairing adds (ADR 0014 → When a request goes to an approver).
     func reconcileRemoteRequests() {
-        guard services != nil else { return }
         let pending = vault.approvalRequests.pendingRequests()
         let pendingIDs = Set(pending.map(\.requestID))
         for requestID in remoteRequests.keys where !pendingIDs.contains(requestID) {

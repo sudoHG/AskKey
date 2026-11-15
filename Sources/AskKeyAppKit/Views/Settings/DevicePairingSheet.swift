@@ -3,7 +3,9 @@ import SwiftUI
 
 /// The **Pair a Device…** sheet (ADR 0013 → Pairing): the QR code, then the
 /// device that scanned it, then the code the iPhone shows, then the result.
-/// It never shows the Mac's code: no state it reads carries one.
+/// It says before the QR code, and again before the person confirms, that
+/// the iPhone will approve this Mac's agent requests (ADR 0014, #336). It
+/// never shows the Mac's code: no state it reads carries one.
 struct DevicePairingSheet: View {
     @Bindable var model: DevicesSettingsModel
     /// The last state, kept while the sheet animates away after the session closed.
@@ -52,6 +54,10 @@ struct DevicePairingSheet: View {
             if sheet.stage == .codeEntry(accepted: false) {
                 codeField
             }
+            if let contents = sheet.requestContents {
+                BackupNotice(text: contents, isWarning: false)
+                    .accessibilityIdentifier("devices-pairing-request-contents")
+            }
             if let feedback = sheet.feedback {
                 Text(feedback)
                     .font(Theme.Fonts.secondary)
@@ -94,21 +100,29 @@ struct DevicePairingSheet: View {
         }
     }
 
-    /// The iPhone app comes from a fixed link (ADR 0014 → Mac App).
+    /// The iPhone app comes from a fixed link (ADR 0014 → Mac App), and the
+    /// iPhone paired here becomes an approver (#336).
     private var installReminder: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
             Image(systemName: "info.circle.fill")
                 .font(Theme.Fonts.secondary)
                 .foregroundStyle(Theme.accent)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(PairingSheetPresentation.installReminder)
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(PairingSheetPresentation.installReminder)
+                        .font(Theme.Fonts.secondary)
+                        .foregroundStyle(Theme.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Link(PairingSheetPresentation.installLinkText, destination: PairingSheetPresentation.installURL)
+                        .font(Theme.Fonts.secondary)
+                        .accessibilityIdentifier("devices-pairing-install-link")
+                }
+                Text(PairingSheetPresentation.approvalStatement)
                     .font(Theme.Fonts.secondary)
                     .foregroundStyle(Theme.text)
                     .fixedSize(horizontal: false, vertical: true)
-                Link(PairingSheetPresentation.installLinkText, destination: PairingSheetPresentation.installURL)
-                    .font(Theme.Fonts.secondary)
-                    .accessibilityIdentifier("devices-pairing-install-link")
+                    .accessibilityIdentifier("devices-pairing-approval-statement")
             }
             Spacer(minLength: 0)
         }

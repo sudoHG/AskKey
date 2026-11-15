@@ -92,12 +92,6 @@ enum DevicesPresentation {
         appLocalizedFormat("%1$@ · Paired %2$@", platformName(row.platform), date(row.pairedAt, time: false))
     }
 
-    /// "iPhone (not verified) · Paired <date>", for the approver sheet.
-    static func approverDeviceSummary(_ row: PairedDeviceRow) -> String {
-        appLocalizedFormat("%1$@ · Paired %2$@", appLocalizedFormat("%@ (not verified)", platformName(row.platform)),
-                           date(row.pairedAt, time: false))
-    }
-
     /// Whether the device was reached since pairing.
     static func rowReachability(_ row: PairedDeviceRow) -> Notice {
         switch row.reachability {
@@ -123,11 +117,16 @@ enum DevicesPresentation {
         }
     }
 
-    /// The line under **Approve agent requests** on an iPhone's row.
-    static func approverCaption(_ row: PairedDeviceRow) -> String {
-        row.isApprover
-            ? appLocalized("Agent requests can also be decided on this iPhone.")
-            : appLocalized("Agent requests aren't sent to this iPhone.")
+    /// Whether an iPhone approves this Mac's agent requests (ADR 0014 → Mac
+    /// App, #336). Pairing sets the flag; an entry without it, paired
+    /// before #336, approves only once it is removed and paired again. Mac
+    /// rows say nothing.
+    static func rowApproval(_ row: PairedDeviceRow) -> Notice? {
+        guard row.platform == .iOS else { return nil }
+        return row.isApprover
+            ? Notice(text: appLocalized("Can approve agent requests."), isWarning: false)
+            : Notice(text: appLocalized("Can't approve agent requests. To let it approve, remove it and pair again."),
+                     isWarning: true)
     }
 
     static func issueMessage(_ issue: DeviceActionIssue) -> String {
@@ -145,8 +144,12 @@ enum DevicesPresentation {
         }
     }
 
-    static func removalWarning(_ name: String) -> String {
-        appLocalizedFormat("This Mac stops trusting “%@” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too.", name)
+    /// **Remove**'s confirmation. Removal is how an iPhone stops approving.
+    static func removalWarning(_ row: PairedDeviceRow) -> String {
+        guard row.isApprover else {
+            return appLocalizedFormat("This Mac stops trusting “%@” at once. Ask Key tries to tell the device so it can remove this Mac. If it still lists this Mac, remove this Mac on that device too.", row.displayName)
+        }
+        return appLocalizedFormat("“%@” stops approving agent requests at once, and the requests sent to it close. Ask Key tries to tell the iPhone so it can remove this Mac. If it still lists this Mac, remove this Mac on that iPhone too.", row.displayName)
     }
 
     static func date(_ date: Date, time: Bool) -> String {

@@ -25,7 +25,11 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
     }
 
     func testWithoutAnApproverNothingIsSentAndNoCloudKitRequestIsMade() async throws {
+        // An iPhone paired before #336 without approval: its entry has no flag.
         try await harness.pairPhone()
+        await harness.coordinator.removeDevice(harness.phone.deviceID)
+        try await harness.addUnflaggedEntry(for: harness.phone, name: "Synthetic Phone")
+        XCTAssertEqual(harness.coordinator.devices.map(\.isApprover), [false])
         try harness.addCredential()
         let sentBefore = harness.transport.sentEnvelopes.count
         try harness.submitRead()
@@ -42,11 +46,13 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
         XCTAssertEqual(harness.script.activityBegins, 0)
     }
 
-    func testRequestThatAppearedBeforeApprovalWasOnStaysOnTheMac() async throws {
-        try await harness.pairPhone()
+    func testRequestThatAppearedBeforeTheFirstIPhonePairedStaysOnTheMac() async throws {
         try harness.addCredential()
         let pending = try harness.submitRead()
-        try await harness.enableApprover(harness.phone)
+        XCTAssertNil(harness.coordinator.services, "this Mac has no device identity yet")
+        XCTAssertEqual(harness.coordinator.remoteRequests[pending.requestID]?.phase, .stayingOnMac)
+        try await harness.pairPhone()
+        XCTAssertNotNil(try harness.generation(of: harness.phone))
         harness.coordinator.approvalRequestsChanged()
         await harness.coordinator.remoteApprovalTick()
         XCTAssertTrue(harness.macSent(.approvalRequest).isEmpty)
@@ -56,11 +62,10 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
     }
 
     func testUnlockedRequestNotEligibleWhenCreatedStaysOnTheMac() async throws {
-        try await harness.pairPhone()
         try harness.addCredential()
         harness.script.screenUnlocked = true
         let pending = try harness.submitRead()
-        try await harness.enableApprover(harness.phone)
+        try await harness.pairPhone()
         harness.clock.advance(by: 20)
         await harness.coordinator.remoteApprovalTick()
         XCTAssertTrue(harness.macSent(.approvalRequest).isEmpty)
@@ -197,7 +202,6 @@ final class RemoteApprovalSendingTests: AskKeyAppTestCase {
         try await harness.pairApprover()
         let second = SimulatedPairingPhone(transport: harness.transport, clock: harness.clock)
         try await harness.pair(second, name: "Synthetic Phone Two")
-        try await harness.enableApprover(second)
         harness.transport.failNextSends(with: [.networkUnavailable])
         let pending = try harness.submitRead()
         try await harness.waitForRequests(2)

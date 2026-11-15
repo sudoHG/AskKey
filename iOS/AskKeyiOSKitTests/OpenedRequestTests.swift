@@ -332,6 +332,8 @@ final class OpenedRequestTests: XCTestCase {
     func testARequestFromAMacWithoutTheApprovalFlagShowsUnavailable() async throws {
         let other = world.makeMac(name: "Office Mac")
         try await world.pair(other)
+        // Pairing sets the flag (#336); this is a Mac paired before it without approval.
+        try await world.storeWithoutApprovalFlag(other)
         let name = try await world.sendRequest(from: other).sealed.messageID.text
         try await tap(name)
         XCTAssertTrue(world.model.requests.isEmpty)

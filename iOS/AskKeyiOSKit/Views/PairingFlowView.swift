@@ -117,6 +117,8 @@ struct ScannerContent<Preview: View>: View {
 /// The pairing code to enter on the Mac. Before the challenge and the
 /// reveal it says there is no code yet; in both states it says the code
 /// appears only here and is never sent in a notification or a message.
+/// Before **Confirm Pairing** it says that confirming makes this iPhone
+/// approve that Mac's agent requests (ADR 0014, #336).
 struct PairingCodeContent: View {
     let display: PairingCodeDisplay?
     let isConfirming: Bool
@@ -162,6 +164,7 @@ struct PairingCodeContent: View {
                 if display.confirmed {
                     NoticeCard(symbol: "checkmark.circle.fill", tone: .success, text: Text("pairing.confirmed", bundle: .kit))
                 } else {
+                    NoticeCard(symbol: "checkmark.shield", text: Text("pairing.approval \(display.macName)", bundle: .kit))
                     if let problem {
                         NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning,
                                    text: Text(Self.explanation(problem), bundle: .kit))

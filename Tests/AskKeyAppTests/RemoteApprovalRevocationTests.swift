@@ -58,26 +58,9 @@ final class RemoteApprovalRevocationTests: AskKeyAppTestCase {
         XCTAssertEqual(try harness.state(pending), .pending, "a later Deny is refused too", file: file, line: line)
     }
 
-    func testTurningApprovalOffRevokesBeforeClosing() async throws {
-        let (pending, request) = try await outstandingRead()
-        let order = watchClosingOrder()
-        let row = try XCTUnwrap(harness.coordinator.devices.first)
-        let disabled = await harness.coordinator.disableApprover(row)
-        XCTAssertTrue(disabled)
-        XCTAssertNil(generation)
-        XCTAssertEqual(harness.coordinator.devices.first?.isApprover, false)
-        let outcomes = try await harness.phoneClosed().map(\.outcome)
-        XCTAssertEqual(outcomes, [.cancelled])
-        XCTAssertEqual(order.stillActive, [false])
-        try await assertLaterDecisionsRefused(request, pending)
-        // A new request no longer goes to it.
-        try harness.submitRead()
-        await harness.coordinator.remoteApprovalTick()
-        XCTAssertEqual(harness.macSent(.approvalRequest).count, 1)
-    }
-
+    /// Removing the iPhone on the Mac is how approval stops (#336).
     func testRemovalRevokesBeforeClosing() async throws {
-        let (pending, _) = try await outstandingRead()
+        let (pending, request) = try await outstandingRead()
         let order = watchClosingOrder()
         let removed = await harness.coordinator.removeDevice(harness.phone.deviceID)
         XCTAssertTrue(removed)
@@ -86,6 +69,13 @@ final class RemoteApprovalRevocationTests: AskKeyAppTestCase {
         XCTAssertEqual(harness.macSent(.approvalClosed).count, 1)
         XCTAssertEqual(order.stillActive, [false])
         XCTAssertTrue(harness.entries(pending).isEmpty)
+        try await assertLaterDecisionsRefused(request, pending)
+        // A new request no longer goes to it, and no list read adds it back.
+        try harness.submitRead()
+        await harness.coordinator.refresh()
+        await harness.coordinator.remoteApprovalTick()
+        XCTAssertEqual(harness.macSent(.approvalRequest).count, 1)
+        XCTAssertNil(generation)
     }
 
     func testUnpairNoticeRevokesThroughTheRemovalHook() async throws {
@@ -143,7 +133,9 @@ final class RemoteApprovalRevocationTests: AskKeyAppTestCase {
         harness.vault.stopDeviceServicesForLocalErase()
         XCTAssertNil(generation)
         harness.coordinator.stopForLocalErase()
-        XCTAssertTrue(harness.coordinator.remoteRequests.isEmpty)
+        // Nothing stays outstanding; a request still pending stays on the Mac.
+        XCTAssertTrue(harness.coordinator.remoteRequests.values.allSatisfy { $0.entries.isEmpty && $0.phase == .stayingOnMac })
+        XCTAssertTrue(harness.coordinator.closedMessages.isEmpty)
         XCTAssertFalse(harness.script.activityHeld)
     }
 
