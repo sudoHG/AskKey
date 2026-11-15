@@ -48,7 +48,7 @@ The [allowance revocation](../../Sources/AskKeyBroker/BrokerApprovalStateMachine
 
 ## Amendment: remote approval from a paired iPhone (#309)
 
-[ADR 0014](0014-remote-approval.md) adds a second decision source for read approvals: a paired iPhone that the person made an **approver** on the Mac with system authentication and a code typed on that iPhone. The Broker protocol, its version and every agent-facing response are unchanged; agents cannot see devices or choose where a request is decided.
+[ADR 0014](0014-remote-approval.md) adds a second decision source for read approvals: a paired iPhone, which pairing makes an **approver** (pairing needs the QR code on the Mac's screen, the code the iPhone shows typed on the Mac, system authentication on the Mac and Face ID on the iPhone; ADR 0014 as amended by #336). The Broker protocol, its version and every agent-facing response are unchanged; agents cannot see devices or choose where a request is decided.
 
 - **Reads only.** An approver may Deny, Allow Once, or grant the timed allowance for the one requested credential. Writes, organize operations and group timed allowances are never sent to it and keep their decision on the Mac; every agent write still requires separate system authentication on the Mac.
 - **Remote Allow counts as authenticated.** A verified approval-key signature, which the iPhone produces only with Face ID or Touch ID, stands for the system authentication a local read approval asks for. The Broker's remote path never calls the local authentication, and needs the signature even when read approval authentication is turned off.
