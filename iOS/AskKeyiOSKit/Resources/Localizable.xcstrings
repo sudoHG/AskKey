@@ -18,6 +18,23 @@
         }
       }
     },
+    "common.close": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭"
+          }
+        }
+      }
+    },
     "common.dismiss": {
       "extractionState": "manual",
       "localizations": {
@@ -1293,19 +1310,36 @@
         }
       }
     },
-    "request.allow.footnote": {
+    "request.allow.hint.faceID": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allowing asks for Face ID or Touch ID. Deny doesn't."
+            "value": "Asks for Face ID."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "允许时需要面容 ID 或触控 ID，拒绝不需要。"
+            "value": "需要面容 ID。"
+          }
+        }
+      }
+    },
+    "request.allow.hint.touchID": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asks for Touch ID."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要触控 ID。"
           }
         }
       }
@@ -1344,6 +1378,23 @@
         }
       }
     },
+    "request.allowOneMinute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow for 1 Minute"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许 1 分钟"
+          }
+        }
+      }
+    },
     "request.allowTimed %@": {
       "extractionState": "manual",
       "localizations": {
@@ -1378,6 +1429,23 @@
         }
       }
     },
+    "request.close.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can still decide in Requests until it expires."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "失效前仍可在“请求”中处理。"
+          }
+        }
+      }
+    },
     "request.deny": {
       "extractionState": "manual",
       "localizations": {
@@ -1395,19 +1463,36 @@
         }
       }
     },
-    "request.denyOnly.footnote": {
+    "request.denyOnly.other": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This request can only be denied on this iPhone. To allow it, use the Mac."
+            "value": "This request can only be denied on the iPhone. To allow it, use the Mac."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个请求在这台 iPhone 上只能拒绝。如需允许，请在 Mac 上操作。"
+            "value": "这个请求在 iPhone 上只能拒绝；要允许，请到 Mac 上处理。"
+          }
+        }
+      }
+    },
+    "request.denyOnly.shortened": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some details were shortened, so this request can only be denied on the iPhone. To allow it, use the Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容过长，已截短。这个请求在 iPhone 上只能拒绝；要允许，请到 Mac 上处理。"
           }
         }
       }
@@ -1425,6 +1510,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "详细信息"
+          }
+        }
+      }
+    },
+    "request.details.collapsed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapsed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已收起"
           }
         }
       }
@@ -1476,6 +1578,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "运行目录"
+          }
+        }
+      }
+    },
+    "request.details.expanded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expanded"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已展开"
           }
         }
       }
@@ -1599,23 +1718,6 @@
         }
       }
     },
-    "request.details.timeLeft": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Time left"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "剩余时间"
-          }
-        }
-      }
-    },
     "request.empty.detail": {
       "extractionState": "manual",
       "localizations": {
@@ -1697,6 +1799,397 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mac 暂时无法联系这台 iPhone"
+          }
+        }
+      }
+    },
+    "request.ending.allowedOnce %@ %@ %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” can use “%@” this time. “%@” applied it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”这次可以使用“%@”。“%@”已执行。"
+          }
+        }
+      }
+    },
+    "request.ending.allowedOnce.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed Once"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许本次"
+          }
+        }
+      }
+    },
+    "request.ending.allowedOneMinute.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed for 1 Minute"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许 1 分钟"
+          }
+        }
+      }
+    },
+    "request.ending.allowedTimed %@ %@ %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For %@, programs on “%@” can read “%@” without asking."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@内，“%@”上的程序读取“%@”不再询问。"
+          }
+        }
+      }
+    },
+    "request.ending.allowedTimed.title %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed for %@ Minutes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许 %@ 分钟"
+          }
+        }
+      }
+    },
+    "request.ending.allowedTimedDuration.title %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed for %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许 %@"
+          }
+        }
+      }
+    },
+    "request.ending.cancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The agent stopped, the credential changed, agent access was paused, or this iPhone no longer approves this Mac's requests."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent 已停止、凭证已更改、Agent 访问已暂停，或这台 iPhone 不再审批这台 Mac 的请求。"
+          }
+        }
+      }
+    },
+    "request.ending.cancelled.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelled on the Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 已取消"
+          }
+        }
+      }
+    },
+    "request.ending.decidedElsewhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another approving device decided first."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "另一台审批设备先作了决定。"
+          }
+        }
+      }
+    },
+    "request.ending.decidedElsewhere.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decided on Another Device"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在另一台设备上处理"
+          }
+        }
+      }
+    },
+    "request.ending.decidedOnMac %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was decided on “%@” first."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你在“%@”上先作了决定。"
+          }
+        }
+      }
+    },
+    "request.ending.decidedOnMac.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decided on the Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在 Mac 上处理"
+          }
+        }
+      }
+    },
+    "request.ending.denied %@ %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” wasn't handed over. “%@” applied it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有交出“%@”。“%@”已执行。"
+          }
+        }
+      }
+    },
+    "request.ending.denied.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Denied"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已拒绝"
+          }
+        }
+      }
+    },
+    "request.ending.expired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It expired before anyone decided. The agent asks again if it needs to."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在有人处理之前，这个请求已经过期。Agent 需要时会重新请求。"
+          }
+        }
+      }
+    },
+    "request.ending.expired.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request Expired"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请求已过期"
+          }
+        }
+      }
+    },
+    "request.ending.gone %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key on “%@” restarted, so this request no longer applies."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”上的请旨已重新启动，这个请求随之失效。"
+          }
+        }
+      }
+    },
+    "request.ending.gone.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request No Longer Applies"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请求已失效"
+          }
+        }
+      }
+    },
+    "request.ending.notApplied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Mac couldn't apply your decision as signed. If the request is still waiting, it comes again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 无法按签名执行你的决定。如果请求仍在等待，它会再次发来。"
+          }
+        }
+      }
+    },
+    "request.ending.notApplied.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Applied"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 未执行"
+          }
+        }
+      }
+    },
+    "request.ending.timedOut %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No answer from “%@”. Check the Mac to see how it ended."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没收到“%@”的结果。请到 Mac 上查看请求的结果。"
+          }
+        }
+      }
+    },
+    "request.ending.timedOut.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time Ran Out"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "时间已到"
+          }
+        }
+      }
+    },
+    "request.expiresIn %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This request expires in %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审批请求将于 %@ 后失效"
           }
         }
       }
@@ -1905,176 +2398,6 @@
         }
       }
     },
-    "request.outcome.allowedOnce %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allowed once. “%@” applied it."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已允许本次，“%@”已执行。"
-          }
-        }
-      }
-    },
-    "request.outcome.allowedTimed %@ %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allowed. “%@” granted it for %@."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已允许，“%@”授予了 %@。"
-          }
-        }
-      }
-    },
-    "request.outcome.cancelled": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancelled on the Mac: the agent stopped, the credential changed, agent access was paused, or this iPhone no longer approves for it."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已在 Mac 上取消：Agent 已停止、凭证已更改、Agent 访问已暂停，或这台 iPhone 不再为它审批。"
-          }
-        }
-      }
-    },
-    "request.outcome.decidedElsewhere": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Already decided on another device."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已在另一台设备上处理。"
-          }
-        }
-      }
-    },
-    "request.outcome.decidedOnMac": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Already decided on the Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已在 Mac 上处理。"
-          }
-        }
-      }
-    },
-    "request.outcome.denied %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Denied. “%@” applied it."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已拒绝，“%@”已执行。"
-          }
-        }
-      }
-    },
-    "request.outcome.expired": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The request expired before it was decided."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请求在处理前已过期。"
-          }
-        }
-      }
-    },
-    "request.outcome.gone %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key on “%@” restarted, so this request no longer applies."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“%@”上的请旨已重新启动，这个请求已失效。"
-          }
-        }
-      }
-    },
-    "request.outcome.notApplied": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The Mac couldn't apply your decision as signed. If the request is still waiting, it comes again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac 无法按签名执行你的决定。如果请求仍在等待，它会再次发来。"
-          }
-        }
-      }
-    },
-    "request.outcome.timedOut": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Time ran out on this iPhone. Check the Mac to see how the request ended."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这台 iPhone 上的时间已到。请到 Mac 上查看请求的结果。"
-          }
-        }
-      }
-    },
     "request.problem.account": {
       "extractionState": "manual",
       "localizations": {
@@ -2262,6 +2585,23 @@
         }
       }
     },
+    "request.state.busy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One moment…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请稍候…"
+          }
+        }
+      }
+    },
     "request.state.checking": {
       "extractionState": "manual",
       "localizations": {
@@ -2285,13 +2625,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sending your decision to “%@”…"
+            "value": "Sending to “%@”…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在把你的决定发送给“%@”…"
+            "value": "正在发给“%@”…"
           }
         }
       }
@@ -2308,24 +2648,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已发送，正在等待“%@”处理。"
-          }
-        }
-      }
-    },
-    "request.timeLeft.none": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Time ran out"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "时间已到"
+            "value": "已发送，等待“%@”执行。"
           }
         }
       }

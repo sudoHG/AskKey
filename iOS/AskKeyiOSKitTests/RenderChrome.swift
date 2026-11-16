@@ -139,3 +139,26 @@ struct FullScreenStandIn<Content: View, Actions: View>: View {
         .padding(.bottom, 34)
     }
 }
+
+/// A sheet as iOS draws it at full height: the status bar over the dimmed
+/// screen behind, then the sheet's rounded top, with room for the home
+/// indicator below the page's actions. A page that fits is as tall as the
+/// screen; a tall one grows to its content, as scrolling would show it.
+struct SheetStandIn<Content: View>: View {
+    var tall = false
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Color(uiColor: .systemGray3).frame(height: 62)
+            content
+                .padding(.bottom, 22)
+                .frame(maxWidth: .infinity, maxHeight: tall ? nil : .infinity, alignment: .top)
+                .fixedSize(horizontal: false, vertical: tall)
+                .background(Color(uiColor: .systemGroupedBackground))
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 38, topTrailingRadius: 38, style: .continuous))
+                .background(Color(uiColor: .systemGray3))
+        }
+        .frame(height: tall ? nil : 852)
+    }
+}

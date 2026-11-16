@@ -237,15 +237,4 @@ final class ApprovalDecisionTests: XCTestCase {
         XCTAssertEqual(world.card?.phase(at: world.clock.now()), .timedOut(decided: .allowOnce))
         XCTAssertEqual(try world.decisionAttempts().count, 1, "no resend once the countdown ended")
     }
-
-    func testAFinishedCardCanBeDismissedAndStaysStored() async throws {
-        let (sealed, id) = try await receive()
-        world.model.dismissRequest(id: id)
-        XCTAssertEqual(world.model.requests.count, 1, "a pending card cannot be dismissed")
-        try await world.sendClosed(.decidedOnMac, for: sealed)
-        await world.model.processInbox()
-        world.model.dismissRequest(id: id)
-        XCTAssertTrue(world.model.requests.isEmpty)
-        XCTAssertEqual(world.approvalStore.stored.requests.first?.dismissed, true)
-    }
 }

@@ -53,8 +53,9 @@ public struct RequestDisplay: Hashable, Sendable {
         return String(commandLine.prefix(80)) + "…" + String(commandLine.suffix(79))
     }
 
-    /// The decision buttons in the card's order: Deny, Allow Once, then the
-    /// timed allowance, each only when offered.
+    /// The offered decision codes in code order: Deny, Allow Once, then the
+    /// timed allowance. The request page orders its buttons as the Mac card
+    /// does (`RequestCard.pageButtons(at:)`).
     public var offeredCodes: [ApprovalDecisionCode] {
         ApprovalDecisionCode.allCases.filter { offers.contains($0) }
     }
@@ -113,6 +114,61 @@ public enum RequestPhase: Hashable, Sendable {
         case .closed, .timedOut, .gone: return true
         }
     }
+
+    /// How the request ended, once it has; nil while it can still be
+    /// decided or waits for the Mac.
+    public var ending: RequestEnding? {
+        switch self {
+        case .pending, .sending, .waiting: return nil
+        case .closed(let outcome): return .closed(outcome)
+        case .timedOut: return .timedOut
+        case .gone: return .gone
+        }
+    }
+}
+
+/// What a finished request's outcome page shows: the Mac's closed message,
+/// or, without one, this iPhone's countdown end or the Mac App's restart.
+public enum RequestEnding: Hashable, Sendable {
+    case closed(RequestOutcome)
+    case timedOut
+    case gone
+
+    /// The outcome page's symbol (#347).
+    public var symbol: String {
+        switch self {
+        case .closed(.allowedOnce), .closed(.allowedTimed): return "checkmark.circle.fill"
+        case .closed(.denied): return "xmark.circle.fill"
+        case .closed(.decidedOnMac): return "desktopcomputer"
+        case .closed(.decidedElsewhere): return "iphone"
+        case .closed(.expired): return "clock.fill"
+        case .closed(.cancelled): return "minus.circle.fill"
+        case .closed(.notApplied), .timedOut, .gone: return "exclamationmark.circle.fill"
+        }
+    }
+
+    /// The outcome page's color (decision 3 of #344): allowed and denied
+    /// never share one.
+    public var tone: EndingTone {
+        switch self {
+        case .closed(.allowedOnce), .closed(.allowedTimed): return .allowed
+        case .closed(.denied): return .denied
+        case .closed(.decidedOnMac), .closed(.decidedElsewhere), .closed(.expired), .closed(.cancelled): return .neutral
+        case .closed(.notApplied), .timedOut, .gone: return .attention
+        }
+    }
+}
+
+/// The colors of an outcome page.
+public enum EndingTone: Hashable, Sendable, CaseIterable {
+    /// Green: the Mac applied an Allow.
+    case allowed
+    /// Red: the Mac applied a Deny.
+    case denied
+    /// Gray: it was settled elsewhere, expired or cancelled.
+    case neutral
+    /// Orange: the Mac's result is unknown or did not apply.
+    case attention
 }
 
 /// One request card: the verified display, the iPhone's own name for the
@@ -162,6 +218,24 @@ public struct RequestCard: Identifiable, Hashable, Sendable {
     /// Whole seconds left on this iPhone's countdown.
     public func secondsLeft(at now: Date) -> Int {
         max(0, Int(countdownEnd.timeIntervalSince(now).rounded(.up)))
+    }
+
+    /// The request page's buttons now, in the Mac card's order: Allow Once,
+    /// the timed allowance, then Deny, each only when offered. While the
+    /// app checks and stores a tapped decision only that button stays, and
+    /// once the decision is stored only the chosen one; a finished request
+    /// shows none.
+    public func pageButtons(at now: Date, tapped: ApprovalDecisionCode? = nil) -> [ApprovalDecisionCode] {
+        switch phase(at: now) {
+        case .pending:
+            let offered = [ApprovalDecisionCode.allowOnce, .timedAllowance, .deny].filter { display.offers.contains($0) }
+            if let tapped, offered.contains(tapped) { return [tapped] }
+            return offered
+        case .sending(let code), .waiting(let code):
+            return [code]
+        case .closed, .timedOut, .gone:
+            return []
+        }
     }
 }
 

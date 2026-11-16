@@ -42,6 +42,7 @@ struct NoticeCard: View {
         case info
         case warning
         case success
+        case neutral
     }
 
     let symbol: String
@@ -68,6 +69,7 @@ struct NoticeCard: View {
         case .info: return .accentColor
         case .warning: return .orange
         case .success: return .green
+        case .neutral: return Color(uiColor: .systemGray)
         }
     }
 }
