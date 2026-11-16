@@ -42,7 +42,8 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertNil(bytes.range(of: sealed.sealed.envelope.body), "never the envelope")
         XCTAssertFalse(text.contains(sealed.sealed.envelope.body.base64EncodedString()), "never the envelope")
         let memory = String(decoding: try JSONEncoder().encode(world.model.historyState), as: UTF8.self)
-        for secret in ["COMMAND-e85f", "FOLDER-9d27", "VARIABLE_31F4", "LABEL-77e0", "PURPOSE-c41d"] {
+        for secret in ["COMMAND-e85f", "FOLDER-9d27", "VARIABLE_31F4", "LABEL-77e0", "PURPOSE-c41d",
+                       sealed.sealed.envelope.body.base64EncodedString()] {
             XCTAssertFalse(memory.contains(secret), "never in memory either: \(secret)")
         }
     }
@@ -181,7 +182,8 @@ final class HistoryStoreTests: XCTestCase {
         let relaunched = await world.relaunch()
         XCTAssertEqual(relaunched.history.count, 500, "at launch: older than 30 days")
         XCTAssertFalse(relaunched.history.contains(old))
-        XCTAssertEqual(world.storedHistory?.entries.count, 500, "and written")
+        await relaunched.becameActive()
+        XCTAssertEqual(world.storedHistory?.entries.count, 500, "and written after the fetch")
 
         let sealed = try await world.sendRequest()
         await relaunched.processInbox()

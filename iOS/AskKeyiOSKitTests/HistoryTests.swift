@@ -148,6 +148,28 @@ final class HistoryTests: XCTestCase {
         XCTAssertEqual(entry(older)?.endedAt, countdownEnd)
     }
 
+    func testAnEntryCompletedAtLaunchHasTheMacsNameThen() async throws {
+        let sealed = try await receive()
+        let renamed = await world.model.renameMac(id: macID, to: "Work Mac")
+        XCTAssertNil(renamed)
+        world.clock.advance(by: 310)
+        let relaunched = await world.relaunch()
+        XCTAssertEqual(relaunched.history.first?.recordName, sealed.sealed.messageID.text)
+        XCTAssertEqual(relaunched.history.first?.macName, "Work Mac", "the name when the request ended")
+    }
+
+    func testTheOutcomePageStaysSavedAfterTheStoredRequestExpires() async throws {
+        let sealed = try await receive()
+        try await world.sendClosed(.decidedOnMac, for: sealed)
+        await world.model.processInbox()
+        let card = try XCTUnwrap(world.card)
+        XCTAssertTrue(world.model.isSavedToHistory(card))
+        world.clock.advance(by: 700)
+        await world.model.processInbox()
+        XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
+        XCTAssertTrue(world.model.isSavedToHistory(card), "the page's last card still finds its entry")
+    }
+
     func testRelaunchedAfterTheTransportExpiryGivesOneTimedOutEntry() async throws {
         let sealed = try await receive()
         let countdownEnd = try XCTUnwrap(world.card?.countdownEnd)
@@ -157,7 +179,8 @@ final class HistoryTests: XCTestCase {
         XCTAssertEqual(relaunched.history.first?.recordName, sealed.sealed.messageID.text)
         XCTAssertEqual(relaunched.history.first?.ending, .timedOut)
         XCTAssertEqual(relaunched.history.first?.endedAt, countdownEnd)
-        XCTAssertEqual(world.storedHistory?.entries.filter(\.isCompleted).count, 1)
+        await relaunched.becameActive()
+        XCTAssertEqual(world.storedHistory?.entries.filter(\.isCompleted).count, 1, "written after the fetch")
     }
 
     // MARK: Closed messages before their requests
@@ -342,6 +365,22 @@ final class HistoryTests: XCTestCase {
         XCTAssertNil(world.historyKeys.storedKey)
     }
 
+    func testAKeyThatCannotBeDeletedStillLetsTheFileGo() async throws {
+        let sealed = try await receive()
+        try await world.sendClosed(.decidedOnMac, for: sealed)
+        await world.model.processInbox()
+        world.historyKeys.deletesFail = true
+        world.cloud.accountState = .noAccount
+        await world.model.refreshAccount()
+        XCTAssertNil(world.historyFiles.storedData, "the file goes even when the key cannot")
+        XCTAssertNotNil(world.historyKeys.storedKey)
+        XCTAssertTrue(world.historyFiles.isDeletionPending, "the key is tried again")
+        world.historyKeys.deletesFail = false
+        _ = await world.relaunch()
+        XCTAssertNil(world.historyKeys.storedKey)
+        XCTAssertFalse(world.historyFiles.isDeletionPending)
+    }
+
     func testAFailedDeletionIsRetriedAtLaunchBeforeTheFileIsRead() async throws {
         let sealed = try await receive()
         try await world.sendClosed(.decidedOnMac, for: sealed)
@@ -413,7 +452,7 @@ final class HistoryTests: XCTestCase {
         await world.model.processInbox()
         let prompts = try world.phone.approvalReasons.count
 
-        world.model.historyDetail = mine.sealed.messageID.text
+        world.model.historyDetail = world.model.history.first?.id
         world.model.showHistory(forMac: other.deviceID.text, name: "Office Mac")
         XCTAssertEqual(world.model.selectedTab, .history)
         XCTAssertEqual(world.model.historyFilter, HistoryFilter(macID: other.deviceID.text, macName: "Office Mac"))

@@ -121,24 +121,28 @@ extension AppModel {
         saveHistory()
     }
 
-    /// After the stored requests changed: completes what ended and writes.
+    /// After the stored requests changed: completes what ended and writes
+    /// at once, so an entry survives the app being suspended right after.
+    /// A write waits on no keychain (the key is cached) and no network.
     func recordHistory() {
         reconcileHistory()
         saveHistory()
     }
 
-    /// When the app comes to the front: History drops what is older than
-    /// 30 days at once; the file is written after the fetch's sends.
-    func pruneHistory() {
-        changeHistory { _ in }
-    }
-
-    /// At launch and after every fetch: reads the history if it could not
-    /// be read yet, completes what ended, prunes and writes what is pending.
-    func refreshHistory() {
+    /// At launch and when the app comes to the front: History completes
+    /// what ended and drops what is older than 30 days at once, in memory;
+    /// the file is written after the fetch's sends, or when it cannot fetch.
+    func settleHistory() {
         _ = historyIsWritable()
         reconcileHistory()
         changeHistory { _ in }
+    }
+
+    /// After every fetch, once its decisions were sent: reads the history
+    /// if it could not be read yet, completes what ended, prunes and writes
+    /// what is pending.
+    func refreshHistory() {
+        settleHistory()
         saveHistory()
     }
 
@@ -219,12 +223,13 @@ extension AppModel {
     }
 
     /// At launch: reads the history under the current account, completes
-    /// what ended while the app was not running, prunes and writes. Entries
+    /// what ended while the app was not running and prunes; the first
+    /// fetch's refresh writes it. Entries
     /// captured while it could not be read are kept and added to it. A file
     /// bound to another account, or one the key cannot open, is deleted
     /// unread.
     func loadHistory() {
-        refreshHistory()
+        settleHistory()
     }
 
     /// Whether the history may be written: no deletion is pending, and the
