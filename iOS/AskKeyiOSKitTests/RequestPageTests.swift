@@ -40,8 +40,13 @@ final class RequestPageTests: XCTestCase {
         XCTAssertEqual(Self.card(offers: .denyOnly).pageButtons(at: Self.now), [.deny])
     }
 
-    /// Sending and waiting keep only the chosen button; a finished request has none.
+    /// Sending and waiting keep only the chosen button, and so does the
+    /// moment between the tap and the stored decision; a finished request
+    /// has none.
     func testOnlyTheChosenButtonStaysOnceADecisionIsStored() {
+        XCTAssertEqual(Self.card().pageButtons(at: Self.now, tapped: .allowOnce), [.allowOnce])
+        XCTAssertEqual(Self.card(offers: .denyOnly).pageButtons(at: Self.now, tapped: .allowOnce), [.deny],
+                       "a code that is not offered never shows")
         XCTAssertEqual(Self.card(decision: .deny).pageButtons(at: Self.now), [.deny])
         XCTAssertEqual(Self.card(decision: .timedAllowance, isSent: true).pageButtons(at: Self.now), [.timedAllowance])
         XCTAssertEqual(Self.card(decision: .allowOnce, isSent: true, outcome: .allowedOnce).pageButtons(at: Self.now), [])
@@ -51,13 +56,38 @@ final class RequestPageTests: XCTestCase {
 
     func testADenyOnlyRequestSaysWhy() {
         XCTAssertNil(RequestActions.denyOnlyNote(Self.card(offers: .denyOrAllowOnce).display))
+        let shortened = RequestDisplay(requesterName: "", purpose: "", credentialName: "Prod Database",
+                                       commandLine: "psql …", workingDirectory: "", executableName: "psql",
+                                       deliveryRows: [], shortened: [.commandLine], offers: .denyOnly)
+        XCTAssertEqual(RequestActions.denyOnlyNote(shortened), LocalizedStringKey("request.denyOnly.shortened"))
         XCTAssertEqual(RequestActions.denyOnlyNote(Self.card(offers: .denyOnly).display),
-                       LocalizedStringKey("request.denyOnly.shortened"))
+                       LocalizedStringKey("request.denyOnly.other"), "nothing was shortened, so it never says so")
         let refused = RequestDisplay(requesterName: "", purpose: "", credentialName: "NAS Admin", commandLine: "ssh nas",
                                      workingDirectory: "", executableName: "ssh", deliveryRows: [],
                                      deliveryMetadataUnavailable: true, offers: .denyOnly)
         XCTAssertEqual(RequestActions.denyOnlyNote(refused), LocalizedStringKey("request.handsOver.unavailable"),
                        "the run will be refused, so the Mac cannot allow it either")
+    }
+
+    // MARK: Names and layout
+
+    /// An agent chooses its name, up to 256 bytes: the page's sentence
+    /// shortens it, and the Mac's, as the rows do, so the credential's
+    /// name stays above the buttons; Details show both in full.
+    func testTheSentenceShortensLongNames() {
+        let long = String(repeating: "W", count: 256)
+        XCTAssertEqual(RequestCopy.short(long).count, 24)
+        XCTAssertTrue(RequestCopy.short(long).hasSuffix("…"))
+        XCTAssertEqual(RequestCopy.short("Claude Code"), "Claude Code")
+    }
+
+    /// Above the default text size the actions scroll after the content.
+    func testTheActionsArePinnedOnlyUpToTheDefaultTextSize() {
+        typealias Layout = RequestSheetLayout<EmptyView, EmptyView>
+        XCTAssertTrue(Layout.pinsActions(at: .small))
+        XCTAssertTrue(Layout.pinsActions(at: .large))
+        XCTAssertFalse(Layout.pinsActions(at: .xLarge))
+        XCTAssertFalse(Layout.pinsActions(at: .accessibility1))
     }
 
     // MARK: Outcome pages
@@ -177,6 +207,37 @@ final class RequestPageTests: XCTestCase {
         XCTAssertEqual(world.model.openedRequest, OpenedRequest(id: id))
         XCTAssertEqual(world.model.requests.first { $0.id == id }?.phase(at: now).ending, .timedOut)
         XCTAssertTrue(world.model.activeRequests(at: now).isEmpty)
+    }
+
+    /// The stored request expires after its countdown; an outcome page that
+    /// is still open stays until the person closes it.
+    func testAnOpenOutcomePageOutlivesItsStoredRequest() async throws {
+        let world = try await pairedWorld()
+        let sealed = try await world.sendRequest()
+        await world.model.processInbox()
+        let id = sealed.sealed.messageID.text
+        world.model.open(id)
+        await world.model.decide(.deny, requestID: id)
+        try await world.sendClosed(.applied, code: .deny, for: sealed)
+        await world.model.processInbox()
+        world.clock.advance(by: 1_000)
+        await world.model.processInbox()
+        XCTAssertFalse(world.approvalStore.stored.requests.contains { $0.recordName == id }, "the stored request expired")
+        XCTAssertEqual(world.model.openedRequest, OpenedRequest(id: id), "the page stays open")
+    }
+
+    /// Removing the Mac closes even an outcome page.
+    func testRemovingTheMacClosesItsOpenPage() async throws {
+        let world = try await pairedWorld()
+        let sealed = try await world.sendRequest()
+        await world.model.processInbox()
+        let id = sealed.sealed.messageID.text
+        world.model.open(id)
+        try await world.sendClosed(.decidedOnMac, for: sealed)
+        await world.model.processInbox()
+        XCTAssertEqual(world.model.openedRequest, OpenedRequest(id: id))
+        await world.model.removeMac(id: world.macIdentity.deviceID.text)
+        XCTAssertNil(world.model.openedRequest)
     }
 
     /// Settled while its page is closed: it leaves the Requests tab at once,

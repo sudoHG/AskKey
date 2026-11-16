@@ -93,6 +93,7 @@ enum OutcomeCopy {
         switch ending {
         case .closed(.allowedOnce): return Text("request.ending.allowedOnce.title", bundle: .kit)
         case .closed(.allowedTimed(let seconds)):
+            if seconds == 60 { return Text("request.ending.allowedOneMinute.title", bundle: .kit) }
             if seconds % 60 == 0 {
                 return Text("request.ending.allowedTimed.title \(String(seconds / 60))", bundle: .kit)
             }
@@ -108,12 +109,15 @@ enum OutcomeCopy {
         }
     }
 
+    /// The names are bold, as in the request's sentence, so a name with
+    /// quotes in it cannot pass for the sentence's own words.
     static func sentence(_ ending: RequestEnding, card: RequestCard) -> Text {
-        let mac = Text(verbatim: card.macName)
-        let credential = Text(verbatim: card.display.credentialName)
+        let mac = Text(verbatim: RequestCopy.short(card.macName)).bold()
+        let credential = Text(verbatim: card.display.credentialName).bold()
         switch ending {
         case .closed(.allowedOnce):
-            return Text("request.ending.allowedOnce \(RequestCopy.requester(card.display)) \(credential) \(mac)", bundle: .kit)
+            let requester = RequestCopy.requester(card.display, shortened: true).bold()
+            return Text("request.ending.allowedOnce \(requester) \(credential) \(mac)", bundle: .kit)
         case .closed(.allowedTimed(let seconds)):
             return Text("request.ending.allowedTimed \(RequestCopy.duration(seconds)) \(mac) \(credential)", bundle: .kit)
         case .closed(.denied): return Text("request.ending.denied \(credential) \(mac)", bundle: .kit)

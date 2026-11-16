@@ -221,13 +221,16 @@ public struct RequestCard: Identifiable, Hashable, Sendable {
     }
 
     /// The request page's buttons now, in the Mac card's order: Allow Once,
-    /// the timed allowance, then Deny, each only when offered. Once a
-    /// decision is stored only the chosen one stays; a finished request
+    /// the timed allowance, then Deny, each only when offered. While the
+    /// app checks and stores a tapped decision only that button stays, and
+    /// once the decision is stored only the chosen one; a finished request
     /// shows none.
-    public func pageButtons(at now: Date) -> [ApprovalDecisionCode] {
+    public func pageButtons(at now: Date, tapped: ApprovalDecisionCode? = nil) -> [ApprovalDecisionCode] {
         switch phase(at: now) {
         case .pending:
-            return [ApprovalDecisionCode.allowOnce, .timedAllowance, .deny].filter { display.offers.contains($0) }
+            let offered = [ApprovalDecisionCode.allowOnce, .timedAllowance, .deny].filter { display.offers.contains($0) }
+            if let tapped, offered.contains(tapped) { return [tapped] }
+            return offered
         case .sending(let code), .waiting(let code):
             return [code]
         case .closed, .timedOut, .gone:

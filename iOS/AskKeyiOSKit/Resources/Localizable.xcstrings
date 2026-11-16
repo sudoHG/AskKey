@@ -1395,6 +1395,23 @@
         }
       }
     },
+    "request.allowOneMinute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow for 1 Minute"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许 1 分钟"
+          }
+        }
+      }
+    },
     "request.allowTimed %@": {
       "extractionState": "manual",
       "localizations": {
@@ -1459,6 +1476,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "拒绝"
+          }
+        }
+      }
+    },
+    "request.denyOnly.other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This request can only be denied on the iPhone. To allow it, use the Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个请求在 iPhone 上只能拒绝；要允许，请到 Mac 上处理。"
           }
         }
       }
@@ -1816,6 +1850,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "已允许本次"
+          }
+        }
+      }
+    },
+    "request.ending.allowedOneMinute.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed for 1 Minute"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许 1 分钟"
           }
         }
       }
@@ -2547,6 +2598,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "请求"
+          }
+        }
+      }
+    },
+    "request.state.busy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One moment…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请稍候…"
           }
         }
       }

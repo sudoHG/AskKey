@@ -2,13 +2,15 @@ import AskKeyDevices
 import SwiftUI
 
 /// “Codex” on “Studio Mac” wants to use “GitHub Token”, with the names
-/// emphasized as on the Mac card. The names are shown in full and wrap, so
-/// the credential always shows, however long the agent's name.
+/// emphasized as on the Mac card. The requester's and the Mac's names are
+/// shortened as in the Requests tab's rows, so that a long name, which the
+/// agent or a Mac chooses, cannot push the credential's name below the
+/// page's buttons; Details show both in full.
 struct RequestSentence: View {
     let card: RequestCard
 
     var body: some View {
-        Text("request.title \(RequestCopy.requester(card.display).bold()) \(Text(verbatim: card.macName).bold()) \(Text(verbatim: card.display.credentialName).bold())",
+        Text("request.title \(RequestCopy.requester(card.display, shortened: true).bold()) \(Text(verbatim: RequestCopy.short(card.macName)).bold()) \(Text(verbatim: card.display.credentialName).bold())",
              bundle: .kit)
     }
 }
@@ -153,9 +155,16 @@ struct RequestDetailsCard: View {
 
 /// The request page's words for the requester, buttons and problems.
 enum RequestCopy {
-    /// The requester's name, or "Local Agent" when the request names none.
-    static func requester(_ display: RequestDisplay) -> Text {
-        display.requesterName.isEmpty ? Text("request.localAgent", bundle: .kit) : Text(verbatim: display.requesterName)
+    /// The requester's name, or "Local Agent" when the request names none;
+    /// shortened in sentences, in full in Details.
+    static func requester(_ display: RequestDisplay, shortened: Bool = false) -> Text {
+        guard !display.requesterName.isEmpty else { return Text("request.localAgent", bundle: .kit) }
+        return Text(verbatim: shortened ? short(display.requesterName) : display.requesterName)
+    }
+
+    /// A name in a sentence: at most as long as in a Requests row.
+    static func short(_ name: String) -> String {
+        RequestRow.short(name)
     }
 
     static func buttonTitle(_ code: ApprovalDecisionCode, timedDuration: UInt64) -> Text {
@@ -163,6 +172,7 @@ enum RequestCopy {
         case .deny: return Text("request.deny", bundle: .kit)
         case .allowOnce: return Text("request.allowOnce", bundle: .kit)
         case .timedAllowance:
+            if timedDuration == 60 { return Text("request.allowOneMinute", bundle: .kit) }
             if timedDuration % 60 == 0 {
                 return Text("request.allowTimed \(String(timedDuration / 60))", bundle: .kit)
             }

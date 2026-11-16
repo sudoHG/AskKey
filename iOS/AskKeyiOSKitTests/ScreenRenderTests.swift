@@ -104,10 +104,12 @@ final class ScreenRenderTests: XCTestCase {
     /// A page that fits shows at the screen's height with its actions at the
     /// bottom; `tall` lets it grow to show everything, as scrolling would.
     private func page(_ card: RequestCard?, opening: OpeningPhase? = nil, biometry: BiometryKind = .faceID,
-                      problem: DecisionProblem? = nil, details: Bool = false, tall: Bool = false) -> some View {
+                      tapped: ApprovalDecisionCode? = nil, problem: DecisionProblem? = nil, details: Bool = false,
+                      tall: Bool = false) -> some View {
         SheetStandIn(tall: tall) {
-            OpenedRequestContent(card: card, opening: opening, now: Self.now, biometry: biometry, problem: problem,
-                                 showsDetails: details, scrolls: false, onDecide: { _ in }, onClose: {})
+            OpenedRequestContent(card: card, opening: opening, now: Self.now, biometry: biometry,
+                                 isDeciding: tapped != nil, isDecidingHere: tapped != nil, tapped: tapped,
+                                 problem: problem, showsDetails: details, scrolls: false, onDecide: { _ in }, onClose: {})
         }
     }
 
@@ -138,7 +140,14 @@ final class ScreenRenderTests: XCTestCase {
                                          deliveryRows: [], deliveryMetadataUnavailable: true, offers: .denyOnly)
         try render("64-request-page-delivery-unavailable", page(Self.card(unavailable), details: true, tall: true))
         try render("65-request-page-face-id-cancelled", page(Self.card(), problem: .cancelled))
-        try render("68-request-page-touch-id-under-a-minute", page(Self.card(secondsLeft: 48), biometry: .touchID))
+        // The longest name an agent can choose, at the default text size:
+        // the sentence shortens it, so the credential stays above the buttons.
+        let longest = RequestDisplay(requesterName: String(repeating: "Background Maintenance Agent ", count: 8),
+                                     purpose: "", credentialName: "Production Database", commandLine: "psql",
+                                     workingDirectory: "", executableName: "psql", deliveryRows: [], offers: .all,
+                                     timedDuration: 1_800)
+        try render("68-request-page-touch-id-long-name",
+                   page(Self.card(longest, secondsLeft: 48), biometry: .touchID, problem: .failed))
         let longRequester = RequestDisplay(
             requesterName: "Background Maintenance Agent for the Release Pipeline", purpose: "",
             credentialName: "Production Database", commandLine: "psql", workingDirectory: "", executableName: "psql",
@@ -147,8 +156,10 @@ final class ScreenRenderTests: XCTestCase {
                    page(Self.card(longRequester), tall: true).environment(\.dynamicTypeSize, .accessibility2))
     }
 
-    /// Only the chosen button stays, disabled, with what happens to it.
+    /// Only the chosen button stays, disabled, with what happens to it:
+    /// checked and stored, then sending, then waiting for the Mac.
     func testRequestPageProgress() throws {
+        try render("90-request-page-checking-decision", page(Self.card(), tapped: .allowOnce))
         try render("66-request-page-sending", page(Self.card(decision: .allowOnce)))
         try render("67-request-page-waiting", page(Self.card(decision: .timedAllowance, isSent: true)))
     }

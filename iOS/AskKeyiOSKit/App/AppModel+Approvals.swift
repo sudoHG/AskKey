@@ -202,6 +202,7 @@ extension AppModel {
     func dropApprovals(forMac mac: String) {
         var state = approvals
         let dropped = state.requests.filter { $0.macID == mac }.map(\.recordName)
+        closePage(of: dropped)
         state.requests.removeAll { $0.macID == mac }
         state.markers.removeAll { $0.macID == mac }
         if state != approvals { commitApprovals(state) }
@@ -280,6 +281,11 @@ extension AppModel {
         approvals = state
     }
 
+    /// Forgets dropped or expired requests. An open page whose request had
+    /// already ended keeps its outcome until the person closes it (decision
+    /// 7 of #344), even once the stored request expired; every other open
+    /// page of a forgotten request closes. A revocation closes the page
+    /// first (`closePage(of:)`).
     func forget(_ recordNames: [String]) {
         for name in recordNames {
             openedContent[name] = nil
@@ -287,8 +293,16 @@ extension AppModel {
             nextAttempts[name] = nil
             uncheckedRequests.remove(name)
         }
-        if let opened = openedRequest, recordNames.contains(opened.id) { openedRequest = nil }
+        if let opened = openedRequest, recordNames.contains(opened.id),
+           requests.first(where: { $0.id == opened.id })?.phase(at: environment.clock.now()).isFinished != true {
+            openedRequest = nil
+        }
         if let opening, recordNames.contains(opening.id) { self.opening = nil }
+    }
+
+    /// Closes the open page of a request whose Mac no longer approves.
+    func closePage(of recordNames: [String]) {
+        if let opened = openedRequest, recordNames.contains(opened.id) { openedRequest = nil }
     }
 
     /// At launch: opens every stored request again with the stateless
@@ -301,6 +315,7 @@ extension AppModel {
         let verifier = DeviceMessageVerifier(identity: services.identity, list: list)
         var state = approvals
         var dropped = state.prune(now: now)
+        let expired = dropped
         for entry in state.requests where openedContent[entry.recordName] == nil {
             do {
                 if let message = try reopen(entry, with: verifier, list: list, now: now) {
@@ -320,6 +335,7 @@ extension AppModel {
             return !approves(mac, pairingID: pairing, in: list)
         }
         if state != approvals { commitApprovals(state) }
+        closePage(of: dropped.filter { !expired.contains($0) })
         forget(dropped)
         rebuildRequests(list: list)
         settleRequestNotifications(also: dropped)
@@ -341,9 +357,10 @@ extension AppModel {
     /// the list, which names each Mac by this iPhone's own name for it.
     /// A finished card stays here, so its open page keeps its outcome until
     /// the person closes it, while the Requests tab no longer lists it
-    /// (decision 7 of #344, `activeRequests(at:)`); nothing stored changes
-    /// when the page closes. Entries an earlier build let the person dismiss
-    /// stay hidden.
+    /// (decision 7 of #344, `activeRequests(at:)`); after its stored request
+    /// expired, the page keeps the last card it showed. Nothing stored
+    /// changes when the page closes. Entries an earlier build let the person
+    /// dismiss stay hidden.
     func rebuildRequests(list: PairedDeviceList? = nil) {
         if let list { knownList = list }
         let now = environment.clock.now()

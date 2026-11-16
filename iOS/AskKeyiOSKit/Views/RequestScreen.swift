@@ -7,15 +7,25 @@ struct OpenedRequestView: View {
     let model: AppModel
     let id: String
     let onClose: () -> Void
+    /// The last card this page showed. Once the request ended, its outcome
+    /// stays after the stored request expires, until the person closes the
+    /// page (decision 7 of #344); a request that can still be decided is
+    /// never shown from it.
+    @State private var lastCard: RequestCard?
 
     var body: some View {
+        let live = model.requests.first { $0.id == id }
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            OpenedRequestContent(card: model.requests.first { $0.id == id },
+            OpenedRequestContent(card: live ?? lastCard.flatMap { $0.phase(at: context.date).isFinished ? $0 : nil },
                                  opening: model.opening?.id == id ? model.openingPhase(at: context.date) : nil,
                                  now: context.date, biometry: model.biometryKind,
-                                 isDeciding: model.decidingRequest != nil, problem: model.decisionProblems[id],
+                                 isDeciding: model.decidingRequest != nil, isDecidingHere: model.decidingRequest == id,
+                                 problem: model.decisionProblems[id],
                                  onDecide: { code in Task { await model.decide(code, requestID: id) } },
                                  onClose: onClose)
+        }
+        .onChange(of: live, initial: true) { _, card in
+            if let card { lastCard = card }
         }
     }
 }
@@ -29,7 +39,11 @@ struct OpenedRequestContent: View {
     var opening: OpeningPhase?
     let now: Date
     var biometry: BiometryKind = .faceID
+    /// A decision is being checked and stored, for this or another request.
     var isDeciding = false
+    var isDecidingHere = false
+    /// The button tapped before the page appeared; only renders set it.
+    var tapped: ApprovalDecisionCode?
     var problem: DecisionProblem?
     var showsDetails = false
     /// Renders pass false: `ImageRenderer` cannot draw a scroll view.
@@ -42,7 +56,8 @@ struct OpenedRequestContent: View {
             if let ending = card.phase(at: now).ending {
                 RequestOutcomePage(card: card, ending: ending, scrolls: scrolls, onClose: onClose)
             } else {
-                RequestPage(card: card, now: now, biometry: biometry, isDeciding: isDeciding, problem: problem,
+                RequestPage(card: card, now: now, biometry: biometry, isDeciding: isDeciding,
+                            isDecidingHere: isDecidingHere, tapped: tapped, problem: problem,
                             showsDetails: showsDetails, scrolls: scrolls, onDecide: onDecide, onClose: onClose)
             }
         } else {
@@ -64,8 +79,9 @@ struct OpenedRequestContent: View {
 
 /// The page's frame: a close button and the title Request at the top, the
 /// content, and the actions pinned to the bottom. The content scrolls in
-/// the app; at accessibility text sizes the actions scroll with it, so they
-/// never cover it.
+/// the app. Above the default text size the actions scroll after the
+/// content instead, so they never cover the sentence: Allow is never on
+/// screen while the credential's name is not.
 struct RequestSheetLayout<Content: View, Actions: View>: View {
     var scrolls = true
     var closeHint: LocalizedStringKey?
@@ -77,7 +93,7 @@ struct RequestSheetLayout<Content: View, Actions: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            if typeSize.isAccessibilitySize {
+            if !Self.pinsActions(at: typeSize) {
                 scrolling {
                     VStack(spacing: 28) {
                         content
@@ -94,6 +110,11 @@ struct RequestSheetLayout<Content: View, Actions: View>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+    }
+
+    /// The actions stay at the bottom only up to the default text size.
+    static func pinsActions(at typeSize: DynamicTypeSize) -> Bool {
+        typeSize <= .large
     }
 
     private var header: some View {
@@ -150,6 +171,8 @@ struct RequestPage: View {
     let now: Date
     var biometry: BiometryKind = .faceID
     var isDeciding = false
+    var isDecidingHere = false
+    var tapped: ApprovalDecisionCode?
     var problem: DecisionProblem?
     var showsDetails = false
     var scrolls = true
@@ -157,8 +180,13 @@ struct RequestPage: View {
     let onClose: () -> Void
     @ScaledMetric(relativeTo: .title) private var keyCircle: CGFloat = 52
 
+    /// Closing decides later only while nothing was chosen yet.
+    private var closeHint: LocalizedStringKey? {
+        card.phase(at: now) == .pending && !isDecidingHere ? "request.close.hint" : nil
+    }
+
     var body: some View {
-        RequestSheetLayout(scrolls: scrolls, closeHint: "request.close.hint", onClose: onClose) {
+        RequestSheetLayout(scrolls: scrolls, closeHint: closeHint, onClose: onClose) {
             VStack(alignment: .leading, spacing: 18) {
                 Image(systemName: "key")
                     .font(.title3)
@@ -175,8 +203,8 @@ struct RequestPage: View {
                 RequestDetailsCard(card: card, startsShown: showsDetails)
             }
         } actions: {
-            RequestActions(card: card, now: now, biometry: biometry, isDeciding: isDeciding, problem: problem,
-                           onDecide: onDecide)
+            RequestActions(card: card, now: now, biometry: biometry, isDeciding: isDeciding,
+                           isDecidingHere: isDecidingHere, problem: problem, onDecide: onDecide, tapped: tapped)
         }
     }
 }
@@ -185,23 +213,28 @@ struct RequestPage: View {
 /// card's order, what happens to a decision, and the time left. Allow Once
 /// is the prominent button and the timed allowance the tinted one, both
 /// with the Face ID or Touch ID symbol; Deny is gray, without a symbol.
-/// Once a decision is stored only the chosen button stays, disabled.
+/// From the tap, while the app checks and stores the decision, only the
+/// tapped button stays, disabled, with a spinner; once the decision is
+/// stored, only the chosen one, with what happens to it.
 struct RequestActions: View {
     let card: RequestCard
     let now: Date
     var biometry: BiometryKind = .faceID
     var isDeciding = false
+    var isDecidingHere = false
     var problem: DecisionProblem?
     let onDecide: (ApprovalDecisionCode) -> Void
+    /// The button last tapped on this page.
+    @State var tapped: ApprovalDecisionCode?
 
     private var phase: RequestPhase { card.phase(at: now) }
     private var display: RequestDisplay { card.display }
 
     var body: some View {
-        if phase == .pending {
+        if phase == .pending && !isDecidingHere {
             notes
         }
-        ForEach(card.pageButtons(at: now), id: \.self) { code in
+        ForEach(card.pageButtons(at: now, tapped: isDecidingHere ? tapped : nil), id: \.self) { code in
             button(code)
         }
         status
@@ -225,12 +258,14 @@ struct RequestActions: View {
     /// field was shortened, so only the Mac shows the whole request.
     static func denyOnlyNote(_ display: RequestDisplay) -> LocalizedStringKey? {
         guard display.offers == .denyOnly else { return nil }
-        return display.deliveryMetadataUnavailable ? "request.handsOver.unavailable" : "request.denyOnly.shortened"
+        if display.deliveryMetadataUnavailable { return "request.handsOver.unavailable" }
+        return display.shortened.isEmpty ? "request.denyOnly.other" : "request.denyOnly.shortened"
     }
 
     @ViewBuilder private func button(_ code: ApprovalDecisionCode) -> some View {
         let enabled = phase == .pending && !isDeciding && !card.isChecking
         let base = Button {
+            tapped = code
             onDecide(code)
         } label: {
             label(code)
@@ -270,6 +305,13 @@ struct RequestActions: View {
 
     @ViewBuilder private var status: some View {
         switch phase {
+        case .pending where isDeciding:
+            // Checking and storing a decision, here or on another request's page.
+            HStack(spacing: 8) {
+                SendingIndicator()
+                Text("request.state.busy", bundle: .kit)
+            }
+            .statusLine()
         case .sending:
             HStack(spacing: 8) {
                 SendingIndicator()
@@ -280,7 +322,7 @@ struct RequestActions: View {
             Label {
                 Text("request.state.waiting \(Text(verbatim: card.macName))", bundle: .kit)
             } icon: {
-                Image(systemName: "arrow.up.circle")
+                Image(systemName: "hourglass")
             }
             .statusLine()
         default:
