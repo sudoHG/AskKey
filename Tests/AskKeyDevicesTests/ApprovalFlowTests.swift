@@ -4,12 +4,12 @@ import CryptoKit
 import XCTest
 
 /// Two simulated devices with software keys over the in-memory transport:
-/// each kind 10–14 message round-trips (ADR 0014; #310 acceptance 2).
+/// each kind 10–13 message round-trips (ADR 0014; #310 acceptance 2).
 final class ApprovalFlowTests: XCTestCase {
     func testKindsUseTheirRecordTypesLifetimesAndBaseMode() {
-        let approval: [MessageKind] = [.approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt,
-                                       .approverConfirmation]
-        XCTAssertEqual(approval.map(\.rawValue), [10, 11, 12, 13, 14])
+        let approval: [MessageKind] = [.approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt]
+        XCTAssertEqual(approval.map(\.rawValue), [10, 11, 12, 13])
+        XCTAssertNil(MessageKind(rawValue: 14), "kind 14 is reserved (#336)")
         for kind in approval {
             XCTAssertEqual(kind.recordType, kind == .approvalRequest ? .alert : .quiet)
             XCTAssertEqual(kind.maximumLifetime, 600)
@@ -139,7 +139,7 @@ final class ApprovalFlowTests: XCTestCase {
         }
     }
 
-    func testClosedReceiptAndConfirmationRoundTrip() async throws {
+    func testClosedAndReceiptRoundTrip() async throws {
         let fixture = try await ApprovalFixture.make()
         let sealed = try await fixture.sendRequest()
         try await fixture.phone.poll()
@@ -180,23 +180,6 @@ final class ApprovalFlowTests: XCTestCase {
                                                                                  to: macEntry)) {
             XCTAssertEqual($0 as? ApprovalMessageError, .invalidClosedOutcome)
         }
-
-        // Confirmation: the phone sends the proof of the typed code; the Mac's handler compares it.
-        let code = ApproverCode.random()
-        let typed = try XCTUnwrap(ApproverCode(typed: code.formatted))
-        let confirmation = try await fixture.phone.messenger.sealer.sealApproverConfirmation(
-            typed, to: try await fixture.phoneEntryForMac(), approvalReason: "Approve requests")
-        XCTAssertEqual(fixture.phone.identity.approvalReasons.last, "Approve requests")
-        try await fixture.harness.transport.send(confirmation.envelope)
-        await XCTAssertEqualAsync(try await fixture.mac.poll().processed, 1)
-        let confirmed = try XCTUnwrap(fixture.outstanding.messages.last)
-        guard case .confirmation(let content) = confirmed.message else { return XCTFail("confirmation") }
-        XCTAssertNil(confirmed.requestDigest)
-        XCTAssertEqual(confirmed.senderID, fixture.phone.id)
-        XCTAssertTrue(code.matches(proof: content.codeProof, mac: fixture.mac.id, phone: fixture.phone.id,
-                                   pairingID: confirmed.pairingID))
-        XCTAssertFalse(ApproverCode(typed: code.digits == "000000" ? "000001" : "000000")!
-            .matches(proof: content.codeProof, mac: fixture.mac.id, phone: fixture.phone.id, pairingID: confirmed.pairingID))
     }
 
     func testAClosedMessageIsHandledBeforeTheRequestItEnds() async throws {
@@ -232,18 +215,28 @@ final class ApprovalFlowTests: XCTestCase {
         XCTAssertNotEqual(new.pairingID, old.pairingID, "the phone holds the new pairing")
         await XCTAssertEqualAsync(try await fixture.macEntryForPhone().pairingID, old.pairingID)
 
-        let confirmation = try await phone.messenger.sealer.sealApproverConfirmation(ApproverCode.random(), to: new,
-                                                                                    approvalReason: "Approve")
-        try await harness.transport.send(confirmation.envelope)
+        // A request the Mac seals for the entry it is about to add, and the phone's receipt for it.
+        let upcoming = PairedDevice(card: old.card, pairingID: new.pairingID, displayName: old.displayName,
+                                    pairedAt: old.pairedAt)
+        let sealed = try mac.messenger.sealer.sealApprovalRequest(
+            ApprovalVectorTests.vectorDisplay, bindingDigest: ApprovalFixture.binding,
+            deadline: mac.clock.now().addingTimeInterval(120), launchTime: Date(timeIntervalSince1970: 1_799_000_000),
+            offers: .denyOnly, timedDuration: 0, to: upcoming)
+        fixture.outstanding.record(sealed, to: phone.id)
+        try await harness.transport.send(sealed.sealed.envelope)
+        try await phone.poll()
+        let receipt = try phone.messenger.sealer.sealApprovalReceipt(answering: fixture.phoneRequest())
+        try await harness.transport.send(receipt.envelope)
         let early = try await mac.poll()
-        XCTAssertEqual(early.outcomes[confirmation.envelope.recordName], .keptForSession)
+        XCTAssertEqual(early.outcomes[receipt.envelope.recordName], .keptForSession)
         XCTAssertTrue(fixture.outstanding.messages.isEmpty, "the handler has not seen it")
-        XCTAssertEqual(harness.transport.records(in: mac.id).map(\.recordName), [confirmation.envelope.recordName])
+        XCTAssertEqual(harness.transport.records(in: mac.id).map(\.recordName), [receipt.envelope.recordName])
 
         harness.transport.releaseDelayed()
         let later = try await mac.poll()
-        XCTAssertEqual(later.outcomes[confirmation.envelope.recordName], .processed)
+        XCTAssertEqual(later.outcomes[receipt.envelope.recordName], .processed)
         XCTAssertEqual(fixture.outstanding.messages.map(\.pairingID), [new.pairingID])
+        XCTAssertEqual(fixture.outstanding.entry(sealed.request.responseID)?.delivered, true)
         XCTAssertEqual(fixture.removals.entries.map(\.pairingID), [old.pairingID], "the old entry was announced first")
     }
 

@@ -107,8 +107,6 @@ enum DomainLabel {
     static let approvalBinding = label("AskKey approval binding v1")
     static let approvalDecision = label("AskKey approval decision v1")
     static let approvalReceiptID = label("AskKey approval receipt id v1")
-    static let approverConfirmation = label("AskKey approver confirmation v1")
-    static let approverCode = label("AskKey approver code v1")
 
     private static func label(_ text: String) -> Data {
         precondition(text.allSatisfy(\.isASCII))

@@ -53,43 +53,6 @@ final class ApprovalVectorTests: XCTestCase {
         XCTAssertEqual(Data(SHA256.hash(data: once)).hex, "0d3be7ecd11377e27d282442edde99f766ae0ea0124721beb8c07afa86901c0e")
     }
 
-    func testCodeProofAndConfirmationStatement() throws {
-        let code = try XCTUnwrap(ApproverCode(typed: "042917"))
-        let proof = code.proof(mac: Self.requester, phone: Self.approver, pairingID: Self.pairingID)
-        XCTAssertEqual(proof.hex, "720c17b6e53689724891e64a1740f0e12d7647cfe0f6dcb3397915136a1fb8a4")
-        let statement = ApproverConfirmation.statement(phone: Self.approver, mac: Self.requester, pairingID: Self.pairingID,
-                                                       codeProof: proof)
-        XCTAssertEqual(Data(SHA256.hash(data: statement)).hex,
-                       "b2c73c19ef9f9350261cfc26c2a2084b9d4e46d4d8267c6fc8274ec92c65cc73")
-        XCTAssertTrue(code.matches(proof: proof, mac: Self.requester, phone: Self.approver, pairingID: Self.pairingID))
-        var wrong = proof
-        wrong[31] ^= 1
-        XCTAssertFalse(code.matches(proof: wrong, mac: Self.requester, phone: Self.approver, pairingID: Self.pairingID))
-        XCTAssertFalse(code.matches(proof: proof.prefix(31), mac: Self.requester, phone: Self.approver,
-                                    pairingID: Self.pairingID))
-        XCTAssertFalse(code.matches(proof: proof, mac: Self.approver, phone: Self.requester, pairingID: Self.pairingID),
-                       "the proof names the Mac and the iPhone in order")
-    }
-
-    func testApproverCodeEntryAndRedaction() throws {
-        let code = try XCTUnwrap(ApproverCode(typed: " 042\t917\n"))
-        XCTAssertEqual(code.digits, "042917")
-        XCTAssertEqual(code.formatted, "042 917")
-        XCTAssertEqual(ApproverCode(typed: "042\u{3000}917")?.digits, "042917", "the full-width space is white space")
-        for invalid in ["04291", "0429170", "04291a", "\u{FF10}42917", "", "042-917", "٠٤٢٩١٧"] {
-            XCTAssertNil(ApproverCode(typed: invalid), invalid)
-        }
-        XCTAssertEqual(String(describing: code), "ApproverCode(redacted)")
-        XCTAssertFalse(String(reflecting: code).contains("042"))
-        XCTAssertFalse("\(code)".contains("917"))
-        var dumped = ""
-        dump(code, to: &dumped)
-        XCTAssertFalse(dumped.contains("42917"))
-        let drawn = (0..<200).map { _ in ApproverCode.random().digits }
-        XCTAssertTrue(drawn.allSatisfy { $0.count == 6 && $0.allSatisfy(\.isASCII) })
-        XCTAssertGreaterThan(Set(drawn).count, 190)
-    }
-
     // MARK: Requests
 
     static let vectorDisplay = ApprovalRequestDisplay(

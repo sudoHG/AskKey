@@ -3,9 +3,9 @@ import AskKeyDevicesTestSupport
 import CryptoKit
 import XCTest
 
-/// Every refusal rule for kinds 10–14, each refused without effect and
-/// deleted, and the stateless verifier's verdict for the same envelope
-/// (#310 acceptance 3 and 5).
+/// Every refusal rule for kinds 10–13 and for kind 14, which is reserved,
+/// each refused without effect and deleted, and the stateless verifier's
+/// verdict for the same envelope (#310 acceptance 3 and 5; #343).
 final class ApprovalRefusalTests: XCTestCase {
     private var fixture: ApprovalFixture!
     private var request: SealedApprovalRequest!
@@ -204,7 +204,7 @@ final class ApprovalRefusalTests: XCTestCase {
 
     // MARK: The other kinds' bindings
 
-    func testRequestClosedReceiptAndConfirmationWithAnotherPairingIDAreRefused() async throws {
+    func testRequestClosedAndReceiptWithAnotherPairingIDAreRefused() async throws {
         let other = PairingID(rawValue: RandomBytes.make(16))!
         let digest = request.requestDigest
         var requestFields = ApprovalRequest.Fields(decoding: request.request)
@@ -222,31 +222,38 @@ final class ApprovalRefusalTests: XCTestCase {
                                                          messageID: ApprovalReceipt.receiptID(for: request.request.responseID),
                                                          sentAt: now),
                                 at: fixture.mac, .bindingMismatch)
-        let proof = Data(repeating: 1, count: 32)
-        let statement = ApproverConfirmation.statement(phone: fixture.phone.id, mac: fixture.mac.id, pairingID: other,
-                                                       codeProof: proof)
-        let signature = try await fixture.phone.identity.signWithApprovalKey(statement, reason: "test")
-        try await assertRefused(try ApprovalFixture.seal(.approverConfirmation, ApproverConfirmation.encode(
-            pairingID: other, codeProof: proof, signature: signature), from: fixture.phone, to: fixture.mac, sentAt: now),
-                                at: fixture.mac, .bindingMismatch)
     }
 
-    func testConfirmationNotSignedByTheApprovalKeyOverItsStatementIsRefused() async throws {
+    // MARK: Kind 14, reserved
+
+    /// Kind 14 was the approver confirmation, retired by #336. A record of
+    /// kind 14, as an older build sealed it, is refused from its plaintext
+    /// kind before decryption, and an inner message of kind 14 in a record of
+    /// a known kind is refused by the inner layout, exactly as for kind 15,
+    /// which was never assigned. Both directions; the stateless verifier
+    /// gives the same verdicts.
+    func testKind14IsRefusedAsAnUnknownKindLikeAnyOther() async throws {
         let pairingID = try await fixture.phoneEntryForMac().pairingID
-        let proof = ApproverCode.random().proof(mac: fixture.mac.id, phone: fixture.phone.id, pairingID: pairingID)
-        let statement = ApproverConfirmation.statement(phone: fixture.phone.id, mac: fixture.mac.id, pairingID: pairingID,
-                                                       codeProof: proof)
-        let otherMac = ApproverConfirmation.statement(phone: fixture.phone.id, mac: SoftwareDeviceIdentity().deviceID,
-                                                      pairingID: pairingID, codeProof: proof)
-        let signatures = [try fixture.phone.identity.signWithMessageKey(statement),
-                          try await fixture.phone.identity.signWithApprovalKey(otherMac, reason: "test"),
-                          try P256.Signing.PrivateKey().signature(for: statement).rawRepresentation]
-        for signature in signatures {
-            let payload = ApproverConfirmation.encode(pairingID: pairingID, codeProof: proof, signature: signature)
-            try await assertRefused(try ApprovalFixture.seal(.approverConfirmation, payload, from: fixture.phone,
-                                                             to: fixture.mac, sentAt: now),
-                                    at: fixture.mac, .badSignature)
+        // The retired 113-byte layout: pairing ID, layout version, code proof, signature.
+        let payload = pairingID.rawValue + [1] + Data(repeating: 0xCD, count: 32) + Data(repeating: 0xEF, count: 64)
+        let routes: [(SimulatedDevice, SimulatedDevice, knownKind: Int64)] = [
+            (fixture.phone, fixture.mac, 13), (fixture.mac, fixture.phone, 12),
+        ]
+        for kind: UInt8 in [14, 15] {
+            XCTAssertNil(MessageKind(rawValue: kind))
+            for (sender, recipient, knownKind) in routes {
+                let record = try ApprovalFixture.seal(rawKind: kind, inRecordOfKind: Int64(kind), payload, from: sender,
+                                                      to: recipient, sentAt: now)
+                try await assertRefused(record, at: recipient, .unknownKind)
+                let inner = try ApprovalFixture.seal(rawKind: kind, inRecordOfKind: knownKind, payload, from: sender,
+                                                     to: recipient, sentAt: now)
+                try await assertRefused(inner, at: recipient, .malformed)
+            }
         }
+        // Nothing was handled, and the genuine request is still outstanding.
+        XCTAssertTrue(fixture.outstanding.messages.isEmpty)
+        XCTAssertEqual(fixture.phoneInbox.messages.count, 1)
+        XCTAssertNotNil(fixture.outstanding.entry(request.request.responseID))
     }
 
     func testRequestTimesAreCheckedAgainstItsInnerMessage() async throws {

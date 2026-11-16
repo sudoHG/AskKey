@@ -289,7 +289,7 @@ final class NotificationProcessorTests: XCTestCase {
         try await assertGeneric(world, push, .fetchFailed)
     }
 
-    func testApprovalStoppedWhileTheRecordIsFetchedStaysGeneric() async throws {
+    func testAMacRemovedWhileTheRecordIsFetchedStaysGeneric() async throws {
         let world = try NotificationWorld()
         let push = try world.sendRequest().push
         let gate = Gate()
@@ -297,12 +297,12 @@ final class NotificationProcessorTests: XCTestCase {
         let environment = try world.environment()
         let running = Task { await NotificationProcessor(environment: environment).process(PushInfo(userInfo: push)) }
         while gate.arrived == 0 { await Task.yield() }
-        try world.setApprover(world.mac, enabled: false)
+        try world.removeMac(world.mac)
         gate.open()
 
         let decision = await running.value
 
-        XCTAssertEqual(decision, .generic(.notApprover))
+        XCTAssertEqual(decision, .generic(.refused(.unknownSender)))
         XCTAssertEqual(world.sent, [])
     }
 

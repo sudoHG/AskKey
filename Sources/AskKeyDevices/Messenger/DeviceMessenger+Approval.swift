@@ -18,7 +18,7 @@ public struct NamedFetchReport: Hashable, Sendable {
 struct ApprovalHandlerFailure: Error {}
 
 extension DeviceMessenger {
-    /// Kinds 10–14 from a device on the list whose message-key signature
+    /// Kinds 10–13 from a device on the list whose message-key signature
     /// verified: `AskKeyDevices` checks the payload, the pairing ID and the
     /// approval-key signature, then the handler checks the rest and commits
     /// the effect. A handler failure counts toward the three failures. With

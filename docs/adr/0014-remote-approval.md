@@ -133,7 +133,7 @@ For outcomes 2–6 the applied code and duration are 0. Other outcomes are malfo
 | Approval receipt | 13 | `QuietMessage` | iPhone → Mac | message key | 10 min | 49 | pairing ID and request digest; message ID = the receipt ID |
 | Reserved | 14 | — | — | — | — | — | — |
 
-Kind 14 was the approver confirmation, retired by [#336](https://github.com/sudoHG/AskKey/issues/336). No amended build sends it, and every amended build refuses a record or inner message of kind 14 (as an unknown kind once `AskKeyDevices` drops it); a later kind takes a new number rather than reusing it.
+Kind 14 was the approver confirmation, retired by [#336](https://github.com/sudoHG/AskKey/issues/336). No amended build sends it, and every amended build refuses a record or inner message of kind 14 as an unknown kind, at the same point as any kind it does not know: a record from its plaintext kind, before decryption, and an inner message when its layout is parsed. A later kind takes a new number rather than reusing it.
 
 Within one fetch, pairing kinds come first (ADR 0013), then kind 12, then the other kinds, so a closed message stored before its request keeps the request from being shown. The iPhone refuses a request whose transport expiry is later than its deadline plus 5 minutes.
 

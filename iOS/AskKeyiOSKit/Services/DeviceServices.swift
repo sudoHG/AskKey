@@ -98,10 +98,9 @@ final class DeviceServices {
 
     typealias Handler = @Sendable (VerifiedApprovalMessage, _ generation: Int) async -> ApprovalMessageHandling
 
-    /// `approvalHandler` receives verified approval messages (kinds 10–13,
-    /// and a retired kind 14, which it refuses) with the messenger's
-    /// generation, and `removalHook` runs before any removal of a Mac
-    /// commits.
+    /// `approvalHandler` receives verified approval messages (kinds 10–13)
+    /// with the messenger's generation, and `removalHook` runs before any
+    /// removal of a Mac commits.
     init(identity: any DeviceIdentity, transport: any InboxTransport, listStore: any PairedDeviceListStore,
          clock: any DeviceClock, inboxToken: InboxChangeToken?, approvalHandler: Handler? = nil,
          removalHook: PairedDeviceRemovalHook? = nil) {

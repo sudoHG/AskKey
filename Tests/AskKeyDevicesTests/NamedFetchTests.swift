@@ -119,10 +119,12 @@ final class NamedFetchTests: XCTestCase {
         let phone = harness.makeDevice(.iOS)
         try await harness.pair(mac, phone)
         harness.clock.advance(by: 11 * 60)
-        let confirmation = try await phone.messenger.sealer.sealApproverConfirmation(
-            ApproverCode.random(), to: try await XCTUnwrapAsync(try await phone.entry(for: mac)), approvalReason: "Approve")
-        try await harness.transport.send(confirmation.envelope)
-        let name = confirmation.envelope.recordName
+        let pairingID = try await XCTUnwrapAsync(try await phone.entry(for: mac)).pairingID
+        let receipt = try ApprovalFixture.seal(.approvalReceipt, ApprovalReceipt.encode(
+            pairingID: pairingID, requestDigest: Data(repeating: 0x50, count: 32)), from: phone, to: mac,
+                                               sentAt: UnixTime.seconds(harness.clock.now()))
+        try await harness.transport.send(receipt)
+        let name = receipt.recordName
 
         let first = try await mac.poll()
         XCTAssertEqual(first.outcomes[name], .failed)

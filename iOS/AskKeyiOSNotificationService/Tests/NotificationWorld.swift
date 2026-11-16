@@ -1,4 +1,4 @@
-import AskKeyDevices
+@testable import AskKeyDevices
 import CloudKit
 import Foundation
 import UserNotifications
@@ -63,23 +63,27 @@ final class NotificationWorld {
         let identity = TestIdentity()
         let pairingID = try XCTUnwrap(PairingID(rawValue: Data((0..<16).map { _ in UInt8.random(in: 0...255) })))
         let card = try DeviceCard.make(identity: identity, platform: platform, createdAt: clock.now())
-        try phoneList.apply(.add(PairedDevice(card: card, pairingID: pairingID, displayName: name, pairedAt: clock.now())))
-        if approver { try phoneList.apply(.setApprover(identity.id, pairingID: pairingID, enabled: true)) }
+        // The approval flag as a pairing sets it (#336); off for an entry stored before #336.
+        var macEntry = PairedDevice(card: card, pairingID: pairingID, displayName: name, pairedAt: clock.now())
+        macEntry.isApprover = approver
+        try phoneList.apply(.add(macEntry))
         keychain.seed(try phoneList.serialized(), for: DeviceKeychainAccount.pairedDevices)
         let phoneCard = try DeviceCard.make(identity: phone, platform: .iOS, createdAt: clock.now())
         var macList = PairedDeviceList()
-        try macList.apply(.add(PairedDevice(card: phoneCard, pairingID: pairingID, displayName: "Test iPhone",
-                                            pairedAt: clock.now())))
-        try macList.apply(.setApprover(phone.id, pairingID: pairingID, enabled: true))
+        var phoneEntry = PairedDevice(card: phoneCard, pairingID: pairingID, displayName: "Test iPhone",
+                                      pairedAt: clock.now())
+        phoneEntry.isApprover = true
+        try macList.apply(.add(phoneEntry))
         let mac = Mac(identity: identity, pairingID: pairingID, phoneEntry: try XCTUnwrap(macList.device(phone.id)),
                       listStore: try TestListStore(macList))
         macs.append(mac)
         return mac
     }
 
-    /// Turns a Mac's approval flag on or off on this iPhone, as the app would.
-    func setApprover(_ mac: Mac, enabled: Bool) throws {
-        try phoneList.apply(.setApprover(mac.identity.id, pairingID: mac.pairingID, enabled: enabled))
+    /// Removes a Mac from this iPhone's list, as the app would; removal is
+    /// how approval stops (#336).
+    func removeMac(_ mac: Mac) throws {
+        try phoneList.apply(.remove(mac.identity.id, pairingID: mac.pairingID))
         keychain.seed(try phoneList.serialized(), for: DeviceKeychainAccount.pairedDevices)
     }
 

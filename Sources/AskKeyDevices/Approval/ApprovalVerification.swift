@@ -1,20 +1,19 @@
 import CryptoKit
 import Foundation
 
-/// The content of a verified kind 10–14 message.
+/// The content of a verified kind 10–13 message.
 public enum ApprovalMessage: Hashable, Sendable {
     case request(ApprovalRequest)
     case decision(ApprovalDecision)
     case closed(ApprovalClosed)
     case receipt(ApprovalReceipt)
-    case confirmation(ApproverConfirmation)
 }
 
-/// A kind 10–14 message that passed every rule `AskKeyDevices` checks:
+/// A kind 10–13 message that passed every rule `AskKeyDevices` checks:
 /// ADR 0013's refusal rules, the payload layout, the pairing ID against the
-/// sender's current entry, and the approval-key signature of decisions and
-/// confirmations (ADR 0014 → Verifying and applying a decision, checks 1, 3
-/// and 6). The App checks the rest against its own state.
+/// sender's current entry, and the approval-key signature of decisions
+/// (ADR 0014 → Verifying and applying a decision, checks 1, 3 and 6). The
+/// App checks the rest against its own state.
 public struct VerifiedApprovalMessage: Hashable, Sendable {
     /// The sender's entry on this device's list when the message was verified.
     public let sender: PairedDevice
@@ -34,15 +33,13 @@ public struct VerifiedApprovalMessage: Hashable, Sendable {
 
     public var senderID: DeviceID { sender.deviceID }
     /// The request this message is about: a request's own digest, or the
-    /// request digest a decision, closed message or receipt carries; nil
-    /// for a confirmation.
-    public var requestDigest: Data? {
+    /// request digest a decision, closed message or receipt carries.
+    public var requestDigest: Data {
         switch message {
         case .request: return digest
         case .decision(let decision): return decision.requestDigest
         case .closed(let closed): return closed.requestDigest
         case .receipt(let receipt): return receipt.requestDigest
-        case .confirmation: return nil
         }
     }
     /// The pairing ID the payload carries, which is the sender's current one.
@@ -61,19 +58,19 @@ public enum ApprovalMessageHandling: Hashable, Sendable {
     case failed
 }
 
-/// Handles verified kind 10–14 messages for the App. Calls for one message
+/// Handles verified kind 10–13 messages for the App. Calls for one message
 /// ID never overlap; calls for different messages can, when the zone poll
 /// and a named fetch run at the same time, so the handler keeps its own
 /// state consistent.
 public typealias ApprovalMessageHandler = @Sendable (VerifiedApprovalMessage) async -> ApprovalMessageHandling
 
 enum ApprovalVerification {
-    /// The checks of a kind 10–14 message whose sender is `entry` and whose
+    /// The checks of a kind 10–13 message whose sender is `entry` and whose
     /// message-key signature already verified: the payload layout
     /// (`malformed`), the pairing ID against the entry (`bindingMismatch`),
     /// a request's times against its inner message's, and the approval-key
-    /// signature of an Allow or a confirmation over the statement rebuilt
-    /// from the signed fields (`badSignature`).
+    /// signature of an Allow over the statement rebuilt from the signed
+    /// fields (`badSignature`).
     static func verify(_ inner: InnerMessage, from entry: PairedDevice) -> Result<ApprovalMessage, DeviceMessageRefusal> {
         let message: ApprovalMessage
         let pairingID: PairingID
@@ -91,9 +88,6 @@ enum ApprovalVerification {
             case .approvalReceipt:
                 let receipt = try ApprovalReceipt(decoding: inner.payload)
                 (message, pairingID) = (.receipt(receipt), receipt.pairingID)
-            case .approverConfirmation:
-                let confirmation = try ApproverConfirmation(decoding: inner.payload)
-                (message, pairingID) = (.confirmation(confirmation), confirmation.pairingID)
             default:
                 return .failure(.unexpectedKind)
             }
@@ -113,13 +107,6 @@ enum ApprovalVerification {
                 guard isValid(signature, over: statement, by: entry.card.approvalPublicKey) else {
                     return .failure(.badSignature)
                 }
-            }
-        case .confirmation(let confirmation):
-            let statement = ApproverConfirmation.statement(phone: inner.sender, mac: inner.recipient,
-                                                           pairingID: confirmation.pairingID,
-                                                           codeProof: confirmation.codeProof)
-            guard isValid(confirmation.signature, over: statement, by: entry.card.approvalPublicKey) else {
-                return .failure(.badSignature)
             }
         case .closed, .receipt:
             break

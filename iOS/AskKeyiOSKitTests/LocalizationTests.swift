@@ -49,9 +49,9 @@ final class LocalizationTests: XCTestCase {
     func testNoRetiredApproverStringRemains() throws {
         let english = try table("en")
         let chinese = try table("zh-Hans")
-        let chineseApproverCode = "\u{5BA1}\u{6279}\u{7801}"
+        let chineseApprovalCode = "\u{5BA1}\u{6279}\u{7801}"
         for key in english.keys {
-            XCTAssertFalse(try XCTUnwrap(chinese[key]).contains(chineseApproverCode), key)
+            XCTAssertFalse(try XCTUnwrap(chinese[key]).contains(chineseApprovalCode), key)
             XCTAssertFalse(key.hasPrefix("approver.") || key.hasPrefix("mac.approve") || key.hasPrefix("mac.stop"), key)
             let value = try XCTUnwrap(english[key])
             XCTAssertFalse(value.localizedCaseInsensitiveContains("approver code"), key)
