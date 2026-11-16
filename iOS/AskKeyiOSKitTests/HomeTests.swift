@@ -180,12 +180,20 @@ final class HomeTests: XCTestCase {
         XCTAssertTrue(RequestRow.short(long).hasSuffix("…"))
     }
 
-    func testTheCapsuleFollowsTheBanners() {
+    func testTheTimeLeftIsSpokenAsADuration() {
         XCTAssertEqual(RequestRow.spoken(272, locale: Locale(identifier: "en")), "4 minutes, 32 seconds")
-        XCTAssertFalse(RequestsContent.macsCannotReach(accountNotice: nil, notificationsOff: false))
-        XCTAssertTrue(RequestsContent.macsCannotReach(accountNotice: nil, notificationsOff: true))
+    }
+
+    /// Only an iCloud banner makes the capsule say the Macs cannot reach
+    /// this iPhone; notifications off leave it counting the Macs, and it is
+    /// hidden without an approving Mac.
+    func testTheCapsuleSaysUnreachableOnlyWhileAnICloudBannerShows() {
+        XCTAssertEqual(RequestsContent.capsule(accountNotice: nil, approvingMacs: 2), .reachable(2))
+        XCTAssertEqual(RequestsContent.capsule(accountNotice: nil, approvingMacs: 1), .reachable(1))
+        XCTAssertNil(RequestsContent.capsule(accountNotice: nil, approvingMacs: 0))
         for notice in [AccountNotice.signedOut, .restricted, .unavailable] {
-            XCTAssertTrue(RequestsContent.macsCannotReach(accountNotice: notice, notificationsOff: false))
+            XCTAssertEqual(RequestsContent.capsule(accountNotice: notice, approvingMacs: 2), .unreachable)
+            XCTAssertEqual(RequestsContent.capsule(accountNotice: notice, approvingMacs: 0), .unreachable)
         }
     }
 

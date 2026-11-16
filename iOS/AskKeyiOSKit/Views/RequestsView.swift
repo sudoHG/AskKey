@@ -84,12 +84,9 @@ struct RequestsContent: View {
             if cards.isEmpty {
                 Spacer(minLength: 24)
                 if hasMacs {
-                    let cannotReach = Self.macsCannotReach(accountNotice: accountNotice, notificationsOff: notificationsOff)
                     EmptyStateView(symbol: "tray", title: "request.empty.title", detail: "request.empty.detail") {
-                        // Without an approving Mac the Macs tab says why; the
-                        // capsule has nothing true to count.
-                        if cannotReach || approvingMacs > 0 {
-                            ReachabilityCapsule(approvingMacs: approvingMacs, cannotReach: cannotReach)
+                        if let capsule = Self.capsule(accountNotice: accountNotice, approvingMacs: approvingMacs) {
+                            ReachabilityCapsule(state: capsule)
                         }
                     }
                 } else {
@@ -114,10 +111,14 @@ struct RequestsContent: View {
         .padding(.bottom, 24)
     }
 
-    /// While a banner shows, the Macs cannot reach this iPhone, or cannot
-    /// get the person's attention, so the empty state says so.
-    static func macsCannotReach(accountNotice: AccountNotice?, notificationsOff: Bool) -> Bool {
-        accountNotice != nil || notificationsOff
+    /// What the empty state's capsule says. While an iCloud banner shows,
+    /// the Macs cannot reach this iPhone. With notifications off, requests
+    /// still arrive and the banner says what is wrong, so the capsule still
+    /// counts the Macs. Without an approving Mac it is hidden: the Macs tab
+    /// says why, and there is nothing true to count.
+    static func capsule(accountNotice: AccountNotice?, approvingMacs: Int) -> ReachabilityCapsule.Reachability? {
+        if accountNotice != nil { return .unreachable }
+        return approvingMacs > 0 ? .reachable(approvingMacs) : nil
     }
 
     static func explanation(_ notice: AccountNotice) -> LocalizedStringKey {
@@ -218,15 +219,19 @@ struct RequestRow: View {
 }
 
 /// Under the empty state: a green dot and how many Macs can send requests
-/// here, or an orange dot while a banner says why they cannot.
+/// here, or an orange dot while an iCloud banner says why they cannot.
 struct ReachabilityCapsule: View {
-    let approvingMacs: Int
-    let cannotReach: Bool
+    enum Reachability: Equatable {
+        case reachable(Int)
+        case unreachable
+    }
+
+    let state: Reachability
 
     var body: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(cannotReach ? Color.orange : Color.green)
+                .fill(state == .unreachable ? Color.orange : Color.green)
                 .frame(width: 8, height: 8)
                 .accessibilityHidden(true)
             text
@@ -242,8 +247,10 @@ struct ReachabilityCapsule: View {
     }
 
     private var text: Text {
-        if cannotReach { return Text("request.empty.unreachable", bundle: .kit) }
-        if approvingMacs == 1 { return Text("request.empty.reachableOne", bundle: .kit) }
-        return Text("request.empty.reachable \(String(approvingMacs))", bundle: .kit)
+        switch state {
+        case .unreachable: return Text("request.empty.unreachable", bundle: .kit)
+        case .reachable(1): return Text("request.empty.reachableOne", bundle: .kit)
+        case .reachable(let count): return Text("request.empty.reachable \(String(count))", bundle: .kit)
+        }
     }
 }

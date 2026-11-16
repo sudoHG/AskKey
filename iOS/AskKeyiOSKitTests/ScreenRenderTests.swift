@@ -220,6 +220,8 @@ final class ScreenRenderTests: XCTestCase {
         try render("45-requests-empty", requests([]))
         try render("46-requests-not-paired", requests([], hasMacs: false))
         try render("47-requests-both-banners", requests([], accountNotice: .signedOut, notificationsOff: true))
+        // Requests still arrive with notifications off: the capsule stays green.
+        try render("58-requests-notifications-off", requests([], notificationsOff: true))
         // A decision stored but not yet saved, the Touch ID footnote, and one Mac.
         try render("53-requests-sending-touch-id",
                    requests([Self.card(Self.stagingDisplay, macName: "Office Mac", decision: .deny, secondsLeft: 236),
