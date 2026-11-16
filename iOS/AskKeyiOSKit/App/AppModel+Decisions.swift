@@ -254,8 +254,9 @@ extension AppModel {
         }
         rebuildRequests()
         settleRequestNotifications(also: expired)
-        refreshHistory()
+        // Decisions go out before the history is written.
         await sendDueMessages()
+        refreshHistory()
     }
 
     // MARK: Polling

@@ -139,6 +139,15 @@ final class HistoryTests: XCTestCase {
         XCTAssertNil(entry(newer)?.endedAt, "the newer request is still open")
     }
 
+    func testATimeoutBeforeALaterLaunchTimeStaysATimeout() async throws {
+        let older = try await receive(lifetime: 30)
+        let countdownEnd = try XCTUnwrap(world.card?.countdownEnd)
+        world.clock.advance(by: 60)
+        _ = try await receive(launchTime: TestWorld.macLaunch.addingTimeInterval(60))
+        XCTAssertEqual(entry(older)?.ending, .timedOut, "the countdown ended first")
+        XCTAssertEqual(entry(older)?.endedAt, countdownEnd)
+    }
+
     func testRelaunchedAfterTheTransportExpiryGivesOneTimedOutEntry() async throws {
         let sealed = try await receive()
         let countdownEnd = try XCTUnwrap(world.card?.countdownEnd)
@@ -234,6 +243,40 @@ final class HistoryTests: XCTestCase {
         XCTAssertEqual(world.model.historyCount(forMac: macID), 1, "History for This Mac still lists it")
     }
 
+    func testAnUnpairNoticeKeepsEndedEntriesAndDropsOpenOnes() async throws {
+        let ended = try await world.sendRequest(lifetime: 30)
+        let pending = try await world.sendRequest()
+        await world.model.processInbox()
+        world.clock.advance(by: 60)
+        try await world.mac.removeDevice(try world.phone.deviceID)
+        await world.model.processInbox()
+        XCTAssertTrue(world.model.pairedMacs.isEmpty)
+        XCTAssertEqual(world.model.history.map(\.recordName), [ended.sealed.messageID.text])
+        XCTAssertEqual(world.model.history.first?.ending, .timedOut)
+        XCTAssertNil(entry(pending))
+    }
+
+    func testALateClosedMessageAfterClearAllHistoryAddsNothing() async throws {
+        let stored = try await receive()
+        let expired = try await receive()
+        world.clock.advance(by: 310)
+        await world.model.processInbox()
+        XCTAssertEqual(world.model.history.count, 2)
+        world.model.clearHistory()
+        world.clock.advance(by: 200)
+        await world.model.processInbox()
+        XCTAssertEqual(world.approvalStore.stored.requests.count, 2, "still stored")
+        try await world.sendClosed(.decidedOnMac, for: stored)
+        await world.model.processInbox()
+        world.clock.advance(by: 200)
+        await world.model.processInbox()
+        XCTAssertTrue(world.approvalStore.stored.requests.isEmpty, "past the transport expiry")
+        try await world.sendClosed(.expired, for: expired)
+        await world.model.processInbox()
+        XCTAssertTrue(world.model.historyState.entries.isEmpty, "a cleared entry never comes back")
+        XCTAssertNil(world.historyFiles.storedData)
+    }
+
     func testClearAllHistoryRemovesCompletedEntriesAndReplacesTheKey() async throws {
         let done = try await receive()
         try await world.sendClosed(.decidedOnMac, for: done)
@@ -304,15 +347,18 @@ final class HistoryTests: XCTestCase {
         try await world.sendClosed(.decidedOnMac, for: sealed)
         await world.model.processInbox()
         world.historyKeys.deletesFail = true
+        world.historyFiles.removalsFail = true
         world.cloud.accountState = .noAccount
         await world.model.refreshAccount()
         XCTAssertTrue(world.model.history.isEmpty, "the entries in memory go at once")
         XCTAssertNotNil(world.historyFiles.storedData)
+        XCTAssertNotNil(world.historyKeys.storedKey)
         XCTAssertTrue(world.historyFiles.isDeletionPending)
 
         let stillFailing = await world.relaunch()
         XCTAssertTrue(stillFailing.history.isEmpty, "never read while the deletion fails")
         world.historyKeys.deletesFail = false
+        world.historyFiles.removalsFail = false
         let relaunched = await world.relaunch()
         XCTAssertTrue(relaunched.history.isEmpty)
         XCTAssertNil(world.historyFiles.storedData)
@@ -367,9 +413,11 @@ final class HistoryTests: XCTestCase {
         await world.model.processInbox()
         let prompts = try world.phone.approvalReasons.count
 
-        world.model.showHistory(forMac: other.deviceID.text)
+        world.model.historyDetail = mine.sealed.messageID.text
+        world.model.showHistory(forMac: other.deviceID.text, name: "Office Mac")
         XCTAssertEqual(world.model.selectedTab, .history)
-        XCTAssertEqual(world.model.historyFilter, other.deviceID.text)
+        XCTAssertEqual(world.model.historyFilter, HistoryFilter(macID: other.deviceID.text, macName: "Office Mac"))
+        XCTAssertNil(world.model.historyDetail, "the list shows, not an entry left open")
         XCTAssertEqual(world.model.historyCount(forMac: other.deviceID.text), 1)
         XCTAssertEqual(world.model.historyCount(forMac: macID), 1)
         XCTAssertEqual(try world.phone.approvalReasons.count, prompts, "History asks for no Face ID")

@@ -107,7 +107,9 @@ public final class AppModel {
     /// Completed entries whose last write succeeded.
     var savedHistory: Set<String> = []
     /// History shows only this Mac's entries, by device ID.
-    public var historyFilter: String?
+    var historyFilter: HistoryFilter?
+    /// The History entry whose detail is open.
+    var historyDetail: String?
     /// Open and completed entries, as last loaded or changed.
     @ObservationIgnored var historyState = StoredHistory()
     /// The file was read, or found missing, under the current account;
@@ -138,6 +140,7 @@ public final class AppModel {
     public func start() async {
         guard !started else { return }
         started = true
+        retryHistoryDeletion()
         let blobs: DeviceIdentityKeyBlobs?
         do {
             blobs = try keychain.loadBlobs()
@@ -154,7 +157,8 @@ public final class AppModel {
         let identity: any DeviceIdentity
         do {
             identity = try environment.identities.restore(blobs)
-            _ = try listStore.loadPairedDeviceList()
+            // Also names the Macs of history entries completed at launch.
+            knownList = try listStore.loadPairedDeviceList()
         } catch let error as KeychainError {
             // Reading failed; nothing says the stored items are bad.
             AppLog.failure("Reading the paired-device list", error)

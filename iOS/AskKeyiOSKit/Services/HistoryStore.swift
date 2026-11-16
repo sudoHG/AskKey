@@ -185,6 +185,10 @@ public final class KeychainHistoryKeyStore: HistoryKeyStore {
     static let accessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
     private let service: String
     private let accessGroup: String?
+    /// The key once read or written, so a save does not wait on the
+    /// keychain each time; dropped with any deletion.
+    private let lock = NSLock()
+    private var cached: Data?
 
     public init(service: String = KeychainHistoryKeyStore.service, accessGroup: String?) {
         self.service = service
@@ -218,6 +222,7 @@ public final class KeychainHistoryKeyStore: HistoryKeyStore {
     }
 
     public func loadKey() throws -> Data? {
+        if let key = lock.withLock({ cached }) { return key }
         guard var request = query() else { throw KeychainError(status: errSecMissingEntitlement) }
         request[kSecReturnData] = true
         request[kSecMatchLimit] = kSecMatchLimitOne
@@ -225,20 +230,24 @@ public final class KeychainHistoryKeyStore: HistoryKeyStore {
         let status = SecItemCopyMatching(request as CFDictionary, &result)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = result as? Data else { throw KeychainError(status: status) }
+        lock.withLock { cached = data }
         return data
     }
 
     public func saveKey(_ key: Data) throws {
         guard let query = query(), let addition = addition(key) else { throw KeychainError(status: errSecMissingEntitlement) }
+        lock.withLock { cached = nil }
         let deleted = SecItemDelete(query as CFDictionary)
         guard deleted == errSecSuccess || deleted == errSecItemNotFound else { throw KeychainError(status: deleted) }
         let added = SecItemAdd(addition as CFDictionary, nil)
         guard added == errSecSuccess else { throw KeychainError(status: added) }
+        lock.withLock { cached = key }
     }
 
     public func deleteKey() throws {
         // Without the group nothing was ever stored.
         guard let query = query() else { return }
+        lock.withLock { cached = nil }
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw KeychainError(status: status) }
     }
@@ -280,21 +289,32 @@ struct EncryptedHistory {
         }
         guard let data else { return StoredHistory() }
         guard let key, let history = Self.open(data, key: key, account: account) else {
-            discardUnreadable()
+            // Deleted unread, with the key that cannot open it, as any
+            // deletion is: until it succeeds nothing is written over it.
+            do {
+                try delete()
+            } catch {
+                AppLog.failure("Deleting an unreadable history", error)
+                return nil
+            }
             return StoredHistory()
         }
         return history
     }
 
     static func open(_ data: Data, key: Data, account: String) -> StoredHistory? {
-        guard key.count == 32, data.first == formatVersion,
-              let box = try? AES.GCM.SealedBox(combined: data.dropFirst()),
-              let plaintext = try? AES.GCM.open(box, using: SymmetricKey(data: key),
-                                                authenticating: authenticatedData(account: account)),
+        guard let plaintext = plaintext(data, key: key, account: account),
               let history = try? JSONDecoder().decode(StoredHistory.self, from: plaintext), history.version == 1 else {
             return nil
         }
         return history
+    }
+
+    /// The authenticated plaintext; nil when the box does not open.
+    static func plaintext(_ data: Data, key: Data, account: String) -> Data? {
+        guard key.count == 32, data.first == formatVersion,
+              let box = try? AES.GCM.SealedBox(combined: data.dropFirst()) else { return nil }
+        return try? AES.GCM.open(box, using: SymmetricKey(data: key), authenticating: authenticatedData(account: account))
     }
 
     /// Seals and writes the history, creating a key when none is stored.
@@ -322,19 +342,11 @@ struct EncryptedHistory {
         } catch {
             AppLog.failure("Marking the history for deletion", error)
         }
-        try keys.deleteKey()
-        try files.removeHistory()
+        // The file goes even when the key cannot, so less is left to retry.
+        var failure: Error?
+        do { try keys.deleteKey() } catch { failure = error }
+        do { try files.removeHistory() } catch { failure = failure ?? error }
+        if let failure { throw failure }
         try files.setDeletionPending(false)
-    }
-
-    /// A file that does not open goes, and with it the key that cannot open
-    /// it; the next save creates a new key.
-    private func discardUnreadable() {
-        do {
-            try files.removeHistory()
-            try keys.deleteKey()
-        } catch {
-            AppLog.failure("Deleting an unreadable history", error)
-        }
     }
 }

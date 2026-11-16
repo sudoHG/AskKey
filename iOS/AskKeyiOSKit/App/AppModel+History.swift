@@ -93,7 +93,10 @@ extension AppModel {
         let now = environment.clock.now()
         changeHistory { state in
             guard let index = state.index(of: id) else { return }
-            if state.entries[index].endedAt == nil { state.entries[index].endedAt = min(now, entry.countdownEnd) }
+            if state.entries[index].endedAt == nil {
+                state.entries[index].endedAt = min(now, entry.countdownEnd)
+                state.entries[index].macName = currentMacName(entry)
+            }
             state.entries[index].closed = StoredClosed(closed)
             state.entries[index].gone = false
         }
@@ -124,9 +127,14 @@ extension AppModel {
         saveHistory()
     }
 
-    /// At launch, when the app comes to the front and after every fetch:
-    /// reads the history if it could not be read yet, completes what ended,
-    /// prunes and writes what is pending.
+    /// When the app comes to the front: History drops what is older than
+    /// 30 days at once; the file is written after the fetch's sends.
+    func pruneHistory() {
+        changeHistory { _ in }
+    }
+
+    /// At launch and after every fetch: reads the history if it could not
+    /// be read yet, completes what ended, prunes and writes what is pending.
     func refreshHistory() {
         _ = historyIsWritable()
         reconcileHistory()
@@ -164,15 +172,22 @@ extension AppModel {
                     completed.decisionCode = request.decision?.code
                     completed.decisionCeiling = request.decision?.durationCeiling ?? 0
                     completed.closed = request.closed
-                    completed.gone = request.closed == nil && request.gone
+                    // Reconciled right after any request is left gone, so a
+                    // gone request past its countdown timed out first.
+                    completed.gone = request.closed == nil && request.gone && entry.countdownEnd > now
                 }
-                if let mac = DeviceID(text: entry.macID), let device = knownList?.device(mac),
-                   device.pairingID.rawValue == entry.pairingID {
-                    completed.macName = device.displayName
-                }
+                completed.macName = currentMacName(entry)
                 state.entries[index] = completed
             }
         }
+    }
+
+    /// This iPhone's name for the entry's Mac now, while it has the
+    /// entry's pairing; otherwise the name the entry keeps.
+    private func currentMacName(_ entry: HistoryEntry) -> String {
+        guard let mac = DeviceID(text: entry.macID), let device = knownList?.device(mac),
+              device.pairingID.rawValue == entry.pairingID else { return entry.macName }
+        return device.displayName
     }
 
     private func macName(of message: VerifiedApprovalMessage) -> String {
@@ -190,6 +205,17 @@ extension AppModel {
         historyState = state
         historyNeedsSave = true
         publishHistory()
+    }
+
+    /// At every launch, before anything else: a deletion that did not finish
+    /// is tried again, even when no identity is restored.
+    func retryHistoryDeletion() {
+        guard environment.historyFiles.isDeletionPending else { return }
+        do {
+            try historyStorage.delete()
+        } catch {
+            AppLog.failure("Deleting the history", error)
+        }
     }
 
     /// At launch: reads the history under the current account, completes
@@ -230,6 +256,8 @@ extension AppModel {
         historyErased = false
         historyState = merged
         historyNeedsSave = merged != stored
+        // What was read is on disk already.
+        savedHistory = Set(stored.entries.filter(\.isCompleted).map(\.id))
         publishHistory()
         return true
     }
@@ -292,6 +320,7 @@ extension AppModel {
         historyDeletionPending = true
         savedHistory = []
         historyFilter = nil
+        historyDetail = nil
         publishHistory()
         _ = historyIsWritable()
     }
@@ -303,15 +332,29 @@ extension AppModel {
         history.filter { $0.macID == macID }.count
     }
 
-    /// History for This Mac: the History tab, filtered to the Mac.
-    public func showHistory(forMac macID: String) {
-        historyFilter = macID
+    /// History for This Mac: the History tab's list, filtered to the Mac,
+    /// with any entry's detail closed.
+    func showHistory(forMac macID: String, name: String) {
+        historyFilter = HistoryFilter(macID: macID, macName: name)
+        historyDetail = nil
         selectedTab = .history
     }
 
     /// Whether the finished request's entry was written; the outcome page
     /// then says "Saved to History.".
     func isSavedToHistory(_ card: RequestCard) -> Bool {
-        history.contains { $0.recordName == card.id && $0.macID == card.macID && savedHistory.contains($0.id) }
+        let id: String?
+        if let index = approvals.index(of: card.id), approvals.requests[index].macID == card.macID {
+            let request = approvals.requests[index]
+            id = HistoryEntry.identity(macID: request.macID, pairingID: request.pairingID,
+                                       requestDigest: request.requestDigest)
+        } else {
+            // The stored request expired while its page stayed open: the
+            // latest entry with its record name from its Mac.
+            id = history.filter { $0.recordName == card.id && $0.macID == card.macID }
+                .max { $0.receivedAt < $1.receivedAt }?.id
+        }
+        guard let id else { return false }
+        return savedHistory.contains(id) && history.contains { $0.id == id }
     }
 }

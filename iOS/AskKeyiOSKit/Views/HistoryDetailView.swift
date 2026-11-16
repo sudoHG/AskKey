@@ -25,7 +25,7 @@ struct HistoryDetailView: View {
 }
 
 /// The detail's content, drawn by SwiftUI alone so it renders for review:
-/// the outcome page's symbol, color and title, who decided where, the
+/// the outcome page's symbol and color, the row's outcome, who decided where, the
 /// request's names, when it arrived and ended, and what the iPhone does not
 /// keep.
 struct HistoryDetailContent: View {
@@ -95,7 +95,7 @@ struct HistoryDetailContent: View {
                 .foregroundStyle(ending.tone.color)
                 .padding(.bottom, 4)
                 .accessibilityHidden(true)
-            OutcomeCopy.title(ending)
+            HistoryCopy.outcome(entry)
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -122,7 +122,8 @@ struct HistoryDetailContent: View {
 
 extension HistoryCopy {
     /// Who decided where: this iPhone for its own Allow or Deny, otherwise
-    /// the outcome page's sentence, with the Mac's name as the entry keeps it.
+    /// the outcome page's sentence where it still reads true later, with
+    /// the Mac's name as the entry keeps it.
     static func decidedWhere(_ entry: HistoryEntry, ending: RequestEnding, biometry: BiometryKind) -> Text {
         let mac = Text(verbatim: RequestCopy.short(entry.macName)).bold()
         switch ending {
@@ -131,9 +132,9 @@ extension HistoryCopy {
         case .closed(.denied): return Text("history.by.denied", bundle: .kit)
         case .closed(.decidedOnMac): return Text("request.ending.decidedOnMac \(mac)", bundle: .kit)
         case .closed(.decidedElsewhere): return Text("request.ending.decidedElsewhere", bundle: .kit)
-        case .closed(.expired): return Text("request.ending.expired", bundle: .kit)
+        case .closed(.expired): return Text("history.by.expired", bundle: .kit)
         case .closed(.cancelled): return Text("request.ending.cancelled", bundle: .kit)
-        case .closed(.notApplied): return Text("request.ending.notApplied", bundle: .kit)
+        case .closed(.notApplied): return Text("history.by.notApplied \(mac)", bundle: .kit)
         case .timedOut: return Text("request.ending.timedOut \(mac)", bundle: .kit)
         case .gone: return Text("request.ending.gone \(mac)", bundle: .kit)
         }

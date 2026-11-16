@@ -154,6 +154,40 @@
         }
       }
     },
+    "history.by.expired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It expired before anyone decided."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在有人处理之前，这个请求已经过期。"
+          }
+        }
+      }
+    },
+    "history.by.notApplied %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” couldn't apply this iPhone's decision as signed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”无法按签名执行这台 iPhone 的决定。"
+          }
+        }
+      }
+    },
     "history.clear": {
       "extractionState": "manual",
       "localizations": {
@@ -279,13 +313,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "From “%@”"
+            "value": "Showing “%@” only"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "来自“%@”"
+            "value": "只显示“%@”"
           }
         }
       }

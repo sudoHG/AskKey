@@ -20,7 +20,7 @@ struct MacDetailView: View {
             if let row {
                 MacDetailContent(row: row, now: context.date, renameProblem: renameProblem,
                                  removalFailed: removalFailed, historyCount: model.historyCount(forMac: macID),
-                                 onShowHistory: { model.showHistory(forMac: macID) },
+                                 onShowHistory: { model.showHistory(forMac: macID, name: row.name) },
                                  onRename: {
                                      newName = row.name
                                      renaming = true
@@ -219,6 +219,5 @@ struct MacHistoryRow: View {
             .frame(minHeight: GroupedMetrics.rowMinHeight)
         }
         .buttonStyle(GroupedRowButtonStyle())
-        .accessibilityElement(children: .combine)
     }
 }

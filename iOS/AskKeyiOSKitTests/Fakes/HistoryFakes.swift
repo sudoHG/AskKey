@@ -102,9 +102,10 @@ extension TestWorld {
         return EncryptedHistory.open(data, key: key, account: historyAccount)
     }
 
-    /// The decrypted history file's bytes.
+    /// The history file's authenticated plaintext, as decrypted, before decoding.
     var storedHistoryPlaintext: Data? {
-        storedHistory.flatMap { try? JSONEncoder().encode($0) }
+        guard let data = historyFiles.storedData, let key = historyKeys.storedKey else { return nil }
+        return EncryptedHistory.plaintext(data, key: key, account: historyAccount)
     }
 
     /// A completed entry for a synthetic request.

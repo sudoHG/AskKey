@@ -17,7 +17,7 @@ extension AppModel {
     /// in Notification Center, then process the inbox.
     public func becameActive() async {
         guard stage == .ready, let services else { return }
-        refreshHistory()
+        pruneHistory()
         remember(await environment.notifications.deliveredPushHints(for: services.deviceID))
         await processInbox()
     }

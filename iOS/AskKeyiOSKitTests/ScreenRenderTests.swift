@@ -349,6 +349,9 @@ final class ScreenRenderTests: XCTestCase {
                    })
         try render("19-history-accessibility-size",
                    history(Array(Self.historyEntries.prefix(4))).environment(\.dynamicTypeSize, .accessibility2))
+        try render("26-history-filtered-accessibility-size",
+                   history(Array(Self.historyEntries.prefix(2)), filter: HistoryFilter(macID: "mac", macName: Self.mac))
+                       .environment(\.dynamicTypeSize, .accessibility3))
     }
 
     /// An entry's detail: allowed with Face ID, denied, and timed out from a

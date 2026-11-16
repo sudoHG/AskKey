@@ -6,13 +6,12 @@ import SwiftUI
 /// ⋯ menu, with a confirmation. Nothing here asks for Face ID or Touch ID.
 struct HistoryView: View {
     @Bindable var model: AppModel
-    @State private var selectedEntry: String?
     @State private var confirmingClear = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             HistoryContent(entries: model.history, filter: filter, now: context.date,
-                           onSelect: { selectedEntry = $0.id }, onClearFilter: { model.historyFilter = nil })
+                           onSelect: { model.historyDetail = $0.id }, onClearFilter: { model.historyFilter = nil })
         }
         .tabScaffold()
         .navigationTitle(Text(HomeTab.history.title, bundle: .kit))
@@ -32,12 +31,12 @@ struct HistoryView: View {
                 }
             }
         }
-        .navigationDestination(item: $selectedEntry) { id in
+        .navigationDestination(item: $model.historyDetail) { id in
             HistoryDetailView(model: model, entryID: id)
         }
         .confirmationDialog(HistoryClearText.title, isPresented: $confirmingClear, titleVisibility: .visible) {
             Button(role: .destructive) {
-                selectedEntry = nil
+                model.historyDetail = nil
                 model.clearHistory()
             } label: {
                 HistoryClearText.action
@@ -49,17 +48,16 @@ struct HistoryView: View {
         .onChange(of: model.openedRequest) { _, opened in
             // A tapped notification's page opens over the home; an entry's
             // detail on screen closes first, as a Mac's detail does.
-            if opened != nil, model.selectedTab == .history { selectedEntry = nil }
+            if opened != nil, model.selectedTab == .history { model.historyDetail = nil }
         }
     }
 
     /// The Mac History is filtered to, by its name on this iPhone now, or
-    /// in its latest entry once it was removed.
+    /// as it was named when the filter was set once it was removed.
     private var filter: HistoryFilter? {
-        guard let macID = model.historyFilter else { return nil }
-        let name = model.pairedMacs.first { $0.id == macID }?.name
-            ?? model.history.first { $0.macID == macID }?.macName ?? ""
-        return HistoryFilter(macID: macID, macName: name)
+        guard let filter = model.historyFilter else { return nil }
+        let name = model.pairedMacs.first { $0.id == filter.macID }?.name ?? filter.macName
+        return HistoryFilter(macID: filter.macID, macName: name)
     }
 }
 
@@ -175,17 +173,23 @@ enum HistoryDays {
 struct HistoryFilterBar: View {
     let filter: HistoryFilter
     let onClear: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                .font(.title3)
-                .foregroundStyle(Color.accentColor)
-                .accessibilityHidden(true)
-            Text("history.filter \(Text(verbatim: filter.macName))", bundle: .kit)
-                .font(.body)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
+        // At accessibility sizes the button goes under the words.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10)) : AnyLayout(HStackLayout(spacing: 12))
+        layout {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityHidden(true)
+                Text("history.filter \(Text(verbatim: filter.macName))", bundle: .kit)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Button(action: onClear) { Text("history.filter.clear", bundle: .kit) }
                 .buttonStyle(.bordered)
                 .buttonBorderShape(.capsule)
@@ -243,9 +247,7 @@ struct HistoryRow: View {
             .frame(minHeight: GroupedMetrics.rowMinHeight)
         }
         .buttonStyle(GroupedRowButtonStyle())
-        .accessibilityElement(children: .ignore)
         .accessibilityLabel(HistoryCopy.spoken(entry, time: timeText))
-        .accessibilityAddTraits(.isButton)
     }
 
     private var timeText: String {

@@ -40,6 +40,11 @@ final class HistoryStoreTests: XCTestCase {
             XCTAssertFalse(text.contains(secret), "never in the entry: \(secret)")
         }
         XCTAssertNil(bytes.range(of: sealed.sealed.envelope.body), "never the envelope")
+        XCTAssertFalse(text.contains(sealed.sealed.envelope.body.base64EncodedString()), "never the envelope")
+        let memory = String(decoding: try JSONEncoder().encode(world.model.historyState), as: UTF8.self)
+        for secret in ["COMMAND-e85f", "FOLDER-9d27", "VARIABLE_31F4", "LABEL-77e0", "PURPOSE-c41d"] {
+            XCTAssertFalse(memory.contains(secret), "never in memory either: \(secret)")
+        }
     }
 
     // MARK: Encryption and binding
@@ -190,6 +195,38 @@ final class HistoryStoreTests: XCTestCase {
         await relaunched.becameActive()
         XCTAssertEqual(relaunched.history.count, 3, "coming to the front: History never shows an entry older than 30 days")
         XCTAssertEqual(world.storedHistory?.entries.count, 3)
+    }
+
+    func testAnUnreadableFileWhoseDeletionFailsBlocksWritesUntilItIsDeleted() async throws {
+        let world = TestWorld()
+        await world.setUpPhone()
+        try await world.pair()
+        try world.storeHistory([TestWorld.historyEntry(endedAt: world.clock.now())], account: "_user-z")
+        let foreign = world.historyFiles.storedData
+        world.historyFiles.removalsFail = true
+        let relaunched = await world.relaunch()
+        XCTAssertNil(world.historyKeys.storedKey, "the key goes first")
+        XCTAssertTrue(world.historyFiles.isDeletionPending)
+        let sealed = try await world.sendRequest()
+        await relaunched.processInbox()
+        XCTAssertEqual(world.historyFiles.storedData, foreign, "nothing is written over it")
+
+        world.historyFiles.removalsFail = false
+        await relaunched.becameActive()
+        XCTAssertFalse(world.historyFiles.isDeletionPending)
+        XCTAssertEqual(world.storedHistory?.entries.map(\.recordName), [sealed.sealed.messageID.text])
+    }
+
+    func testAPendingDeletionIsRetriedAtLaunchWithoutAnIdentity() async throws {
+        let world = TestWorld()
+        world.localState.inboxPosition = InboxPosition(userRecordName: "_user-a", token: nil)
+        try world.storeHistory([TestWorld.historyEntry(endedAt: world.clock.now())])
+        try world.historyFiles.setDeletionPending(true)
+        await world.model.start()
+        XCTAssertEqual(world.model.stage, .welcome)
+        XCTAssertNil(world.historyFiles.storedData)
+        XCTAssertNil(world.historyKeys.storedKey)
+        XCTAssertFalse(world.historyFiles.isDeletionPending)
     }
 
     func testTheWelcomeSetupDeletesALeftoverHistoryBeforeItCreatesAnIdentity() async throws {
