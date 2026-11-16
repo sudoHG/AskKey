@@ -377,6 +377,9 @@ extension AppDelegate {
         let hosting = NSHostingController(rootView: AgentApprovalPanelContent(prompt: prompt, layout: layout))
         hosting.sizingOptions = [.preferredContentSize]
         panel.contentViewController = hosting
+        // Esc decides later (#356). The panel reaches the card through its
+        // content, so it never keeps the card's decision closure alive.
+        panel.cancel = { [weak hosting] in hosting?.rootView.prompt.finish(nil) }
         layout.start()
         return panel
     }

@@ -715,12 +715,12 @@
         "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Create!!]" } }
       }
     },
-    "Esc to decide later": {
+    "Decide Later": {
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Esc to decide later" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Esc 稍后处理" } },
-        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Esc to decide later!!]" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Decide Later" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "稍后处理" } },
+        "qps-ploc": { "stringUnit": { "state": "translated", "value": "[!!Decide Later!!]" } }
       }
     },
     "Hands over": {
@@ -16041,48 +16041,48 @@
         }
       }
     },
-    "iPhone can decide in %lld s": {
+    "This request will be sent to iPhone in %lld s": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone can decide in %lld s"
+            "value": "This request will be sent to iPhone in %lld s"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 秒后 iPhone 也能处理"
+            "value": "%lld 秒后将把审批请求发到 iPhone"
           }
         },
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!iPhone can decide in %lld s!!]"
+            "value": "[!!This request will be sent to iPhone in %lld s!!]"
           }
         }
       }
     },
-    "Also on iPhone · Expires in %@": {
+    "This request expires in %@": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Also on iPhone · Expires in %@"
+            "value": "This request expires in %@"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone 也能处理 · %@ 后失效"
+            "value": "审批请求将于 %@ 后失效"
           }
         },
         "qps-ploc": {
           "stringUnit": {
             "state": "translated",
-            "value": "[!!Also on iPhone · Expires in %@!!]"
+            "value": "[!!This request expires in %@!!]"
           }
         }
       }

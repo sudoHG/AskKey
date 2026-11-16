@@ -14,8 +14,8 @@ import XCTest
 /// without approval, and Remove's confirmation; every step of the pairing
 /// sheet with its approval statements at its own size (a SwiftUI sheet can't
 /// be captured offscreen); and the approval panel through the production
-/// panel factory, with its footer before and after the send (#350). No
-/// window is ordered in. Set
+/// panel factory, with its footer before and after the send (#350, worded
+/// as in #356). No window is ordered in. Set
 /// `REMOTE_APPROVAL_RENDER_DIRECTORY` to keep the PNGs, and also
 /// `REMOTE_APPROVAL_WINDOW_RENDERS=1` on a desktop session to render the
 /// Devices section in the real Settings window, scrolled to it.
@@ -217,7 +217,7 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
                                                    deliveredAt: delivered ? sent.addingTimeInterval(2) : nil)])
         }
         let cases: [(String, RemoteApprovalPanelState, Bool)] = [
-            // Saved and still open, so the footer says "Also on iPhone" (#350).
+            // Saved and still open, so the footer has the sent hint (#350).
             ("11", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: false), footer: .sent), true),
             ("12", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: true), footer: .sent), true),
             ("13", outcome(approved: true, status: status(delivered: true)), false),
@@ -234,10 +234,11 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
         return names
     }
 
-    /// The footer with a paired iPhone (#350): the send countdown at 18
-    /// seconds, "Also on iPhone" after the send, and the unchanged footer
-    /// when no approver can take the request. Details stay collapsed, so the
-    /// render shows the whole front next to the footer.
+    /// The footer with a paired iPhone (#350) in the maintainer's wording
+    /// (#356): the send countdown at 18 seconds, the expiry after the send,
+    /// and the expiry when no approver can take the request, never with an
+    /// Esc hint. Details stay collapsed, so the render shows the whole front
+    /// next to the footer.
     private func renderFooters(tag: String) throws -> [String] {
         let deviceID = try XCTUnwrap(DeviceID(rawValue: Data(repeating: 9, count: 16)))
         let sent = RemoteApprovalStatus(approvers: [.init(deviceID: deviceID, displayName: "Synthetic iPhone",
@@ -258,6 +259,7 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
                 let tick = try XCTUnwrap(schedule.entries(from: now, mode: .normal).next())
                 let shown = RemoteApprovalFooter.text(remote.footer, expiresAt: expiresAt, now: tick)
                 XCTAssertTrue(shown.contains(number), "\(label) shows \(shown)")
+                XCTAssertFalse(shown.contains("Esc"), "\(label) shows \(shown)")
                 try renderPanel(remote: remote, expanded: false, expiresAt: expiresAt, as: name)
                 if Date().timeIntervalSince(now) < 0.9 {
                     names.append(name)
@@ -266,10 +268,10 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
             }
             XCTFail("\(name) took longer than 0.9 s to render three times")
         }
-        try footer("17-panel-footer-iphone-in-18s", expiresIn: 297.95, shows: "18") {
+        try footer("17-panel-footer-send-in-18s", expiresIn: 297.95, shows: "18") {
             RemoteApprovalPanelState(requestID: "synthetic", footer: .waiting(sendAt: $0.addingTimeInterval(17.95)))
         }
-        try footer("18-panel-footer-also-on-iphone", expiresIn: 279.95, shows: "4:39") { _ in
+        try footer("18-panel-footer-after-send", expiresIn: 279.95, shows: "4:39") { _ in
             RemoteApprovalPanelState(requestID: "synthetic", status: sent, footer: .sent)
         }
         try footer("19-panel-footer-no-approver", expiresIn: 299.95, shows: "4:59") { _ in
