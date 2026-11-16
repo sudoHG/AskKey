@@ -153,8 +153,9 @@ final class ApprovalPromptContentTests: AskKeyAppTestCase {
 
     func testFooterInBothLanguages() {
         Fixtures.withLanguages { language in
-            let footer = appLocalizedFormat("Expires in %@", "4:11") + " · " + appLocalized("Esc to decide later")
-            XCTAssertEqual(footer, language == "en" ? "Expires in 4:11 · Esc to decide later" : "4:11 后失效 · Esc 稍后处理") // i18n-literal: Chinese footer.
+            let now = Date(timeIntervalSince1970: 2_000_000_000)
+            let footer = RemoteApprovalFooter.text(nil, expiresAt: now.addingTimeInterval(251), now: now)
+            XCTAssertEqual(footer, language == "en" ? "This request expires in 4:11" : "审批请求将于 4:11 后失效") // i18n-literal: Chinese footer.
             XCTAssertEqual(appLocalized("Details"), language == "en" ? "Details" : "详细信息") // i18n-literal: Chinese Details link.
         }
     }

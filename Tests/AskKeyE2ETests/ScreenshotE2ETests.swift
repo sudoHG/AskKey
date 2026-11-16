@@ -172,8 +172,13 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertEqual(app.buttons["approval-allow-once"].label, "Allow Once")
         XCTAssertEqual(app.buttons["approval-allow-timed"].label, "Allow for 30 Minutes")
         XCTAssertEqual(app.buttons["approval-deny"].label, "Deny")
-        // The footer is one VoiceOver sentence, "Expires in … · Esc to decide later" (#350).
-        waitForText("Esc to decide later", containing: true)
+        // The footer shows only its sentence and carries VoiceOver's Decide
+        // Later action; Esc still decides later (#356,
+        // testPendingRequestsAndAccessRecords).
+        XCTAssertTrue(app.descendants(matching: .any)["approval-footer"].waitForExistence(timeout: 8))
+        waitForText("This request expires in", containing: true)
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@",
+            "Esc to decide later", "Esc to decide later")).firstMatch.exists, "the footer has no Esc hint")
         XCTAssertFalse(app.staticTexts["Requested by"].exists, "everything else stays behind Details")
         capture("12-approval-default", approval: true)
         click("approval-details")

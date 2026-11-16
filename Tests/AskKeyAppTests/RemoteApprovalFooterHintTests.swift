@@ -9,8 +9,8 @@ import XCTest
 
 /// What the coordinator tells the approval panel's footer (ADR 0014 → Mac
 /// App, amended by #345): the countdown only while an eligible request waits
-/// for an approver with room, "Also on iPhone" only while a saved copy is
-/// outstanding, and the unchanged footer in every other case. The footer
+/// for an approver with room, the sent hint only while a saved copy is
+/// outstanding, and no hint in every other case. The footer
 /// only reads; none of these steps changes what is sent.
 @MainActor
 final class RemoteApprovalFooterHintTests: AskKeyAppTestCase {
@@ -43,7 +43,7 @@ final class RemoteApprovalFooterHintTests: AskKeyAppTestCase {
         await harness.coordinator.remoteApprovalTick()
     }
 
-    func testTheCountdownRunsUntilTheSendThenTheSavedCopySaysAlsoOnIPhone() async throws {
+    func testTheCountdownRunsUntilTheSendThenTheSavedCopyGivesTheSentHint() async throws {
         let (pending, sendAt) = try await waitingRead()
         for _ in 0..<19 {
             XCTAssertEqual(hint(pending), .waiting(sendAt: sendAt))

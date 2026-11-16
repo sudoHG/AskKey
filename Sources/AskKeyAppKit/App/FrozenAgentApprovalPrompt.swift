@@ -280,37 +280,21 @@ struct FrozenAgentApprovalPrompt: View {
 
     /// One moving number at a time: the send countdown while the request
     /// waits for a paired iPhone, otherwise the expiry (ADR 0014 → Mac App).
-    /// A footer too long for one line, as the English "Also on iPhone" form
-    /// is, puts the text and "Esc to decide later" on a line each, so
-    /// neither breaks. VoiceOver reads it as one sentence and decides later
-    /// when it is activated; mouse and Esc work as before.
+    /// The footer shows only that sentence (#356); Esc decides later through
+    /// the panel (`AgentApprovalPanel`), and VoiceOver offers it as a named
+    /// action on the footer. A sentence too long for one line wraps.
     private var footer: some View {
         let hint = remote?.footer
         return TimelineView(RemoteApprovalFooterSchedule(anchor: RemoteApprovalFooter.anchor(hint, expiresAt: expiresAt))) { context in
             let text = RemoteApprovalFooter.text(hint, expiresAt: expiresAt, now: context.date)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: Theme.Spacing.xs) {
-                    Text(text).monospacedDigit()
-                    Text(verbatim: "·")
-                    decideLaterButton
-                }
-                VStack(spacing: Theme.Spacing.xs) {
-                    Text(text).monospacedDigit()
-                    decideLaterButton
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text(verbatim: RemoteApprovalFooter.sentence(text)))
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { finish(nil) }
+            Text(verbatim: text)
+                .monospacedDigit()
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAction(named: Text(verbatim: RemoteApprovalFooter.decideLaterAction)) { finish(nil) }
+                .accessibilityIdentifier("approval-footer")
         }
         .font(Theme.Fonts.caption)
         .foregroundStyle(Theme.textTertiary)
-    }
-
-    private var decideLaterButton: some View {
-        Button(appLocalized("Esc to decide later")) { finish(nil) }
-            .buttonStyle(.plain)
-            .keyboardShortcut(.cancelAction)
     }
 }

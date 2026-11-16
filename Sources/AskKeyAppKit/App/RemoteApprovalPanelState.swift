@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 
 /// What the approval panel's footer says about the approvers (ADR 0014 →
-/// Mac App, amended by #345). Without a hint the footer is unchanged.
+/// Mac App, amended by #345). Without a hint the footer shows the expiry.
 enum RemoteApprovalFooterHint: Equatable {
     /// An eligible request waits for its 20-second send to an approver with
     /// room under its limit.
@@ -12,36 +12,29 @@ enum RemoteApprovalFooterHint: Equatable {
     case sent
 }
 
-/// The footer's text before "Esc to decide later": one moving number at a
-/// time (#344, decision 6). The send countdown takes the expiry's place
-/// while the request waits; the expiry returns once a copy was saved.
+/// The footer's text: one moving number at a time, in the maintainer's
+/// wording (#356, replacing #344 decision 6's). The send countdown takes the
+/// expiry's place while the request waits; the expiry returns once the
+/// send is due, worded the same whether or not a copy was saved.
 enum RemoteApprovalFooter {
     static func text(_ hint: RemoteApprovalFooterHint?, expiresAt: Date?, now: Date) -> String {
-        let expiry = FrozenCountdown.format(deadline: expiresAt, now: now)
-        switch hint {
-        case .waiting(let sendAt):
-            guard let seconds = secondsUntilSend(sendAt, now: now) else { break }
+        if case .waiting(let sendAt) = hint, let seconds = secondsUntilSend(sendAt, now: now) {
             // "s" inflects in neither catalog language; the count still goes
             // through the plural lookup, so a language that inflects can add
             // plural variations to this key.
-            return AppLanguage.localizedCount("iPhone can decide in %lld s", oneKey: "iPhone can decide in %lld s",
+            return AppLanguage.localizedCount("This request will be sent to iPhone in %lld s",
+                                              oneKey: "This request will be sent to iPhone in %lld s",
                                               count: seconds, language: AppLanguage.current)
-        case .sent:
-            return appLocalizedFormat("Also on iPhone · Expires in %@", expiry)
-        case nil:
-            break
         }
-        return appLocalizedFormat("Expires in %@", expiry)
+        return appLocalizedFormat("This request expires in %@", FrozenCountdown.format(deadline: expiresAt, now: now))
     }
 
-    /// The whole footer as one sentence, for VoiceOver: the text, then
-    /// "Esc to decide later".
-    static func sentence(_ text: String) -> String {
-        text + " · " + appLocalized("Esc to decide later")
-    }
+    /// The name of the footer's VoiceOver action, which decides later as
+    /// Esc does.
+    static var decideLaterAction: String { appLocalized("Decide Later") }
 
     /// Whole seconds left before the send, rounded up, from 20 to 1; nil
-    /// once the send is due, when the footer is unchanged until it is saved.
+    /// once the send is due, when the footer shows the expiry.
     static func secondsUntilSend(_ sendAt: Date, now: Date) -> Int? {
         let remaining = sendAt.timeIntervalSince(now)
         guard remaining > 0 else { return nil }
@@ -111,8 +104,8 @@ final class RemoteApprovalPanelState {
     }
 
     /// Records the coordinator's latest decision when it decided this request.
-    /// The footer's hint goes with it, so "Also on iPhone" never shows next
-    /// to the approver's decision.
+    /// The footer's hint goes with it, so a hint about the approvers never
+    /// shows next to the approver's decision.
     func record(_ decision: RemoteAppliedDecision?, now: Date) {
         guard outcome == nil, let decision, decision.requestID == requestID else { return }
         outcome = decision
