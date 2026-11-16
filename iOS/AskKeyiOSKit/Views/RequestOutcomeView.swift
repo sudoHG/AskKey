@@ -4,10 +4,12 @@ import SwiftUI
 /// The request page once the request ended (decisions 3 and 7 of #344): a
 /// large symbol whose color tells Allow from Deny at a glance, a title, one
 /// sentence on what it means, a summary of the request and Done. It shows
-/// until the person taps Done or closes the sheet.
+/// until the person taps Done or closes the sheet. Once the request's
+/// History entry was written, it says so under Done (#349).
 struct RequestOutcomePage: View {
     let card: RequestCard
     let ending: RequestEnding
+    var savedToHistory = false
     var scrolls = true
     let onClose: () -> Void
     @ScaledMetric(relativeTo: .largeTitle) private var symbolSize: CGFloat = 64
@@ -52,6 +54,14 @@ struct RequestOutcomePage: View {
                 NeutralButtonLabel { Text("common.done", bundle: .kit) }
             }
             .neutralActionStyle()
+            if savedToHistory {
+                Label { Text("request.outcome.saved", bundle: .kit) } icon: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityElement(children: .combine)
+            }
         }
     }
 }

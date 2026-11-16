@@ -101,6 +101,24 @@ public final class AppModel {
     @ObservationIgnored var knownList: PairedDeviceList?
     /// Launch reopened the stored requests; cards that appear from now on arrived.
     @ObservationIgnored var storedRequestsRestored = false
+    // History (#349, `AppModel+History.swift`).
+    /// Completed entries, most recently ended first, as History shows them.
+    var history: [HistoryEntry] = []
+    /// Completed entries whose last write succeeded.
+    var savedHistory: Set<String> = []
+    /// History shows only this Mac's entries, by device ID.
+    public var historyFilter: String?
+    /// Open and completed entries, as last loaded or changed.
+    @ObservationIgnored var historyState = StoredHistory()
+    /// The file was read, or found missing, under the current account;
+    /// until then nothing is written over it.
+    @ObservationIgnored var historyReadable = false
+    /// A change that is not written yet; the next save writes it.
+    @ObservationIgnored var historyNeedsSave = false
+    /// A deletion that has not succeeded yet: nothing is read or written first.
+    @ObservationIgnored var historyDeletionPending = false
+    /// The key and the file are known to be deleted, and nothing was written since.
+    @ObservationIgnored var historyErased = false
     @ObservationIgnored private var accountWatch: Task<Void, Never>?
     @ObservationIgnored private var started = false
 
@@ -182,6 +200,7 @@ public final class AppModel {
         // Loaded before anything can suspend, so a request handled while
         // the stored ones are opened again is added to them, not lost.
         loadApprovals()
+        loadHistory()
         readBiometryKind()
         adoptEarlyPushes(for: services.deviceID)
         stage = .ready
@@ -254,6 +273,8 @@ public final class AppModel {
         case .unavailable: return .noBiometry
         }
         guard environment.cloud.isConfigured else { return .cloudNotConfigured }
+        // A new identity starts without an earlier one's history (#345).
+        if pendingSetup == nil { deleteHistory() }
         let setup: PendingSetup
         if let pendingSetup {
             setup = pendingSetup
@@ -332,7 +353,8 @@ public final class AppModel {
     /// created in the new account; the list is kept. Without an account,
     /// every paired Mac is unreachable until the person signs back in. A
     /// change, a sign-out or a restriction drops the stored requests,
-    /// decisions and markers; the approval flags stay (ADR 0014 → Revocation).
+    /// decisions and markers and deletes the history, even when no request
+    /// is stored; the approval flags stay (ADR 0014 → Revocation).
     func refreshAccount() async {
         guard let services, await checkAccount(services) else { return }
         await prepareInbox(services)
@@ -353,16 +375,19 @@ public final class AppModel {
         case .accountChanged(let name):
             accountNotice = nil
             dropAllApprovals()
+            deleteHistory()
             environment.localState.inboxPosition = InboxPosition(userRecordName: name, token: nil)
             closePairing()
             services.restartMessenger()
         case .noAccount:
             accountNotice = .signedOut
             dropAllApprovals()
+            deleteHistory()
             return false
         case .restricted:
             accountNotice = .restricted
             dropAllApprovals()
+            deleteHistory()
             return false
         case .temporarilyUnavailable:
             accountNotice = .unavailable

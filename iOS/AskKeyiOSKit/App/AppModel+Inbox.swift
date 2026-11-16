@@ -13,10 +13,11 @@ extension AppModel {
     /// How long a reset waits for CloudKit to delete the inbox.
     static let inboxRemovalTimeout: TimeInterval = 10
 
-    /// The app became active: collect the pushes still in Notification
-    /// Center, then process the inbox.
+    /// The app became active: prune the history, collect the pushes still
+    /// in Notification Center, then process the inbox.
     public func becameActive() async {
         guard stage == .ready, let services else { return }
+        refreshHistory()
         remember(await environment.notifications.deliveredPushHints(for: services.deviceID))
         await processInbox()
     }
@@ -277,6 +278,7 @@ extension AppModel {
             AppLog.failure("Deleting the stored requests", error)
         }
         dropAllApprovals()
+        deleteHistory()
         revokedPairings = []
         deliveryRecords = []
         pairedMacs = []

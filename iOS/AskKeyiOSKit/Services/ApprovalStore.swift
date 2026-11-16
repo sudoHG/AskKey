@@ -101,6 +101,10 @@ struct StoredMarker: Codable, Hashable, Sendable {
     var requestDigest: Data
     /// The closed message's transport expiry.
     var expiresAt: Date
+    /// The closed message's outcome, so a request that arrives after it is
+    /// recorded in the history (#345); cleared once it was. Older files
+    /// have none.
+    var closed: StoredClosed?
 }
 
 /// Everything the approver keeps between launches. It holds ciphertext,

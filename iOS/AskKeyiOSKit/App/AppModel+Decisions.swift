@@ -79,6 +79,7 @@ extension AppModel {
         approvals = state
         rebuildRequests()
         await sendDueMessages()
+        historyDecided(state.requests[current])
     }
 
     /// Nil when a decision may be sent now: time is left, the identity is
@@ -229,7 +230,8 @@ extension AppModel {
     }
 
     /// After every fetch: drops what expired, refreshes the cards, removes
-    /// the notifications of settled requests and sends what is due. A
+    /// the notifications of settled requests, completes and prunes the
+    /// history and sends what is due. A
     /// stored state that could not be read, or stored requests that could
     /// not be opened yet, are tried again first.
     func serviceApprovals() async {
@@ -252,6 +254,7 @@ extension AppModel {
         }
         rebuildRequests()
         settleRequestNotifications(also: expired)
+        refreshHistory()
         await sendDueMessages()
     }
 

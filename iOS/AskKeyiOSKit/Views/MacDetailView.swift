@@ -19,7 +19,8 @@ struct MacDetailView: View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             if let row {
                 MacDetailContent(row: row, now: context.date, renameProblem: renameProblem,
-                                 removalFailed: removalFailed,
+                                 removalFailed: removalFailed, historyCount: model.historyCount(forMac: macID),
+                                 onShowHistory: { model.showHistory(forMac: macID) },
                                  onRename: {
                                      newName = row.name
                                      renaming = true
@@ -75,12 +76,16 @@ enum MacRemovalText {
 
 /// The Mac's detail as a grouped list: the Mac, whether this iPhone
 /// approves its requests (#342's status line), when it was paired and last
-/// reached, Rename, and Remove in its own section.
+/// reached, History for This Mac (#349), Rename, and Remove in its own
+/// section.
 struct MacDetailContent: View {
     let row: PairedMacRow
     var now: Date = .now
     var renameProblem: RenameProblem?
     var removalFailed = false
+    /// The Mac's History entries; nil hides the row.
+    var historyCount: Int?
+    var onShowHistory: () -> Void = {}
     let onRename: () -> Void
     let onRemove: () -> Void
     @Environment(\.locale) private var locale
@@ -104,6 +109,11 @@ struct MacDetailContent: View {
                     } else {
                         Text("list.notReached", bundle: .kit).foregroundStyle(.orange)
                     }
+                }
+            }
+            if let historyCount {
+                GroupedSection {
+                    MacHistoryRow(count: historyCount, action: onShowHistory)
                 }
             }
             GroupedSection {
@@ -185,5 +195,30 @@ struct MacDetailContent: View {
         case .duplicate(let name): return Text("mac.rename.duplicate \(Text(verbatim: name))", bundle: .kit)
         case .failed: return Text("mac.rename.failed", bundle: .kit)
         }
+    }
+}
+
+/// History for This Mac, with its count: the History tab, filtered to the Mac.
+struct MacHistoryRow: View {
+    let count: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text("mac.history", bundle: .kit)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: String(count))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                RowChevron()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .frame(minHeight: GroupedMetrics.rowMinHeight)
+        }
+        .buttonStyle(GroupedRowButtonStyle())
+        .accessibilityElement(children: .combine)
     }
 }
