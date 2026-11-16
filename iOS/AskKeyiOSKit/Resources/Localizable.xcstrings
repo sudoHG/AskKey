@@ -69,6 +69,57 @@
         }
       }
     },
+    "common.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开“设置”"
+          }
+        }
+      }
+    },
+    "history.empty.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requests sent to this iPhone are listed here after they end, for 30 days."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发到这台 iPhone 的请求处理后会记在这里，保留 30 天。"
+          }
+        }
+      }
+    },
+    "history.empty.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No History"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有记录"
+          }
+        }
+      }
+    },
     "list.account.restricted": {
       "extractionState": "manual",
       "localizations": {
@@ -120,70 +171,155 @@
         }
       }
     },
-    "list.deliveries.polling %@": {
+    "list.empty.detail": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · found when Ask Key checked its inbox"
+            "value": "After pairing, a Mac sends its agents' requests here when you're away from it."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · 请旨检查收件箱时发现"
+            "value": "配对后，Mac 上 Agent 的请求会在你不在 Mac 前时发到这里。"
           }
         }
       }
     },
-    "list.deliveries.push %@": {
+    "list.empty.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · arrived through a notification"
+            "value": "No Paired Macs Yet"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · 通过通知送达"
+            "value": "还没有配对的 Mac"
           }
         }
       }
     },
-    "list.deliveries.title": {
+    "list.footer": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delivery Checks"
+            "value": "When an agent on one of these Macs wants a credential and you're away, the request comes to this iPhone."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "送达检查"
+            "value": "这些 Mac 上的 Agent 想用凭证、而你不在 Mac 前时，请求会发到这台 iPhone。"
           }
         }
       }
     },
-    "list.empty": {
+    "list.iCloud.restricted": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No paired Macs yet. On your Mac, open Ask Key's Settings, choose Devices, then Pair a Device."
+            "value": "Restricted"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "还没有配对的 Mac。请在 Mac 上打开请旨的“设置”，选择“设备”，再选择“配对设备”。"
+            "value": "受到限制"
+          }
+        }
+      }
+    },
+    "list.iCloud.signedIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed in"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已登录"
+          }
+        }
+      }
+    },
+    "list.iCloud.signedOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed out"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已退出登录"
+          }
+        }
+      }
+    },
+    "list.iCloud.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't connect"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法连接"
+          }
+        }
+      }
+    },
+    "list.lastDeliveryCheck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last delivery check"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次送达检查"
+          }
+        }
+      }
+    },
+    "list.lastDeliveryCheck.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有"
           }
         }
       }
@@ -201,6 +337,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "上次联系：%@"
+          }
+        }
+      }
+    },
+    "list.noValues": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key keeps no credential value on this iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨不在这台 iPhone 上保存任何凭证的值。"
           }
         }
       }
@@ -307,6 +460,74 @@
         }
       }
     },
+    "list.notifications": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知"
+          }
+        }
+      }
+    },
+    "list.notifications.off": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are off, so Ask Key can't tell you when a request arrives."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知已关闭。请求到达时，请旨无法提醒你。"
+          }
+        }
+      }
+    },
+    "list.notifications.stateOff": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已关闭"
+          }
+        }
+      }
+    },
+    "list.notifications.stateOn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已开启"
+          }
+        }
+      }
+    },
     "list.pair": {
       "extractionState": "manual",
       "localizations": {
@@ -320,23 +541,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "配对 Mac"
-          }
-        }
-      }
-    },
-    "list.pairedOn %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paired %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "配对于 %@"
           }
         }
       }
@@ -409,19 +613,87 @@
         }
       }
     },
-    "list.title": {
+    "list.thisIPhone": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paired Macs"
+            "value": "This iPhone"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已配对的 Mac"
+            "value": "这台 iPhone"
+          }
+        }
+      }
+    },
+    "list.version %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本 %@"
+          }
+        }
+      }
+    },
+    "mac.detail.lastReached": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last reached"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次联系"
+          }
+        }
+      }
+    },
+    "mac.detail.paired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paired"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对于"
+          }
+        }
+      }
+    },
+    "mac.remove.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone stops approving this Mac's requests at once and drops the pending ones."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 会立即停止审批这台 Mac 的请求，并丢弃待处理的请求。"
           }
         }
       }
@@ -1378,6 +1650,91 @@
         }
       }
     },
+    "request.empty.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When an agent on your Mac wants a credential and you're away, the request appears here."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 上的 Agent 想用凭证、而你不在 Mac 前时，请求会出现在这里。"
+          }
+        }
+      }
+    },
+    "request.empty.reachable %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Macs can reach this iPhone"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 台 Mac 可以发来请求"
+          }
+        }
+      }
+    },
+    "request.empty.reachableOne": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Mac can reach this iPhone"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 台 Mac 可以发来请求"
+          }
+        }
+      }
+    },
+    "request.empty.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Requests"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有待处理的请求"
+          }
+        }
+      }
+    },
+    "request.empty.unreachable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Macs can't reach this iPhone right now"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 暂时无法联系这台 iPhone"
+          }
+        }
+      }
+    },
     "request.handsOver.file %@ %@": {
       "extractionState": "manual",
       "localizations": {
@@ -1442,6 +1799,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ → 环境变量 %@"
+          }
+        }
+      }
+    },
+    "request.list.footnote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowing needs Face ID. Denying doesn't."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许要用面容 ID，拒绝不需要。"
+          }
+        }
+      }
+    },
+    "request.list.footnote.touchID": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowing needs Touch ID. Denying doesn't."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许要用触控 ID，拒绝不需要。"
           }
         }
       }
@@ -1837,19 +2228,36 @@
         }
       }
     },
-    "request.section.title": {
+    "request.row.sending": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Requests"
+            "value": "Sending your decision…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请求"
+            "value": "正在发送你的决定…"
+          }
+        }
+      }
+    },
+    "request.row.waiting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent, waiting for the Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已发送，等待 Mac 执行"
           }
         }
       }
@@ -2241,6 +2649,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "扫描二维码"
+          }
+        }
+      }
+    },
+    "tab.history": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "History"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记录"
+          }
+        }
+      }
+    },
+    "tab.macs": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Macs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac"
+          }
+        }
+      }
+    },
+    "tab.requests": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requests"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请求"
           }
         }
       }

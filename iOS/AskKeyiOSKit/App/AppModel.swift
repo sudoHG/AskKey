@@ -33,6 +33,15 @@ public final class AppModel {
     public internal(set) var opening: OpeningRequest?
     /// A newly paired Mac got a numbered name; the person may rename it.
     public var renamePrompt: RenamePrompt?
+    /// The home's tab. A request that arrives never changes it (ADR 0014 →
+    /// iPhone app, Finished and arriving requests).
+    public var selectedTab: HomeTab = .requests
+    /// Whether Ask Key may show notifications, as last read: at launch,
+    /// after the welcome's prompt and whenever the app becomes active; nil
+    /// until the first read.
+    public internal(set) var notificationAuthorization: NotificationAuthorization?
+    /// Face ID or Touch ID, for the Requests tab's footnote.
+    public internal(set) var biometryKind: BiometryKind = .faceID
 
     @ObservationIgnored let environment: AppEnvironment
     @ObservationIgnored var services: DeviceServices?
@@ -140,6 +149,7 @@ public final class AppModel {
         let token = environment.localState.inboxPosition?.token.map(InboxChangeToken.init(data:))
         await activate(makeServices(identity: identity, transport: transport, inboxToken: token))
         await environment.notifications.registerAtLaunch()
+        await refreshNotificationAuthorization()
     }
 
     /// The services with this model as the approver: the handler of
@@ -163,6 +173,7 @@ public final class AppModel {
         // Loaded before anything can suspend, so a request handled while
         // the stored ones are opened again is added to them, not lost.
         loadApprovals()
+        readBiometryKind()
         adoptEarlyPushes(for: services.deviceID)
         stage = .ready
         watchAccount()
@@ -260,6 +271,7 @@ public final class AppModel {
         case .temporarilyUnavailable: return .iCloudUnavailable
         }
         await environment.notifications.requestAuthorizationAndRegister()
+        await refreshNotificationAuthorization()
         let deviceID = DeviceID(messagePublicKey: setup.identity.messagePublicKey)
         if !setup.stored {
             do {

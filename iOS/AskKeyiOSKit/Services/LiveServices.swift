@@ -85,6 +85,14 @@ struct UserNotificationCenterAccess: NotificationCenterAccess {
         }
     }
 
+    func authorization() async -> NotificationAuthorization {
+        switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
+        case .authorized, .provisional, .ephemeral: return .allowed
+        case .denied: return .denied
+        default: return .notDetermined
+        }
+    }
+
     func deliveredPushHints(for device: DeviceID) async -> [PushHint] {
         let delivered = await UNUserNotificationCenter.current().deliveredNotifications()
         return delivered.compactMap { notification in

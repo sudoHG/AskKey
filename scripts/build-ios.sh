@@ -85,7 +85,7 @@ for catalog in (kit, app, extension):
             problems.append(f'{catalog.relative_to(root)}: "{key}" needs English and Simplified Chinese')
         elif len({tuple(sorted(placeholder.findall(unit['value']))) for unit in units} | {tuple(sorted(placeholder.findall(key)))}) != 1:
             problems.append(f'{catalog.relative_to(root)}: "{key}" has mismatched placeholders')
-literal = re.compile(r'"((?:common|welcome|scanner|pairing|list|unusable|request|approver|mac)\.[A-Za-z0-9.]+)((?: \\\([^"]*?\))*)"')
+literal = re.compile(r'"((?:common|welcome|scanner|pairing|list|unusable|request|approver|mac|tab|history)\.[A-Za-z0-9.]+)((?: \\\([^"]*?\))*)"')
 for source in sorted((root / 'AskKeyiOSKit').rglob('*.swift')):
     for match in literal.finditer(source.read_text(encoding='utf-8')):
         key = match.group(1) + ' %@' * match.group(2).count('\\(')
