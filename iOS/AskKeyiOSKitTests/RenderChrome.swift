@@ -118,6 +118,28 @@ struct PushedScreenStandIn<Content: View>: View {
     }
 }
 
+/// A full-screen state without tabs, the welcome and the key reset, laid
+/// out as `FullScreenScaffold` lays it out: the content from the top and
+/// the actions at the bottom of the screen between the status bar and the
+/// home indicator. Content taller than the screen, which scrolls under the
+/// actions in the app, makes a taller image instead.
+struct FullScreenStandIn<Content: View, Actions: View>: View {
+    @ViewBuilder var content: Content
+    @ViewBuilder var actions: Actions
+
+    var body: some View {
+        VStack(spacing: 0) {
+            FullScreenColumn { content }
+            Spacer(minLength: 0)
+            FullScreenActions { actions }
+        }
+        .frame(maxWidth: .infinity, minHeight: 852 - 59 - 34, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.top, 59)
+        .padding(.bottom, 34)
+    }
+}
+
 /// A sheet as iOS draws it at full height: the status bar over the dimmed
 /// screen behind, then the sheet's rounded top, with room for the home
 /// indicator below the page's actions. A page that fits is as tall as the
