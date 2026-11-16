@@ -126,20 +126,22 @@ struct UnusableIdentityView: View {
     @State private var confirming = false
 
     var body: some View {
-        UnusableIdentityContent(isResetting: model.isResetting, resetFailed: model.resetFailed,
-                                biometry: model.biometryKind) { confirming = true }
-            .tabScaffold()
-            .onAppear { model.readBiometryKind() }
-            .confirmationDialog(UnusableResetText.title, isPresented: $confirming, titleVisibility: .visible) {
-                Button(role: .destructive) {
-                    Task { await model.resetIdentity() }
-                } label: {
-                    UnusableResetText.confirm
-                }
-                Button(role: .cancel) {} label: { Text("common.cancel", bundle: .kit) }
-            } message: {
-                UnusableResetText.message
+        FullScreenScaffold {
+            UnusableIdentityContent(biometry: model.biometryKind)
+        } actions: {
+            UnusableIdentityActions(isResetting: model.isResetting, resetFailed: model.resetFailed) { confirming = true }
+        }
+        .readingBiometryKind(model)
+        .confirmationDialog(UnusableResetText.title, isPresented: $confirming, titleVisibility: .visible) {
+            Button(role: .destructive) {
+                Task { await model.resetIdentity() }
+            } label: {
+                UnusableResetText.confirm
             }
+            Button(role: .cancel) {} label: { Text("common.cancel", bundle: .kit) }
+        } message: {
+            UnusableResetText.message
+        }
     }
 }
 
@@ -152,17 +154,14 @@ enum UnusableResetText {
 
 /// A stored key no longer works, for example after a Face ID or Touch ID
 /// enrollment change; one reset deletes the keys and the list (#351): a key
-/// with a slash in an orange circle, the cause, what the reset deletes and
-/// what to do next, and **Reset This iPhone** at the bottom.
+/// with a slash in an orange circle, the cause, and what the reset deletes
+/// and what to do next.
 struct UnusableIdentityContent: View {
-    let isResetting: Bool
-    let resetFailed: Bool
     var biometry: BiometryKind = .faceID
-    let onReset: () -> Void
     @ScaledMetric(relativeTo: .largeTitle) private var circle: CGFloat = 72
 
     var body: some View {
-        FullScreenLayout {
+        VStack(alignment: .leading, spacing: 0) {
             Image(systemName: "key.slash")
                 .font(.largeTitle.weight(.medium))
                 .foregroundStyle(.orange)
@@ -174,7 +173,19 @@ struct UnusableIdentityContent: View {
                             detail: biometry == .touchID ? "unusable.detail.touchID" : "unusable.detail")
             FullScreenNotice(text: Text("unusable.consequence", bundle: .kit))
                 .padding(.top, 28)
-        } bottom: {
+        }
+    }
+}
+
+/// The reset screen's actions: a failed reset's notice and **Reset This
+/// iPhone**, which asks for confirmation first.
+struct UnusableIdentityActions: View {
+    let isResetting: Bool
+    let resetFailed: Bool
+    let onReset: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
             if resetFailed {
                 FullScreenNotice(text: Text("unusable.failed", bundle: .kit))
             }

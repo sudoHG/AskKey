@@ -4,26 +4,26 @@ struct WelcomeView: View {
     let model: AppModel
 
     var body: some View {
-        WelcomeContent(step: model.welcomeStep, biometry: model.biometryKind) {
-            Task { await model.runWelcomeChecks() }
+        FullScreenScaffold {
+            WelcomeContent(biometry: model.biometryKind)
+        } actions: {
+            WelcomeActions(step: model.welcomeStep) {
+                Task { await model.runWelcomeChecks() }
+            }
         }
-        .tabScaffold()
-        // Which of Face ID and Touch ID the point names; reading it prompts for nothing.
-        .onAppear { model.readBiometryKind() }
+        .readingBiometryKind(model)
+        // The checks may run after a visit to Settings that set up Touch ID.
+        .onChange(of: model.welcomeStep) { model.readBiometryKind() }
     }
 }
 
-/// The welcome screen (#351): the app's icon, why the app exists in three
-/// points, **Continue** at the bottom with the wireless-data prompt some
-/// iPhones show before the first network access, and each failed check
-/// above the button.
+/// The welcome screen's content (#351): the app's icon, the title, why the
+/// app exists, and three points.
 struct WelcomeContent: View {
-    let step: WelcomeStep
     var biometry: BiometryKind = .faceID
-    let onContinue: () -> Void
 
     var body: some View {
-        FullScreenLayout {
+        VStack(alignment: .leading, spacing: 0) {
             AppIconImage(size: 72)
                 .padding(.bottom, 28)
             FullScreenTitle(title: "welcome.title", detail: "welcome.subtitle")
@@ -36,7 +36,27 @@ struct WelcomeContent: View {
                              detail: Text("welcome.point.icloud.detail", bundle: .kit))
             }
             .padding(.top, 36)
-        } bottom: {
+        }
+    }
+
+    private var biometryTitle: Text {
+        switch biometry {
+        case .faceID: return Text("welcome.point.faceID.title", bundle: .kit)
+        case .touchID: return Text("welcome.point.touchID.title", bundle: .kit)
+        }
+    }
+}
+
+/// The welcome's actions: a failed check's own explanation, **Continue** (a
+/// spinner and "Checking…" while the checks run, **Try Again** after a
+/// failure), and the wireless-data prompt some iPhones show before the
+/// first network access.
+struct WelcomeActions: View {
+    let step: WelcomeStep
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
             if case .failed(let failure) = step {
                 FullScreenNotice(text: Text(Self.explanation(failure), bundle: .kit))
             }
@@ -59,13 +79,6 @@ struct WelcomeContent: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var biometryTitle: Text {
-        switch biometry {
-        case .faceID: return Text("welcome.point.faceID.title", bundle: .kit)
-        case .touchID: return Text("welcome.point.touchID.title", bundle: .kit)
         }
     }
 
@@ -97,19 +110,25 @@ struct WelcomeContent: View {
     }
 }
 
-/// One of the welcome's points: an accent symbol, a bold title and one sentence.
+/// One of the welcome's points: an accent symbol, a bold title and one
+/// sentence. At accessibility text sizes the symbol moves above the text,
+/// so the text keeps the screen's width.
 private struct WelcomePoint: View {
     let symbol: String
     let title: Text
     let detail: Text
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .title2) private var symbolWidth: CGFloat = 36
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
+        let stacked = dynamicTypeSize.isAccessibilitySize
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 16))
+        layout {
             Image(systemName: symbol)
                 .font(.title2)
                 .foregroundStyle(Color.accentColor)
-                .frame(width: symbolWidth)
+                .frame(width: stacked ? nil : symbolWidth)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 title
@@ -128,24 +147,60 @@ private struct WelcomePoint: View {
 // MARK: Full-screen states
 
 /// A full-screen state without tabs, the welcome and the key reset (#351):
-/// the content from the top and the actions at the bottom. In the app,
-/// `tabScaffold()` makes it at least as tall as the screen and lets it
-/// scroll when it is taller, as with large Dynamic Type sizes.
-struct FullScreenLayout<Content: View, Bottom: View>: View {
+/// the content scrolls, and the actions stay at the bottom of the screen
+/// above the home indicator, so the button and any problem above it stay
+/// in view on a small iPhone. At accessibility text sizes the actions follow
+/// the content instead, so they can never fill the screen.
+struct FullScreenScaffold<Content: View, Actions: View>: View {
     @ViewBuilder var content: Content
-    @ViewBuilder var bottom: Bottom
+    @ViewBuilder var actions: Actions
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            content
-                .padding(.horizontal, 8)
-            Spacer(minLength: 32)
-            VStack(spacing: 14) { bottom }
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        FullScreenColumn { content }
+                        FullScreenActions { actions }
+                    }
+                }
+            } else {
+                ScrollView {
+                    FullScreenColumn { content }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    FullScreenActions { actions }
+                        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+                }
+            }
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 40)
-        .padding(.bottom, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+    }
+}
+
+/// A full-screen state's content, from the top.
+struct FullScreenColumn<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(.horizontal, 32)
+            .padding(.top, 40)
+            .padding(.bottom, 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A full-screen state's actions, at the bottom.
+struct FullScreenActions<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
     }
 }
 
@@ -191,12 +246,41 @@ struct FullScreenNotice: View {
     }
 }
 
-/// A button's spinner while its work runs, drawn as a symbol so the
-/// screen's render shows it too.
+/// A button's spinner while its work runs. From iOS 18 it is a symbol, so
+/// the screen's render shows it too; iOS 17 lacks the symbol and shows the
+/// system's spinner.
 struct ButtonSpinner: View {
     var body: some View {
-        Image(systemName: "progress.indicator")
-            .symbolEffect(.variableColor.iterative)
-            .accessibilityHidden(true)
+        Group {
+            if #available(iOS 18.0, *) {
+                Image(systemName: "progress.indicator")
+                    .symbolEffect(.variableColor.iterative)
+            } else {
+                ProgressView()
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /// Reads which of Face ID and Touch ID this iPhone has when the screen
+    /// appears and whenever the app becomes active again, for example after
+    /// a visit to Settings. Reading it prompts for nothing.
+    func readingBiometryKind(_ model: AppModel) -> some View {
+        modifier(BiometryKindReader(model: model))
+    }
+}
+
+private struct BiometryKindReader: ViewModifier {
+    let model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { model.readBiometryKind() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { model.readBiometryKind() }
+            }
     }
 }

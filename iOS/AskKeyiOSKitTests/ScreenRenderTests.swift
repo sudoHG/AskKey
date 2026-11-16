@@ -49,21 +49,26 @@ final class ScreenRenderTests: XCTestCase {
     }
 
     /// #351: the welcome, a failed check, the checks running, the Touch ID
-    /// point, and an accessibility text size, which scrolls in the app.
+    /// point, and an accessibility text size, where the symbols move above
+    /// their text and the actions follow the content.
     func testWelcome() throws {
         for symbol in ["lock.shield", "faceid", "touchid", "icloud", "exclamationmark.circle.fill",
                        "progress.indicator"] {
             XCTAssertNotNil(UIImage(systemName: symbol), symbol)
         }
-        try render("01-welcome", FullScreenStandIn { WelcomeContent(step: .intro, onContinue: {}) })
-        try render("02-welcome-network-failure",
-                   FullScreenStandIn { WelcomeContent(step: .failed(.networkUnavailable), onContinue: {}) })
-        try render("80-welcome-checking", FullScreenStandIn { WelcomeContent(step: .checking, onContinue: {}) })
-        try render("81-welcome-touch-id",
-                   FullScreenStandIn { WelcomeContent(step: .intro, biometry: .touchID, onContinue: {}) })
-        try render("82-welcome-accessibility-size",
-                   FullScreenStandIn { WelcomeContent(step: .intro, onContinue: {}) }
-                       .environment(\.dynamicTypeSize, .accessibility2))
+        func screen(_ step: WelcomeStep = .intro, biometry: BiometryKind = .faceID) -> some View {
+            FullScreenStandIn {
+                WelcomeContent(biometry: biometry)
+            } actions: {
+                WelcomeActions(step: step, onContinue: {})
+            }
+        }
+        try render("01-welcome", screen())
+        try render("02-welcome-network-failure", screen(.failed(.networkUnavailable)))
+        try render("80-welcome-checking", screen(.checking))
+        try render("81-welcome-touch-id", screen(biometry: .touchID))
+        try render("82-welcome-accessibility-size", screen().environment(\.dynamicTypeSize, .accessibility2))
+        try render("88-welcome-largest-text", screen().environment(\.dynamicTypeSize, .accessibility5))
     }
 
     func testScanner() throws {
@@ -101,7 +106,9 @@ final class ScreenRenderTests: XCTestCase {
         XCTAssertNotNil(UIImage(systemName: "key.slash"))
         func screen(isResetting: Bool = false, resetFailed: Bool = false, biometry: BiometryKind = .faceID) -> some View {
             FullScreenStandIn {
-                UnusableIdentityContent(isResetting: isResetting, resetFailed: resetFailed, biometry: biometry, onReset: {})
+                UnusableIdentityContent(biometry: biometry)
+            } actions: {
+                UnusableIdentityActions(isResetting: isResetting, resetFailed: resetFailed, onReset: {})
             }
         }
         try render("14-unusable-identity", screen())
@@ -315,6 +322,19 @@ final class ScreenRenderTests: XCTestCase {
         XCTAssertNotEqual(light.pngData(), dark.pngData())
         try render("40-privacy-cover", PrivacyCoverView(), hasText: false)
         try render("87-privacy-cover-dark", PrivacyCoverView().environment(\.colorScheme, .dark), hasText: false)
+        // Opaque: a request under the cover never shows through it.
+        func pixels<Screen: View>(_ screen: Screen) throws -> Data {
+            let renderer = ImageRenderer(content: screen
+                .frame(width: Self.screenSize.width, height: Self.screenSize.height)
+                .environment(\.colorScheme, .light))
+            return try XCTUnwrap(renderer.uiImage?.pngData())
+        }
+        let covered = ZStack {
+            Color.red
+            Text(verbatim: "\u{201C}Codex\u{201D} wants to use \u{201C}GitHub Token\u{201D}").font(.largeTitle)
+            PrivacyCoverView()
+        }
+        XCTAssertEqual(try pixels(covered), try pixels(PrivacyCoverView()))
     }
 }
 

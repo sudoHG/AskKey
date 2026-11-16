@@ -119,17 +119,23 @@ struct PushedScreenStandIn<Content: View>: View {
 }
 
 /// A full-screen state without tabs, the welcome and the key reset, laid
-/// out as `tabScaffold()` lays it out in its scroll view: at least as tall
-/// as the screen between the status bar and the home indicator, and taller
-/// when it needs to be, which makes a taller image.
-struct FullScreenStandIn<Content: View>: View {
+/// out as `FullScreenScaffold` lays it out: the content from the top and
+/// the actions at the bottom of the screen between the status bar and the
+/// home indicator. Content taller than the screen, which scrolls under the
+/// actions in the app, makes a taller image instead.
+struct FullScreenStandIn<Content: View, Actions: View>: View {
     @ViewBuilder var content: Content
+    @ViewBuilder var actions: Actions
 
     var body: some View {
-        content
-            .frame(maxWidth: .infinity, minHeight: 852 - 59 - 34, alignment: .top)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 59)
-            .padding(.bottom, 34)
+        VStack(spacing: 0) {
+            FullScreenColumn { content }
+            Spacer(minLength: 0)
+            FullScreenActions { actions }
+        }
+        .frame(maxWidth: .infinity, minHeight: 852 - 59 - 34, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.top, 59)
+        .padding(.bottom, 34)
     }
 }
