@@ -59,7 +59,7 @@ struct RequestOutcomePage: View {
 /// The outcome replaced the buttons VoiceOver was on, so VoiceOver moves to
 /// the title. Only in the app: `ImageRenderer` cannot draw the focus
 /// wrapper, which would take the page's free space in a render.
-private struct FocusedOnAppear: ViewModifier {
+struct FocusedOnAppear: ViewModifier {
     let isEnabled: Bool
     @AccessibilityFocusState private var focused: Bool
 

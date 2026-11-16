@@ -40,7 +40,10 @@ extension AppModel {
         }
         guard let hint = PushHintReader.hint(userInfo: userInfo, arrivedAt: arrivedAt,
                                              notificationIdentifier: notificationIdentifier,
-                                             for: services.deviceID) else { return }
+                                             for: services.deviceID) else {
+            if opened { openUnreadable(userInfo) }
+            return
+        }
         remember([hint])
         if opened {
             open(hint.recordName)
@@ -57,7 +60,10 @@ extension AppModel {
         earlyPushes = []
         for push in pushes {
             guard let hint = PushHintReader.hint(userInfo: push.userInfo, arrivedAt: push.arrivedAt,
-                                                 notificationIdentifier: push.identifier, for: device) else { continue }
+                                                 notificationIdentifier: push.identifier, for: device) else {
+                if push.opened { openUnreadable(push.userInfo) }
+                continue
+            }
             remember([hint])
             if push.opened { open(hint.recordName) }
         }
@@ -149,6 +155,9 @@ extension AppModel {
         // decidable once it ran, as a request a push named is fetched by
         // name after the zone poll, whether or not the poll succeeded.
         let checking = uncheckedRequests
+        // A tapped fetch that failed before this zone poll shows the failed
+        // page if this pass finds no card either (#348).
+        let failedOpening = opening?.fetchFailed == true ? opening?.id : nil
         do {
             // The zone poll goes before the other pushed names: within one
             // fetch a closed message is handled before its request, so it
@@ -173,6 +182,7 @@ extension AppModel {
         guard await fetchPushedRecords(services, skipping: outcomes, into: &outcomes) else { return }
         recordDeliveries(outcomes, kinds: services.transport.takeKinds())
         await refreshList(previous: before)
+        showFailedOpening(failedOpening)
         // Sends and local expiry go on even when the inbox could not be read.
         await serviceApprovals()
     }

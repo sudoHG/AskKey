@@ -382,7 +382,7 @@ extension AppModel {
             return left ? lhs.countdownEnd > rhs.countdownEnd : lhs.countdownEnd < rhs.countdownEnd
         }
         if ordered != requests { requests = ordered }
-        // The tapped request's card replaces its loading or unavailable state.
+        // The tapped request's card replaces any page shown before it (#348).
         if let opening, requests.contains(where: { $0.id == opening.id }) { self.opening = nil }
     }
 
