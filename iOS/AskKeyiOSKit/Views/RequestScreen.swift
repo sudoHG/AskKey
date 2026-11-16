@@ -28,8 +28,12 @@ struct OpenedRequestView: View {
                 content(card: card, at: context.date)
             }
         }
-        .onChange(of: live, initial: true) { _, card in
+        .onChange(of: live, initial: true) { previous, card in
             if let card { lastCard = card }
+            // The verified card replaced a page shown before it (#348).
+            if previous == nil, card != nil {
+                UIAccessibility.post(notification: .screenChanged, argument: nil)
+            }
         }
     }
 

@@ -157,7 +157,7 @@ extension AppModel {
         let checking = uncheckedRequests
         // A tapped fetch that failed before this zone poll shows the failed
         // page if this pass finds no card either (#348).
-        let failedOpening = opening?.fetchFailed == true ? opening?.id : nil
+        let failedAttempt = opening?.fetchFailed == true ? opening?.attempt : nil
         do {
             // The zone poll goes before the other pushed names: within one
             // fetch a closed message is handled before its request, so it
@@ -182,7 +182,7 @@ extension AppModel {
         guard await fetchPushedRecords(services, skipping: outcomes, into: &outcomes) else { return }
         recordDeliveries(outcomes, kinds: services.transport.takeKinds())
         await refreshList(previous: before)
-        showFailedOpening(failedOpening)
+        settleOpening(after: outcomes, failedAttempt: failedAttempt)
         // Sends and local expiry go on even when the inbox could not be read.
         await serviceApprovals()
     }
@@ -297,6 +297,7 @@ extension AppModel {
         settledRequests = []
         openedRequest = nil
         opening = nil
+        unverifiedRecords = []
         uncheckedRequests = []
         knownList = nil
         seenPairings = nil

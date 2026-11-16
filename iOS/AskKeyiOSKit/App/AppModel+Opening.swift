@@ -70,8 +70,11 @@ extension AppModel {
     }
 
     /// Try Again on the failed page: the page loads again with its timers
-    /// started over, the tapped record is fetched by name at once unless
-    /// CloudKit asked to wait, and a pass follows, as after the tap.
+    /// and its minute of fetching by name started over, and a pass follows,
+    /// as after the tap. The record is fetched by name at once unless
+    /// CloudKit asked to wait or its own fetch is still running; that
+    /// fetch's answer then counts, and the next one follows with a later
+    /// pass. Two fetches of one record never run at once.
     public func retryOpening() async {
         let now = environment.clock.now()
         guard var opening, openingPhase(at: now) == .failed else { return }
@@ -139,7 +142,9 @@ extension AppModel {
             if let wait = report.retryAfter { postponeNamedFetches(by: wait) }
             answer = report.outcomes[name]
             found = !report.notYet.contains(name)
-            failed = answer == .failed
+            // A record CloudKit asked to wait for is reported failed too.
+            failed = answer == .failed && report.retryAfter == nil
+            noteRefusals(report.outcomes)
             if case .processed? = answer, let kind = services.transport.takeWatchedKind(of: name) {
                 recordDeliveries(report.outcomes, kinds: [name: kind])
             } else {
@@ -166,10 +171,11 @@ extension AppModel {
             // Handled without a card: a closed message that arrived first
             // ended it, or the record was not a request.
             self.opening?.step = .ended(endedRequest(name))
-        case .refused?:
-            self.opening?.step = .unverified
+        case .refused(let refusal)?:
+            self.opening?.step = step(refusedFor: refusal, name)
         case nil where !found:
-            self.opening?.step = .ended(endedRequest(name))
+            // Gone: refused earlier in this process, or ended.
+            self.opening?.step = unverifiedRecords.contains(name) ? .unverified : .ended(endedRequest(name))
         default:
             // Not fetched, or its handling failed for now: try again with
             // the next pass, after CloudKit's retry-after if it asked.
@@ -179,14 +185,63 @@ extension AppModel {
         }
     }
 
-    /// The tapped record's fetch had failed before a zone poll started, and
-    /// the pass that ran it found no card: the page says the request could
-    /// not be fetched. Fetching goes on until loading ends.
-    func showFailedOpening(_ name: String?) {
-        guard let name, var opening, opening.id == name, opening.fetchFailed else { return }
-        guard opening.step == .fetchDue || opening.step == .fetching else { return }
-        opening.failed = true
+    /// The end of a pass: what its zone poll and pushed fetches did with
+    /// the tapped record settles the page as the record's own fetch would,
+    /// a refused record unverified and one handled without a card ended.
+    /// Otherwise, when the record's own fetch had failed in the same attempt
+    /// before the zone poll started (`failedAttempt`) and the pass found no
+    /// card, the page says the request could not be fetched; fetching goes
+    /// on until loading ends.
+    func settleOpening(after outcomes: [String: InboxMessageOutcome], failedAttempt: OpeningAttempt?) {
+        noteRefusals(outcomes)
+        guard var opening else { return }
+        if case .refused(let refusal)? = outcomes[opening.id], Self.unverifies(refusal) {
+            // The pass refused the record itself; its own fetch may have
+            // found it already handled meanwhile and said it ended.
+            guard opening.step != .unverified else { return }
+            opening.step = .unverified
+        } else {
+            guard opening.step == .fetchDue || opening.step == .fetching else { return }
+            switch outcomes[opening.id] {
+            case .refused(let refusal)?:
+                opening.step = step(refusedFor: refusal, opening.id)
+            case .processed?:
+                opening.step = .ended(endedRequest(opening.id))
+            default:
+                guard opening.fetchFailed, opening.attempt == failedAttempt else { return }
+                opening.failed = true
+            }
+        }
         self.opening = opening
+    }
+
+    /// What a refusal of the tapped record says. Expired, or already handled
+    /// by another fetch (`.replayed`): it ended, as far as the app knows,
+    /// with only an outcome the app already holds and nothing from the
+    /// refused record; a request decided on the Mac before the tap is the
+    /// usual case. Any other refusal: it could not be verified, also when
+    /// this process refused the record before.
+    private func step(refusedFor refusal: DeviceMessageRefusal, _ name: String) -> OpeningRequest.Step {
+        guard !Self.unverifies(refusal), !unverifiedRecords.contains(name) else { return .unverified }
+        return .ended(endedRequest(name))
+    }
+
+    private static func unverifies(_ refusal: DeviceMessageRefusal) -> Bool {
+        refusal != .expired && refusal != .replayed
+    }
+
+    /// Keeps the names of records refused in this process for anything but
+    /// age or a repeat, so a tapped notification for one that is gone says
+    /// it could not be verified rather than that it ended.
+    private func noteRefusals(_ outcomes: [String: InboxMessageOutcome]) {
+        for (name, outcome) in outcomes.sorted(by: { $0.key < $1.key }) {
+            guard case .refused(let refusal) = outcome, Self.unverifies(refusal),
+                  !unverifiedRecords.contains(name) else { continue }
+            unverifiedRecords.append(name)
+        }
+        if unverifiedRecords.count > Self.pushHintLimit {
+            unverifiedRecords.removeFirst(unverifiedRecords.count - Self.pushHintLimit)
+        }
     }
 
     /// How the tapped request ended, from its stored request when the app
@@ -231,10 +286,12 @@ public enum OpeningPhase: Hashable, Sendable {
     /// it found no card, nothing settled within 15 seconds, or iCloud is
     /// unavailable. Try Again fetches it again.
     case failed
-    /// Handled without a card, or not found: the request ended, as far as
-    /// the app knows; how, when it holds the request.
+    /// Handled without a card, not found, expired, or already handled by
+    /// another fetch: the request ended, as far as the app knows; how, when
+    /// it holds the request.
     case ended(EndedRequest?)
-    /// Refused by verification, or the name is not a message ID.
+    /// Refused for anything but age or a repeat, now or earlier in this
+    /// process, or the name is not a message ID.
     case unverified
 }
 
@@ -293,6 +350,10 @@ public struct OpeningRequest: Hashable, Sendable {
         nextAttempt = since
     }
 
+    /// This tap or Try Again.
+    var attempt: OpeningAttempt { OpeningAttempt(id: id, since: since) }
+
+    /// The thresholds compare dates, as `changeDates` schedules them.
     public func phase(at now: Date) -> OpeningPhase {
         switch step {
         case .ended(let ended):
@@ -300,14 +361,13 @@ public struct OpeningRequest: Hashable, Sendable {
         case .unverified:
             return .unverified
         case .fetchDue, .fetching:
-            let elapsed = now.timeIntervalSince(since)
-            if failed || elapsed >= Self.failedAfter { return .failed }
-            return elapsed >= Self.slowAfter ? .slow : .loading
+            if failed || now >= since.addingTimeInterval(Self.failedAfter) { return .failed }
+            return now >= since.addingTimeInterval(Self.slowAfter) ? .slow : .loading
         }
     }
 
     func showsPlaceholder(at now: Date) -> Bool {
-        now.timeIntervalSince(since) >= Self.placeholderDelay
+        now >= since.addingTimeInterval(Self.placeholderDelay)
     }
 
     /// When the page changes by itself: the placeholder, slow, failed.
@@ -322,6 +382,12 @@ public struct OpeningRequest: Hashable, Sendable {
     }
 
     func hasExpired(at now: Date) -> Bool {
-        now.timeIntervalSince(since) >= AppModel.pendingOpenLifetime
+        now >= since.addingTimeInterval(AppModel.pendingOpenLifetime)
     }
+}
+
+/// One tap or Try Again of a tapped notification's record.
+struct OpeningAttempt: Hashable, Sendable {
+    let id: String
+    let since: Date
 }

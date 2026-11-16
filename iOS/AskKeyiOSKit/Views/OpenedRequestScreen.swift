@@ -22,10 +22,16 @@ struct OpeningPage: View {
     var body: some View {
         content
             .onChange(of: phase) { _, phase in
-                // The pages after it move VoiceOver to their titles.
-                if phase == .slow {
-                    AccessibilityNotification.Announcement(String(localized: "request.opening.slow", bundle: .kit,
-                                                                  locale: locale)).post()
+                // Loading again after Try Again, and slow; the pages after
+                // them move VoiceOver to their titles.
+                let announcement: String.LocalizationValue? = switch phase {
+                case .loading: "request.opening.loading"
+                case .slow: "request.opening.slow"
+                case .failed, .ended, .unverified: nil
+                }
+                if let announcement {
+                    AccessibilityNotification.Announcement(String(localized: announcement, bundle: .kit, locale: locale))
+                        .post()
                 }
             }
     }
@@ -50,8 +56,7 @@ struct OpeningPage: View {
                 closeButton
             }
         case .ended(let ended):
-            OpeningStatePage(symbol: ended?.ending.symbol ?? "tray.fill",
-                             color: (ended?.ending.tone ?? .neutral).color,
+            OpeningStatePage(symbol: EndedCopy.symbol(ended), color: EndedCopy.color(ended),
                              title: Text("request.opening.ended.title", bundle: .kit),
                              detail: EndedCopy.sentence(ended), scrolls: scrolls, onClose: onClose) {
                 Button(action: onViewHistory) {
@@ -178,6 +183,7 @@ private struct Shimmer: ViewModifier {
                     .onAppear {
                         withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) { swept = true }
                     }
+                    .onDisappear { swept = false }
                 }
             }
     }
@@ -227,6 +233,16 @@ private struct OpeningStatePage<Actions: View>: View {
 /// outcome page (#347), or the generic one when the app does not know.
 /// The Mac's name is bold, as on the outcome page.
 enum EndedCopy {
+    /// The outcome page's symbol; a tray when the ending is unknown.
+    static func symbol(_ ended: EndedRequest?) -> String {
+        ended?.ending.symbol ?? "tray.fill"
+    }
+
+    /// The outcome page's color; gray when the ending is unknown.
+    static func color(_ ended: EndedRequest?) -> Color {
+        (ended?.ending.tone ?? .neutral).color
+    }
+
     static func sentence(_ ended: EndedRequest?) -> Text {
         guard let ended else { return Text("request.opening.ended.unknown", bundle: .kit) }
         let mac = Text(verbatim: RequestCopy.short(ended.macName)).bold()

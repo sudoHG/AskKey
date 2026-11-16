@@ -205,6 +205,26 @@ final class ScreenRenderTests: XCTestCase {
                    page(nil, opening: .failed, tall: true).environment(\.dynamicTypeSize, .accessibility2))
         try render("98-opened-request-slow-accessibility-size",
                    page(nil, opening: .slow, tall: true).environment(\.dynamicTypeSize, .accessibility2))
+        // Every ended page's symbol and sentence, through the page's own
+        // copy, for the wording review.
+        let endings: [EndedRequest?] = [RequestEnding.closed(.allowedOnce), .closed(.allowedTimed(seconds: 1_800)),
+                                        .closed(.denied), .closed(.decidedOnMac), .closed(.decidedElsewhere),
+                                        .closed(.expired), .closed(.cancelled), .closed(.notApplied), .timedOut, .gone]
+            .map { Optional(EndedRequest(ending: $0, macName: Self.mac)) } + [nil]
+        try render("99-opened-request-ended-sentences", SheetStandIn(tall: true) {
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(Array(endings.enumerated()), id: \.offset) { _, ended in
+                    Label {
+                        EndedCopy.sentence(ended)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: EndedCopy.symbol(ended))
+                            .foregroundStyle(EndedCopy.color(ended))
+                    }
+                }
+            }
+            .padding(24)
+        })
     }
 
     /// #342's status line, Rename and Remove, in #346's grouped layout; only

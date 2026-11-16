@@ -2506,7 +2506,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No answer came from “%@”. Check the Mac to see how it ended."
+            "value": "No answer from “%@”. Check the Mac to see how it ended."
           }
         },
         "zh-Hans": {
