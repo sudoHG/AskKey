@@ -18,11 +18,14 @@ public enum DeviceStorageError: Error, Equatable, Sendable {
     /// decode. It is refused, not repaired; resetting the identity deletes it.
     case listRefused
     /// A list change would add a device the person did not authorize, with
-    /// system authentication, in the current pairing session.
+    /// system authentication, in the current pairing session, or store
+    /// another card under a pairing ID the list already stores, which no
+    /// pairing does: pairing again derives a new pairing ID.
     case pairingNotAuthorized
     /// A list change would set a device's approval flag outside the add that
     /// pairing authorized for an iOS card, or change the flag of an entry
-    /// already stored (ADR 0014 → Approvers).
+    /// already stored, whatever card the change carries (same device ID and
+    /// pairing ID; ADR 0014 → Approvers).
     case approverNotAuthorized
     /// A local erase is running or was interrupted; device storage stays
     /// closed until it finishes.
@@ -337,31 +340,45 @@ extension Vault {
         }
     }
 
-    /// Writes a list the registry prepared. A device that was not on the
-    /// stored list, or is there with another pairing ID or card, is an add: it needs
-    /// the management session and this pairing session's authorization for
-    /// that device, which the write then uses up. The approval flag (ADR
-    /// 0014 → Approvers) may be on only in that add, and only when the added
-    /// entry's card says iOS; a write that changes the flag of an entry the
-    /// list already stores (same device ID and pairing ID) is refused. A
-    /// device whose flagged entry the write removes or replaces leaves the
-    /// Broker's active-approver set before the write commits, so its
-    /// authority ends first (ADR 0014 → Revocation).
+    /// Writes a list the registry prepared. An entry whose pairing ID is not
+    /// on the stored list is an add: it needs the management session and
+    /// this pairing session's authorization for that device, which the write
+    /// then uses up. The approval flag (ADR 0014 → Approvers) may be on only
+    /// in that add, and only when the added entry's card says iOS. A pairing
+    /// ID names one pairing, so an entry under a stored pairing ID is that
+    /// stored entry (in a list an earlier build stored with a pairing ID
+    /// shared by two devices, the one with its device ID): the write may
+    /// change anything but its card and flag.
+    /// Changing its flag (same device ID and pairing ID, whatever the card)
+    /// is refused as `approverNotAuthorized`, and storing another card under
+    /// its pairing ID as `pairingNotAuthorized`, because pairing again
+    /// derives a new pairing ID; when one write breaks the rule twice, the
+    /// first such entry decides the error. A device whose flagged entry the
+    /// write removes or replaces leaves the Broker's active-approver set
+    /// before the write commits, so its authority ends first (ADR 0014 →
+    /// Revocation).
     func savePairedDevices(_ list: PairedDeviceList, epoch: Int) throws {
         try withDeviceStorage(epoch: epoch) { keys in
             let vaultKey = try requireKey()
             let stored = try storedPairedDevices(keys: keys, vaultKey: vaultKey)
-            // An entry is the stored one only with the same card too, so a
-            // write cannot swap the card, and with it the approval key that
-            // checks every Allow, under a flag a pairing granted.
+            // The stored entry is the one with the same pairing ID, and it
+            // keeps its card, so no write swaps the approval key that checks
+            // every Allow, or the flag, while the Broker's set, keyed by
+            // pairing ID, keeps that pairing's generation. The entry with the
+            // same device ID too comes first, so a list that an earlier
+            // build stored with a pairing ID shared by two devices can still
+            // be renamed and have either entry removed.
             func storedEntry(_ device: PairedDevice) -> PairedDevice? {
-                stored.devices.first {
-                    $0.deviceID == device.deviceID && $0.pairingID == device.pairingID && $0.card == device.card
-                }
+                stored.devices.first { $0.pairingID == device.pairingID && $0.deviceID == device.deviceID }
+                    ?? stored.devices.first { $0.pairingID == device.pairingID }
             }
-            guard !list.devices.contains(where: { device in
-                storedEntry(device).map { $0.isApprover != device.isApprover } ?? false
-            }) else { throw DeviceStorageError.approverNotAuthorized }
+            for device in list.devices {
+                guard let entry = storedEntry(device) else { continue }
+                if entry.deviceID == device.deviceID, entry.isApprover != device.isApprover {
+                    throw DeviceStorageError.approverNotAuthorized
+                }
+                if entry.card != device.card { throw DeviceStorageError.pairingNotAuthorized }
+            }
             let added = list.devices.filter { storedEntry($0) == nil }
             if !added.isEmpty {
                 try requireDeviceManagementSessionDroppingAuthorization()
@@ -372,8 +389,12 @@ extension Vault {
                     throw DeviceStorageError.approverNotAuthorized
                 }
             }
+            // An approver stays in the set only if the write keeps its entry
+            // with the same pairing ID, card and flag. The checks above
+            // already refuse another card under a kept pairing ID; comparing
+            // the card here too keeps the set right if they ever change.
             for device in stored.devices where device.isApprover && !list.devices.contains(where: {
-                $0.deviceID == device.deviceID && $0.pairingID == device.pairingID && $0.isApprover
+                $0.pairingID == device.pairingID && $0.card == device.card && $0.isApprover
             }) {
                 approvalRequests.removeActiveApprover(pairingID: device.pairingID.rawValue)
             }

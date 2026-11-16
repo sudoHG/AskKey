@@ -1,6 +1,7 @@
 @testable import AskKeyBroker
 @testable import AskKeyDevices
 import AskKeyDevicesTestSupport
+import CryptoKit
 import Foundation
 import XCTest
 @testable import AskKeyVault
@@ -28,6 +29,21 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
         var changed = list
         try changed.apply(.add(entry))
         return changed
+    }
+
+    /// An identity with this message key, so with its device ID, and new
+    /// agreement and approval keys.
+    private func sameDeviceID(as messageKey: P256.Signing.PrivateKey) -> SoftwareDeviceIdentity {
+        SoftwareDeviceIdentity(messageKey: messageKey, agreementKey: .init(), approvalKey: .init())
+    }
+
+    /// An entry under the pairing ID made of `byte`, with a card that
+    /// `identity` signed at `seconds`.
+    private func entry(_ identity: SoftwareDeviceIdentity, platform: DevicePlatform = .iOS,
+                       signedAt seconds: TimeInterval = 1_800_000_000, pairingID byte: UInt8) throws -> PairedDevice {
+        let card = try DeviceCard.make(identity: identity, platform: platform, createdAt: Date(timeIntervalSince1970: seconds))
+        return PairedDevice(card: card, pairingID: try XCTUnwrap(PairingID(rawValue: Data(repeating: byte, count: 16))),
+                            displayName: "Synthetic Phone", pairedAt: Date(timeIntervalSince1970: seconds + 100))
     }
 
     private func isApprover(_ device: PairedDevice, in library: AgentAccessPolicyLibrary) async throws -> Bool {
@@ -135,26 +151,136 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
 
     func testAWriteCannotSwapTheCardOfAFlaggedEntry() async throws {
         let library = try makeLibrary()
-        let identity = SoftwareDeviceIdentity()
-        let created = Date(timeIntervalSince1970: 1_800_000_000)
-        let pairingID = try XCTUnwrap(PairingID(rawValue: Data(repeating: 0x3C, count: 16)))
-        let phone = PairedDevice(card: try DeviceCard.make(identity: identity, platform: .iOS, createdAt: created),
-                                 pairingID: pairingID, displayName: "Synthetic Phone", pairedAt: created)
+        let messageKey = P256.Signing.PrivateKey()
+        let identity = sameDeviceID(as: messageKey)
+        let phone = try entry(identity, pairingID: 0x3C)
         try await pairApprover(phone, in: library)
-        // Same device ID and pairing ID, another card: an add, not the stored entry.
-        let swapped = PairedDevice(card: try DeviceCard.make(identity: identity, platform: .macOS, createdAt: created),
-                                   pairingID: pairingID, displayName: "Synthetic Phone", pairedAt: created)
-        XCTAssertEqual(swapped.deviceID, phone.deviceID)
+        let generation = try activate(phone, in: library.vault)
+        // Same device ID and pairing ID, flag kept, another card. The iOS
+        // cards used to be adds, which the pairing authorization let through
+        // while the Broker kept the pairing's generation; the Mac card failed
+        // only the platform check.
+        let swaps = [("another approval key", try entry(sameDeviceID(as: messageKey), pairingID: 0x3C)),
+                     ("a newer card", try entry(identity, signedAt: 1_800_000_600, pairingID: 0x3C)),
+                     ("a Mac card", try entry(identity, platform: .macOS, pairingID: 0x3C))]
         let registry = try library.vault.pairedDeviceRegistry()
-        await assertRefused(.pairingNotAuthorized, library, "a card swap without the pairing authorization") {
-            try await registry.apply(.add(self.flagged(swapped)))
+        let epoch = library.vault.deviceState.currentEpoch
+        for (name, swap) in swaps {
+            XCTAssertEqual(swap.deviceID, phone.deviceID, name)
+            XCTAssertNotEqual(swap.card, phone.card, name)
+            library.vault.endDevicePairingAuthorization()
+            await assertRefused(.pairingNotAuthorized, library, "\(name) without the pairing authorization") {
+                try await registry.apply(.add(self.flagged(swap)))
+            }
+            try library.vault.authorizeDevicePairing(with: phone.deviceID, using: .allow)
+            await assertRefused(.pairingNotAuthorized, library, "\(name) under the pairing authorization") {
+                try await registry.apply(.add(self.flagged(swap)))
+            }
+            let stored = try await registry.list()
+            await assertRefused(.pairingNotAuthorized, library, "\(name) in a list written directly") {
+                try library.vault.savePairedDevices(try self.list(stored, replacing: self.flagged(swap)), epoch: epoch)
+            }
+        }
+        // Another device cannot take the stored pairing ID either.
+        let other = try entry(SoftwareDeviceIdentity(), pairingID: 0x3C)
+        try library.vault.authorizeDevicePairing(with: other.deviceID, using: .allow)
+        await assertRefused(.pairingNotAuthorized, library, "another device under the stored pairing ID") {
+            try await registry.apply(.add(self.flagged(other)))
+        }
+        // A swap refuses the whole write, even beside the add the pairing
+        // authorization covers, and leaves that authorization for the add.
+        let tablet = try entry(SoftwareDeviceIdentity(), pairingID: 0x4D)
+        try library.vault.authorizeDevicePairing(with: tablet.deviceID, using: .allow)
+        let before = try await registry.list()
+        let swap = flagged(try entry(sameDeviceID(as: messageKey), pairingID: 0x3C))
+        await assertRefused(.pairingNotAuthorized, library, "a swap written with an authorized add") {
+            var list = try self.list(before, replacing: swap)
+            try list.apply(.add(self.flagged(tablet)))
+            try library.vault.savePairedDevices(list, epoch: epoch)
+        }
+        try await registry.apply(.add(flagged(tablet)))
+        // The swap as the only change to the phone's entry, beside a rename
+        // of the tablet: one add under the phone's authorization, which the
+        // card-blind rule accepted.
+        try library.vault.authorizeDevicePairing(with: phone.deviceID, using: .allow)
+        let paired = try await registry.list()
+        await assertRefused(.pairingNotAuthorized, library, "a swap written with a rename") {
+            var list = try self.list(paired, replacing: swap)
+            try list.apply(.rename(tablet.deviceID, pairingID: tablet.pairingID, displayName: "Renamed Tablet"))
+            try library.vault.savePairedDevices(list, epoch: epoch)
+        }
+        let stored = try await registry.list().devices
+        XCTAssertEqual(stored, [flagged(phone), flagged(tablet)])
+        XCTAssertEqual(library.vault.approvalRequests.activeApproverGeneration(pairingID: phone.pairingID.rawValue), generation,
+                       "the pairing keeps its authority with the card it was granted for")
+    }
+
+    /// A list that an earlier build stored with one pairing ID on two
+    /// devices stays writable: each entry is checked against its own stored
+    /// entry, and no third device joins that pairing ID.
+    func testAStoredListWithASharedPairingIDCanStillBeRenamedAndEmptied() async throws {
+        let library = try makeLibrary()
+        let secondKey = P256.Signing.PrivateKey()
+        let first = flagged(try entry(SoftwareDeviceIdentity(), pairingID: 0x3C))
+        let second = try entry(sameDeviceID(as: secondKey), pairingID: 0x3C)
+        library.keys.deviceItems[.pairedDevices] = try PairedDeviceListAuthentication.seal(
+            try PairedDeviceList(devices: [first, second]), using: library.key)
+        _ = try activate(first, in: library.vault)
+        let registry = try library.vault.pairedDeviceRegistry()
+        let third = try entry(SoftwareDeviceIdentity(), pairingID: 0x3C)
+        try library.vault.authorizeDevicePairing(with: third.deviceID, using: .allow)
+        await assertRefused(.pairingNotAuthorized, library, "a third device under the shared pairing ID") {
+            try await registry.apply(.add(third))
+        }
+        await assertRefused(.approverNotAuthorized, library, "the second entry's flag turned on") {
+            try await registry.apply(.add(self.flagged(second)))
+        }
+        try library.vault.authorizeDevicePairing(with: second.deviceID, using: .allow)
+        let secondSwap = try entry(sameDeviceID(as: secondKey), pairingID: 0x3C)
+        await assertRefused(.pairingNotAuthorized, library, "another approval key for the second entry") {
+            try await registry.apply(.add(secondSwap))
+        }
+        library.vault.endManagementSession()
+        try await registry.apply(.rename(second.deviceID, pairingID: second.pairingID, displayName: "Renamed Phone"))
+        try await registry.apply(.remove(first.deviceID, pairingID: first.pairingID))
+        XCTAssertNil(library.vault.approvalRequests.activeApproverGeneration(pairingID: first.pairingID.rawValue),
+                     "removing the flagged entry ends the pairing ID's authority")
+        let remaining = try await registry.list().devices
+        XCTAssertEqual(remaining.map(\.deviceID), [second.deviceID])
+        XCTAssertEqual(remaining.first?.displayName, "Renamed Phone")
+        try await registry.apply(.remove(second.deviceID, pairingID: second.pairingID))
+        let empty = try await registry.list().devices
+        XCTAssertTrue(empty.isEmpty)
+    }
+
+    func testACardSwapCannotChangeTheFlag() async throws {
+        let library = try makeLibrary()
+        let phoneKey = P256.Signing.PrivateKey()
+        let otherKey = P256.Signing.PrivateKey()
+        let phone = try entry(sameDeviceID(as: phoneKey), pairingID: 0x3C)
+        let unflagged = try entry(sameDeviceID(as: otherKey), pairingID: 0x4D)
+        try await pairApprover(phone, in: library)
+        try await pair(unflagged, in: library)
+        let generation = try activate(phone, in: library.vault)
+        let registry = try library.vault.pairedDeviceRegistry()
+        // Under the device's pairing authorization, which used to make a card swap an add with any flag.
+        try library.vault.authorizeDevicePairing(with: unflagged.deviceID, using: .allow)
+        let flaggedSwap = flagged(try entry(sameDeviceID(as: otherKey), pairingID: 0x4D))
+        await assertRefused(.approverNotAuthorized, library, "a stored entry's flag turned on with another iOS card") {
+            try await registry.apply(.add(flaggedSwap))
         }
         try library.vault.authorizeDevicePairing(with: phone.deviceID, using: .allow)
-        await assertRefused(.approverNotAuthorized, library, "a flagged card that is not iOS") {
-            try await registry.apply(.add(self.flagged(swapped)))
+        let unflaggedSwap = try entry(sameDeviceID(as: phoneKey), pairingID: 0x3C)
+        await assertRefused(.approverNotAuthorized, library, "a stored flag turned off with another card") {
+            try await registry.apply(.add(unflaggedSwap))
         }
-        let stored = try await registry.list().device(phone.deviceID)
-        XCTAssertEqual(stored?.card, phone.card)
+        let phoneFlag = try await isApprover(phone, in: library)
+        let otherFlag = try await isApprover(unflagged, in: library)
+        XCTAssertTrue(phoneFlag)
+        XCTAssertFalse(otherFlag)
+        XCTAssertTrue(try library.vault.activateStoredApprovers(only: unflagged.pairingID).isEmpty,
+                      "the unflagged pairing never joins the set")
+        XCTAssertEqual(library.vault.approvalRequests.activeApproverGeneration(pairingID: phone.pairingID.rawValue), generation)
     }
 
     func testOtherChangesToAnApproverNeedNoAuthorization() async throws {
@@ -213,6 +339,31 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
             }
             XCTAssertNil(library.vault.approvalRequests.activeApproverGeneration(pairingID: device.pairingID.rawValue), change)
             XCTAssertGreaterThan(library.vault.approvalRequests.activeApproverRevocationCount(), before, change)
+        }
+    }
+
+    /// A device's card changes only by pairing again, under a new pairing ID:
+    /// the old pairing leaves the Broker's set and the new entry is flagged.
+    func testPairingAgainWithANewCardEndsTheOldAuthorityAndFlagsTheNewEntry() async throws {
+        for start in ["flagged", "unflagged"] {
+            let library = try makeLibrary()
+            let approvals = library.vault.approvalRequests
+            let messageKey = P256.Signing.PrivateKey()
+            let phone = try entry(sameDeviceID(as: messageKey), pairingID: 0x3C)
+            if start == "flagged" { try await pairApprover(phone, in: library) } else { try await pair(phone, in: library) }
+            let old = start == "flagged" ? try activate(phone, in: library.vault) : nil
+            let before = approvals.activeApproverRevocationCount()
+            let again = try entry(sameDeviceID(as: messageKey), signedAt: 1_800_000_600, pairingID: 0x5C)
+            try await pairApprover(again, in: library)
+            let stored = try await library.vault.pairedDeviceRegistry().list().devices
+            XCTAssertEqual(stored, [flagged(again)], start)
+            XCTAssertNil(approvals.activeApproverGeneration(pairingID: phone.pairingID.rawValue), start)
+            if old != nil {
+                XCTAssertGreaterThan(approvals.activeApproverRevocationCount(), before, "the old pairing left the set first")
+            }
+            let added = try library.vault.activateStoredApprovers(only: again.pairingID)
+            XCTAssertEqual(Set(added.keys), [again.pairingID], start)
+            if let old { XCTAssertGreaterThan(try XCTUnwrap(added[again.pairingID]), old, start) }
         }
     }
 
