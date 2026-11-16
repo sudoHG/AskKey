@@ -308,21 +308,6 @@ enum RequestCopy {
     }
 }
 
-/// The cards, with the model's actions; the countdown redraws every second.
-struct RequestList: View {
-    let model: AppModel
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            VStack(spacing: 14) {
-                ForEach(model.requests) { card in
-                    RequestCardView(model: model, card: card, now: context.date)
-                }
-            }
-        }
-    }
-}
-
 struct RequestCardView: View {
     let model: AppModel
     let card: RequestCard

@@ -37,6 +37,17 @@ public protocol CameraAccessChecking: Sendable {
     func requestAccess() async -> Bool
 }
 
+/// Whether Ask Key may show notifications, as Settings → Ask Key →
+/// Notifications says.
+public enum NotificationAuthorization: Hashable, Sendable {
+    /// Allowed, including delivered quietly or provisionally.
+    case allowed
+    /// The person turned notifications off for Ask Key.
+    case denied
+    /// The person was not asked yet.
+    case notDetermined
+}
+
 /// The system notification center as the app uses it. A push is only a
 /// hint to fetch the inbox: nothing here acts on a notification's text,
 /// category or action.
@@ -45,6 +56,8 @@ public protocol NotificationCenterAccess: Sendable {
     func requestAuthorizationAndRegister() async
     /// At a later launch: registers again, and asks only if the person was never asked.
     func registerAtLaunch() async
+    /// Reads the current authorization; asks for nothing.
+    func authorization() async -> NotificationAuthorization
     /// The pushes for this device's own inbox that are still in Notification Center.
     func deliveredPushHints(for device: DeviceID) async -> [PushHint]
     func removeDeliveredNotifications(identifiers: [String])

@@ -16,9 +16,10 @@ struct MacDetailView: View {
     private var row: PairedMacRow? { model.pairedMacs.first { $0.id == macID } }
 
     var body: some View {
-        Group {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
             if let row {
-                MacDetailContent(row: row, renameProblem: renameProblem, removalFailed: removalFailed,
+                MacDetailContent(row: row, now: context.date, renameProblem: renameProblem,
+                                 removalFailed: removalFailed,
                                  onRename: {
                                      newName = row.name
                                      renaming = true
@@ -72,55 +73,110 @@ enum MacRemovalText {
     static var confirm: Text { Text("list.remove.confirm", bundle: .kit) }
 }
 
+/// The Mac's detail as a grouped list: the Mac, whether this iPhone
+/// approves its requests (#342's status line), when it was paired and last
+/// reached, Rename, and Remove in its own section.
 struct MacDetailContent: View {
     let row: PairedMacRow
+    var now: Date = .now
     var renameProblem: RenameProblem?
     var removalFailed = false
     let onRename: () -> Void
     let onRemove: () -> Void
+    @Environment(\.locale) private var locale
+    @ScaledMetric(relativeTo: .largeTitle) private var circle: CGFloat = 84
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(verbatim: row.name)
-                    .font(.largeTitle.bold())
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("list.pairedOn \(row.pairedAt, format: .dateTime.year().month().day())", bundle: .kit)
-                    .foregroundStyle(.secondary)
-                if let reached = row.lastReachedAt {
-                    Text("list.lastReached \(reached, format: .dateTime.year().month().day().hour().minute())", bundle: .kit)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("list.notReached", bundle: .kit)
-                        .foregroundStyle(.orange)
+        VStack(spacing: 24) {
+            header
+            GroupedSection {
+                ValueRow {
+                    Text("mac.detail.paired", bundle: .kit)
+                } value: {
+                    Text(row.pairedAt, format: .dateTime.year().month().day()).foregroundStyle(.secondary)
                 }
-                Button(action: onRename) { Text("mac.rename", bundle: .kit).font(.subheadline.weight(.semibold)) }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
+                GroupedDivider()
+                ValueRow {
+                    Text("mac.detail.lastReached", bundle: .kit)
+                } value: {
+                    if let reached = row.lastReachedAt {
+                        Text(verbatim: RelativeTime.text(reached, now: now, locale: locale)).foregroundStyle(.secondary)
+                    } else {
+                        Text("list.notReached", bundle: .kit).foregroundStyle(.orange)
+                    }
+                }
             }
-            if let renameProblem {
-                NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning, text: Self.text(renameProblem))
+            GroupedSection {
+                Button(action: onRename) {
+                    Text("mac.rename", bundle: .kit)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 11)
+                        .frame(minHeight: GroupedMetrics.rowMinHeight)
+                }
+                .buttonStyle(GroupedRowButtonStyle())
+            } footer: {
+                if let renameProblem {
+                    Self.text(renameProblem).foregroundStyle(.orange)
+                } else {
+                    Text("mac.rename.message", bundle: .kit)
+                }
             }
-            // Pairing sets the flag; only a Mac paired before #336 without
-            // approval lacks it, and only pairing again can set it. A Mac
-            // whose removal failed is refused here too (`PairedMacRow`).
-            if row.isApprover {
-                NoticeCard(symbol: "checkmark.shield.fill", tone: .success,
-                           text: Text("mac.status.approving", bundle: .kit))
-            } else {
-                NoticeCard(symbol: "exclamationmark.shield.fill", tone: .warning,
-                           text: Text("mac.status.notApproving", bundle: .kit))
+            GroupedSection {
+                Button(role: .destructive, action: onRemove) {
+                    Text("list.remove", bundle: .kit)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 11)
+                        .frame(minHeight: GroupedMetrics.rowMinHeight)
+                }
+                .buttonStyle(GroupedRowButtonStyle())
+            } footer: {
+                // What removing does is #342's confirmation, word for word.
+                if removalFailed {
+                    Text("list.notice.removalFailed", bundle: .kit).foregroundStyle(.orange)
+                }
             }
-            if removalFailed {
-                NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning,
-                           text: Text("list.notice.removalFailed", bundle: .kit))
-            }
-            Button(action: onRemove) { Text("list.remove", bundle: .kit) }
-                .buttonStyle(ActionButtonStyle(kind: .destructive))
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 24)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 24)
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    /// The Mac, its name and the status line. Pairing sets the flag; only a
+    /// Mac paired before #336 without approval lacks it, and only pairing
+    /// again can set it. A Mac whose removal failed is refused here too
+    /// (`PairedMacRow`).
+    private var header: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "laptopcomputer")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+                .frame(width: circle, height: circle)
+                .background(Circle().fill(Color(uiColor: .secondarySystemGroupedBackground)))
+                .accessibilityHidden(true)
+            Text(verbatim: row.name)
+                .font(.title.bold())
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 6) {
+                Image(systemName: row.isApprover ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                    .font(.title3)
+                    .foregroundStyle(row.isApprover ? Color.green : Color.orange)
+                    .accessibilityHidden(true)
+                Text(row.isApprover ? "mac.status.approving" : "mac.status.notApproving", bundle: .kit)
+                    .font(.subheadline)
+                    .foregroundStyle(row.isApprover ? Color.secondary : Color.orange)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 8)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     static func text(_ problem: RenameProblem) -> Text {

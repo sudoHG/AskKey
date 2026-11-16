@@ -90,3 +90,88 @@ extension AppModel {
         }
     }
 }
+
+/// The home's three tabs (ADR 0014 → iPhone app, Home, amended by #345).
+public enum HomeTab: Hashable, Sendable, CaseIterable {
+    /// Requests that can still be decided or wait for the Mac.
+    case requests
+    /// Requests this app verified, once they ended (#349).
+    case history
+    /// The paired Macs, pairing and this iPhone's own status.
+    case macs
+}
+
+/// What the home shows besides the Macs: the Requests tab's rows and badge,
+/// the notification authorization and the last delivery check.
+extension AppModel {
+    // MARK: Home
+
+    /// The Requests tab's rows: requests that can still be decided or wait
+    /// for the Mac. A finished request leaves the tab (decision 7 of #344);
+    /// its open page keeps showing it until the person closes the page.
+    public func activeRequests(at now: Date) -> [RequestCard] {
+        requests.filter { !$0.phase(at: now).isFinished }
+    }
+
+    /// The Requests tab's badge: the requests that can still be decided. A
+    /// card fetched by name for a tapped notification counts once the zone
+    /// poll after that fetch showed it can be decided (#337).
+    public func decidableRequestCount(at now: Date) -> Int {
+        requests.filter { $0.phase(at: now) == .pending && !$0.isChecking }.count
+    }
+
+    /// When the badge can next change without a new card: each undecided
+    /// request's countdown end.
+    public var decidableCountChanges: [Date] {
+        requests.filter { $0.decision == nil && $0.outcome == nil && !$0.isGone }.map(\.countdownEnd).sorted()
+    }
+
+    /// The Macs whose requests this iPhone accepts.
+    public var approvingMacCount: Int {
+        pairedMacs.filter(\.isApprover).count
+    }
+
+    /// Notifications are off for Ask Key, so a request arrives unannounced.
+    public var notificationsOff: Bool {
+        notificationAuthorization == .denied
+    }
+
+    /// When this iPhone last answered a delivery check; nil before the first.
+    public var lastDeliveryCheck: Date? {
+        deliveryRecords.map(\.arrivedAt).max()
+    }
+
+    /// Keeps the arrivals current: a card that appears after launch reopened
+    /// the stored requests arrived, whichever tab shows; one that leaves is
+    /// no longer highlighted.
+    func noteArrivals(after previous: [RequestCard]) {
+        let current = Set(requests.map(\.id))
+        var unseen = unseenArrivals.intersection(current)
+        if storedRequestsRestored { unseen.formUnion(current.subtracting(previous.map(\.id))) }
+        if unseen != unseenArrivals { unseenArrivals = unseen }
+    }
+
+    /// The Requests tab showed these rows highlighted for a moment.
+    public func markArrivalsSeen(_ ids: Set<String>) {
+        unseenArrivals.subtract(ids)
+    }
+
+    /// The scene became active: read the notification authorization again,
+    /// since the person may have changed it in Settings, then collect the
+    /// pushes and process the inbox.
+    public func sceneBecameActive() async {
+        await refreshNotificationAuthorization()
+        await becameActive()
+    }
+
+    func refreshNotificationAuthorization() async {
+        notificationAuthorization = await environment.notifications.authorization()
+    }
+
+    func readBiometryKind() {
+        switch environment.biometry.status() {
+        case .enrolled(let kind), .notEnrolled(let kind), .deniedForApp(let kind): biometryKind = kind
+        case .passcodeNotSet, .unavailable: break
+        }
+    }
+}

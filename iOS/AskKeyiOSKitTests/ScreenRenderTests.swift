@@ -78,26 +78,6 @@ final class ScreenRenderTests: XCTestCase {
         try render("10-pairing-paired", PairingResultContent(outcome: .paired(macName: Self.mac), onDone: {}))
     }
 
-    func testPairedMacs() throws {
-        let row = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt, lastReachedAt: nil, isApprover: true)
-        try render("11-paired-macs-one-mac",
-                   PairedMacsContent(rows: [row], accountNotice: nil, listNotice: nil, records: [], onPair: {},
-                                     onSelect: { _ in }, onDismissNotice: {}))
-        let reached = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
-                                   lastReachedAt: Self.pairedAt.addingTimeInterval(600), isApprover: true)
-        let records = [
-            DeliveryRecord(recordName: "a", arrivedAt: Self.pairedAt.addingTimeInterval(300), source: .polling),
-            DeliveryRecord(recordName: "b", arrivedAt: Self.pairedAt.addingTimeInterval(600), source: .push),
-        ]
-        try render("12-paired-macs-reached",
-                   PairedMacsContent(rows: [reached], accountNotice: nil,
-                                     listNotice: .removed(name: "Office Mac", macWasTold: true), records: records,
-                                     onPair: {}, onSelect: { _ in }, onDismissNotice: {}))
-        try render("13-paired-macs-empty-signed-out",
-                   PairedMacsContent(rows: [], accountNotice: .signedOut, listNotice: .removedByMac(name: Self.mac),
-                                     records: [], onPair: {}, onSelect: { _ in }, onDismissNotice: {}))
-    }
-
     func testUnusableIdentity() throws {
         try render("14-unusable-identity", UnusableIdentityContent(isResetting: false, resetFailed: false, onReset: {}))
     }
@@ -112,10 +92,10 @@ final class ScreenRenderTests: XCTestCase {
         deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "", variable: "GITHUB_TOKEN")],
         offers: .all, timedDuration: 1_800)
 
-    private static func card(_ display: RequestDisplay = display, decision: ApprovalDecisionCode? = nil,
-                             isSent: Bool = false, outcome: RequestOutcome? = nil, isGone: Bool = false,
-                             isChecking: Bool = false, secondsLeft: TimeInterval = 272) -> RequestCard {
-        RequestCard(id: UUID().uuidString, macID: "mac", macName: mac, macPairedAt: pairedAt, display: display,
+    private static func card(_ display: RequestDisplay = display, macName: String = mac,
+                             decision: ApprovalDecisionCode? = nil, isSent: Bool = false, outcome: RequestOutcome? = nil,
+                             isGone: Bool = false, isChecking: Bool = false, secondsLeft: TimeInterval = 272) -> RequestCard {
+        RequestCard(id: UUID().uuidString, macID: "mac", macName: macName, macPairedAt: pairedAt, display: display,
                     countdownEnd: now.addingTimeInterval(secondsLeft), decision: decision, isSent: isSent, outcome: outcome,
                     isGone: isGone, isChecking: isChecking)
     }
@@ -125,19 +105,6 @@ final class ScreenRenderTests: XCTestCase {
         try render(name, RequestCardContent(card: card, now: Self.now, problem: problem, showsDetails: details,
                                             onDecide: { _ in }, onDismiss: {})
             .padding(20))
-    }
-
-    /// The second Mac was paired before #336 without approval: its row is
-    /// the only one marked.
-    func testRequestsHome() throws {
-        let rows = [PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
-                                 lastReachedAt: Self.pairedAt.addingTimeInterval(600), isApprover: true),
-                    PairedMacRow(id: "office", name: "Office Mac", pairedAt: Self.pairedAt, lastReachedAt: nil)]
-        try render("15-requests-home",
-                   PairedMacsContent(rows: rows, accountNotice: nil, listNotice: nil, records: [], hasRequests: true,
-                                     onPair: {}, onSelect: { _ in }, onDismissNotice: {}) {
-                       RequestCardContent(card: Self.card(), now: Self.now, onDecide: { _ in }, onDismiss: {})
-                   })
     }
 
     func testRequestCard() throws {
@@ -202,24 +169,108 @@ final class ScreenRenderTests: XCTestCase {
         })
     }
 
-    /// #342: the status line, Rename and Remove; only a Mac paired before
-    /// #336 without approval lacks the flag.
+    /// #342's status line, Rename and Remove, in #346's grouped layout; only
+    /// a Mac paired before #336 without approval lacks the flag.
     func testMacDetail() throws {
         let approving = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
-                                     lastReachedAt: Self.pairedAt.addingTimeInterval(600), isApprover: true)
-        try render("34-mac-detail-approving", MacDetailContent(row: approving, onRename: {}, onRemove: {}))
-        let withoutFlag = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
-                                       lastReachedAt: Self.pairedAt.addingTimeInterval(600))
-        try render("35-mac-detail-without-approval-flag", MacDetailContent(row: withoutFlag, onRename: {}, onRemove: {}))
+                                     lastReachedAt: Self.now.addingTimeInterval(-120), isApprover: true)
+        try render("34-mac-detail-approving", PushedScreenStandIn {
+            MacDetailContent(row: approving, now: Self.now, onRename: {}, onRemove: {})
+        })
+        let withoutFlag = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt, lastReachedAt: nil)
+        try render("35-mac-detail-without-approval-flag", PushedScreenStandIn {
+            MacDetailContent(row: withoutFlag, now: Self.now, onRename: {}, onRemove: {})
+        })
         try render("36-mac-detail-remove-confirmation",
                    ActionSheetStandIn(title: MacRemovalText.title(Self.mac), message: MacRemovalText.message,
                                       action: MacRemovalText.confirm) {
-                       MacDetailContent(row: approving, onRename: {}, onRemove: {})
+                       PushedScreenStandIn { MacDetailContent(row: approving, now: Self.now, onRename: {}, onRemove: {}) }
                    })
         // A failed removal leaves the entry, which this process refuses.
-        try render("37-mac-detail-rename-and-removal-failed",
-                   MacDetailContent(row: withoutFlag, renameProblem: .duplicate("Office Mac"), removalFailed: true,
-                                    onRename: {}, onRemove: {}))
+        try render("37-mac-detail-rename-and-removal-failed", PushedScreenStandIn {
+            MacDetailContent(row: withoutFlag, now: Self.now, renameProblem: .duplicate("Office Mac"),
+                             removalFailed: true, onRename: {}, onRemove: {})
+        })
+    }
+
+    // MARK: Home (#346)
+
+    private static let stagingDisplay = RequestDisplay(
+        requesterName: "Claude Code", purpose: "", credentialName: "Staging API", commandLine: "npm run deploy:staging",
+        workingDirectory: "~/src/site", executableName: "npm",
+        deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "", variable: "STAGING_API_KEY")])
+
+    private func requests(_ cards: [RequestCard], hasMacs: Bool = true, approvingMacs: Int = 2,
+                          accountNotice: AccountNotice? = nil, notificationsOff: Bool = false,
+                          biometry: BiometryKind = .faceID) -> some View {
+        TabScreenStandIn(tab: .requests, badge: cards.filter { $0.phase(at: Self.now) == .pending }.count) {
+            RequestsContent(cards: cards, now: Self.now, hasMacs: hasMacs, approvingMacs: approvingMacs,
+                            accountNotice: accountNotice, notificationsOff: notificationsOff, biometry: biometry,
+                            onOpen: { _ in }, onPair: {}, onOpenSettings: { _ in })
+        }
+    }
+
+    /// One request under a minute, in orange, and one whose decision was
+    /// sent; the badge counts only the first.
+    func testRequestsTab() throws {
+        try render("44-requests-two-requests",
+                   requests([Self.card(secondsLeft: 48),
+                             Self.card(Self.stagingDisplay, macName: "Office Mac", decision: .allowOnce, isSent: true,
+                                       secondsLeft: 236)]))
+        try render("45-requests-empty", requests([]))
+        try render("46-requests-not-paired", requests([], hasMacs: false))
+        try render("47-requests-both-banners", requests([], accountNotice: .signedOut, notificationsOff: true))
+        // Requests still arrive with notifications off: the capsule stays green.
+        try render("58-requests-notifications-off", requests([], notificationsOff: true))
+        // A decision stored but not yet saved, the Touch ID footnote, and one Mac.
+        try render("53-requests-sending-touch-id",
+                   requests([Self.card(Self.stagingDisplay, macName: "Office Mac", decision: .deny, secondsLeft: 236),
+                             Self.card(secondsLeft: 272)], biometry: .touchID))
+        try render("54-requests-empty-one-mac", requests([], approvingMacs: 1))
+        // An accessibility text size, with a requester name as long as an agent may choose.
+        let longRequester = RequestDisplay(
+            requesterName: "Background Maintenance Agent for the Release Pipeline", purpose: "",
+            credentialName: "Production Database", commandLine: "psql", workingDirectory: "", executableName: "psql",
+            deliveryRows: [])
+        try render("57-requests-accessibility-size",
+                   requests([Self.card(longRequester, secondsLeft: 48),
+                             Self.card(decision: .allowOnce, isSent: true, secondsLeft: 236)])
+                       .environment(\.dynamicTypeSize, .accessibility2))
+    }
+
+    func testHistoryTab() throws {
+        try render("48-history-empty", TabScreenStandIn(tab: .history) { HistoryContent() })
+    }
+
+    private static let macRows = [
+        PairedMacRow(id: "mac", name: mac, pairedAt: pairedAt, lastReachedAt: now.addingTimeInterval(-120), isApprover: true),
+        PairedMacRow(id: "office", name: "Office Mac", pairedAt: pairedAt, lastReachedAt: nil, isApprover: true),
+    ]
+
+    private func macs(_ rows: [PairedMacRow], notice: ListNotice? = nil, accountNotice: AccountNotice? = nil,
+                      notifications: NotificationAuthorization = .allowed,
+                      lastCheck: Date? = ScreenRenderTests.now.addingTimeInterval(-60)) -> some View {
+        TabScreenStandIn(tab: .macs, showsAdd: true) {
+            MacsContent(rows: rows, listNotice: notice, accountNotice: accountNotice, notifications: notifications,
+                        lastDeliveryCheck: lastCheck, version: "1.0 (12)", now: Self.now, onPair: {}, onSelect: { _ in },
+                        onDismissNotice: {})
+        }
+    }
+
+    func testMacsTab() throws {
+        try render("49-macs", macs(Self.macRows))
+        try render("50-macs-removal-notice", macs([Self.macRows[1]], notice: .removed(name: Self.mac, macWasTold: true)))
+        // The exceptions: a Mac paired before #336 without approval, a
+        // notice the Mac could not get, iCloud and notifications off.
+        let withoutFlag = PairedMacRow(id: "office", name: "Office Mac", pairedAt: Self.pairedAt,
+                                       lastReachedAt: Self.now.addingTimeInterval(-3_600))
+        try render("51-macs-problems",
+                   macs([Self.macRows[0], withoutFlag], notice: .removed(name: "Old Mac", macWasTold: false),
+                        accountNotice: .signedOut, notifications: .denied, lastCheck: nil))
+        try render("52-macs-empty", macs([]))
+        // The other iCloud states; notifications never answered read Off.
+        try render("55-macs-icloud-restricted", macs(Self.macRows, accountNotice: .restricted, notifications: .notDetermined))
+        try render("56-macs-icloud-unavailable", macs(Self.macRows, accountNotice: .unavailable))
     }
 
     func testPrivacyCover() throws {

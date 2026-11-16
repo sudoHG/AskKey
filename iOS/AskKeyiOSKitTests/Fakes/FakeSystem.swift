@@ -75,9 +75,20 @@ final class FakeNotifications: NotificationCenterAccess, @unchecked Sendable {
     private var hints: [PushHint] = []
     private var removed: [String] = []
     private var requests = 0
+    private var current: NotificationAuthorization = .allowed
 
     var authorizationRequests: Int { lock.withLock { requests } }
     var removedIdentifiers: [String] { lock.withLock { removed } }
+
+    /// What Settings → Ask Key → Notifications says.
+    var authorizationState: NotificationAuthorization {
+        get { lock.withLock { current } }
+        set { lock.withLock { current = newValue } }
+    }
+
+    func authorization() async -> NotificationAuthorization {
+        authorizationState
+    }
 
     /// The pushes Notification Center holds for this device.
     var delivered: [PushHint] {

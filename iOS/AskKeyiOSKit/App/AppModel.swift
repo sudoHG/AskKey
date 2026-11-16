@@ -20,7 +20,12 @@ public final class AppModel {
     /// The pairing flow while its sheet is open.
     public var pairing: PairingFlowModel?
     /// Request cards: pending ones first, by time left, then finished ones.
-    public internal(set) var requests: [RequestCard] = []
+    public internal(set) var requests: [RequestCard] = [] {
+        didSet { noteArrivals(after: oldValue) }
+    }
+    /// Requests that arrived after launch reopened the stored ones and whose
+    /// rows the Requests tab has not shown yet; those rows are highlighted.
+    public internal(set) var unseenArrivals: Set<String> = []
     /// The request whose decision is being built, with its Face ID prompt.
     public internal(set) var decidingRequest: String?
     public internal(set) var decisionProblems: [String: DecisionProblem] = [:]
@@ -33,11 +38,22 @@ public final class AppModel {
     public internal(set) var opening: OpeningRequest?
     /// A newly paired Mac got a numbered name; the person may rename it.
     public var renamePrompt: RenamePrompt?
+    /// The home's tab. A request that arrives never changes it (ADR 0014 →
+    /// iPhone app, Finished and arriving requests).
+    public var selectedTab: HomeTab = .requests
+    /// Whether Ask Key may show notifications, as last read: at launch,
+    /// after the welcome's prompt and whenever the app becomes active; nil
+    /// until the first read.
+    public internal(set) var notificationAuthorization: NotificationAuthorization?
+    /// Face ID or Touch ID, for the Requests tab's footnote.
+    public internal(set) var biometryKind: BiometryKind = .faceID
 
     @ObservationIgnored let environment: AppEnvironment
     @ObservationIgnored var services: DeviceServices?
     @ObservationIgnored var pendingSetup: PendingSetup?
-    @ObservationIgnored var accountChecked = false
+    /// The iCloud account was checked since the identity was restored or
+    /// created; observed, so This iPhone says nothing about iCloud before.
+    var accountChecked = false
     @ObservationIgnored var pushHints: [String: PushHint] = [:]
     /// Pushes that arrived before the identity was restored at launch.
     @ObservationIgnored var earlyPushes: [EarlyPush] = []
@@ -83,6 +99,8 @@ public final class AppModel {
     @ObservationIgnored var seenPairings: Set<PairingID>?
     /// The list as last read, for the Macs' names on the cards.
     @ObservationIgnored var knownList: PairedDeviceList?
+    /// Launch reopened the stored requests; cards that appear from now on arrived.
+    @ObservationIgnored var storedRequestsRestored = false
     @ObservationIgnored private var accountWatch: Task<Void, Never>?
     @ObservationIgnored private var started = false
 
@@ -140,6 +158,7 @@ public final class AppModel {
         let token = environment.localState.inboxPosition?.token.map(InboxChangeToken.init(data:))
         await activate(makeServices(identity: identity, transport: transport, inboxToken: token))
         await environment.notifications.registerAtLaunch()
+        await refreshNotificationAuthorization()
     }
 
     /// The services with this model as the approver: the handler of
@@ -163,11 +182,13 @@ public final class AppModel {
         // Loaded before anything can suspend, so a request handled while
         // the stored ones are opened again is added to them, not lost.
         loadApprovals()
+        readBiometryKind()
         adoptEarlyPushes(for: services.deviceID)
         stage = .ready
         watchAccount()
         await refreshList()
         await restoreApprovals(services)
+        storedRequestsRestored = true
     }
 
     // MARK: Welcome
@@ -260,6 +281,7 @@ public final class AppModel {
         case .temporarilyUnavailable: return .iCloudUnavailable
         }
         await environment.notifications.requestAuthorizationAndRegister()
+        await refreshNotificationAuthorization()
         let deviceID = DeviceID(messagePublicKey: setup.identity.messagePublicKey)
         if !setup.stored {
             do {

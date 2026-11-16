@@ -17,9 +17,7 @@ public struct AskKeyRootView: View {
             case .welcome:
                 WelcomeView(model: model)
             case .ready:
-                NavigationStack {
-                    PairedMacsView(model: model)
-                }
+                HomeTabs(model: model)
             case .unusableIdentity:
                 UnusableIdentityView(model: model)
             }
@@ -36,11 +34,90 @@ public struct AskKeyRootView: View {
             await model.runForegroundPolling()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await model.becameActive() } }
+            if phase == .active { Task { await model.sceneBecameActive() } }
         }
         .onChange(of: model.stage) { _, stage in
             if stage == .ready { Task { await model.becameActive() } }
         }
+    }
+}
+
+/// The home: Requests, History and Macs, each with its own navigation and
+/// large title (ADR 0014 → iPhone app, Home, amended by #345). The Requests
+/// tab's badge counts the requests that can still be decided. A request's
+/// page opens as a sheet over every tab, from a row or a tapped
+/// notification, never by itself when a request arrives.
+struct HomeTabs: View {
+    @Bindable var model: AppModel
+    @State private var promptedName = ""
+
+    var body: some View {
+        // Redrawn when a request's countdown ends, so the badge drops it.
+        TimelineView(.explicit(model.decidableCountChanges)) { context in
+            TabView(selection: $model.selectedTab) {
+                NavigationStack { RequestsView(model: model) }
+                    .tabItem { HomeTab.requests.label }
+                    .tag(HomeTab.requests)
+                    .badge(model.decidableRequestCount(at: max(context.date, Date())))
+                NavigationStack { HistoryView() }
+                    .tabItem { HomeTab.history.label }
+                    .tag(HomeTab.history)
+                NavigationStack { MacsView(model: model) }
+                    .tabItem { HomeTab.macs.label }
+                    .tag(HomeTab.macs)
+            }
+        }
+        .sheet(item: $model.openedRequest) { opened in
+            OpenedRequestView(model: model, id: opened.id) { model.openedRequest = nil }
+                .privacyCover(isAuthenticating: model.isAuthenticating)
+        }
+        .alert(Text("mac.renamedDuplicate.title", bundle: .kit), isPresented: renamePromptShown,
+               presenting: model.renamePrompt) { prompt in
+            TextField(text: $promptedName) { Text("mac.rename.placeholder", bundle: .kit) }
+            Button {
+                let name = promptedName
+                Task { _ = await model.renameMac(id: prompt.macID, to: name) }
+            } label: {
+                Text("mac.rename.save", bundle: .kit)
+            }
+            Button(role: .cancel) { model.renamePrompt = nil } label: { Text("mac.renamedDuplicate.later", bundle: .kit) }
+        } message: { prompt in
+            Text("mac.renamedDuplicate.message \(Text(verbatim: prompt.takenName)) \(Text(verbatim: prompt.newName))",
+                 bundle: .kit)
+        }
+        .onChange(of: model.renamePrompt) { _, prompt in
+            if let prompt { promptedName = prompt.newName }
+        }
+    }
+
+    /// The rename prompt waits until the pairing sheet has closed.
+    private var renamePromptShown: Binding<Bool> {
+        Binding(get: { model.renamePrompt != nil && model.pairing == nil },
+                set: { if !$0 { model.renamePrompt = nil } })
+    }
+}
+
+extension HomeTab {
+    /// The tab's name, also its navigation title.
+    var title: LocalizedStringKey {
+        switch self {
+        case .requests: return "tab.requests"
+        case .history: return "tab.history"
+        case .macs: return "tab.macs"
+        }
+    }
+
+    /// The tab's symbol; the tab bar fills it where a filled form exists.
+    var symbol: String {
+        switch self {
+        case .requests: return "tray"
+        case .history: return "clock.arrow.circlepath"
+        case .macs: return "laptopcomputer"
+        }
+    }
+
+    var label: some View {
+        Label { Text(title, bundle: .kit) } icon: { Image(systemName: symbol) }
     }
 }
 
