@@ -266,7 +266,6 @@ struct BannerRow: View {
                 Button(action: onOpenSettings) { Text("common.openSettings", bundle: .kit) }
                     .accessibilityHint(text)
                     .buttonStyle(.bordered)
-                    .controlSize(.small)
                     .buttonBorderShape(.capsule)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

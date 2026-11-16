@@ -225,6 +225,15 @@ final class ScreenRenderTests: XCTestCase {
                    requests([Self.card(Self.stagingDisplay, macName: "Office Mac", decision: .deny, secondsLeft: 236),
                              Self.card(secondsLeft: 272)], biometry: .touchID))
         try render("54-requests-empty-one-mac", requests([], approvingMacs: 1))
+        // An accessibility text size, with a requester name as long as an agent may choose.
+        let longRequester = RequestDisplay(
+            requesterName: "Background Maintenance Agent for the Release Pipeline", purpose: "",
+            credentialName: "Production Database", commandLine: "psql", workingDirectory: "", executableName: "psql",
+            deliveryRows: [])
+        try render("57-requests-accessibility-size",
+                   requests([Self.card(longRequester, secondsLeft: 48),
+                             Self.card(decision: .allowOnce, isSent: true, secondsLeft: 236)])
+                       .environment(\.dynamicTypeSize, .accessibility2))
     }
 
     func testHistoryTab() throws {

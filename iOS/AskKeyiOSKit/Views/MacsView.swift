@@ -10,7 +10,8 @@ struct MacsView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             MacsContent(rows: model.pairedMacs, listNotice: model.listNotice, accountNotice: model.accountNotice,
-                        notifications: model.notificationAuthorization, lastDeliveryCheck: model.lastDeliveryCheck,
+                        accountChecked: model.accountChecked, notifications: model.notificationAuthorization,
+                        lastDeliveryCheck: model.lastDeliveryCheck,
                         version: AppVersion.current, now: context.date, onPair: model.startPairing,
                         onSelect: { selectedMac = $0.id }, onDismissNotice: { model.listNotice = nil })
         }
@@ -53,6 +54,8 @@ struct MacsContent: View {
     let rows: [PairedMacRow]
     let listNotice: ListNotice?
     let accountNotice: AccountNotice?
+    /// False until the first account check; This iPhone then shows no iCloud state.
+    var accountChecked = true
     /// As last read; nil before the first read.
     let notifications: NotificationAuthorization?
     let lastDeliveryCheck: Date?
@@ -82,7 +85,8 @@ struct MacsContent: View {
                     Text("list.footer", bundle: .kit)
                 }
             }
-            ThisIPhoneSection(accountNotice: accountNotice, notificationsOn: Self.notificationsOn(notifications),
+            ThisIPhoneSection(accountNotice: accountNotice, accountChecked: accountChecked,
+                              notificationsOn: Self.notificationsOn(notifications),
                               lastDeliveryCheck: lastDeliveryCheck, version: version)
         }
         .padding(.horizontal, 16)
@@ -170,8 +174,12 @@ struct RemovalNoticeRow: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title3)
                     .foregroundStyle(.secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.vertical, -10)
+            .padding(.trailing, -10)
             .accessibilityLabel(Text("common.dismiss", bundle: .kit))
         }
         .padding(16)
@@ -202,6 +210,7 @@ struct RemovalNoticeRow: View {
 /// check, and that no credential value is kept here, with the version.
 private struct ThisIPhoneSection: View {
     let accountNotice: AccountNotice?
+    let accountChecked: Bool
     let notificationsOn: Bool?
     let lastDeliveryCheck: Date?
     let version: String
@@ -244,6 +253,7 @@ private struct ThisIPhoneSection: View {
 
     @ViewBuilder private var iCloudValue: some View {
         switch accountNotice {
+        case nil where !accountChecked: EmptyView()
         case nil: Text("list.iCloud.signedIn", bundle: .kit).foregroundStyle(.secondary)
         case .signedOut: Text("list.iCloud.signedOut", bundle: .kit).foregroundStyle(.orange)
         case .restricted: Text("list.iCloud.restricted", bundle: .kit).foregroundStyle(.orange)

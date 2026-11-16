@@ -87,8 +87,10 @@ private struct TabBarStandIn: View {
     }
 }
 
-/// A screen pushed in a tab's navigation, with the system's back button.
+/// A screen pushed in a tab's navigation, with the system's back button
+/// and the tab bar, which stays visible.
 struct PushedScreenStandIn<Content: View>: View {
+    var tab: HomeTab = .macs
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -108,6 +110,9 @@ struct PushedScreenStandIn<Content: View>: View {
             content
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
+            TabBarStandIn(selected: tab, badge: 0)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 28)
         }
         .frame(minHeight: 852, alignment: .top)
     }

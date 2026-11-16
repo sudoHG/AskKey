@@ -51,7 +51,9 @@ public final class AppModel {
     @ObservationIgnored let environment: AppEnvironment
     @ObservationIgnored var services: DeviceServices?
     @ObservationIgnored var pendingSetup: PendingSetup?
-    @ObservationIgnored var accountChecked = false
+    /// The iCloud account was checked since the identity was restored or
+    /// created; observed, so This iPhone says nothing about iCloud before.
+    var accountChecked = false
     @ObservationIgnored var pushHints: [String: PushHint] = [:]
     /// Pushes that arrived before the identity was restored at launch.
     @ObservationIgnored var earlyPushes: [EarlyPush] = []

@@ -151,7 +151,7 @@ struct RequestRow: View {
         Button(action: onOpen) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    RequestSentence(card: card)
+                    sentence
                         .font(.body)
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
@@ -169,6 +169,22 @@ struct RequestRow: View {
         }
         .buttonStyle(GroupedRowButtonStyle())
         .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    /// The card's sentence, names bold, with the requester's and the Mac's
+    /// names shortened so that a long name, which the agent chooses, cannot
+    /// push the credential out of the row; the page shows them in full.
+    private var sentence: Text {
+        let requester = card.display.requesterName.isEmpty
+            ? Text("request.localAgent", bundle: .kit) : Text(verbatim: Self.short(card.display.requesterName))
+        let mac = Text(verbatim: Self.short(card.macName))
+        return Text("request.title \(requester.bold()) \(mac.bold()) \(Text(verbatim: card.display.credentialName).bold())",
+                    bundle: .kit)
+    }
+
+    /// A name cut to `limit` characters with an ellipsis.
+    static func short(_ name: String, limit: Int = 24) -> String {
+        name.count > limit ? String(name.prefix(limit - 1)) + "…" : name
     }
 
     @ViewBuilder private var status: some View {

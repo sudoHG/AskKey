@@ -85,8 +85,7 @@ final class HomeTests: XCTestCase {
     /// Decision 8 of #344: in front, the notification shows as a banner, the
     /// badge counts the request, and neither its page nor the tab changes.
     func testARequestArrivingInFrontNeverOpensItsPage() async throws {
-        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(threadIdentifier: "mac_" + world.macIdentity.deviceID.text),
-                       [.banner, .list, .sound])
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation, [.banner, .list, .sound])
         world.model.selectedTab = .macs
         let sealed = try await world.sendRequest()
         await world.model.receivedPush(userInfo: TestWorld.alertPush(for: try world.phone.deviceID,
@@ -97,13 +96,6 @@ final class HomeTests: XCTestCase {
         XCTAssertNil(world.model.openedRequest)
         XCTAssertNil(world.model.opening)
         XCTAssertEqual(world.model.selectedTab, .macs)
-    }
-
-    /// Only a request the notification extension verified shows in front;
-    /// the delivery check after pairing and any other push stay silent.
-    func testOtherPushesStaySilentInFront() {
-        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(threadIdentifier: ""), [])
-        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(threadIdentifier: "other"), [])
     }
 
     /// A request that arrives is highlighted, whichever tab shows, until the
@@ -180,6 +172,14 @@ final class HomeTests: XCTestCase {
 
     /// While a banner shows, the empty state's capsule says the Macs cannot
     /// reach this iPhone.
+    /// A long requester or Mac name is shortened in the row only.
+    func testARowShortensLongNamesSoTheCredentialStaysVisible() {
+        XCTAssertEqual(RequestRow.short("Codex"), "Codex")
+        let long = String(repeating: "a", count: 60)
+        XCTAssertEqual(RequestRow.short(long).count, 24)
+        XCTAssertTrue(RequestRow.short(long).hasSuffix("…"))
+    }
+
     func testTheCapsuleFollowsTheBanners() {
         XCTAssertEqual(RequestRow.spoken(272, locale: Locale(identifier: "en")), "4 minutes, 32 seconds")
         XCTAssertFalse(RequestsContent.macsCannotReach(accountNotice: nil, notificationsOff: false))

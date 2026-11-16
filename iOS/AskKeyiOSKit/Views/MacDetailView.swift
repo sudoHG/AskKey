@@ -163,15 +163,17 @@ struct MacDetailContent: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            VStack(spacing: 6) {
                 Image(systemName: row.isApprover ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                    .font(.title3)
                     .foregroundStyle(row.isApprover ? Color.green : Color.orange)
                     .accessibilityHidden(true)
                 Text(row.isApprover ? "mac.status.approving" : "mac.status.notApproving", bundle: .kit)
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+                    .foregroundStyle(row.isApprover ? Color.secondary : Color.orange)
+                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .font(.subheadline)
             .padding(.horizontal, 8)
         }
         .frame(maxWidth: .infinity)
