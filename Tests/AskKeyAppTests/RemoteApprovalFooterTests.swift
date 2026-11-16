@@ -133,9 +133,9 @@ final class RemoteApprovalFooterTests: XCTestCase {
     /// The panel follows its state's hint, and a footer that needs a second
     /// line grows the panel downward: its top edge, and with it every button,
     /// stays where it was. Every Chinese form fits on one line.
-    func testTheFooterFollowsTheHintAndKeepsTheButtonsInPlace() throws {
+    func testTheFooterFollowsTheHintAndKeepsTheButtonsInPlace() {
         _ = NSApplication.shared
-        try ApprovalCardFixtures.withLanguages { language in
+        ApprovalCardFixtures.withLanguages { language in
             let remote = RemoteApprovalPanelState(requestID: "synthetic", footer: .waiting(sendAt: Date(timeIntervalSinceNow: 18)))
             let panel = makePanel(remote: remote) { _ in XCTFail("Laying out must never decide") }
             defer { panel.contentViewController = nil; panel.close() }
@@ -171,7 +171,10 @@ final class RemoteApprovalFooterTests: XCTestCase {
     /// delivers every key event to it, whether the panel itself or the card's
     /// hosting view is first responder (as when keyboard navigation focuses a
     /// button). A cancel sent up the responder chain, as Command-period is,
-    /// decides later too. Other keys pass through.
+    /// decides later too. Other keys pass through. Esc with a modifier is not
+    /// the panel's: it goes on to AppKit, which turns it into a cancel only
+    /// while the app is active (it is on the CI runner, not in a local run),
+    /// so the test checks the panel's filter for it instead of sending it.
     func testEscInThePanelDecidesLater() throws {
         _ = NSApplication.shared
         var decisions: [BrokerApprovalDecision?] = []
@@ -188,8 +191,13 @@ final class RemoteApprovalFooterTests: XCTestCase {
         }
         XCTAssertEqual(decisions.count, 2, "each Esc reached the card")
         panel.sendEvent(try key("a", code: 0, in: panel))
-        panel.sendEvent(try key("\u{1b}", code: 53, modifiers: .command, in: panel))
         XCTAssertEqual(decisions.count, 2, "other keys never decide")
+        XCTAssertTrue(AgentApprovalPanel.isEscape(try key("\u{1b}", code: 53, in: panel)))
+        for modifier in [NSEvent.ModifierFlags.command, .control, .option, .shift] {
+            XCTAssertFalse(AgentApprovalPanel.isEscape(try key("\u{1b}", code: 53, modifiers: modifier, in: panel)),
+                           "Esc with \(modifier) is AppKit's")
+        }
+        XCTAssertFalse(AgentApprovalPanel.isEscape(try key("a", code: 0, in: panel)))
         XCTAssertTrue(hosting.tryToPerform(#selector(NSResponder.cancelOperation(_:)), with: nil))
         XCTAssertEqual(decisions.count, 3, "a cancel up the responder chain reached the card")
         XCTAssertTrue(decisions.allSatisfy { $0 == nil }, "Esc decides later and never approves or denies")
