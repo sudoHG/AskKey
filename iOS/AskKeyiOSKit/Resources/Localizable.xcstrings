@@ -98,7 +98,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "发到这台 iPhone 的请求处理后会记在这里，保留 30 天。"
+            "value": "发到这台 iPhone 的请求结束后会记在这里，保留 30 天。"
           }
         }
       }
@@ -677,23 +677,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "配对于"
-          }
-        }
-      }
-    },
-    "mac.remove.footer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This iPhone stops approving this Mac's requests at once and drops the pending ones."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这台 iPhone 会立即停止审批这台 Mac 的请求，并丢弃待处理的请求。"
           }
         }
       }

@@ -200,11 +200,13 @@ final class ScreenRenderTests: XCTestCase {
         workingDirectory: "~/src/site", executableName: "npm",
         deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "", variable: "STAGING_API_KEY")])
 
-    private func requests(_ cards: [RequestCard], hasMacs: Bool = true, accountNotice: AccountNotice? = nil,
-                          notificationsOff: Bool = false) -> some View {
+    private func requests(_ cards: [RequestCard], hasMacs: Bool = true, approvingMacs: Int = 2,
+                          accountNotice: AccountNotice? = nil, notificationsOff: Bool = false,
+                          biometry: BiometryKind = .faceID) -> some View {
         TabScreenStandIn(tab: .requests, badge: cards.filter { $0.phase(at: Self.now) == .pending }.count) {
-            RequestsContent(cards: cards, now: Self.now, hasMacs: hasMacs, approvingMacs: 2, accountNotice: accountNotice,
-                            notificationsOff: notificationsOff, onOpen: { _ in }, onPair: {}, onOpenSettings: { _ in })
+            RequestsContent(cards: cards, now: Self.now, hasMacs: hasMacs, approvingMacs: approvingMacs,
+                            accountNotice: accountNotice, notificationsOff: notificationsOff, biometry: biometry,
+                            onOpen: { _ in }, onPair: {}, onOpenSettings: { _ in })
         }
     }
 
@@ -218,6 +220,11 @@ final class ScreenRenderTests: XCTestCase {
         try render("45-requests-empty", requests([]))
         try render("46-requests-not-paired", requests([], hasMacs: false))
         try render("47-requests-both-banners", requests([], accountNotice: .signedOut, notificationsOff: true))
+        // A decision stored but not yet saved, the Touch ID footnote, and one Mac.
+        try render("53-requests-sending-touch-id",
+                   requests([Self.card(Self.stagingDisplay, macName: "Office Mac", decision: .deny, secondsLeft: 236),
+                             Self.card(secondsLeft: 272)], biometry: .touchID))
+        try render("54-requests-empty-one-mac", requests([], approvingMacs: 1))
     }
 
     func testHistoryTab() throws {
@@ -230,10 +237,10 @@ final class ScreenRenderTests: XCTestCase {
     ]
 
     private func macs(_ rows: [PairedMacRow], notice: ListNotice? = nil, accountNotice: AccountNotice? = nil,
-                      notificationsOff: Bool = false,
+                      notifications: NotificationAuthorization = .allowed,
                       lastCheck: Date? = ScreenRenderTests.now.addingTimeInterval(-60)) -> some View {
         TabScreenStandIn(tab: .macs, showsAdd: true) {
-            MacsContent(rows: rows, listNotice: notice, accountNotice: accountNotice, notificationsOff: notificationsOff,
+            MacsContent(rows: rows, listNotice: notice, accountNotice: accountNotice, notifications: notifications,
                         lastDeliveryCheck: lastCheck, version: "1.0 (12)", now: Self.now, onPair: {}, onSelect: { _ in },
                         onDismissNotice: {})
         }
@@ -248,8 +255,11 @@ final class ScreenRenderTests: XCTestCase {
                                        lastReachedAt: Self.now.addingTimeInterval(-3_600))
         try render("51-macs-problems",
                    macs([Self.macRows[0], withoutFlag], notice: .removed(name: "Old Mac", macWasTold: false),
-                        accountNotice: .signedOut, notificationsOff: true, lastCheck: nil))
+                        accountNotice: .signedOut, notifications: .denied, lastCheck: nil))
         try render("52-macs-empty", macs([]))
+        // The other iCloud states; notifications never answered read Off.
+        try render("55-macs-icloud-restricted", macs(Self.macRows, accountNotice: .restricted, notifications: .notDetermined))
+        try render("56-macs-icloud-unavailable", macs(Self.macRows, accountNotice: .unavailable))
     }
 
     func testPrivacyCover() throws {

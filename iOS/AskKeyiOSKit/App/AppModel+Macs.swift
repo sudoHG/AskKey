@@ -113,9 +113,11 @@ extension AppModel {
         requests.filter { !$0.phase(at: now).isFinished }
     }
 
-    /// The Requests tab's badge: the requests that can still be decided.
+    /// The Requests tab's badge: the requests that can still be decided. A
+    /// card fetched by name for a tapped notification counts once the zone
+    /// poll after that fetch showed it can be decided (#337).
     public func decidableRequestCount(at now: Date) -> Int {
-        requests.filter { $0.phase(at: now) == .pending }.count
+        requests.filter { $0.phase(at: now) == .pending && !$0.isChecking }.count
     }
 
     /// When the badge can next change without a new card: each undecided
@@ -137,6 +139,21 @@ extension AppModel {
     /// When this iPhone last answered a delivery check; nil before the first.
     public var lastDeliveryCheck: Date? {
         deliveryRecords.map(\.arrivedAt).max()
+    }
+
+    /// Keeps the arrivals current: a card that appears after launch reopened
+    /// the stored requests arrived, whichever tab shows; one that leaves is
+    /// no longer highlighted.
+    func noteArrivals(after previous: [RequestCard]) {
+        let current = Set(requests.map(\.id))
+        var unseen = unseenArrivals.intersection(current)
+        if storedRequestsRestored { unseen.formUnion(current.subtracting(previous.map(\.id))) }
+        if unseen != unseenArrivals { unseenArrivals = unseen }
+    }
+
+    /// The Requests tab showed these rows highlighted for a moment.
+    public func markArrivalsSeen(_ ids: Set<String>) {
+        unseenArrivals.subtract(ids)
     }
 
     /// The scene became active: read the notification authorization again,

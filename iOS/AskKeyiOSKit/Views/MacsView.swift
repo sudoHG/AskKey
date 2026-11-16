@@ -10,7 +10,7 @@ struct MacsView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             MacsContent(rows: model.pairedMacs, listNotice: model.listNotice, accountNotice: model.accountNotice,
-                        notificationsOff: model.notificationsOff, lastDeliveryCheck: model.lastDeliveryCheck,
+                        notifications: model.notificationAuthorization, lastDeliveryCheck: model.lastDeliveryCheck,
                         version: AppVersion.current, now: context.date, onPair: model.startPairing,
                         onSelect: { selectedMac = $0.id }, onDismissNotice: { model.listNotice = nil })
         }
@@ -30,8 +30,8 @@ struct MacsView: View {
         }
         .onChange(of: model.openedRequest) { _, opened in
             // A tapped notification's page opens over the home; the Mac's
-            // detail, with its dialogs, closes first.
-            if opened != nil { selectedMac = nil }
+            // detail on screen, with its dialogs, closes first.
+            if opened != nil, model.selectedTab == .macs { selectedMac = nil }
         }
     }
 }
@@ -53,7 +53,8 @@ struct MacsContent: View {
     let rows: [PairedMacRow]
     let listNotice: ListNotice?
     let accountNotice: AccountNotice?
-    let notificationsOff: Bool
+    /// As last read; nil before the first read.
+    let notifications: NotificationAuthorization?
     let lastDeliveryCheck: Date?
     let version: String
     let now: Date
@@ -81,12 +82,22 @@ struct MacsContent: View {
                     Text("list.footer", bundle: .kit)
                 }
             }
-            ThisIPhoneSection(accountNotice: accountNotice, notificationsOff: notificationsOff,
+            ThisIPhoneSection(accountNotice: accountNotice, notificationsOn: Self.notificationsOn(notifications),
                               lastDeliveryCheck: lastDeliveryCheck, version: version)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 24)
+    }
+
+    /// The Notifications row: on only when allowed, off when denied or never
+    /// answered, nothing before the first read.
+    static func notificationsOn(_ authorization: NotificationAuthorization?) -> Bool? {
+        switch authorization {
+        case .allowed?: return true
+        case .denied?, .notDetermined?: return false
+        case nil: return nil
+        }
     }
 }
 
@@ -191,7 +202,7 @@ struct RemovalNoticeRow: View {
 /// check, and that no credential value is kept here, with the version.
 private struct ThisIPhoneSection: View {
     let accountNotice: AccountNotice?
-    let notificationsOff: Bool
+    let notificationsOn: Bool?
     let lastDeliveryCheck: Date?
     let version: String
 
@@ -203,13 +214,13 @@ private struct ThisIPhoneSection: View {
                 iCloudValue
             }
             GroupedDivider(leadingInset: GroupedMetrics.symbolInset)
-            ValueRow(symbol: notificationsOff ? "bell.slash" : "bell") {
+            ValueRow(symbol: notificationsOn == false ? "bell.slash" : "bell") {
                 Text("list.notifications", bundle: .kit)
             } value: {
-                if notificationsOff {
-                    Text("list.notifications.stateOff", bundle: .kit).foregroundStyle(.orange)
-                } else {
-                    Text("list.notifications.stateOn", bundle: .kit).foregroundStyle(.secondary)
+                switch notificationsOn {
+                case true?: Text("list.notifications.stateOn", bundle: .kit).foregroundStyle(.secondary)
+                case false?: Text("list.notifications.stateOff", bundle: .kit).foregroundStyle(.orange)
+                case nil: EmptyView()
                 }
             }
             GroupedDivider(leadingInset: GroupedMetrics.symbolInset)

@@ -108,14 +108,12 @@ struct MacDetailContent: View {
             }
             GroupedSection {
                 Button(action: onRename) {
-                    HStack {
-                        Text("mac.rename", bundle: .kit).foregroundStyle(.primary)
-                        Spacer(minLength: 8)
-                        RowChevron()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 11)
-                    .frame(minHeight: GroupedMetrics.rowMinHeight)
+                    Text("mac.rename", bundle: .kit)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 11)
+                        .frame(minHeight: GroupedMetrics.rowMinHeight)
                 }
                 .buttonStyle(GroupedRowButtonStyle())
             } footer: {
@@ -136,11 +134,9 @@ struct MacDetailContent: View {
                 }
                 .buttonStyle(GroupedRowButtonStyle())
             } footer: {
-                VStack(alignment: .leading, spacing: 6) {
-                    if removalFailed {
-                        Text("list.notice.removalFailed", bundle: .kit).foregroundStyle(.orange)
-                    }
-                    Text("mac.remove.footer", bundle: .kit)
+                // What removing does is #342's confirmation, word for word.
+                if removalFailed {
+                    Text("list.notice.removalFailed", bundle: .kit).foregroundStyle(.orange)
                 }
             }
         }

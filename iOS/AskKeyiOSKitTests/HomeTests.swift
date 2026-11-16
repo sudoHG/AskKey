@@ -66,10 +66,27 @@ final class HomeTests: XCTestCase {
         XCTAssertEqual(world.model.decidableCountChanges, [pending.countdownEnd])
     }
 
+    /// A card fetched by name for a tapped notification cannot be decided
+    /// until the zone poll after that fetch ran (#337), so the badge leaves
+    /// it out while the row still lists it.
+    func testTheBadgeLeavesOutACardStillBeingChecked() throws {
+        let display = RequestDisplay(requesterName: "Codex", purpose: "", credentialName: "GitHub Token",
+                                     commandLine: "./deploy.sh", workingDirectory: "", executableName: "deploy.sh",
+                                     deliveryRows: [])
+        func card(_ id: String, isChecking: Bool) -> RequestCard {
+            RequestCard(id: id, macID: "mac", macName: TestWorld.macName, macPairedAt: now, display: display,
+                        countdownEnd: now.addingTimeInterval(200), isChecking: isChecking)
+        }
+        world.model.requests = [card("checking", isChecking: true), card("checked", isChecking: false)]
+        XCTAssertEqual(world.model.activeRequests(at: now).count, 2)
+        XCTAssertEqual(world.model.decidableRequestCount(at: now), 1)
+    }
+
     /// Decision 8 of #344: in front, the notification shows as a banner, the
     /// badge counts the request, and neither its page nor the tab changes.
     func testARequestArrivingInFrontNeverOpensItsPage() async throws {
-        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation, [.banner, .list, .sound])
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(threadIdentifier: "mac_" + world.macIdentity.deviceID.text),
+                       [.banner, .list, .sound])
         world.model.selectedTab = .macs
         let sealed = try await world.sendRequest()
         await world.model.receivedPush(userInfo: TestWorld.alertPush(for: try world.phone.deviceID,
@@ -80,6 +97,40 @@ final class HomeTests: XCTestCase {
         XCTAssertNil(world.model.openedRequest)
         XCTAssertNil(world.model.opening)
         XCTAssertEqual(world.model.selectedTab, .macs)
+    }
+
+    /// Only a request the notification extension verified shows in front;
+    /// the delivery check after pairing and any other push stay silent.
+    func testOtherPushesStaySilentInFront() {
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(threadIdentifier: ""), [])
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(threadIdentifier: "other"), [])
+    }
+
+    /// A request that arrives is highlighted, whichever tab shows, until the
+    /// Requests tab has shown it; one that leaves is no longer highlighted.
+    func testAnArrivingRequestIsHighlightedUntilTheRequestsTabShowsIt() async throws {
+        world.model.selectedTab = .macs
+        let first = try await world.sendRequest()
+        await world.model.processInbox()
+        XCTAssertEqual(world.model.unseenArrivals, [recordName(first)])
+        world.model.markArrivalsSeen([recordName(first)])
+        XCTAssertTrue(world.model.unseenArrivals.isEmpty)
+
+        let second = try await world.sendRequest()
+        await world.model.processInbox()
+        XCTAssertEqual(world.model.unseenArrivals, [recordName(second)])
+        await world.model.removeMac(id: world.macIdentity.deviceID.text)
+        XCTAssertTrue(world.model.unseenArrivals.isEmpty, "a dropped request is not highlighted")
+    }
+
+    /// Requests reopened at launch did not just arrive.
+    func testRequestsReopenedAtLaunchAreNotHighlighted() async throws {
+        try await world.sendRequest()
+        await world.model.processInbox()
+        let relaunched = AppModel(environment: world.environment)
+        await relaunched.start()
+        XCTAssertEqual(relaunched.requests.count, 1)
+        XCTAssertTrue(relaunched.unseenArrivals.isEmpty)
     }
 
     /// Tapping a row opens that request's page with its card at once.
@@ -107,6 +158,18 @@ final class HomeTests: XCTestCase {
         XCTAssertFalse(world.model.notificationsOff)
     }
 
+    /// The banner shows only when notifications were turned off; the This
+    /// iPhone row says On only when they are allowed.
+    func testOnlyAllowedNotificationsShowAsOn() async {
+        world.notifications.authorizationState = .notDetermined
+        await world.model.sceneBecameActive()
+        XCTAssertFalse(world.model.notificationsOff, "Settings has no switch to send the person to yet")
+        XCTAssertEqual(MacsContent.notificationsOn(.allowed), true)
+        XCTAssertEqual(MacsContent.notificationsOn(.denied), false)
+        XCTAssertEqual(MacsContent.notificationsOn(.notDetermined), false)
+        XCTAssertNil(MacsContent.notificationsOn(nil))
+    }
+
     func testTheWelcomeReadsTheAnswerToItsNotificationPrompt() async {
         let fresh = TestWorld()
         fresh.notifications.authorizationState = .denied
@@ -118,6 +181,7 @@ final class HomeTests: XCTestCase {
     /// While a banner shows, the empty state's capsule says the Macs cannot
     /// reach this iPhone.
     func testTheCapsuleFollowsTheBanners() {
+        XCTAssertEqual(RequestRow.spoken(272, locale: Locale(identifier: "en")), "4 minutes, 32 seconds")
         XCTAssertFalse(RequestsContent.macsCannotReach(accountNotice: nil, notificationsOff: false))
         XCTAssertTrue(RequestsContent.macsCannotReach(accountNotice: nil, notificationsOff: true))
         for notice in [AccountNotice.signedOut, .restricted, .unavailable] {

@@ -6,44 +6,36 @@ import UIKit
 /// for iCloud and notification problems, then the requests that can still
 /// be decided or wait for the Mac, or an empty state. Tapping a row opens
 /// the request's page. A request that arrives never opens its page by
-/// itself; its row is briefly highlighted instead (decision 8 of #344).
+/// itself; its row is highlighted instead, for two seconds once this tab
+/// shows it (decision 8 of #344).
 struct RequestsView: View {
     @Bindable var model: AppModel
     @Environment(\.openURL) private var openURL
-    /// The request IDs as last seen; nil before the first look, so the rows
-    /// already there when the tab appears are not highlighted.
-    @State private var seenRequests: Set<String>?
-    @State private var highlighted: Set<String> = []
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             RequestsContent(cards: model.activeRequests(at: context.date), now: context.date,
                             hasMacs: !model.pairedMacs.isEmpty, approvingMacs: model.approvingMacCount,
                             accountNotice: model.accountNotice, notificationsOff: model.notificationsOff,
-                            biometry: model.biometryKind, highlighted: highlighted,
+                            biometry: model.biometryKind, highlighted: model.unseenArrivals,
                             onOpen: { model.open($0.id) }, onPair: model.startPairing, onOpenSettings: openSettings)
         }
         .tabScaffold()
         .refreshable { await model.processInbox() }
         .navigationTitle(Text(HomeTab.requests.title, bundle: .kit))
         .navigationBarTitleDisplayMode(.large)
-        .onChange(of: model.requests.map(\.id), initial: true) { _, ids in
-            highlightArrivals(ids)
+        .task(id: ArrivalWatch(shown: model.selectedTab == .requests, arrivals: model.unseenArrivals)) {
+            guard model.selectedTab == .requests, !model.unseenArrivals.isEmpty else { return }
+            let shown = model.unseenArrivals
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.8)) { model.markArrivalsSeen(shown) }
         }
     }
 
-    private func highlightArrivals(_ ids: [String]) {
-        let current = Set(ids)
-        let previous = seenRequests
-        seenRequests = current
-        guard let previous else { return }
-        let arrived = current.subtracting(previous)
-        guard !arrived.isEmpty else { return }
-        highlighted.formUnion(arrived)
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            withAnimation(.easeOut(duration: 0.8)) { highlighted.subtract(arrived) }
-        }
+    private struct ArrivalWatch: Equatable {
+        let shown: Bool
+        let arrivals: Set<String>
     }
 
     private func openSettings(_ page: SettingsPage) {
@@ -92,10 +84,13 @@ struct RequestsContent: View {
             if cards.isEmpty {
                 Spacer(minLength: 24)
                 if hasMacs {
+                    let cannotReach = Self.macsCannotReach(accountNotice: accountNotice, notificationsOff: notificationsOff)
                     EmptyStateView(symbol: "tray", title: "request.empty.title", detail: "request.empty.detail") {
-                        ReachabilityCapsule(approvingMacs: approvingMacs,
-                                            cannotReach: Self.macsCannotReach(accountNotice: accountNotice,
-                                                                              notificationsOff: notificationsOff))
+                        // Without an approving Mac the Macs tab says why; the
+                        // capsule has nothing true to count.
+                        if cannotReach || approvingMacs > 0 {
+                            ReachabilityCapsule(approvingMacs: approvingMacs, cannotReach: cannotReach)
+                        }
                     }
                 } else {
                     EmptyStateView(symbol: "laptopcomputer", title: "list.empty.title", detail: "list.empty.detail") {
@@ -150,6 +145,7 @@ struct RequestRow: View {
     var isHighlighted = false
     let onOpen: () -> Void
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.locale) private var locale
 
     var body: some View {
         Button(action: onOpen) {
@@ -172,6 +168,7 @@ struct RequestRow: View {
             .background(isHighlighted ? Color.accentColor.opacity(0.14) : Color.clear)
         }
         .buttonStyle(GroupedRowButtonStyle())
+        .accessibilityAddTraits(.updatesFrequently)
     }
 
     @ViewBuilder private var status: some View {
@@ -189,7 +186,13 @@ struct RequestRow: View {
             }
             .monospacedDigit()
             .foregroundStyle(seconds < 60 ? Color.orange : Color.secondary)
+            .accessibilityLabel(Text("request.timeLeft.value \(Self.spoken(seconds, locale: locale))", bundle: .kit))
         }
+    }
+
+    /// Seconds as VoiceOver reads them, such as "4 minutes, 32 seconds".
+    static func spoken(_ seconds: Int, locale: Locale) -> String {
+        Duration.seconds(seconds).formatted(.units(allowed: [.minutes, .seconds], width: .wide).locale(locale))
     }
 
     /// Seconds as minutes and seconds, such as "4:32".
@@ -207,7 +210,7 @@ struct ReachabilityCapsule: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(cannotReach || approvingMacs == 0 ? Color.orange : Color.green)
+                .fill(cannotReach ? Color.orange : Color.green)
                 .frame(width: 8, height: 8)
                 .accessibilityHidden(true)
             text

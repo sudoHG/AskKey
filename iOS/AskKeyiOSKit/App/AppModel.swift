@@ -20,7 +20,12 @@ public final class AppModel {
     /// The pairing flow while its sheet is open.
     public var pairing: PairingFlowModel?
     /// Request cards: pending ones first, by time left, then finished ones.
-    public internal(set) var requests: [RequestCard] = []
+    public internal(set) var requests: [RequestCard] = [] {
+        didSet { noteArrivals(after: oldValue) }
+    }
+    /// Requests that arrived after launch reopened the stored ones and whose
+    /// rows the Requests tab has not shown yet; those rows are highlighted.
+    public internal(set) var unseenArrivals: Set<String> = []
     /// The request whose decision is being built, with its Face ID prompt.
     public internal(set) var decidingRequest: String?
     public internal(set) var decisionProblems: [String: DecisionProblem] = [:]
@@ -92,6 +97,8 @@ public final class AppModel {
     @ObservationIgnored var seenPairings: Set<PairingID>?
     /// The list as last read, for the Macs' names on the cards.
     @ObservationIgnored var knownList: PairedDeviceList?
+    /// Launch reopened the stored requests; cards that appear from now on arrived.
+    @ObservationIgnored var storedRequestsRestored = false
     @ObservationIgnored private var accountWatch: Task<Void, Never>?
     @ObservationIgnored private var started = false
 
@@ -179,6 +186,7 @@ public final class AppModel {
         watchAccount()
         await refreshList()
         await restoreApprovals(services)
+        storedRequestsRestored = true
     }
 
     // MARK: Welcome

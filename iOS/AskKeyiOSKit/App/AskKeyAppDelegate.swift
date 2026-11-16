@@ -28,12 +28,20 @@ public final class AskKeyAppDelegate: NSObject, UIApplicationDelegate, UNUserNot
         }
     }
 
-    /// How a notification shows while the app is in front: the system
-    /// banner, in Notification Center and with its sound, as when the app is
-    /// not (decision 8 of #344).
-    static let foregroundPresentation: UNNotificationPresentationOptions = [.banner, .list, .sound]
+    /// The thread the notification extension gives only a request it
+    /// verified from a Mac this iPhone approves for (`NotificationProcessor`).
+    static let verifiedRequestThreadPrefix = "mac_"
 
-    /// A push for the app in front: the system banner shows as usual and the
+    /// How a notification shows while the app is in front (decision 8 of
+    /// #344): a request the extension verified shows its banner, in
+    /// Notification Center and with its sound, as when the app is not in
+    /// front; any other push, such as the delivery check after pairing,
+    /// stays silent as before. Only the presentation depends on it.
+    static func foregroundPresentation(threadIdentifier: String) -> UNNotificationPresentationOptions {
+        threadIdentifier.hasPrefix(verifiedRequestThreadPrefix) ? [.banner, .list, .sound] : []
+    }
+
+    /// A push for the app in front: a request's banner shows as usual and the
     /// app fetches at once. The request's page does not open by itself; the
     /// Requests tab's badge and its highlighted row show the new request.
     public func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
@@ -41,7 +49,7 @@ public final class AskKeyAppDelegate: NSObject, UIApplicationDelegate, UNUserNot
         let userInfo = notification.request.content.userInfo
         let arrivedAt = notification.date
         let identifier = notification.request.identifier
-        completionHandler(Self.foregroundPresentation)
+        completionHandler(Self.foregroundPresentation(threadIdentifier: notification.request.content.threadIdentifier))
         Task { @MainActor in
             await model.receivedPush(userInfo: userInfo, arrivedAt: arrivedAt, notificationIdentifier: identifier)
         }
