@@ -104,17 +104,6 @@ extension TestWorld {
         commandLine: "./deploy.sh --prod --region eu-west-1", workingDirectory: "~/src/app", executableName: "deploy.sh",
         deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "", variable: "GITHUB_TOKEN")])
     static let macLaunch = Date(timeIntervalSince1970: 1_799_990_000)
-    static let approverCode = "123 456"
-
-    /// Turns approval on for the Mac on this iPhone through the approver
-    /// confirmation: the code, Face ID, the confirmation, then the flag.
-    func approveMac(_ peer: MacPeer? = nil, file: StaticString = #filePath, line: UInt = #line) async {
-        let peer = peer ?? primaryMac
-        model.startApproverConfirmation(macID: peer.deviceID.text)
-        await model.confirmApprover(typed: Self.approverCode)
-        XCTAssertEqual(model.approverConfirmation?.stage, .sent, file: file, line: line)
-        model.closeApproverConfirmation()
-    }
 
     /// Stores the iPhone's entry for `peer` again without the approval flag,
     /// as a Mac paired before #336 without approval is stored: every pairing
@@ -130,12 +119,6 @@ extension TestWorld {
         }
         try store.savePairedDeviceList(try PairedDeviceList(devices: devices))
         await model.refreshList()
-    }
-
-    /// Pairs another Mac and turns approval on for it.
-    func pairAndApprove(_ peer: MacPeer) async throws {
-        try await pair(peer)
-        await approveMac(peer)
     }
 
     /// The Mac's entry for this iPhone.

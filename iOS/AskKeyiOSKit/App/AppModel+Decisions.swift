@@ -135,8 +135,8 @@ extension AppModel {
     /// Sends what is due: stored decisions until CloudKit saves them (every
     /// 2 seconds or after CloudKit's retry-after, "recipient unreachable"
     /// included) and again every 30 seconds without a closed message while
-    /// the countdown runs; receipts and approver confirmations until saved
-    /// or expired. Calls made while sending wait and send once more.
+    /// the countdown runs; receipts until saved or expired. Calls made while
+    /// sending wait and send once more.
     func sendDueMessages() async {
         if let running = sendWork {
             sendAgain = true
@@ -187,24 +187,16 @@ extension AppModel {
             let now = environment.clock.now()
             guard let message = outbox[name], message.envelope.expiresAt > now,
                   (nextAttempts[name] ?? .distantPast) <= now else { continue }
-            if case .receipt(let request) = message.purpose {
-                // A request already closed needs no receipt; one a tapped
-                // fetch found waits until a zone poll checked it (#337).
-                guard let index = approvals.index(of: request), approvals.requests[index].closed == nil else {
-                    outbox[name] = nil
-                    continue
-                }
-                if uncheckedRequests.contains(request) { continue }
+            // A request already closed needs no receipt; one a tapped fetch
+            // found waits until a zone poll checked it (#337).
+            guard let index = approvals.index(of: message.request), approvals.requests[index].closed == nil else {
+                outbox[name] = nil
+                continue
             }
+            if uncheckedRequests.contains(message.request) { continue }
             let saved = await send(message.envelope, retryKey: name, services: services)
             guard self.services === services else { return }
-            if case .confirmation(let mac, _) = message.purpose, !saved, approverConfirmation?.macID == mac.text {
-                approverConfirmation?.problem = .retrying
-            }
-            guard saved, outbox.removeValue(forKey: name) != nil else { continue }
-            if case .confirmation(let mac, let pairingID) = message.purpose {
-                await confirmationSaved(mac: mac, pairingID: pairingID, services: services)
-            }
+            if saved { outbox[name] = nil }
         }
     }
 
@@ -257,10 +249,6 @@ extension AppModel {
         for (name, message) in outbox where message.envelope.expiresAt <= now {
             outbox[name] = nil
             nextAttempts[name] = nil
-            if case .confirmation(let mac, _) = message.purpose, approverConfirmation?.macID == mac.text {
-                approverConfirmation?.stage = .entering
-                approverConfirmation?.problem = .notSent
-            }
         }
         rebuildRequests()
         settleRequestNotifications(also: expired)

@@ -11,7 +11,6 @@ final class ApprovalDecisionTests: XCTestCase {
         world = TestWorld()
         await world.setUpPhone()
         try await world.pair()
-        await world.approveMac()
     }
 
     override func tearDown() async throws {
@@ -109,11 +108,11 @@ final class ApprovalDecisionTests: XCTestCase {
         XCTAssertTrue(world.model.requests.isEmpty, "the account change drops the stored requests")
     }
 
-    func testAMacWhoseApprovalEndedDuringThePromptGetsNothing() async throws {
+    func testAMacRemovedDuringThePromptGetsNothing() async throws {
         let phone = try world.phone
         let (_, id) = try await receive()
         let macID = world.macIdentity.deviceID.text
-        phone.duringApprovalPrompt = { [model = world.model] in await model.stopApproving(macID: macID) }
+        phone.duringApprovalPrompt = { [model = world.model] in await model.removeMac(id: macID) }
         await world.model.decide(.allowOnce, requestID: id)
         XCTAssertTrue(try world.decisionAttempts().isEmpty)
         XCTAssertTrue(world.model.requests.isEmpty)

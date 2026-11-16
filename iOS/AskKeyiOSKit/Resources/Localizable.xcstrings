@@ -1,244 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "approver.confirm": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认"
-          }
-        }
-      }
-    },
-    "approver.confirming": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirming…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在确认…"
-          }
-        }
-      }
-    },
-    "approver.field": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Approver code"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审批码"
-          }
-        }
-      }
-    },
-    "approver.onlyOnMac": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The approver code appears only on that Mac's screen. Never enter a code that someone sends you."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审批码只会显示在那台 Mac 的屏幕上。别人发给你的代码，一律不要输入。"
-          }
-        }
-      }
-    },
-    "approver.problem.invalidCode": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter the six digits shown on the Mac. Nothing was sent."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请输入 Mac 上显示的六位数字。没有发送任何内容。"
-          }
-        }
-      }
-    },
-    "approver.problem.notSent": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The confirmation couldn't be sent in time. Start again on the Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认未能及时发送。请在 Mac 上重新开始。"
-          }
-        }
-      }
-    },
-    "approver.problem.other": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Something went wrong. Try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "出了点问题，请重试。"
-          }
-        }
-      }
-    },
-    "approver.problem.retrying": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud hasn't saved the confirmation yet. Ask Key keeps trying for a few minutes."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud 还没有保存这个确认。请旨会在几分钟内继续尝试。"
-          }
-        }
-      }
-    },
-    "approver.reason %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Approve requests from “%@”"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审批“%@”的请求"
-          }
-        }
-      }
-    },
-    "approver.sending": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sending the confirmation…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在发送确认…"
-          }
-        }
-      }
-    },
-    "approver.sent %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sent to “%@”. If the code matched, the Mac turns approval on and starts sending this iPhone its requests. This iPhone can't tell whether it did; check the Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已发送给“%@”。如果审批码正确，Mac 会开启审批，并开始把请求发到这台 iPhone。这台 iPhone 无法得知是否开启成功，请在 Mac 上查看。"
-          }
-        }
-      }
-    },
-    "approver.subtitle %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter the approver code that Ask Key shows on “%@”."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请输入“%@”上的请旨显示的审批码。"
-          }
-        }
-      }
-    },
-    "approver.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Approve Requests"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审批请求"
-          }
-        }
-      }
-    },
-    "approver.whatArrives": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "After this, the Mac sends this iPhone its agents' requests: the agent, the credential's name, the command, the folder and the delivered names, never a value. Allowing always needs Face ID or Touch ID."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "之后，这台 Mac 会把 Agent 的请求发到这台 iPhone：包括 Agent、凭证名称、命令、目录和交出的名称，绝不包括凭证的值。允许时始终需要面容 ID 或触控 ID。"
-          }
-        }
-      }
-    },
     "common.appName": {
       "extractionState": "manual",
       "localizations": {
@@ -358,23 +120,6 @@
         }
       }
     },
-    "list.approver": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Approves agent requests"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审批 Agent 请求"
-          }
-        }
-      }
-    },
     "list.deliveries.polling %@": {
       "extractionState": "manual",
       "localizations": {
@@ -456,6 +201,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "上次联系：%@"
+          }
+        }
+      }
+    },
+    "list.notApprover": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't approve its requests. Remove it and pair again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不能审批它的请求。请移除后重新配对。"
           }
         }
       }
@@ -619,13 +381,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone stops trusting this Mac at once. Ask Key also tells the Mac, which removes this iPhone when it next checks."
+            "value": "This iPhone stops approving this Mac's requests at once and drops the pending ones. Ask Key also tells the Mac, which stops trusting this iPhone only when it receives that notice; until then, a decision already sent can still apply. To end approval on the Mac at once, remove this iPhone there too."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 会立即不再信任这台 Mac。请旨也会通知 Mac，Mac 下次检查时会移除这台 iPhone。"
+            "value": "这台 iPhone 会立即停止审批这台 Mac 的请求，并丢弃待处理的请求。请旨也会通知 Mac，Mac 收到通知后才会不再信任这台 iPhone，在此之前已发出的决定仍可能生效。如需立即在 Mac 上结束审批，请也在 Mac 上的请旨中移除这台 iPhone。"
           }
         }
       }
@@ -660,40 +422,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "已配对的 Mac"
-          }
-        }
-      }
-    },
-    "mac.approve": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Approve Requests from This Mac"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审批这台 Mac 的请求"
-          }
-        }
-      }
-    },
-    "mac.approveAgain": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter a New Approval Code"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新输入审批码"
           }
         }
       }
@@ -891,13 +619,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone approves agent requests from this Mac. Allowing always needs Face ID or Touch ID."
+            "value": "This iPhone can approve agents' requests to use credentials on this Mac. Allowing always needs Face ID or Touch ID."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 会审批这台 Mac 上 Agent 的请求。允许时始终需要面容 ID 或触控 ID。"
+            "value": "这台 iPhone 可以审批 Agent 使用这台 Mac 上凭证的请求。允许时始终需要面容 ID 或触控 ID。"
           }
         }
       }
@@ -908,98 +636,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone doesn't accept agent requests from this Mac."
+            "value": "This iPhone can't approve agents' requests to use credentials on this Mac. To approve them, remove this Mac and pair it again."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 不接受这台 Mac 上 Agent 的请求。"
-          }
-        }
-      }
-    },
-    "mac.stop": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stop Approving for This Mac"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "停止为这台 Mac 审批"
-          }
-        }
-      }
-    },
-    "mac.stop.confirm": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stop Approving"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "停止审批"
-          }
-        }
-      }
-    },
-    "mac.stop.confirmMessage": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This iPhone stops showing this Mac's requests at once and drops the pending ones. To turn approval off on the Mac too, use Ask Key on the Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这台 iPhone 会立即不再显示这台 Mac 的请求，并丢弃待处理的请求。如需在 Mac 上也关闭审批，请在 Mac 上的请旨中操作。"
-          }
-        }
-      }
-    },
-    "mac.stop.confirmTitle %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stop approving requests from “%@”?"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "停止审批“%@”的请求？"
-          }
-        }
-      }
-    },
-    "mac.stop.failed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Approval couldn't be turned off on this iPhone. Try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法在这台 iPhone 上关闭审批，请重试。"
+            "value": "这台 iPhone 不能审批 Agent 使用这台 Mac 上凭证的请求。如需审批，请移除这台 Mac 后重新配对。"
           }
         }
       }

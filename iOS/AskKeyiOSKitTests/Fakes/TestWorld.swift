@@ -28,7 +28,7 @@ final class TestWorld {
     let notifications = FakeNotifications()
     let approvalStore = InMemoryApprovalStore()
     let macClock: OffsetClock
-    /// What every Mac's messenger verified: decisions, receipts, confirmations.
+    /// What every Mac's messenger verified: decisions and receipts.
     let macInbox = MacInbox()
     private(set) lazy var model = AppModel(environment: environment)
 

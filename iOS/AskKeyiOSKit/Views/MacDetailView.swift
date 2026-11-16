@@ -1,30 +1,28 @@
 import SwiftUI
 
 /// One paired Mac: its name on this iPhone, whether this iPhone approves
-/// its requests, and removal.
+/// its requests, and removal, which is how approval stops (ADR 0014,
+/// amended by #336).
 struct MacDetailView: View {
     @Bindable var model: AppModel
     let macID: String
     @Environment(\.dismiss) private var dismiss
-    @State private var confirmingStop = false
     @State private var confirmingRemoval = false
     @State private var renaming = false
     @State private var newName = ""
     @State private var renameProblem: RenameProblem?
-    @State private var stopFailed = false
+    @State private var removalFailed = false
 
     private var row: PairedMacRow? { model.pairedMacs.first { $0.id == macID } }
 
     var body: some View {
         Group {
             if let row {
-                MacDetailContent(row: row, renameProblem: renameProblem, stopFailed: stopFailed,
+                MacDetailContent(row: row, renameProblem: renameProblem, removalFailed: removalFailed,
                                  onRename: {
                                      newName = row.name
                                      renaming = true
                                  },
-                                 onApprove: { model.startApproverConfirmation(macID: macID) },
-                                 onStop: { confirmingStop = true },
                                  onRemove: { confirmingRemoval = true })
             }
         }
@@ -45,41 +43,40 @@ struct MacDetailView: View {
         } message: {
             Text("mac.rename.message", bundle: .kit)
         }
-        .confirmationDialog(Text("mac.stop.confirmTitle \(row?.name ?? String())", bundle: .kit),
-                            isPresented: $confirmingStop, titleVisibility: .visible) {
+        .confirmationDialog(MacRemovalText.title(row?.name ?? String()), isPresented: $confirmingRemoval,
+                            titleVisibility: .visible) {
             Button(role: .destructive) {
-                Task { stopFailed = !(await model.stopApproving(macID: macID)) }
+                removalFailed = false
+                Task {
+                    let removed = await model.removeMac(id: macID)
+                    // A removal that succeeded closes this screen.
+                    removalFailed = !removed && row != nil
+                }
             } label: {
-                Text("mac.stop.confirm", bundle: .kit)
+                MacRemovalText.confirm
             }
             Button(role: .cancel) {} label: { Text("common.cancel", bundle: .kit) }
         } message: {
-            Text("mac.stop.confirmMessage", bundle: .kit)
-        }
-        .confirmationDialog(Text("list.remove.confirmTitle \(row?.name ?? String())", bundle: .kit),
-                            isPresented: $confirmingRemoval, titleVisibility: .visible) {
-            Button(role: .destructive) {
-                Task { await model.removeMac(id: macID) }
-            } label: {
-                Text("list.remove.confirm", bundle: .kit)
-            }
-            Button(role: .cancel) {} label: { Text("common.cancel", bundle: .kit) }
-        } message: {
-            Text("list.remove.confirmMessage", bundle: .kit)
-        }
-        .sheet(item: $model.approverConfirmation, onDismiss: model.closeApproverConfirmation) { flow in
-            ApproverConfirmationView(model: model, flow: flow)
+            MacRemovalText.message
         }
     }
+}
+
+/// **Remove**'s confirmation, in the dialog and in its render: this iPhone
+/// stops at once, drops the Mac's pending requests and tells the Mac, which
+/// stops trusting this iPhone only when it processes the unpair notice
+/// (ADR 0014 → Revocation, decision 3 of the #336 amendment).
+enum MacRemovalText {
+    static func title(_ name: String) -> Text { Text("list.remove.confirmTitle \(name)", bundle: .kit) }
+    static var message: Text { Text("list.remove.confirmMessage", bundle: .kit) }
+    static var confirm: Text { Text("list.remove.confirm", bundle: .kit) }
 }
 
 struct MacDetailContent: View {
     let row: PairedMacRow
     var renameProblem: RenameProblem?
-    var stopFailed = false
+    var removalFailed = false
     let onRename: () -> Void
-    let onApprove: () -> Void
-    let onStop: () -> Void
     let onRemove: () -> Void
 
     var body: some View {
@@ -104,22 +101,19 @@ struct MacDetailContent: View {
             if let renameProblem {
                 NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning, text: Self.text(renameProblem))
             }
-            VStack(alignment: .leading, spacing: 12) {
-                if stopFailed {
-                    NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning,
-                               text: Text("mac.stop.failed", bundle: .kit))
-                }
-                NoticeCard(symbol: row.isApprover ? "checkmark.shield.fill" : "shield.slash",
-                           tone: row.isApprover ? .success : .info,
-                           text: Text(row.isApprover ? "mac.status.approving" : "mac.status.notApproving", bundle: .kit))
-                // The iPhone cannot learn whether the Mac accepted; once its flag
-                // is on, the button only sends a new code.
-                Button(action: onApprove) { Text(row.isApprover ? "mac.approveAgain" : "mac.approve", bundle: .kit) }
-                    .buttonStyle(ActionButtonStyle(kind: row.isApprover ? .secondary : .primary))
-                if row.isApprover {
-                    Button(action: onStop) { Text("mac.stop", bundle: .kit) }
-                        .buttonStyle(ActionButtonStyle(kind: .destructive))
-                }
+            // Pairing sets the flag; only a Mac paired before #336 without
+            // approval lacks it, and only pairing again can set it. A Mac
+            // whose removal failed is refused here too (`PairedMacRow`).
+            if row.isApprover {
+                NoticeCard(symbol: "checkmark.shield.fill", tone: .success,
+                           text: Text("mac.status.approving", bundle: .kit))
+            } else {
+                NoticeCard(symbol: "exclamationmark.shield.fill", tone: .warning,
+                           text: Text("mac.status.notApproving", bundle: .kit))
+            }
+            if removalFailed {
+                NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning,
+                           text: Text("list.notice.removalFailed", bundle: .kit))
             }
             Button(action: onRemove) { Text("list.remove", bundle: .kit) }
                 .buttonStyle(ActionButtonStyle(kind: .destructive))

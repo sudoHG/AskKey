@@ -3,8 +3,8 @@ import SwiftUI
 import XCTest
 @testable import AskKeyiOSKit
 
-/// The approver confirmation, Mac names, removal, notifications and the
-/// privacy cover (#314 acceptance 6, 7 and 8).
+/// The Mac's approval status, Mac names, removal, notifications and the
+/// privacy cover (#314 acceptance 6, 7 and 8; #336 decisions 3 and 5).
 @MainActor
 final class ApproverTests: XCTestCase {
     private var world: TestWorld!
@@ -13,9 +13,6 @@ final class ApproverTests: XCTestCase {
         world = TestWorld()
         await world.setUpPhone()
         try await world.pair()
-        // The approver confirmation applies to a Mac paired before #336
-        // without approval; pairing now sets the flag.
-        try await world.storeWithoutApprovalFlag()
     }
 
     override func tearDown() async throws {
@@ -24,89 +21,84 @@ final class ApproverTests: XCTestCase {
 
     private var macID: String { world.macIdentity.deviceID.text }
 
-    // MARK: Approver confirmation
+    // MARK: Approval status
 
-    func testApproveRequestsTakesTheCodeAsksForFaceIDSendsTheConfirmationAndSetsTheFlag() async throws {
-        let phone = try world.phone
-        XCTAssertEqual(world.model.pairedMacs.first?.isApprover, false, "off after pairing")
-        world.model.startApproverConfirmation(macID: macID)
-        XCTAssertEqual(world.model.approverConfirmation?.macName, TestWorld.macName)
-        let authenticating = Box(false)
-        phone.duringApprovalPrompt = { [model = world.model] in authenticating.value = await model.isAuthenticating }
-        await world.model.confirmApprover(typed: " 042 917\n")
-        XCTAssertTrue(authenticating.value)
-        XCTAssertEqual(phone.approvalReasons.last?.contains("“\(TestWorld.macName)”"), true)
-        XCTAssertEqual(world.model.approverConfirmation?.stage, .sent)
+    func testPairingIsAllItTakesToApproveTheMacsRequests() async throws {
         XCTAssertEqual(world.model.pairedMacs.first?.isApprover, true)
-
-        _ = try await world.mac.poll()
-        let confirmation = try XCTUnwrap(world.macInbox.messages.compactMap { message -> ApproverConfirmation? in
-            if case .confirmation(let confirmation) = message.message { return confirmation }
-            return nil
-        }.first)
-        let entry = try await world.phoneEntry()
-        let code = try XCTUnwrap(ApproverCode(typed: "042917"))
-        XCTAssertTrue(code.matches(proof: confirmation.codeProof, mac: world.macIdentity.deviceID, phone: phone.deviceID,
-                                   pairingID: entry.pairingID), "the Mac's check of the code proof passes")
-    }
-
-    func testAnythingButSixDigitsSendsNothing() async throws {
-        let phone = try world.phone
-        let prompts = phone.approvalReasons.count
-        world.model.startApproverConfirmation(macID: macID)
-        for typed in ["12345", "1234567", "12345a", "１２３４５６"] {
-            await world.model.confirmApprover(typed: typed)
-            XCTAssertEqual(world.model.approverConfirmation?.problem, .invalidCode, typed)
-            XCTAssertEqual(world.model.approverConfirmation?.stage, .entering)
-        }
-        XCTAssertEqual(phone.approvalReasons.count, prompts)
-        XCTAssertTrue(world.cloud.sent(.approverConfirmation, from: phone.deviceID).isEmpty)
-    }
-
-    func testACancelledPromptSendsNothing() async throws {
-        let phone = try world.phone
-        phone.approvalBehavior = .cancel
-        world.model.startApproverConfirmation(macID: macID)
-        await world.model.confirmApprover(typed: TestWorld.approverCode)
-        XCTAssertEqual(world.model.approverConfirmation?.problem, .cancelled)
-        XCTAssertTrue(world.cloud.sent(.approverConfirmation, from: phone.deviceID).isEmpty)
-        XCTAssertEqual(world.model.pairedMacs.first?.isApprover, false)
-    }
-
-    func testTheFlagIsSetOnlyOnceCloudKitSavedTheConfirmation() async throws {
-        world.cloud.failSends { $0.kind == Int64(MessageKind.approverConfirmation.rawValue) }
-        world.model.startApproverConfirmation(macID: macID)
-        await world.model.confirmApprover(typed: TestWorld.approverCode)
-        XCTAssertEqual(world.model.approverConfirmation?.stage, .sending)
-        XCTAssertEqual(world.model.approverConfirmation?.problem, .retrying)
-        XCTAssertEqual(world.model.pairedMacs.first?.isApprover, false)
-        XCTAssertEqual(world.model.foregroundPollInterval, 2)
-        world.cloud.failSends(where: nil)
-        world.clock.advance(by: 2)
+        try await world.sendRequest()
         await world.model.processInbox()
-        XCTAssertEqual(world.model.approverConfirmation?.stage, .sent)
-        XCTAssertEqual(world.model.pairedMacs.first?.isApprover, true)
+        XCTAssertEqual(world.model.requests.count, 1)
     }
 
-    func testStopApprovingClearsTheFlagAndDropsTheMacsCards() async throws {
-        await world.approveMac()
+    func testAMacPairedBeforeTheRuleWithoutApprovalIsMarkedAndRefused() async throws {
+        try await world.storeWithoutApprovalFlag()
+        XCTAssertEqual(world.model.pairedMacs.first?.isApprover, false, "the row and the detail show the exception")
+        try await world.sendRequest()
+        await world.model.processInbox()
+        XCTAssertTrue(world.model.requests.isEmpty)
+        XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
+    }
+
+    func testPairingAMacWithoutTheFlagAgainMakesThisIPhoneApproveIt() async throws {
+        try await world.storeWithoutApprovalFlag()
+        await world.model.removeMac(id: macID)
+        XCTAssertTrue(world.model.pairedMacs.isEmpty)
+        _ = try await world.mac.poll()
+        try await world.pair()
+        XCTAssertEqual(world.model.pairedMacs.map(\.isApprover), [true])
+        try await world.sendRequest()
+        await world.model.processInbox()
+        XCTAssertEqual(world.model.requests.count, 1)
+    }
+
+    // MARK: Removal
+
+    func testRemovingTheMacStopsThisIPhoneAtOnceAndTellsTheMac() async throws {
+        let phoneID = try world.phone.deviceID
         let sealed = try await world.sendRequest()
         world.notifications.delivered = [PushHint(recordName: sealed.sealed.messageID.text, arrivedAt: world.clock.now(),
                                                   notificationIdentifier: "request")]
         await world.model.becameActive()
         XCTAssertEqual(world.model.requests.count, 1)
-        await world.model.stopApproving(macID: macID)
-        XCTAssertEqual(world.model.pairedMacs.first?.isApprover, false)
+        await world.model.removeMac(id: macID)
+        XCTAssertTrue(world.model.pairedMacs.isEmpty)
         XCTAssertTrue(world.model.requests.isEmpty)
         XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
         XCTAssertTrue(world.notifications.removedIdentifiers.contains("request"))
+        XCTAssertEqual(world.model.listNotice, .removed(name: TestWorld.macName, macWasTold: true))
+        XCTAssertEqual(world.cloud.sent(.unpairNotice, from: phoneID).count, 1)
+        // The Mac trusts this iPhone until it processes the unpair notice.
+        _ = try await world.phoneEntry()
+        _ = try await world.mac.poll()
+        let entries = try await world.mac.pairedDevices()
+        XCTAssertFalse(entries.contains { $0.deviceID == phoneID })
+    }
+
+    func testARemovalWhoseListWriteFailsStillStopsThisIPhone() async throws {
+        let sealed = try await world.sendRequest()
+        world.notifications.delivered = [PushHint(recordName: sealed.sealed.messageID.text, arrivedAt: world.clock.now(),
+                                                  notificationIdentifier: "request")]
+        await world.model.becameActive()
+        XCTAssertEqual(world.model.requests.count, 1)
+        world.keychain.writesFail = true
+        let removed = await world.model.removeMac(id: macID)
+        XCTAssertFalse(removed)
+        XCTAssertEqual(world.model.listNotice, .removalFailed)
+        XCTAssertEqual(world.model.pairedMacs.map(\.isApprover), [false],
+                       "the entry stays, so Remove can be tried again, and no longer shows as approving")
+        XCTAssertTrue(world.model.requests.isEmpty)
+        XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
+        XCTAssertTrue(world.notifications.removedIdentifiers.contains("request"))
+        world.keychain.writesFail = false
         try await world.sendRequest()
         await world.model.processInbox()
-        XCTAssertTrue(world.model.requests.isEmpty, "requests from it are refused")
+        XCTAssertTrue(world.model.requests.isEmpty, "this process refuses the Mac's requests anyway")
+        let retried = await world.model.removeMac(id: macID)
+        XCTAssertTrue(retried)
+        XCTAssertTrue(world.model.pairedMacs.isEmpty)
     }
 
     func testRemovingAMacOrItsUnpairNoticeDropsItsCards() async throws {
-        await world.approveMac()
         try await world.sendRequest()
         await world.model.processInbox()
         XCTAssertEqual(world.model.requests.count, 1)
@@ -115,7 +107,7 @@ final class ApproverTests: XCTestCase {
         XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
 
         let other = world.makeMac(name: "Office Mac")
-        try await world.pairAndApprove(other)
+        try await world.pair(other)
         try await world.sendRequest(from: other)
         await world.model.processInbox()
         XCTAssertEqual(world.model.requests.count, 1)
@@ -159,7 +151,6 @@ final class ApproverTests: XCTestCase {
     // MARK: Notifications
 
     func testTappingANotificationOpensItsRequest() async throws {
-        await world.approveMac()
         let phoneID = try world.phone.deviceID
         let sealed = try await world.sendRequest()
         let name = sealed.sealed.messageID.text
@@ -169,7 +160,6 @@ final class ApproverTests: XCTestCase {
     }
 
     func testANotificationThatIsOnlyShownOpensNothing() async throws {
-        await world.approveMac()
         let phoneID = try world.phone.deviceID
         let sealed = try await world.sendRequest()
         await world.model.receivedPush(userInfo: TestWorld.alertPush(for: phoneID, record: sealed.sealed.messageID.text),
@@ -178,7 +168,6 @@ final class ApproverTests: XCTestCase {
     }
 
     func testOpeningANotificationThatLaunchesTheAppOpensItsRequest() async throws {
-        await world.approveMac()
         let phoneID = try world.phone.deviceID
         let sealed = try await world.sendRequest()
         let name = sealed.sealed.messageID.text
@@ -191,7 +180,6 @@ final class ApproverTests: XCTestCase {
     }
 
     func testSettledRequestsLoseTheirNotifications() async throws {
-        await world.approveMac()
         let sealed = try await world.sendRequest()
         world.notifications.delivered = [PushHint(recordName: sealed.sealed.messageID.text, arrivedAt: world.clock.now(),
                                                   notificationIdentifier: "request")]
@@ -204,7 +192,6 @@ final class ApproverTests: XCTestCase {
     }
 
     func testAnExpiredRequestLosesItsNotificationAtTheNextLaunch() async throws {
-        await world.approveMac()
         let sealed = try await world.sendRequest()
         await world.model.processInbox()
         world.clock.advance(by: 300)

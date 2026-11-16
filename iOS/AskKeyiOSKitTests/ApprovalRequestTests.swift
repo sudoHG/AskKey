@@ -11,7 +11,6 @@ final class ApprovalRequestTests: XCTestCase {
         world = TestWorld()
         await world.setUpPhone()
         try await world.pair()
-        await world.approveMac()
     }
 
     override func tearDown() async throws {
@@ -144,7 +143,7 @@ final class ApprovalRequestTests: XCTestCase {
 
     func testAClosedMessageFromAnotherSenderIsRefused() async throws {
         let other = world.makeMac(name: "Office Mac")
-        try await world.pairAndApprove(other)
+        try await world.pair(other)
         let sealed = try await world.sendRequest()
         await world.model.processInbox()
         try await world.sendClosed(.decidedOnMac, for: sealed, from: other)
@@ -275,7 +274,7 @@ final class ApprovalRequestTests: XCTestCase {
         var macs = [world.primaryMac]
         for index in 1..<5 {
             let peer = world.makeMac(name: "Mac \(index)")
-            try await world.pairAndApprove(peer)
+            try await world.pair(peer)
             macs.append(peer)
         }
         for peer in macs.prefix(4) {

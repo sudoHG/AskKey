@@ -10,7 +10,6 @@ final class UnknownLayoutTests: XCTestCase {
         let world = TestWorld()
         await world.setUpPhone()
         try await world.pair()
-        await world.approveMac()
         let phoneID = try world.phone.deviceID
         let sealed = try await world.sealRequest()
         var payload = sealed.request.encoded

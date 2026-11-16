@@ -31,8 +31,6 @@ public final class AppModel {
     public var openedRequest: OpenedRequest?
     /// The tapped record while its request has no card yet.
     public internal(set) var opening: OpeningRequest?
-    /// The approver confirmation while its sheet is open.
-    public var approverConfirmation: ApproverConfirmationFlow?
     /// A newly paired Mac got a numbered name; the person may rename it.
     public var renamePrompt: RenamePrompt?
 
@@ -53,8 +51,6 @@ public final class AppModel {
     /// False while the stored state exists but cannot be read; nothing is
     /// then accepted, decided or written, so it is never overwritten.
     @ObservationIgnored var approvalsReadable = true
-    /// Grows whenever a Mac's approval ends here, so work that awaited can tell.
-    @ObservationIgnored var revocationCount = 0
     /// Requests settled in this process, so a notification found later for
     /// one of them is removed at once.
     @ObservationIgnored var settledRequests: Set<String> = []
@@ -64,12 +60,11 @@ public final class AppModel {
     @ObservationIgnored var namedFetchNotBefore: Date?
     /// Opened requests by record name, in memory only.
     @ObservationIgnored var openedContent: [String: VerifiedApprovalMessage] = [:]
-    /// Pairings whose approval ended in this process: turned off here, or
-    /// the Mac removed. Their requests are refused even before the list
-    /// write that clears the flag commits.
+    /// Pairings whose Mac was removed in this process: here, by its unpair
+    /// notice or by pairing again. Their requests are refused from the
+    /// moment the removal starts, even if its list write then fails.
     @ObservationIgnored var revokedPairings: Set<PairingID> = []
-    /// Messages sealed once and sent until saved: receipts and approver
-    /// confirmations, by record name.
+    /// Receipts sealed once and sent until saved, by record name.
     @ObservationIgnored var outbox: [String: OutgoingMessage] = [:]
     /// When a failed send may be tried again, by record name.
     @ObservationIgnored var nextAttempts: [String: Date] = [:]
@@ -394,11 +389,19 @@ public final class AppModel {
 
     // MARK: Paired Macs
 
-    /// Removes the Mac at once, then sends it an unpair notice.
-    public func removeMac(id: String) async {
+    /// Removes the Mac: this iPhone stops approving it before anything
+    /// waits, then the list write removes it and an unpair notice tells the
+    /// Mac, which stops trusting this iPhone only when it processes the
+    /// notice (ADR 0014 → Revocation). Returns false when the Mac could not
+    /// be removed; this process keeps refusing its requests anyway.
+    @discardableResult
+    public func removeMac(id: String) async -> Bool {
         guard let services, let deviceID = DeviceID(text: id),
-              let row = pairedMacs.first(where: { $0.id == id }) else { return }
+              let row = pairedMacs.first(where: { $0.id == id }) else { return false }
         locallyRemoved.insert(deviceID)
+        // The removal hook does the same again before the list write commits.
+        if let entry = knownList?.device(deviceID) { revoke(entry) }
+        var removed = true
         do {
             let told = try await services.messenger.removeDevice(deviceID)
             listNotice = .removed(name: row.name, macWasTold: told)
@@ -407,8 +410,12 @@ public final class AppModel {
         } catch {
             AppLog.failure("Removing a paired Mac", error)
             listNotice = .removalFailed
+            // Still listed: if its unpair notice removes it later, that is reported.
+            locallyRemoved.remove(deviceID)
+            removed = false
         }
         await refreshList()
+        return removed
     }
 
     /// Reloads the list. Entries that disappeared since `previous` and were
@@ -427,7 +434,7 @@ public final class AppModel {
             where list.device(device.deviceID) == nil && !locallyRemoved.contains(device.deviceID) {
                 listNotice = .removedByMac(name: device.displayName)
             }
-            pairedMacs = list.devices.map(PairedMacRow.init)
+            pairedMacs = list.devices.map { PairedMacRow($0, revoked: revokedPairings.contains($0.pairingID)) }
             rebuildRequests(list: list)
         } catch PairedDeviceListError.malformed {
             identityBecameUnusable()
