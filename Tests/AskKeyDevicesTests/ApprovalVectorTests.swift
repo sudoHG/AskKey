@@ -5,7 +5,7 @@ import XCTest
 
 /// Fixed vectors of ADR 0014 → Encodings, with the inputs the ADR lists;
 /// the expected outputs come from an independent Python implementation
-/// (hashlib, hmac) recorded in the pull request.
+/// (hashlib) recorded in the pull request.
 final class ApprovalVectorTests: XCTestCase {
     static let approver = DeviceID(rawValue: Data(0x10...0x1F))!
     static let requester = DeviceID(rawValue: Data(0x20...0x2F))!

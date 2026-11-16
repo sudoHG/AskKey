@@ -244,7 +244,7 @@ final class ApprovalPayloadTests: XCTestCase {
         }
     }
 
-    // MARK: Kinds 11–14
+    // MARK: Kinds 11–13
 
     private let header = ApprovalVectorTests.pairingID.rawValue + [1]
     private let digest = ApprovalVectorTests.requestDigest

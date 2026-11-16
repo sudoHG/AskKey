@@ -251,9 +251,8 @@ final class ApprovalFixture {
     /// sender's real message key, so it can carry a kind this build does not
     /// know, as an older build or a writer with that key could.
     static func seal(rawKind innerKind: UInt8, inRecordOfKind recordKind: Int64, _ payload: Data,
-                     from sender: SimulatedDevice, to recipient: SimulatedDevice, sentAt: Int64,
-                     lifetime: Int64 = 600) throws -> DeviceEnvelope {
-        let messageID = MessageID.random()
+                     from sender: SimulatedDevice, to recipient: SimulatedDevice, messageID: MessageID = .random(),
+                     sentAt: Int64, lifetime: Int64 = 600) throws -> DeviceEnvelope {
         var writer = ByteWriter()
         writer.append(InnerMessage.version)
         writer.append(innerKind)

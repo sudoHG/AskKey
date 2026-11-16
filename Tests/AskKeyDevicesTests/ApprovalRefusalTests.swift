@@ -227,12 +227,13 @@ final class ApprovalRefusalTests: XCTestCase {
     // MARK: Kind 14, reserved
 
     /// Kind 14 was the approver confirmation, retired by #336. A record of
-    /// kind 14, as an older build sealed it, is refused from its plaintext
-    /// kind before decryption, and an inner message of kind 14 in a record of
-    /// a known kind is refused by the inner layout, exactly as for kind 15,
-    /// which was never assigned. Both directions; the stateless verifier
-    /// gives the same verdicts.
-    func testKind14IsRefusedAsAnUnknownKindLikeAnyOther() async throws {
+    /// kind 14, as an older build sealed it, is refused as an unknown kind
+    /// from its plaintext kind, before decryption, and an inner message of
+    /// kind 14 in a record of a known kind is refused as malformed by the
+    /// inner layout, exactly as for kind 15, which was never assigned: in
+    /// both directions, through a poll and a named fetch, and with the same
+    /// verdict from the stateless verifier.
+    func testKind14IsRefusedLikeAnyUnknownKind() async throws {
         let pairingID = try await fixture.phoneEntryForMac().pairingID
         // The retired 113-byte layout: pairing ID, layout version, code proof, signature.
         let payload = pairingID.rawValue + [1] + Data(repeating: 0xCD, count: 32) + Data(repeating: 0xEF, count: 64)
@@ -242,18 +243,49 @@ final class ApprovalRefusalTests: XCTestCase {
         for kind: UInt8 in [14, 15] {
             XCTAssertNil(MessageKind(rawValue: kind))
             for (sender, recipient, knownKind) in routes {
-                let record = try ApprovalFixture.seal(rawKind: kind, inRecordOfKind: Int64(kind), payload, from: sender,
-                                                      to: recipient, sentAt: now)
-                try await assertRefused(record, at: recipient, .unknownKind)
-                let inner = try ApprovalFixture.seal(rawKind: kind, inRecordOfKind: knownKind, payload, from: sender,
-                                                     to: recipient, sentAt: now)
-                try await assertRefused(inner, at: recipient, .malformed)
+                for (recordKind, refusal) in [(Int64(kind), DeviceMessageRefusal.unknownKind), (knownKind, .malformed)] {
+                    try await assertRefused(try ApprovalFixture.seal(rawKind: kind, inRecordOfKind: recordKind, payload,
+                                                                     from: sender, to: recipient, sentAt: now),
+                                            at: recipient, refusal)
+                    try await assertRefusedByNamedFetch(try ApprovalFixture.seal(rawKind: kind, inRecordOfKind: recordKind,
+                                                                                 payload, from: sender, to: recipient,
+                                                                                 sentAt: now),
+                                                        at: recipient, refusal)
+                }
             }
         }
         // Nothing was handled, and the genuine request is still outstanding.
         XCTAssertTrue(fixture.outstanding.messages.isEmpty)
         XCTAssertEqual(fixture.phoneInbox.messages.count, 1)
-        XCTAssertNotNil(fixture.outstanding.entry(request.request.responseID))
+        XCTAssertEqual(fixture.outstanding.entry(request.request.responseID)?.delivered, false)
+
+        // The helper seals a valid message for a known kind: the phone's receipt reaches the Mac.
+        let receipt = try ApprovalFixture.seal(rawKind: MessageKind.approvalReceipt.rawValue, inRecordOfKind: 13,
+                                               ApprovalReceipt.encode(pairingID: pairingID,
+                                                                      requestDigest: request.requestDigest),
+                                               from: fixture.phone, to: fixture.mac,
+                                               messageID: ApprovalReceipt.receiptID(for: request.request.responseID),
+                                               sentAt: now)
+        fixture.harness.transport.insert(receipt, intoInboxOf: fixture.mac.id)
+        await XCTAssertEqualAsync(try await fixture.mac.poll().processed, 1)
+        XCTAssertEqual(fixture.outstanding.entry(request.request.responseID)?.delivered, true)
+    }
+
+    /// A named fetch refuses the record with `refusal`, deletes it, leaves
+    /// the inbox token, the list and the handler untouched.
+    private func assertRefusedByNamedFetch(_ envelope: DeviceEnvelope, at device: SimulatedDevice,
+                                           _ refusal: DeviceMessageRefusal, file: StaticString = #filePath,
+                                           line: UInt = #line) async throws {
+        fixture.harness.transport.insert(envelope, intoInboxOf: device.id)
+        let storedList = device.store.storedBytes
+        let token = await device.messenger.inboxToken
+        let handledBefore = fixture.handled(by: device)
+        let report = try await device.messenger.fetchNamedMessages([envelope.recordName])
+        XCTAssertEqual(report.outcomes, [envelope.recordName: .refused(refusal)], file: file, line: line)
+        XCTAssertEqual(fixture.harness.transport.records(in: device.id), [], "refused and deleted", file: file, line: line)
+        XCTAssertEqual(fixture.handled(by: device), handledBefore, "the handler never ran", file: file, line: line)
+        XCTAssertEqual(device.store.storedBytes, storedList, "the list is unchanged", file: file, line: line)
+        await XCTAssertEqualAsync(await device.messenger.inboxToken, token, "the token stays", file: file, line: line)
     }
 
     func testRequestTimesAreCheckedAgainstItsInnerMessage() async throws {

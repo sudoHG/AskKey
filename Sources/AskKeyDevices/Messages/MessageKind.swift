@@ -25,8 +25,9 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
     case approvalClosed = 12
     case approvalReceipt = 13
     // 14 is reserved: it was the approver confirmation, retired by #336
-    // (ADR 0014). A record or inner message of kind 14 is refused as an
-    // unknown kind, and a later kind takes a new number.
+    // (ADR 0014). Like any kind this build does not know, a record of kind
+    // 14 is refused as `unknownKind` and an inner message of kind 14 as
+    // `malformed`. A later kind takes a new number.
 
     /// Pairing messages live at most as long as a session.
     public static let pairingLifetime: TimeInterval = 10 * 60
