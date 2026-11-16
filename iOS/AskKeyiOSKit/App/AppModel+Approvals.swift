@@ -339,6 +339,11 @@ extension AppModel {
 
     /// Rebuilds the cards from the stored entries, the opened content and
     /// the list, which names each Mac by this iPhone's own name for it.
+    /// A finished card stays here, so its open page keeps its outcome until
+    /// the person closes it, while the Requests tab no longer lists it
+    /// (decision 7 of #344, `activeRequests(at:)`); nothing stored changes
+    /// when the page closes. Entries an earlier build let the person dismiss
+    /// stay hidden.
     func rebuildRequests(list: PairedDeviceList? = nil) {
         if let list { knownList = list }
         let now = environment.clock.now()
@@ -390,16 +395,5 @@ extension AppModel {
             identifiers += extraNotifications.removeValue(forKey: name) ?? []
         }
         environment.notifications.removeDeliveredNotifications(identifiers: identifiers)
-    }
-
-    /// Hides a finished card; its entry stays until its transport expiry.
-    public func dismissRequest(id: String) {
-        guard let index = approvals.index(of: id), approvals.requests[index].isFinished(at: environment.clock.now()) else {
-            return
-        }
-        var state = approvals
-        state.requests[index].dismissed = true
-        commitApprovals(state)
-        rebuildRequests()
     }
 }
