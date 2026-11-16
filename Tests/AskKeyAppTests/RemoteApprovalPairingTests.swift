@@ -188,12 +188,12 @@ final class RemoteApprovalPairingTests: AskKeyAppTestCase {
         XCTAssertEqual(Set(harness.entries(pending).map(\.approverID)), [harness.phone.deviceID, second.deviceID])
     }
 
-    func testARetiredApproverConfirmationIsRefusedAsAnUnexpectedKind() async throws {
+    func testARecordOfTheRetiredKind14IsRefusedAsAnUnknownKind() async throws {
         try await harness.pairApprover()
         let generation = try harness.generation(of: harness.phone)
-        try await harness.phone.sendRetiredApproverConfirmation(to: XCTUnwrap(harness.macDeviceID))
+        try await harness.phone.sendRecordOfRetiredKind14(to: XCTUnwrap(harness.macDeviceID))
         await harness.coordinator.refresh()
-        XCTAssertTrue(harness.refusals.contains(.unexpectedKind))
+        XCTAssertEqual(harness.refusals, [.unknownKind])
         XCTAssertEqual(try harness.generation(of: harness.phone), generation, "nothing changed")
         XCTAssertEqual(harness.coordinator.devices.map(\.isApprover), [true])
     }

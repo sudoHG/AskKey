@@ -11,18 +11,17 @@ extension DeviceCoordinator {
     /// its failure counts as "not applied".
     static let applyAttempts = 3
 
-    /// The handler `AskKeyDevices` calls with every verified kind 10–14
+    /// The handler `AskKeyDevices` calls with every verified kind 10–13
     /// message, after it checked the envelope, the payload, the pairing ID and
     /// the approval-key signature (checks 1, 3 and 6). The Mac accepts only
-    /// a decision or a receipt; an approver confirmation, retired by #336,
-    /// is refused like any kind the Mac does not expect.
+    /// a decision or a receipt.
     func handleApprovalMessage(_ message: VerifiedApprovalMessage) async -> ApprovalMessageHandling {
         switch message.message {
         case .decision(let decision):
             return await handleRemoteDecision(message, decision)
         case .receipt(let receipt):
             return handleReceipt(message, receipt)
-        case .request, .closed, .confirmation:
+        case .request, .closed:
             return .refused(.unexpectedKind)
         }
     }

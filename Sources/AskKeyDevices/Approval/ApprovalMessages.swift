@@ -185,53 +185,6 @@ public struct ApprovalReceipt: Hashable, Sendable {
     }
 }
 
-/// Kind 14, the iPhone's approver confirmation, 113 bytes:
-///
-///     pairing ID (16) ‖ layout version (1) ‖ code proof (32)
-///     ‖ approval-key signature (64) over the confirmation statement
-public struct ApproverConfirmation: Hashable, Sendable {
-    public static let byteCount = 113
-
-    public let pairingID: PairingID
-    /// The App compares it in constant time with its own (`ApproverCode`).
-    public let codeProof: Data
-    let signature: Data
-
-    /// `AskKey approver confirmation v1\0` ‖ iPhone's device ID ‖ Mac's
-    /// device ID ‖ pairing ID ‖ code proof.
-    public static func statement(phone: DeviceID, mac: DeviceID, pairingID: PairingID, codeProof: Data) -> Data {
-        var writer = ByteWriter()
-        writer.append(DomainLabel.approverConfirmation)
-        writer.append(phone.rawValue)
-        writer.append(mac.rawValue)
-        writer.append(pairingID.rawValue)
-        writer.append(codeProof)
-        return writer.data
-    }
-
-    static func encode(pairingID: PairingID, codeProof: Data, signature: Data) -> Data {
-        var writer = ByteWriter()
-        ApprovalLayout.writeHeader(pairingID, into: &writer)
-        writer.append(codeProof)
-        writer.append(signature)
-        return writer.data
-    }
-
-    init(decoding payload: Data) throws {
-        self = try MessagePayload.decode(payload) { reader in
-            ApproverConfirmation(pairingID: try ApprovalLayout.readHeader(&reader),
-                                 codeProof: try ApprovalLayout.readDigest(&reader),
-                                 signature: try reader.readBytes(ApprovalLayout.signatureByteCount))
-        }
-    }
-
-    private init(pairingID: PairingID, codeProof: Data, signature: Data) {
-        self.pairingID = pairingID
-        self.codeProof = codeProof
-        self.signature = signature
-    }
-}
-
 /// The binding digest (ADR 0014 → Encodings): SHA-256 over
 /// `AskKey approval binding v1\0` and eight length-prefixed UTF-8 strings,
 /// exactly as the Broker holds them, with no case folding or normalization.

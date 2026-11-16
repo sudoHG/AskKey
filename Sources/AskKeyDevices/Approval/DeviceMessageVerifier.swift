@@ -19,7 +19,7 @@ public enum DeviceMessageVerdict: Hashable, Sendable {
 /// Extension): against the list it is given, it applies the same envelope,
 /// signature, payload, pairing-ID and approval-signature checks as
 /// `DeviceMessenger`, in the same order, for delivery checks and kinds
-/// 10–14. It does not check replay, does not hold a message from an open
+/// 10–13. It does not check replay, does not hold a message from an open
 /// pairing session's peer as the messenger does, and does not know the
 /// caller's handler or state: `.approval` means only that the checks
 /// `AskKeyDevices` owns passed. It deletes nothing, writes nothing and never

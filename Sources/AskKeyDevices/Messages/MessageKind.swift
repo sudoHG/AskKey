@@ -24,13 +24,16 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
     case approvalDecision = 11
     case approvalClosed = 12
     case approvalReceipt = 13
-    case approverConfirmation = 14
+    // 14 is reserved: it was the approver confirmation, retired by #336
+    // (ADR 0014). Like any kind this build does not know, a record of kind
+    // 14 is refused as `unknownKind` and an inner message of kind 14 as
+    // `malformed`. A later kind takes a new number.
 
     /// Pairing messages live at most as long as a session.
     public static let pairingLifetime: TimeInterval = 10 * 60
     public static let deliveryCheckLifetime: TimeInterval = 10 * 60
     public static let unpairNoticeLifetime: TimeInterval = 30 * 24 * 60 * 60
-    /// Kinds 10–14 (ADR 0014).
+    /// Kinds 10–13 (ADR 0014).
     public static let approvalLifetime: TimeInterval = 10 * 60
 
     /// Delivery checks and approval requests may show a notification on an
@@ -52,15 +55,15 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
              .pairingReveal:
             return true
         case .unpairNotice, .deliveryCheck, .deliveryCheckReply, .approvalRequest, .approvalDecision, .approvalClosed,
-             .approvalReceipt, .approverConfirmation:
+             .approvalReceipt:
             return false
         }
     }
 
-    /// Kinds 10–14, which carry remote approval (ADR 0014).
+    /// Kinds 10–13, which carry remote approval (ADR 0014).
     public var isApproval: Bool {
         switch self {
-        case .approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt, .approverConfirmation:
+        case .approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt:
             return true
         default:
             return false
@@ -76,7 +79,7 @@ public enum MessageKind: UInt8, Hashable, Sendable, CaseIterable {
             return Self.deliveryCheckLifetime
         case .unpairNotice:
             return Self.unpairNoticeLifetime
-        case .approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt, .approverConfirmation:
+        case .approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt:
             return Self.approvalLifetime
         }
     }

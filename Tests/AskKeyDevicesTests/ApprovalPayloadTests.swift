@@ -2,7 +2,7 @@
 import AskKeyDevicesTestSupport
 import XCTest
 
-/// The kind 10–14 layouts and every malformed case ADR 0014 → Encodings names.
+/// The kind 10–13 layouts and every malformed case ADR 0014 → Encodings names.
 final class ApprovalPayloadTests: XCTestCase {
     private func fields() throws -> ApprovalRequest.Fields {
         ApprovalRequest.Fields(pairingID: ApprovalVectorTests.pairingID, responseID: ApprovalVectorTests.responseID,
@@ -244,7 +244,7 @@ final class ApprovalPayloadTests: XCTestCase {
         }
     }
 
-    // MARK: Kinds 11–14
+    // MARK: Kinds 11–13
 
     private let header = ApprovalVectorTests.pairingID.rawValue + [1]
     private let digest = ApprovalVectorTests.requestDigest
@@ -340,26 +340,15 @@ final class ApprovalPayloadTests: XCTestCase {
         }
     }
 
-    func testReceiptAndConfirmationLayouts() throws {
+    func testReceiptLayout() throws {
         let receipt = header + digest
         XCTAssertEqual(receipt.count, ApprovalReceipt.byteCount)
         XCTAssertEqual(try ApprovalReceipt(decoding: receipt).requestDigest, digest)
-        let confirmation = header + Data(repeating: 0xCD, count: 32) + Data(repeating: 0xEF, count: 64)
-        XCTAssertEqual(confirmation.count, ApproverConfirmation.byteCount)
-        XCTAssertEqual(try ApproverConfirmation(decoding: confirmation).codeProof, Data(repeating: 0xCD, count: 32))
         var receiptVersion = receipt
         receiptVersion[16] = 2
-        var confirmationVersion = confirmation
-        confirmationVersion[16] = 2
         let malformedReceipts = [receipt.dropLast(), receipt + [0], receiptVersion]
-        let malformedConfirmations = [confirmation.dropLast(), confirmation + [0], confirmationVersion]
         for payload in malformedReceipts {
             XCTAssertThrowsError(try ApprovalReceipt(decoding: Data(payload))) {
-                XCTAssertEqual($0 as? DeviceMessageRefusal, .malformed)
-            }
-        }
-        for payload in malformedConfirmations {
-            XCTAssertThrowsError(try ApproverConfirmation(decoding: Data(payload))) {
                 XCTAssertEqual($0 as? DeviceMessageRefusal, .malformed)
             }
         }

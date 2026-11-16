@@ -88,8 +88,6 @@ final class OutstandingRequests: @unchecked Sendable {
             }
             entries[responseID]?.delivered = true
             return .processed
-        case .confirmation:
-            return .processed
         case .request, .closed:
             return .refused(.unexpectedKind)
         }
@@ -137,7 +135,7 @@ final class Gate: @unchecked Sendable {
 
 /// A Mac and an iPhone paired over the in-memory transport, with the
 /// Mac's outstanding table and the iPhone's inbox as their handlers, and
-/// the approval flag on in both lists.
+/// the approval flag the pairing set in both lists (#336).
 final class ApprovalFixture {
     let harness = DeviceHarness()
     let outstanding = OutstandingRequests()
@@ -152,8 +150,8 @@ final class ApprovalFixture {
         return fixture
     }
 
-    /// Makes both devices, runs `beforePairing` for each, pairs them and
-    /// turns the approval flag on in both lists.
+    /// Makes both devices, runs `beforePairing` for each and pairs them,
+    /// which sets the approval flag in both lists.
     func setUp(beforePairing: ((SimulatedDevice) async throws -> Void)? = nil) async throws {
         mac = harness.makeDevice(.macOS, approvalHandler: outstanding.handler, removalHook: removals.hook(fixture: self))
         phone = harness.makeDevice(.iOS, approvalHandler: phoneInbox.handler)
@@ -162,8 +160,7 @@ final class ApprovalFixture {
         harness.clock.advance(by: 11 * 60) // Past every pairing message's lifetime.
         for (device, other) in [(mac!, phone!), (phone!, mac!)] {
             let entry = try await XCTUnwrapAsync(try await device.entry(for: other))
-            try await PairedDeviceRegistry(store: device.store).apply(.setApprover(other.id, pairingID: entry.pairingID,
-                                                                                   enabled: true))
+            XCTAssertTrue(entry.isApprover, "the pairing set the approval flag")
         }
     }
 
@@ -247,6 +244,32 @@ final class ApprovalFixture {
         try MessageCodec.seal(kind: kind, payload: payload, identity: sender.identity, recipient: recipient.id,
                               recipientKey: recipient.identity.agreementPublicKey, preSharedKey: nil, sentAt: sentAt,
                               expiresAt: sentAt + lifetime, messageID: messageID).envelope
+    }
+
+    /// Seals `payload` as an inner message whose kind byte is `innerKind`,
+    /// in a `QuietMessage` record whose kind field is `recordKind`, with the
+    /// sender's real message key, so it can carry a kind this build does not
+    /// know, as an older build or a writer with that key could.
+    static func seal(rawKind innerKind: UInt8, inRecordOfKind recordKind: Int64, _ payload: Data,
+                     from sender: SimulatedDevice, to recipient: SimulatedDevice, messageID: MessageID = .random(),
+                     sentAt: Int64, lifetime: Int64 = 600) throws -> DeviceEnvelope {
+        var writer = ByteWriter()
+        writer.append(InnerMessage.version)
+        writer.append(innerKind)
+        writer.append(sender.id.rawValue)
+        writer.append(recipient.id.rawValue)
+        writer.append(messageID.rawValue)
+        writer.appendTime(sentAt)
+        writer.appendTime(sentAt + lifetime)
+        writer.appendLengthPrefixed(payload)
+        writer.append(try sender.identity.signWithMessageKey(DomainLabel.message + writer.data))
+        var context = try HPKE.Sender(recipientKey: recipient.identity.agreementPublicKey,
+                                      ciphersuite: MessageCodec.ciphersuite,
+                                      info: MessageCodec.info(sender: sender.id, recipient: recipient.id))
+        let body = Data([MessageCodec.bodyVersion]) + context.encapsulatedKey + (try context.seal(writer.data))
+        return DeviceEnvelope(recordType: .quiet, recordName: messageID.text, sender: sender.id.text,
+                              recipient: recipient.id.text, kind: recordKind, sentAt: UnixTime.date(sentAt),
+                              expiresAt: UnixTime.date(sentAt + lifetime), body: body)
     }
 }
 

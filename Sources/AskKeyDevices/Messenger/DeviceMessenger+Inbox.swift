@@ -207,7 +207,7 @@ extension DeviceMessenger {
         return nil
     }
 
-    /// Kinds 6–8 and 10–14 come from a device on the list. A message from the open
+    /// Kinds 6–8 and 10–13 come from a device on the list. A message from the open
     /// session's peer that is not on the list yet, that is bound to the
     /// pairing this session is replacing, or that is an unpair notice, is
     /// held until the session ends, so a notice from before a removal and a

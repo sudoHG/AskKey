@@ -33,7 +33,7 @@ final class ActiveApproverSetTests: RemoteApprovalTestCase {
         let machine = configuredMachine()
         let first = try machine.addActiveApprovers([phone], revocationCount: machine.activeApproverRevocationCount())
         let phoneGeneration = try XCTUnwrap(first[phone])
-        // After the tablet's flag write only the tablet is added; the phone keeps its generation.
+        // After the tablet's pairing adds it, only the tablet is added; the phone keeps its generation.
         let tabletGeneration = try XCTUnwrap(try machine.addActiveApprovers(
             [tablet], revocationCount: machine.activeApproverRevocationCount())[tablet])
         XCTAssertGreaterThan(tabletGeneration, phoneGeneration)

@@ -22,6 +22,14 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
         try await pair(flagged(device), in: library)
     }
 
+    /// `list` with `entry` in place of the entry with its device ID, flag
+    /// as given, as a write that bypasses the pairing session would hold it.
+    private func list(_ list: PairedDeviceList, replacing entry: PairedDevice) throws -> PairedDeviceList {
+        var changed = list
+        try changed.apply(.add(entry))
+        return changed
+    }
+
     private func isApprover(_ device: PairedDevice, in library: AgentAccessPolicyLibrary) async throws -> Bool {
         try await library.vault.pairedDeviceRegistry().list().device(device.deviceID)?.isApprover == true
     }
@@ -100,11 +108,13 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
         try await pairApprover(phone, in: library)
         try await pair(unflagged, in: library)
         let registry = try library.vault.pairedDeviceRegistry()
-        await assertRefused(.approverNotAuthorized, library, "turning a stored flag off") {
-            try await registry.apply(.setApprover(phone.deviceID, pairingID: phone.pairingID, enabled: false))
+        let stored = try await registry.list()
+        let epoch = library.vault.deviceState.currentEpoch
+        await assertRefused(.approverNotAuthorized, library, "a list written directly turning a stored flag off") {
+            try library.vault.savePairedDevices(try self.list(stored, replacing: phone), epoch: epoch)
         }
-        await assertRefused(.approverNotAuthorized, library, "turning a stored entry's flag on") {
-            try await registry.apply(.setApprover(unflagged.deviceID, pairingID: unflagged.pairingID, enabled: true))
+        await assertRefused(.approverNotAuthorized, library, "a list written directly turning a stored entry's flag on") {
+            try library.vault.savePairedDevices(try self.list(stored, replacing: self.flagged(unflagged)), epoch: epoch)
         }
         // A fresh pairing authorization for the device does not cover its stored entry.
         try library.vault.authorizeDevicePairing(with: unflagged.deviceID, using: .allow)
@@ -114,10 +124,8 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
         await assertRefused(.approverNotAuthorized, library, "adding the stored entry again without the flag") {
             try await registry.apply(.add(phone))
         }
-        var list = try await registry.list()
-        try list.apply(.setApprover(unflagged.deviceID, pairingID: unflagged.pairingID, enabled: true))
-        await assertRefused(.approverNotAuthorized, library, "a list written directly") {
-            try library.vault.savePairedDevices(list, epoch: library.vault.deviceState.currentEpoch)
+        await assertRefused(.approverNotAuthorized, library, "the same list written directly under that authorization") {
+            try library.vault.savePairedDevices(try self.list(stored, replacing: self.flagged(unflagged)), epoch: epoch)
         }
         let phoneFlag = try await isApprover(phone, in: library)
         let otherFlag = try await isApprover(unflagged, in: library)
@@ -214,10 +222,12 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
         try await pairApprover(device, in: library)
         let generation = try activate(device, in: library.vault)
         do {
-            try await library.vault.pairedDeviceRegistry().apply(.setApprover(device.deviceID, pairingID: device.pairingID,
-                                                                              enabled: false))
+            // The stored entry again without its flag.
+            try await library.vault.pairedDeviceRegistry().apply(.add(device))
             XCTFail("A stored flag never changes")
-        } catch {}
+        } catch {
+            XCTAssertEqual(error as? DeviceStorageError, .approverNotAuthorized)
+        }
         XCTAssertEqual(library.vault.approvalRequests.activeApproverGeneration(pairingID: device.pairingID.rawValue), generation)
     }
 

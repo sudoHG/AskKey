@@ -296,17 +296,19 @@ package final class SimulatedPairingPhone: @unchecked Sendable {
         return sealed
     }
 
-    /// Sends an approver confirmation (kind 14) of an older build, which an
-    /// amended Mac refuses (#336). Goes with kind 14's code.
+    /// Sends a record of kind 14, the approver confirmation that older
+    /// builds sent and #336 retired. The Mac refuses it as an unknown kind
+    /// from the record's kind alone, so the body is any message sealed to it.
     @discardableResult
-    package func sendRetiredApproverConfirmation(to mac: DeviceID) async throws -> SealedDeviceMessage {
+    package func sendRecordOfRetiredKind14(to mac: DeviceID) async throws -> DeviceEnvelope {
         guard let entry = try await messenger.pairedDevices().first(where: { $0.deviceID == mac }) else {
             throw DeviceMessengerError.unknownDevice
         }
-        let sealed = try await messenger.sealer.sealApproverConfirmation(.random(), to: entry,
-                                                                         approvalReason: "Synthetic phone confirmation")
-        try await transport.send(sealed.envelope)
-        return sealed
+        var envelope = try messenger.sealer.sealApprovalClosed(.expired, requestDigest: Data(repeating: 0x5A, count: 32),
+                                                               to: entry).envelope
+        envelope.kind = 14
+        try await transport.send(envelope)
+        return envelope
     }
 
     /// Saves an envelope to the Mac's inbox as it is, for example to re-insert one.
@@ -333,7 +335,7 @@ package final class SimulatedApproverInbox: @unchecked Sendable {
             case .closed:
                 receivedClosed.append(message)
                 return .processed
-            case .decision, .receipt, .confirmation:
+            case .decision, .receipt:
                 return .refused(.unexpectedKind)
             }
         }

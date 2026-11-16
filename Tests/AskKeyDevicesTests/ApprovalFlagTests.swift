@@ -13,20 +13,21 @@ final class ApprovalFlagTests: XCTestCase {
                      pairingID: PairingID(rawValue: Data(repeating: pairing, count: 16))!, displayName: name, pairedAt: now)
     }
 
-    func testTheFlagStartsOffAndOnlySetApproverChangesIt() throws {
+    func testTheFlagStartsOffAndNoListChangeTurnsItOn() throws {
         let device = try entry()
-        XCTAssertFalse(device.isApprover)
+        XCTAssertFalse(device.isApprover, "the initializer leaves the flag off")
+        let id = device.deviceID
         var list = try PairedDeviceList(devices: [device])
-        XCTAssertEqual(try list.apply(.setApprover(device.deviceID, pairingID: device.pairingID, enabled: true)), .applied)
-        XCTAssertTrue(list.devices[0].isApprover)
-        let otherPairing = PairingID(rawValue: Data(repeating: 9, count: 16))!
-        XCTAssertEqual(try list.apply(.setApprover(device.deviceID, pairingID: otherPairing, enabled: false)), .dropped,
-                       "a change prepared against another pairing is dropped")
-        XCTAssertTrue(list.devices[0].isApprover)
-        XCTAssertEqual(try list.apply(.setApprover(device.deviceID, pairingID: device.pairingID, enabled: false)), .applied)
-        XCTAssertFalse(list.devices[0].isApprover)
-        XCTAssertEqual(try list.apply(.setApprover(SoftwareDeviceIdentity().deviceID, pairingID: device.pairingID,
-                                                   enabled: true)), .dropped)
+        let changes: [PairedDeviceChange] = [
+            .rename(id, pairingID: device.pairingID, displayName: "Renamed"),
+            .recordReached(id, pairingID: device.pairingID, at: now.addingTimeInterval(5)),
+            .recordDeliveryCheck(id, pairingID: device.pairingID, result: .replied(at: now.addingTimeInterval(7))),
+            .add(device),
+        ]
+        for change in changes {
+            try list.apply(change)
+            XCTAssertFalse(try XCTUnwrap(list.device(id)).isApprover, "\(change) leaves the flag off")
+        }
     }
 
     func testEveryListChangeKeepsTheFlagAndAnAddStoresTheFlagItCarries() throws {
@@ -62,10 +63,9 @@ final class ApprovalFlagTests: XCTestCase {
     }
 
     func testSerializationVersionTwoCarriesTheFlag() throws {
-        let first = try entry(name: "One")
-        let second = try entry(pairing: 2, name: "Two")
-        var list = try PairedDeviceList(devices: [first, second])
-        try list.apply(.setApprover(second.deviceID, pairingID: second.pairingID, enabled: true))
+        var second = try entry(pairing: 2, name: "Two")
+        second.isApprover = true
+        let list = try PairedDeviceList(devices: [try entry(name: "One"), second])
         let data = try list.serialized()
         let decoded = try PairedDeviceList(serialized: data)
         XCTAssertEqual(decoded, list)
@@ -78,8 +78,9 @@ final class ApprovalFlagTests: XCTestCase {
     }
 
     func testVersionOneDecodesWithEveryFlagOffAndVersionTwoRequiresIt() throws {
-        var list = try PairedDeviceList(devices: [try entry(name: "One"), try entry(pairing: 2, name: "Two")])
-        try list.apply(.setApprover(list.devices[0].deviceID, pairingID: list.devices[0].pairingID, enabled: true))
+        var first = try entry(name: "One")
+        first.isApprover = true
+        let list = try PairedDeviceList(devices: [first, try entry(pairing: 2, name: "Two")])
         var json = try XCTUnwrap(JSONSerialization.jsonObject(with: try list.serialized()) as? [String: Any])
         var entries = try XCTUnwrap(json["devices"] as? [[String: Any]])
 

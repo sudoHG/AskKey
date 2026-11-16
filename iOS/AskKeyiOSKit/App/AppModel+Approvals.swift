@@ -25,8 +25,7 @@ extension AppModel {
 
     // MARK: Handler
 
-    /// Verified kinds 10–13 (a retired kind 14 approver confirmation is
-    /// refused as unexpected). `AskKeyDevices` checked the envelope, the
+    /// Verified kinds 10–13. `AskKeyDevices` checked the envelope, the
     /// signatures, the payload and the pairing ID; this checks the
     /// direction and the approval flag: a Mac sends only requests and
     /// closed messages, and only a Mac whose entry carries this iPhone's
@@ -43,7 +42,7 @@ extension AppModel {
             return await accept(request, message, services: services, generation: generation)
         case .closed(let closed):
             return await accept(closed, message, services: services, generation: generation)
-        case .decision, .receipt, .confirmation:
+        case .decision, .receipt:
             return .refused(.unexpectedKind)
         }
     }

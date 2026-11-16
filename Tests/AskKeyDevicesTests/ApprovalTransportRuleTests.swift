@@ -3,7 +3,7 @@ import AskKeyDevicesTestSupport
 import CryptoKit
 import XCTest
 
-/// ADR 0013's refusal rules apply to each of kinds 10–14: each case is
+/// ADR 0013's refusal rules apply to each of kinds 10–13: each case is
 /// refused without effect and deleted, and the stateless verifier gives the
 /// same verdict (#310 acceptance 3 and 5).
 final class ApprovalTransportRuleTests: XCTestCase {
@@ -36,20 +36,12 @@ final class ApprovalTransportRuleTests: XCTestCase {
                                           appliedDuration: 0), fixture.mac, fixture.phone, 600)
         case .approvalReceipt:
             return (ApprovalReceipt.encode(pairingID: pairingID, requestDigest: digest), fixture.phone, fixture.mac, 600)
-        case .approverConfirmation:
-            let proof = ApproverCode.random().proof(mac: fixture.mac.id, phone: fixture.phone.id, pairingID: pairingID)
-            let statement = ApproverConfirmation.statement(phone: fixture.phone.id, mac: fixture.mac.id,
-                                                           pairingID: pairingID, codeProof: proof)
-            let signature = try await fixture.phone.identity.signWithApprovalKey(statement, reason: "test")
-            return (ApproverConfirmation.encode(pairingID: pairingID, codeProof: proof, signature: signature),
-                    fixture.phone, fixture.mac, 600)
         default:
             fatalError("not an approval kind")
         }
     }
 
-    private static let kinds: [MessageKind] = [.approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt,
-                                               .approverConfirmation]
+    private static let kinds: [MessageKind] = [.approvalRequest, .approvalDecision, .approvalClosed, .approvalReceipt]
 
     private func sealed(_ kind: MessageKind, sentAtOffset: Int64 = 0, lifetime: Int64? = nil,
                         identity: (any DeviceIdentity)? = nil) async throws -> (DeviceEnvelope, SimulatedDevice) {
@@ -105,6 +97,7 @@ final class ApprovalTransportRuleTests: XCTestCase {
             ("sender", .routingMismatch, { var e = $0; e.sender = stranger; return e }),
             ("ciphertext", .decryptionFailed, { var e = $0; e.body[e.body.count - 1] ^= 1; return e }),
             ("unknown kind", .unknownKind, { var e = $0; e.kind = 15; return e }),
+            ("reserved kind 14", .unknownKind, { var e = $0; e.kind = 14; e.recordType = .quiet; return e }),
             ("non-canonical name", .malformed, { var e = $0; e.recordName = e.recordName.uppercased(); return e }),
             ("fractional time", .malformed, { var e = $0; e.sentAt += 0.5; return e }),
             ("pairing request kind", .noSession, { var e = $0; e.kind = 1; e.recordType = .quiet; return e }),

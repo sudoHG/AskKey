@@ -136,8 +136,8 @@ struct NotificationProcessor: Sendable {
         }
         guard !Task.isCancelled else { return .generic(.timedOut) }
         guard let envelope, envelope.recordName == recordName else { return .generic(.notFound) }
-        // Read after the fetch, so approval stopped or a Mac removed while
-        // CloudKit answered is already in the list the checks use.
+        // Read after the fetch, so a Mac removed while CloudKit answered is
+        // already gone from the list the checks use.
         let list: PairedDeviceList
         do {
             list = try environment.keychain.pairedDeviceList()

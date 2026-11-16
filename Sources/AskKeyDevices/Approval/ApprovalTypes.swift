@@ -39,7 +39,7 @@ public enum ApprovalClosedOutcome: UInt8, Hashable, Sendable, CaseIterable {
     case decidedOnAnotherApprover = 3
     case expired = 4
     /// The agent cancelled, the credential changed, agent access was
-    /// paused, or this approver was turned off or removed.
+    /// paused, or this approver was removed or its pairing replaced.
     case cancelled = 5
     /// The Mac verified the decision but could not apply it as signed.
     case notApplied = 6
@@ -111,7 +111,7 @@ public enum ApprovalMessageError: Error, Equatable, Sendable {
     case invalidClosedOutcome
 }
 
-/// The rules shared by every kind 10–14 payload (ADR 0014 → Encodings):
+/// The rules shared by every kind 10–13 payload (ADR 0014 → Encodings):
 /// each starts with the pairing ID and the layout version, and text fields
 /// are length-prefixed UTF-8 without control or line-break characters.
 enum ApprovalLayout {

@@ -70,10 +70,6 @@ public enum PairedDeviceChange: Hashable, Sendable {
     /// The state of the delivery check this device sent. A reply also marks
     /// the peer as reached; "no reply" applies only to the check still pending.
     case recordDeliveryCheck(DeviceID, pairingID: PairingID, result: DeliveryCheckResult)
-    /// Turns the entry's approval flag on or off. The Mac's Vault refuses
-    /// it, because a stored entry's flag never changes (ADR 0014 →
-    /// Approvers); it goes with the retired approver code.
-    case setApprover(DeviceID, pairingID: PairingID, enabled: Bool)
 }
 
 public enum PairedDeviceChangeOutcome: Hashable, Sendable {
@@ -142,8 +138,6 @@ public struct PairedDeviceList: Hashable, Sendable {
                 device.lastDeliveryCheck = result
                 if case .replied(let date) = result { device.markReached(date) }
             }
-        case .setApprover(let id, let pairingID, let enabled):
-            return update(id, pairingID) { $0.isApprover = enabled }
         }
     }
 

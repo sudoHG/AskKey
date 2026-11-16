@@ -20,7 +20,7 @@ public struct SealedApprovalRequest: Hashable, Sendable {
     public var requestDigest: Data { sealed.digest }
 }
 
-/// Seals kind 10–14 messages and delivery check replies without any state,
+/// Seals kind 10–13 messages and delivery check replies without any state,
 /// for a recipient entry the caller holds: the messenger's current list, or
 /// the card the Mac held before a removal for a closing message. Every
 /// message uses base-mode HPKE; its sent time is this sealer's clock when it
@@ -106,21 +106,6 @@ public struct DeviceMessageSealer: Sendable {
         let payload = ApprovalReceipt.encode(pairingID: request.pairingID, requestDigest: request.digest)
         return try sealApprovalKind(.approvalReceipt, payload, to: request.sender,
                                     messageID: ApprovalReceipt.receiptID(for: content.responseID))
-    }
-
-    /// Kind 14 to the Mac `mac`: the code proof for the typed code, signed
-    /// with the approval key over the confirmation statement, which asks for
-    /// Face ID or Touch ID. Throws `DeviceIdentityError` from the prompt.
-    public func sealApproverConfirmation(_ code: ApproverCode, to mac: PairedDevice,
-                                         approvalReason: String) async throws -> SealedDeviceMessage {
-        let phone = identity.deviceID
-        let proof = code.proof(mac: mac.deviceID, phone: phone, pairingID: mac.pairingID)
-        let statement = ApproverConfirmation.statement(phone: phone, mac: mac.deviceID, pairingID: mac.pairingID,
-                                                       codeProof: proof)
-        let signature = try await identity.signWithApprovalKey(statement, reason: approvalReason)
-        guard signature.count == ApprovalLayout.signatureByteCount else { throw DeviceIdentityError.authenticationFailed }
-        let payload = ApproverConfirmation.encode(pairingID: mac.pairingID, codeProof: proof, signature: signature)
-        return try sealApprovalKind(.approverConfirmation, payload, to: mac)
     }
 
     /// Kind 8 for a verified delivery check, signed with the message key, as

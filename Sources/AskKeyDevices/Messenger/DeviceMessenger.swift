@@ -122,7 +122,7 @@ public actor DeviceMessenger {
     /// The inbox change token after the last fully processed fetch.
     public internal(set) var inboxToken: InboxChangeToken?
 
-    /// `approvalHandler` receives every verified kind 10–14 message (ADR
+    /// `approvalHandler` receives every verified kind 10–13 message (ADR
     /// 0014); without one they are refused as `unexpectedKind`.
     /// `removalHook` is called with each entry before any removal of it
     /// commits, including one caused by an unpair notice or by pairing again.
@@ -140,7 +140,7 @@ public actor DeviceMessenger {
         deviceID = DeviceID(messagePublicKey: identity.messagePublicKey)
     }
 
-    /// Seals kind 10–14 messages with this device's identity and clock.
+    /// Seals kind 10–13 messages with this device's identity and clock.
     public nonisolated var sealer: DeviceMessageSealer {
         DeviceMessageSealer(identity: identity, clock: clock)
     }
