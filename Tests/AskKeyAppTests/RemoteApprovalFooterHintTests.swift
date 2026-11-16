@@ -54,14 +54,14 @@ final class RemoteApprovalFooterHintTests: AskKeyAppTestCase {
         harness.clock.advance(by: 1)
         harness.coordinator.reconcileRemoteRequests()
         XCTAssertEqual(harness.coordinator.remoteRequests[pending.requestID]?.phase, .sending)
-        XCTAssertNil(hint(pending), "unchanged while the request is being sealed")
+        XCTAssertNil(hint(pending), "no hint while the request is being sealed")
         try await harness.waitForRequests(1)
         try await harness.waitUntil { harness.entries(pending).first?.sentAt != nil }
         XCTAssertEqual(hint(pending), .sent)
         XCTAssertTrue(harness.coordinator.wasSentToApprover(pending.requestID), "the same saved state as Details' Sent to")
     }
 
-    func testARequestDecidedOnTheMacWithinTwentySecondsNeverSaysAlsoOnIPhone() async throws {
+    func testARequestDecidedOnTheMacWithinTwentySecondsNeverGetsTheSentHint() async throws {
         let (pending, sendAt) = try await waitingRead()
         harness.clock.advance(by: 10)
         await harness.coordinator.remoteApprovalTick()
@@ -78,7 +78,7 @@ final class RemoteApprovalFooterHintTests: AskKeyAppTestCase {
         XCTAssertTrue(harness.macSent(.approvalRequest).isEmpty)
     }
 
-    func testWithoutAnApproverTheFooterIsAlwaysUnchanged() async throws {
+    func testWithoutAnApproverTheFooterNeverHasAHint() async throws {
         try await harness.pairPhone()
         await harness.coordinator.removeDevice(harness.phone.deviceID)
         try await harness.addUnflaggedEntry(for: harness.phone, name: "Synthetic Phone")
@@ -126,7 +126,7 @@ final class RemoteApprovalFooterHintTests: AskKeyAppTestCase {
         XCTAssertNil(hint(pending), "a request that will not be sealed never promises the iPhone")
     }
 
-    func testWhenEveryApproverIsFullTheFooterIsUnchangedUntilOneHasRoom() async throws {
+    func testWhenEveryApproverIsFullTheFooterHasNoHintUntilOneHasRoom() async throws {
         try await harness.pairApprover()
         var sent: [BrokerPendingApproval] = []
         for _ in 0..<DeviceCoordinator.maximumOutstandingPerApprover {
@@ -146,7 +146,7 @@ final class RemoteApprovalFooterHintTests: AskKeyAppTestCase {
         XCTAssertEqual(hint(waiting), .waiting(sendAt: sendAt), "a closed copy makes room")
     }
 
-    func testAFirstSendThatIsRetriedKeepsTheFooterUnchangedUntilItIsSaved() async throws {
+    func testAFirstSendThatIsRetriedHasNoHintUntilItIsSaved() async throws {
         let (pending, _) = try await waitingRead()
         harness.transport.failNextSends(with: [.networkUnavailable])
         try await passTheTwentySecondMark()
@@ -163,7 +163,7 @@ final class RemoteApprovalFooterHintTests: AskKeyAppTestCase {
         XCTAssertEqual(hint(pending), .sent)
     }
 
-    func testOnceEveryCopyClosedTheFooterIsUnchanged() async throws {
+    func testOnceEveryCopyClosedTheFooterHasNoHint() async throws {
         let (pending, _) = try await waitingRead()
         let second = SimulatedPairingPhone(transport: harness.transport, clock: harness.clock)
         try await harness.pair(second, name: "Synthetic Phone Two")
@@ -181,7 +181,7 @@ final class RemoteApprovalFooterHintTests: AskKeyAppTestCase {
         XCTAssertEqual(try harness.state(pending), .pending, "the request stays on the Mac")
     }
 
-    func testARequestTheIPhoneDecidedNoLongerSaysAlsoOnIPhone() async throws {
+    func testARequestTheIPhoneDecidedNoLongerHasTheSentHint() async throws {
         let (pending, _) = try await waitingRead()
         try await passTheTwentySecondMark()
         try await harness.waitForRequests(1)

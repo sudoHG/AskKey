@@ -150,6 +150,8 @@ final class ScreenshotE2ETests: E2EBaseCase {
         _ = try waitForEvidence("approval-pending.json")
         XCTAssertTrue(app.buttons["approval-deny"].waitForExistence(timeout: 8))
         app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+        // Esc closes the panel and leaves the request pending (#356).
+        XCTAssertTrue(app.buttons["approval-deny"].waitForNonExistence(timeout: 8), "Esc closed the approval panel")
         moveManagementAboveDock()
         click("unlock-management")
         click("sidebar-pending")

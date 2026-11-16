@@ -15,8 +15,7 @@ import XCTest
 /// sheet with its approval statements at its own size (a SwiftUI sheet can't
 /// be captured offscreen); and the approval panel through the production
 /// panel factory, with its footer before and after the send (#350, worded
-/// as in #356). No
-/// window is ordered in. Set
+/// as in #356). No window is ordered in. Set
 /// `REMOTE_APPROVAL_RENDER_DIRECTORY` to keep the PNGs, and also
 /// `REMOTE_APPROVAL_WINDOW_RENDERS=1` on a desktop session to render the
 /// Devices section in the real Settings window, scrolled to it.

@@ -114,7 +114,7 @@ final class RemoteApprovalFooterTests: XCTestCase {
                        footer: footer, lastDecision: nil, applying: false)
         }
         XCTAssertEqual(step(footer: nil), .keepOpen)
-        XCTAssertNil(state.footer, "a request that stopped being eligible shows the unchanged footer")
+        XCTAssertNil(state.footer, "a request that stopped being eligible shows the expiry")
         XCTAssertEqual(step(footer: .sent), .keepOpen)
         XCTAssertEqual(state.footer, .sent)
         XCTAssertEqual(step(ended: true, footer: .sent), .close)
@@ -155,6 +155,8 @@ final class RemoteApprovalFooterTests: XCTestCase {
             XCTAssertFalse(panel.isVisible)
             XCTAssertEqual(sent.maxY, waiting.maxY, accuracy: 0.5, "the top edge stays")
             XCTAssertEqual(none.maxY, waiting.maxY, accuracy: 0.5, "the top edge stays")
+            // The expiry form is far narrower than the card, so it is one line,
+            // and a form as tall as it is one line too.
             XCTAssertEqual(sent.height, none.height, accuracy: 0.5, "both expiry forms take one line")
             if language == "en" {
                 XCTAssertGreaterThanOrEqual(waiting.height, none.height - 0.5, "English may wrap, downward")
@@ -170,7 +172,7 @@ final class RemoteApprovalFooterTests: XCTestCase {
     /// the card. The panel takes Esc in `sendEvent(_:)`, through which AppKit
     /// delivers every key event to it, whether the panel itself or the card's
     /// hosting view is first responder (as when keyboard navigation focuses a
-    /// button). A cancel sent up the responder chain, as Command-period is,
+    /// button). A held Esc decides once. A cancel sent up the responder chain
     /// decides later too. Other keys pass through. Esc with a modifier is not
     /// the panel's: it goes on to AppKit, which turns it into a cancel only
     /// while the app is active (it is on the CI runner, not in a local run),
@@ -190,6 +192,8 @@ final class RemoteApprovalFooterTests: XCTestCase {
             panel.sendEvent(try key("\u{1b}", code: 53, in: panel))
         }
         XCTAssertEqual(decisions.count, 2, "each Esc reached the card")
+        panel.sendEvent(try key("\u{1b}", code: 53, repeating: true, in: panel))
+        XCTAssertEqual(decisions.count, 2, "a held Esc decides once, and its repeats never reach the next request")
         panel.sendEvent(try key("a", code: 0, in: panel))
         XCTAssertEqual(decisions.count, 2, "other keys never decide")
         XCTAssertTrue(AgentApprovalPanel.isEscape(try key("\u{1b}", code: 53, in: panel)))
@@ -243,9 +247,9 @@ final class RemoteApprovalFooterTests: XCTestCase {
     }
 
     private func key(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = [],
-                     in panel: NSPanel) throws -> NSEvent {
+                     repeating: Bool = false, in panel: NSPanel) throws -> NSEvent {
         try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber, context: nil,
-            characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code))
+            characters: characters, charactersIgnoringModifiers: characters, isARepeat: repeating, keyCode: code))
     }
 }
