@@ -234,7 +234,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "命令、运行目录和交出的变量名不保存在 iPhone 上。要看完整记录，请在 Mac 上打开请旨的“访问记录”。"
+            "value": "命令、运行目录和交出的变量名不保存在 iPhone 上。要看完整记录，请在 Mac 上打开请⁠旨的“访问记录”。"
           }
         }
       }
@@ -336,7 +336,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这里只记录发到这台 iPhone 的请求，保留 30 天。完整记录在 Mac 上请旨的“访问记录”里。"
+            "value": "这里只记录发到这台 iPhone 的请求，保留 30 天。完整记录在 Mac 上请⁠旨的“访问记录”里。"
           }
         }
       }
@@ -3543,13 +3543,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete this iPhone's keys and its paired Macs?"
+            "value": "Delete this iPhone's keys, its paired Macs and its history?"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除这台 iPhone 的密钥和已配对的 Mac？"
+            "value": "删除这台 iPhone 的密钥、已配对的 Mac 和记录？"
           }
         }
       }
@@ -3560,13 +3560,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Resetting deletes this iPhone's keys and its paired Macs. Then remove this iPhone on each Mac and pair again."
+            "value": "Resetting deletes this iPhone's keys, its paired Macs and its history. Then remove this iPhone on each Mac and pair again."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "重置会删除这台 iPhone 的密钥和已配对的 Mac。之后在每台 Mac 上移除这台 iPhone，再重新配对。"
+            "value": "重置会删除这台 iPhone 的密钥、已配对的 Mac 和记录。之后在每台 Mac 上移除这台 iPhone，再重新配对。"
           }
         }
       }
