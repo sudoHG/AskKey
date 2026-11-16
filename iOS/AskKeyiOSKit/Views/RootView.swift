@@ -126,37 +126,71 @@ struct UnusableIdentityView: View {
     @State private var confirming = false
 
     var body: some View {
-        UnusableIdentityContent(isResetting: model.isResetting, resetFailed: model.resetFailed) { confirming = true }
-            .screenScaffold()
-            .confirmationDialog(Text("unusable.confirmTitle", bundle: .kit), isPresented: $confirming,
-                                titleVisibility: .visible) {
+        UnusableIdentityContent(isResetting: model.isResetting, resetFailed: model.resetFailed,
+                                biometry: model.biometryKind) { confirming = true }
+            .tabScaffold()
+            .onAppear { model.readBiometryKind() }
+            .confirmationDialog(UnusableResetText.title, isPresented: $confirming, titleVisibility: .visible) {
                 Button(role: .destructive) {
                     Task { await model.resetIdentity() }
                 } label: {
-                    Text("unusable.reset", bundle: .kit)
+                    UnusableResetText.confirm
                 }
                 Button(role: .cancel) {} label: { Text("common.cancel", bundle: .kit) }
+            } message: {
+                UnusableResetText.message
             }
     }
 }
 
+/// **Reset This iPhone**'s confirmation, in the dialog and in its render.
+enum UnusableResetText {
+    static var title: Text { Text("unusable.confirmTitle", bundle: .kit) }
+    static var message: Text { Text("unusable.confirmMessage", bundle: .kit) }
+    static var confirm: Text { Text("unusable.reset", bundle: .kit) }
+}
+
 /// A stored key no longer works, for example after a Face ID or Touch ID
-/// enrollment change; one reset deletes the keys and the list.
+/// enrollment change; one reset deletes the keys and the list (#351): a key
+/// with a slash in an orange circle, the cause, what the reset deletes and
+/// what to do next, and **Reset This iPhone** at the bottom.
 struct UnusableIdentityContent: View {
     let isResetting: Bool
     let resetFailed: Bool
+    var biometry: BiometryKind = .faceID
     let onReset: () -> Void
+    @ScaledMetric(relativeTo: .largeTitle) private var circle: CGFloat = 72
 
     var body: some View {
-        ScreenContent(title: "unusable.title", subtitle: "unusable.detail") {
-            NoticeCard(symbol: "arrow.counterclockwise", tone: .warning, text: Text("unusable.consequence", bundle: .kit))
+        FullScreenLayout {
+            Image(systemName: "key.slash")
+                .font(.largeTitle.weight(.medium))
+                .foregroundStyle(.orange)
+                .frame(width: circle, height: circle)
+                .background(Circle().fill(Color.orange.opacity(0.15)))
+                .padding(.bottom, 28)
+                .accessibilityHidden(true)
+            FullScreenTitle(title: "unusable.title",
+                            detail: biometry == .touchID ? "unusable.detail.touchID" : "unusable.detail")
+            FullScreenNotice(text: Text("unusable.consequence", bundle: .kit))
+                .padding(.top, 28)
+        } bottom: {
             if resetFailed {
-                NoticeCard(symbol: "exclamationmark.triangle.fill", tone: .warning, text: Text("unusable.failed", bundle: .kit))
+                FullScreenNotice(text: Text("unusable.failed", bundle: .kit))
             }
-            Button(action: onReset) {
-                Text(isResetting ? "unusable.resetting" : "unusable.reset", bundle: .kit)
+            Button(role: .destructive, action: onReset) {
+                HStack(spacing: 8) {
+                    if isResetting {
+                        ButtonSpinner()
+                    }
+                    Text(isResetting ? "unusable.resetting" : "unusable.reset", bundle: .kit)
+                }
+                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(ActionButtonStyle(kind: .destructive))
+            .buttonStyle(.bordered)
+            .tint(.red)
+            .controlSize(.large)
+            .buttonBorderShape(.capsule)
             .disabled(isResetting)
         }
     }

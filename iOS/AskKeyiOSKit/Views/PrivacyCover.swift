@@ -29,20 +29,38 @@ struct PrivacyCoverModifier: ViewModifier {
     }
 }
 
+/// The cover itself: only the app's icon, centered on the grouped
+/// background (#351), so nothing on it can come from a request.
 struct PrivacyCoverView: View {
     var body: some View {
         ZStack {
             Color(uiColor: .systemGroupedBackground)
-            VStack(spacing: 14) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 52))
-                    .foregroundStyle(Color.accentColor)
-                Text("common.appName", bundle: .kit)
-                    .font(.title2.bold())
-            }
+            AppIconImage(size: 84)
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
+    }
+}
+
+/// The app's icon as the home screen shows it, on the welcome screen and the
+/// privacy cover. It is decorative, so VoiceOver skips it.
+///
+/// UIKit cannot load the app's compiled `AppIcon` (loading it by name raises
+/// an exception), so the kit carries `AppIconArtwork`: the iOS Default and
+/// Dark renditions of `assets/AppIcon.icon` at 84 × 84 points and 3×,
+/// exported with Icon Composer's `ictool` and already in the icon's shape.
+/// Export it again whenever the icon changes.
+struct AppIconImage: View {
+    let size: CGFloat
+
+    var body: some View {
+        Image("AppIconArtwork", bundle: .kit)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: size, height: size)
+            // The light icon is nearly as light as the grouped background.
+            .shadow(color: .black.opacity(0.1), radius: 8, y: 3)
+            .accessibilityHidden(true)
     }
 }
 

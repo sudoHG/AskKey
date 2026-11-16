@@ -1,23 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "common.appName": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Key"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请旨"
-          }
-        }
-      }
-    },
     "common.cancel": {
       "extractionState": "manual",
       "localizations": {
@@ -2687,6 +2670,23 @@
         }
       }
     },
+    "unusable.confirmMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This can't be undone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此操作无法撤销。"
+          }
+        }
+      }
+    },
     "unusable.confirmTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -2710,13 +2710,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reset deletes this iPhone's keys and its list of paired Macs. Then remove this iPhone in Ask Key on each Mac and pair again."
+            "value": "Resetting deletes this iPhone's keys and its paired Macs. Then remove this iPhone on each Mac and pair again."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "重置会删除这台 iPhone 的密钥和已配对 Mac 的列表。之后请在每台 Mac 上的请旨中移除这台 iPhone，再重新配对。"
+            "value": "重置会删除这台 iPhone 的密钥和已配对的 Mac。之后在每台 Mac 上移除这台 iPhone，再重新配对。"
           }
         }
       }
@@ -2727,13 +2727,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask Key can't use this iPhone's keys anymore. This happens after Face ID or Touch ID changes, such as adding a new appearance or finger."
+            "value": "After a Face ID change, such as setting up an alternate appearance, Ask Key can't use this iPhone's keys, so it can't approve."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请旨无法再使用这台 iPhone 的密钥。更改面容 ID 或触控 ID（例如添加新的外貌或指纹）后会出现这种情况。"
+            "value": "更改面容 ID 后（例如设置其他外貌），请旨就无法再使用这台 iPhone 的密钥，也就无法审批。"
+          }
+        }
+      }
+    },
+    "unusable.detail.touchID": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After a Touch ID change, such as adding a fingerprint, Ask Key can't use this iPhone's keys, so it can't approve."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更改触控 ID 后（例如添加指纹），请旨就无法再使用这台 iPhone 的密钥，也就无法审批。"
           }
         }
       }
@@ -2761,13 +2778,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reset"
+            "value": "Reset This iPhone"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "重置"
+            "value": "重置这台 iPhone"
           }
         }
       }
@@ -2795,13 +2812,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone's Keys No Longer Work"
+            "value": "This iPhone's Keys\nNo Longer Work"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 的密钥已失效"
+            "value": "这台 iPhone 的\n密钥已失效"
           }
         }
       }
@@ -3078,70 +3095,121 @@
         }
       }
     },
-    "welcome.requirement.biometry": {
+    "welcome.point.biometry.detail": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You confirm every pairing with Face ID or Touch ID. The passcode alone is not enough."
+            "value": "Denying doesn't. Someone holding your phone can't allow for you."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "每次配对都要用面容 ID 或触控 ID 确认，只用密码不行。"
+            "value": "拒绝不需要。拿到你手机的人无法替你允许。"
           }
         }
       }
     },
-    "welcome.requirement.icloud": {
+    "welcome.point.faceID.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your Mac and this iPhone exchange encrypted messages through iCloud, so both must use the same Apple Account."
+            "value": "Allowing needs Face ID"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac 与这台 iPhone 通过 iCloud 交换加密消息，所以两台设备必须登录同一个 Apple 账户。"
+            "value": "允许要用面容 ID"
           }
         }
       }
     },
-    "welcome.requirement.notifications": {
+    "welcome.point.icloud.detail": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask Key asks to send notifications, so you see when your Mac checks that it can reach this iPhone."
+            "value": "The iPhone and the Mac must use the same Apple Account."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请旨会请求发送通知，这样 Mac 检查能否联系到这台 iPhone 时，你能看到提示。"
+            "value": "iPhone 和 Mac 需登录同一个 Apple 账户。"
           }
         }
       }
     },
-    "welcome.requirement.secureEnclave": {
+    "welcome.point.icloud.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone's keys are created in its Secure Enclave and never leave it."
+            "value": "Encrypted through your iCloud"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 的密钥在它的安全隔区中生成，永远不会离开它。"
+            "value": "通过你的 iCloud 加密传递"
+          }
+        }
+      }
+    },
+    "welcome.point.touchID.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowing needs Touch ID"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许要用触控 ID"
+          }
+        }
+      }
+    },
+    "welcome.point.values.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The iPhone receives only what the request is for, never a credential value."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone 只收到请求说明，从不收到凭证的值。"
+          }
+        }
+      }
+    },
+    "welcome.point.values.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Credentials stay on the Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "凭证留在 Mac 上"
           }
         }
       }
@@ -3152,13 +3220,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask Key on this iPhone pairs with Ask Key on your Mac. First it checks that this iPhone can keep the pairing safe."
+            "value": "When you're away from your Mac, an agent's request to use a credential comes here for you to allow or deny."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone 上的请旨会与 Mac 上的请旨配对。开始前，它会先检查这台 iPhone 能否安全地保存配对。"
+            "value": "你不在 Mac 前时，Agent 想用凭证的请求会发到这里，由你允许或拒绝。"
           }
         }
       }
@@ -3169,13 +3237,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pair This iPhone with Your Mac"
+            "value": "Decide agent requests on your iPhone"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将这台 iPhone 与你的 Mac 配对"
+            "value": "在 iPhone 上处理 Agent 的请求"
           }
         }
       }
@@ -3203,13 +3271,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Some iPhones ask whether Ask Key may use wireless data the first time it goes online. Choose WLAN & Cellular Data, or Ask Key can't reach iCloud."
+            "value": "If iOS asks whether Ask Key may use wireless data, choose WLAN & Cellular."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "部分 iPhone 会在请旨首次联网时询问是否允许使用无线数据。请选择“无线局域网与蜂窝网络”，否则请旨无法连接 iCloud。"
+            "value": "如果系统询问是否允许请旨使用无线数据，请选择“无线局域网与蜂窝网络”。"
           }
         }
       }
