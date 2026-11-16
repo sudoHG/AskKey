@@ -21,7 +21,7 @@ final class ScreenRenderTests: XCTestCase {
         return FileManager.default.temporaryDirectory.appendingPathComponent("AskKeyiOSScreens", isDirectory: true)
     }
 
-    private func render<Screen: View>(_ name: String, _ screen: Screen,
+    private func render<Screen: View>(_ name: String, _ screen: Screen, hasText: Bool = true,
                                       file: StaticString = #filePath, line: UInt = #line) throws {
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
         var images: [Data] = []
@@ -41,12 +41,34 @@ final class ScreenRenderTests: XCTestCase {
             try data.write(to: outputDirectory.appendingPathComponent("\(name)-\(language).png"))
             images.append(data)
         }
-        XCTAssertNotEqual(images[0], images[1], "\(name) looks the same in both languages", file: file, line: line)
+        if hasText {
+            XCTAssertNotEqual(images[0], images[1], "\(name) looks the same in both languages", file: file, line: line)
+        } else {
+            XCTAssertEqual(images[0], images[1], "\(name) shows text", file: file, line: line)
+        }
     }
 
+    /// #351: the welcome, a failed check, the checks running, the Touch ID
+    /// point, and an accessibility text size, where the symbols move above
+    /// their text and the actions follow the content.
     func testWelcome() throws {
-        try render("01-welcome", WelcomeContent(step: .intro, onContinue: {}))
-        try render("02-welcome-network-failure", WelcomeContent(step: .failed(.networkUnavailable), onContinue: {}))
+        for symbol in ["lock.shield", "faceid", "touchid", "icloud", "exclamationmark.circle.fill",
+                       "progress.indicator"] {
+            XCTAssertNotNil(UIImage(systemName: symbol), symbol)
+        }
+        func screen(_ step: WelcomeStep = .intro, biometry: BiometryKind = .faceID) -> some View {
+            FullScreenStandIn {
+                WelcomeContent(biometry: biometry)
+            } actions: {
+                WelcomeActions(step: step, onContinue: {})
+            }
+        }
+        try render("01-welcome", screen())
+        try render("02-welcome-network-failure", screen(.failed(.networkUnavailable)))
+        try render("80-welcome-checking", screen(.checking))
+        try render("81-welcome-touch-id", screen(biometry: .touchID))
+        try render("82-welcome-accessibility-size", screen().environment(\.dynamicTypeSize, .accessibility2))
+        try render("88-welcome-largest-text", screen().environment(\.dynamicTypeSize, .accessibility5))
     }
 
     func testScanner() throws {
@@ -78,8 +100,24 @@ final class ScreenRenderTests: XCTestCase {
         try render("10-pairing-paired", PairingResultContent(outcome: .paired(macName: Self.mac), onDone: {}))
     }
 
+    /// #351: the reset screen, its confirmation, the reset running and
+    /// failed, and the Touch ID cause.
     func testUnusableIdentity() throws {
-        try render("14-unusable-identity", UnusableIdentityContent(isResetting: false, resetFailed: false, onReset: {}))
+        XCTAssertNotNil(UIImage(systemName: "key.slash"))
+        func screen(isResetting: Bool = false, resetFailed: Bool = false, biometry: BiometryKind = .faceID) -> some View {
+            FullScreenStandIn {
+                UnusableIdentityContent(biometry: biometry)
+            } actions: {
+                UnusableIdentityActions(isResetting: isResetting, resetFailed: resetFailed, onReset: {})
+            }
+        }
+        try render("14-unusable-identity", screen())
+        try render("83-unusable-identity-confirmation",
+                   ActionSheetStandIn(title: UnusableResetText.title, message: UnusableResetText.message,
+                                      action: UnusableResetText.confirm) { screen() })
+        try render("84-unusable-identity-resetting", screen(isResetting: true))
+        try render("85-unusable-identity-reset-failed", screen(resetFailed: true))
+        try render("86-unusable-identity-touch-id", screen(biometry: .touchID))
     }
 
     // MARK: Approver (#314)
@@ -295,8 +333,30 @@ final class ScreenRenderTests: XCTestCase {
         try render("56-macs-icloud-unavailable", macs(Self.macRows, accountNotice: .unavailable))
     }
 
+    /// #351: only the app's icon, so the cover looks the same in both
+    /// languages; in dark mode it is the icon's Dark rendition.
     func testPrivacyCover() throws {
-        try render("40-privacy-cover", PrivacyCoverView())
+        let light = try XCTUnwrap(UIImage(named: "AppIconArtwork", in: .kit,
+                                          compatibleWith: UITraitCollection(userInterfaceStyle: .light)))
+        let dark = try XCTUnwrap(UIImage(named: "AppIconArtwork", in: .kit,
+                                         compatibleWith: UITraitCollection(userInterfaceStyle: .dark)))
+        XCTAssertEqual(light.size.width * light.scale, 252, "84 points at 3x")
+        XCTAssertNotEqual(light.pngData(), dark.pngData())
+        try render("40-privacy-cover", PrivacyCoverView(), hasText: false)
+        try render("87-privacy-cover-dark", PrivacyCoverView().environment(\.colorScheme, .dark), hasText: false)
+        // Opaque: a request under the cover never shows through it.
+        func pixels<Screen: View>(_ screen: Screen) throws -> Data {
+            let renderer = ImageRenderer(content: screen
+                .frame(width: Self.screenSize.width, height: Self.screenSize.height)
+                .environment(\.colorScheme, .light))
+            return try XCTUnwrap(renderer.uiImage?.pngData())
+        }
+        let covered = ZStack {
+            Color.red
+            Text(verbatim: "\u{201C}Codex\u{201D} wants to use \u{201C}GitHub Token\u{201D}").font(.largeTitle)
+            PrivacyCoverView()
+        }
+        XCTAssertEqual(try pixels(covered), try pixels(PrivacyCoverView()))
     }
 }
 
