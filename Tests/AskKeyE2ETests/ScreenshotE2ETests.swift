@@ -172,7 +172,8 @@ final class ScreenshotE2ETests: E2EBaseCase {
         XCTAssertEqual(app.buttons["approval-allow-once"].label, "Allow Once")
         XCTAssertEqual(app.buttons["approval-allow-timed"].label, "Allow for 30 Minutes")
         XCTAssertEqual(app.buttons["approval-deny"].label, "Deny")
-        waitForText("Esc to decide later")
+        // The footer is one VoiceOver sentence, "Expires in … · Esc to decide later" (#350).
+        waitForText("Esc to decide later", containing: true)
         XCTAssertFalse(app.staticTexts["Requested by"].exists, "everything else stays behind Details")
         capture("12-approval-default", approval: true)
         click("approval-details")

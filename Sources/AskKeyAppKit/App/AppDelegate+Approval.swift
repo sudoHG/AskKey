@@ -211,7 +211,8 @@ extension AppDelegate {
         let groupAllowance = GroupTimedAllowancePresentation(snapshot: pending?.groupAllowanceSnapshot)
         let remote = pending.map {
             RemoteApprovalPanelState(requestID: $0.requestID,
-                                     status: DeviceServicesHost.coordinator?.remoteApprovals[$0.requestID])
+                                     status: DeviceServicesHost.coordinator?.remoteApprovals[$0.requestID],
+                                     footer: DeviceServicesHost.coordinator?.remoteFooterHint(for: $0.requestID))
         }
         let panel = Self.makeFrozenApprovalPanel(
             FrozenAgentApprovalPrompt(
@@ -313,6 +314,7 @@ extension AppDelegate {
                     let coordinator = DeviceServicesHost.coordinator
                     let step = remote.step(requestEnded: requestEnded, screenUnlocked: screenUnlocked, expired: expired,
                         now: Date(), status: coordinator?.remoteApprovals[remote.requestID],
+                        footer: coordinator?.remoteFooterHint(for: remote.requestID),
                         lastDecision: coordinator?.lastRemoteDecision,
                         applying: coordinator?.isApplyingRemoteDecision(to: remote.requestID) == true)
                     if step == .close { finish(nil) }

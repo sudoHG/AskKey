@@ -278,18 +278,39 @@ struct FrozenAgentApprovalPrompt: View {
         }
     }
 
+    /// One moving number at a time: the send countdown while the request
+    /// waits for a paired iPhone, otherwise the expiry (ADR 0014 → Mac App).
+    /// A footer too long for one line, as the English "Also on iPhone" form
+    /// is, puts the text and "Esc to decide later" on a line each, so
+    /// neither breaks. VoiceOver reads it as one sentence and decides later
+    /// when it is activated; mouse and Esc work as before.
     private var footer: some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(appLocalizedFormat("Expires in %@", FrozenCountdown.format(deadline: expiresAt, now: context.date)))
-                    .monospacedDigit()
+        let hint = remote?.footer
+        return TimelineView(RemoteApprovalFooterSchedule(anchor: RemoteApprovalFooter.anchor(hint, expiresAt: expiresAt))) { context in
+            let text = RemoteApprovalFooter.text(hint, expiresAt: expiresAt, now: context.date)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(text).monospacedDigit()
+                    Text(verbatim: "·")
+                    decideLaterButton
+                }
+                VStack(spacing: Theme.Spacing.xs) {
+                    Text(text).monospacedDigit()
+                    decideLaterButton
+                }
             }
-            Text(verbatim: "·")
-            Button(appLocalized("Esc to decide later")) { finish(nil) }
-                .buttonStyle(.plain)
-                .keyboardShortcut(.cancelAction)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: RemoteApprovalFooter.sentence(text)))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { finish(nil) }
         }
         .font(Theme.Fonts.caption)
         .foregroundStyle(Theme.textTertiary)
+    }
+
+    private var decideLaterButton: some View {
+        Button(appLocalized("Esc to decide later")) { finish(nil) }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.cancelAction)
     }
 }

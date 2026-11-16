@@ -14,7 +14,8 @@ import XCTest
 /// without approval, and Remove's confirmation; every step of the pairing
 /// sheet with its approval statements at its own size (a SwiftUI sheet can't
 /// be captured offscreen); and the approval panel through the production
-/// panel factory. No window is ordered in. Set
+/// panel factory, with its footer before and after the send (#350). No
+/// window is ordered in. Set
 /// `REMOTE_APPROVAL_RENDER_DIRECTORY` to keep the PNGs, and also
 /// `REMOTE_APPROVAL_WINDOW_RENDERS=1` on a desktop session to render the
 /// Devices section in the real Settings window, scrolled to it.
@@ -73,10 +74,11 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
             names += try await renderDevices(harness, language: language, tag: tag)
             names += try renderPanel(tag: tag)
             names += try renderPendingList(harness, language: language, tag: tag)
+            names += try renderFooters(tag: tag)
         }
         let files = try FileManager.default.contentsOfDirectory(atPath: directory.path).filter { $0.hasSuffix(".png") }
         XCTAssertEqual(Set(files), Set(names.map { $0 + ".png" }))
-        XCTAssertEqual(names.count, rendersWindow ? 32 : 30)
+        XCTAssertEqual(names.count, rendersWindow ? 38 : 36)
     }
 
     // MARK: Settings → Devices
@@ -208,7 +210,6 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
     /// Details with where the request went, and an approver's decision, in
     /// the production panel. The card's front is the same as without them.
     private func renderPanel(tag: String) throws -> [String] {
-        let request = ApprovalCardFixtures.request(.read, display: ApprovalCardFixtures.display())
         let sent = Date()
         let deviceID = try XCTUnwrap(DeviceID(rawValue: Data(repeating: 9, count: 16)))
         func status(delivered: Bool) -> RemoteApprovalStatus {
@@ -216,8 +217,9 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
                                                    deliveredAt: delivered ? sent.addingTimeInterval(2) : nil)])
         }
         let cases: [(String, RemoteApprovalPanelState, Bool)] = [
-            ("11", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: false)), true),
-            ("12", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: true)), true),
+            // Saved and still open, so the footer says "Also on iPhone" (#350).
+            ("11", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: false), footer: .sent), true),
+            ("12", RemoteApprovalPanelState(requestID: "synthetic", status: status(delivered: true), footer: .sent), true),
             ("13", outcome(approved: true, status: status(delivered: true)), false),
             ("14", outcome(approved: false, status: status(delivered: true)), false),
         ]
@@ -225,27 +227,76 @@ final class RemoteApprovalRenderTests: AskKeyAppTestCase {
                       "13": "panel-approved-on-iphone", "14": "panel-denied-on-iphone"]
         var names: [String] = []
         for (number, remote, expanded) in cases {
-            let prompt = FrozenAgentApprovalPrompt(request: request, trustedCredentialName: "Staging API",
-                expiresAt: Date(timeIntervalSinceNow: 300), timedAllowanceEnabled: true, remote: remote,
-                detailsExpanded: expanded, finish: { _ in XCTFail("Rendering must never decide") })
-            let plain = FrozenAgentApprovalPrompt(request: request, trustedCredentialName: "Staging API",
-                expiresAt: nil, timedAllowanceEnabled: true, finish: { _ in })
-            XCTAssertEqual(prompt.presentation.content, plain.presentation.content, "the card's front is unchanged")
-            XCTAssertEqual(prompt.presentation.buttons.map(\.identifier), plain.presentation.buttons.map(\.identifier))
-            let panel = AppDelegate.makeFrozenApprovalPanel(prompt, visibleFrame: { _ in NSRect(x: 0, y: 0, width: 1440, height: 900) })
-            panel.appearance = NSAppearance(named: .aqua)
-            defer { panel.contentViewController = nil; panel.close() }
-            let content = try XCTUnwrap(panel.contentView)
-            settle(panel)
-            XCTAssertFalse(panel.isVisible)
-            let frame = try XCTUnwrap(content.superview)
-            _ = try Self.render(frame) // warm lazy image drawing
-            RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.02))
             let name = "\(number)-\(tag)-\(labels[number]!)"
-            try export(frame, as: name)
+            try renderPanel(remote: remote, expanded: expanded, expiresAt: Date(timeIntervalSinceNow: 300), as: name)
             names.append(name)
         }
         return names
+    }
+
+    /// The footer with a paired iPhone (#350): the send countdown at 18
+    /// seconds, "Also on iPhone" after the send, and the unchanged footer
+    /// when no approver can take the request. Details stay collapsed, so the
+    /// render shows the whole front next to the footer.
+    private func renderFooters(tag: String) throws -> [String] {
+        let deviceID = try XCTUnwrap(DeviceID(rawValue: Data(repeating: 9, count: 16)))
+        let sent = RemoteApprovalStatus(approvers: [.init(deviceID: deviceID, displayName: "Synthetic iPhone",
+                                                          sentAt: Date(), deliveredAt: nil)])
+        var names: [String] = []
+        // The footer ticks just after each whole second before its anchor, so
+        // an anchor 0.05 s short of a whole second keeps the number for almost
+        // a second, longer than a render takes.
+        // A render that took longer is taken again, so the PNG shows `number`.
+        func footer(_ label: String, expiresIn: TimeInterval, shows number: String,
+                    state: (Date) -> RemoteApprovalPanelState) throws {
+            let name = "\(label.prefix(2))-\(tag)-\(label.dropFirst(3))"
+            for _ in 0..<3 {
+                let now = Date()
+                let remote = state(now)
+                let expiresAt = now.addingTimeInterval(expiresIn)
+                let schedule = RemoteApprovalFooterSchedule(anchor: RemoteApprovalFooter.anchor(remote.footer, expiresAt: expiresAt))
+                let tick = try XCTUnwrap(schedule.entries(from: now, mode: .normal).next())
+                let shown = RemoteApprovalFooter.text(remote.footer, expiresAt: expiresAt, now: tick)
+                XCTAssertTrue(shown.contains(number), "\(label) shows \(shown)")
+                try renderPanel(remote: remote, expanded: false, expiresAt: expiresAt, as: name)
+                if Date().timeIntervalSince(now) < 0.9 {
+                    names.append(name)
+                    return
+                }
+            }
+            XCTFail("\(name) took longer than 0.9 s to render three times")
+        }
+        try footer("17-panel-footer-iphone-in-18s", expiresIn: 297.95, shows: "18") {
+            RemoteApprovalPanelState(requestID: "synthetic", footer: .waiting(sendAt: $0.addingTimeInterval(17.95)))
+        }
+        try footer("18-panel-footer-also-on-iphone", expiresIn: 279.95, shows: "4:39") { _ in
+            RemoteApprovalPanelState(requestID: "synthetic", status: sent, footer: .sent)
+        }
+        try footer("19-panel-footer-no-approver", expiresIn: 299.95, shows: "4:59") { _ in
+            RemoteApprovalPanelState(requestID: "synthetic")
+        }
+        return names
+    }
+
+    private func renderPanel(remote: RemoteApprovalPanelState, expanded: Bool, expiresAt: Date, as name: String) throws {
+        let request = ApprovalCardFixtures.request(.read, display: ApprovalCardFixtures.display())
+        let prompt = FrozenAgentApprovalPrompt(request: request, trustedCredentialName: "Staging API",
+            expiresAt: expiresAt, timedAllowanceEnabled: true, remote: remote,
+            detailsExpanded: expanded, finish: { _ in XCTFail("Rendering must never decide") })
+        let plain = FrozenAgentApprovalPrompt(request: request, trustedCredentialName: "Staging API",
+            expiresAt: nil, timedAllowanceEnabled: true, finish: { _ in })
+        XCTAssertEqual(prompt.presentation.content, plain.presentation.content, "the card's front is unchanged")
+        XCTAssertEqual(prompt.presentation.buttons.map(\.identifier), plain.presentation.buttons.map(\.identifier))
+        let panel = AppDelegate.makeFrozenApprovalPanel(prompt, visibleFrame: { _ in NSRect(x: 0, y: 0, width: 1440, height: 900) })
+        panel.appearance = NSAppearance(named: .aqua)
+        defer { panel.contentViewController = nil; panel.close() }
+        let content = try XCTUnwrap(panel.contentView)
+        settle(panel)
+        XCTAssertFalse(panel.isVisible)
+        let frame = try XCTUnwrap(content.superview)
+        _ = try Self.render(frame) // warm lazy image drawing
+        RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.02))
+        try export(frame, as: name)
     }
 
     private func outcome(approved: Bool, status: RemoteApprovalStatus) -> RemoteApprovalPanelState {

@@ -16041,6 +16041,52 @@
         }
       }
     },
+    "iPhone can decide in %lld s": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone can decide in %lld s"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 秒后 iPhone 也能处理"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!iPhone can decide in %lld s!!]"
+          }
+        }
+      }
+    },
+    "Also on iPhone · Expires in %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also on iPhone · Expires in %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone 也能处理 · %@ 后失效"
+          }
+        },
+        "qps-ploc": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[!!Also on iPhone · Expires in %@!!]"
+          }
+        }
+      }
+    },
     "If verification fails, Ask Key restores the original settings.": {
       "extractionState": "extracted_with_value",
       "localizations": {
