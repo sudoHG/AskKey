@@ -100,73 +100,95 @@ final class ScreenRenderTests: XCTestCase {
                     isGone: isGone, isChecking: isChecking)
     }
 
-    private func renderCard(_ name: String, _ card: RequestCard, details: Bool = false,
-                            problem: DecisionProblem? = nil) throws {
-        try render(name, RequestCardContent(card: card, now: Self.now, problem: problem, showsDetails: details,
-                                            onDecide: { _ in }, onDismiss: {})
-            .padding(20))
+    /// The request page as the sheet shows it, through the app's own view.
+    /// A page that fits shows at the screen's height with its actions at the
+    /// bottom; `tall` lets it grow to show everything, as scrolling would.
+    private func page(_ card: RequestCard?, opening: OpeningPhase? = nil, biometry: BiometryKind = .faceID,
+                      tapped: ApprovalDecisionCode? = nil, problem: DecisionProblem? = nil, details: Bool = false,
+                      tall: Bool = false) -> some View {
+        SheetStandIn(tall: tall) {
+            OpenedRequestContent(card: card, opening: opening, now: Self.now, biometry: biometry,
+                                 isDeciding: tapped != nil, isDecidingHere: tapped != nil, tapped: tapped,
+                                 problem: problem, showsDetails: details, scrolls: false, onDecide: { _ in }, onClose: {})
+        }
     }
 
-    func testRequestCard() throws {
-        try renderCard("16-request-card", Self.card())
-        try renderCard("17-request-details", Self.card(), details: true)
+    private static let allowOnceOnly = RequestDisplay(
+        requesterName: "Claude Code", purpose: "", credentialName: "Staging API", commandLine: "npm run deploy:staging",
+        workingDirectory: "~/src/site", executableName: "npm",
+        deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "", variable: "STAGING_API_KEY")])
+
+    /// #347: the page while the request can be decided, with and without the
+    /// timed allowance, Details open, the two deny-only cases, a cancelled
+    /// Face ID, Touch ID under a minute and an accessibility text size.
+    func testRequestPage() throws {
+        try render("59-request-page", page(Self.card()))
+        try render("60-request-page-allow-once-only", page(Self.card(Self.allowOnceOnly)))
+        try render("61-request-page-details", page(Self.card(), details: true, tall: true))
         let shortened = RequestDisplay(requesterName: "", purpose: "", credentialName: "Prod Database",
-                                   commandLine: "psql " + String(repeating: "--set=x ", count: 40) + "…",
-                                   workingDirectory: "", executableName: "psql",
-                                   deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "Password",
-                                                                      variable: "PGPASSWORD"),
-                                                  ApprovalDeliveryRow(kind: .temporaryFile, label: "Client certificate",
-                                                                      variable: "PGSSLCERT")],
-                                   shortened: [.commandLine], offers: .denyOnly)
-        try renderCard("18-request-deny-only-shortened", Self.card(shortened), details: true)
+                                       commandLine: "psql " + String(repeating: "--set=x ", count: 40) + "…",
+                                       workingDirectory: "", executableName: "psql",
+                                       deliveryRows: [ApprovalDeliveryRow(kind: .environmentVariable, label: "Password",
+                                                                          variable: "PGPASSWORD"),
+                                                      ApprovalDeliveryRow(kind: .temporaryFile, label: "Client certificate",
+                                                                          variable: "PGSSLCERT")],
+                                       shortened: [.commandLine], offers: .denyOnly)
+        try render("62-request-page-deny-only", page(Self.card(shortened, secondsLeft: 251)))
+        try render("63-request-page-deny-only-details", page(Self.card(shortened, secondsLeft: 251), details: true, tall: true))
         let unavailable = RequestDisplay(requesterName: "Claude Code", purpose: "", credentialName: "NAS Admin",
                                          commandLine: "ssh admin@nas.local", workingDirectory: "~", executableName: "ssh",
                                          deliveryRows: [], deliveryMetadataUnavailable: true, offers: .denyOnly)
-        try renderCard("19-request-delivery-unavailable", Self.card(unavailable), details: true)
-        try renderCard("20-request-face-id-cancelled", Self.card(), problem: .cancelled)
+        try render("64-request-page-delivery-unavailable", page(Self.card(unavailable), details: true, tall: true))
+        try render("65-request-page-face-id-cancelled", page(Self.card(), problem: .cancelled))
+        // The longest name an agent can choose, at the default text size:
+        // the sentence shortens it, so the credential stays above the buttons.
+        let longest = RequestDisplay(requesterName: String(repeating: "Background Maintenance Agent ", count: 8),
+                                     purpose: "", credentialName: "Production Database", commandLine: "psql",
+                                     workingDirectory: "", executableName: "psql", deliveryRows: [], offers: .all,
+                                     timedDuration: 1_800)
+        try render("68-request-page-touch-id-long-name",
+                   page(Self.card(longest, secondsLeft: 48), biometry: .touchID, problem: .failed))
+        let longRequester = RequestDisplay(
+            requesterName: "Background Maintenance Agent for the Release Pipeline", purpose: "",
+            credentialName: "Production Database", commandLine: "psql", workingDirectory: "", executableName: "psql",
+            deliveryRows: [], offers: .all, timedDuration: 1_800)
+        try render("69-request-page-accessibility-size",
+                   page(Self.card(longRequester), tall: true).environment(\.dynamicTypeSize, .accessibility2))
     }
 
-    func testRequestProgress() throws {
-        try renderCard("21-request-sending", Self.card(decision: .allowOnce))
-        try renderCard("22-request-waiting", Self.card(decision: .timedAllowance, isSent: true))
+    /// Only the chosen button stays, disabled, with what happens to it:
+    /// checked and stored, then sending, then waiting for the Mac.
+    func testRequestPageProgress() throws {
+        try render("90-request-page-checking-decision", page(Self.card(), tapped: .allowOnce))
+        try render("66-request-page-sending", page(Self.card(decision: .allowOnce)))
+        try render("67-request-page-waiting", page(Self.card(decision: .timedAllowance, isSent: true)))
     }
 
-    func testRequestOutcomes() throws {
-        let outcomes: [(String, RequestOutcome, ApprovalDecisionCode?)] = [
-            ("23-outcome-allowed-once", .allowedOnce, .allowOnce),
-            ("24-outcome-allowed-timed", .allowedTimed(seconds: 1_800), .timedAllowance),
-            ("25-outcome-denied", .denied, .deny),
-            ("26-outcome-decided-on-mac", .decidedOnMac, nil),
-            ("27-outcome-decided-elsewhere", .decidedElsewhere, nil),
-            ("28-outcome-expired", .expired, nil),
-            ("29-outcome-cancelled", .cancelled, nil),
-            ("30-outcome-not-applied", .notApplied, .allowOnce),
+    /// Every outcome page in #347's table.
+    func testRequestOutcomePages() throws {
+        let closed: [(String, RequestOutcome, ApprovalDecisionCode?)] = [
+            ("70-outcome-allowed-once", .allowedOnce, .allowOnce),
+            ("71-outcome-allowed-timed", .allowedTimed(seconds: 1_800), .timedAllowance),
+            ("72-outcome-denied", .denied, .deny),
+            ("73-outcome-decided-on-mac", .decidedOnMac, nil),
+            ("74-outcome-decided-elsewhere", .decidedElsewhere, nil),
+            ("75-outcome-expired", .expired, nil),
+            ("76-outcome-cancelled", .cancelled, nil),
+            ("79-outcome-not-applied", .notApplied, .allowOnce),
         ]
-        for (name, outcome, decision) in outcomes {
-            try renderCard(name, Self.card(decision: decision, isSent: decision != nil, outcome: outcome))
+        for (name, outcome, decision) in closed {
+            try render(name, page(Self.card(decision: decision, isSent: decision != nil, outcome: outcome)))
         }
-        try renderCard("31-request-timed-out-check-mac", Self.card(decision: .allowOnce, isSent: true, secondsLeft: 0))
-        try renderCard("32-request-mac-restarted", Self.card(isGone: true))
+        try render("77-outcome-timed-out", page(Self.card(decision: .allowOnce, isSent: true, secondsLeft: 0)))
+        try render("78-outcome-gone", page(Self.card(isGone: true)))
     }
 
-    func testOpenedRequest() throws {
-        try render("33-opened-request",
-                   OpenedRequestContent(card: Self.card(), onClose: {}) { card in
-                       RequestCardContent(card: card, now: Self.now, onDecide: { _ in }, onDismiss: {})
-                   })
-    }
-
-    /// #337: a tapped notification's request before its card.
+    /// #337: a tapped notification's request before its card, and a card
+    /// fetched by name that cannot be decided yet.
     func testOpeningRequest() throws {
-        for (name, phase) in [("41-opened-request-loading", OpeningPhase.loading),
-                              ("42-opened-request-unavailable", OpeningPhase.unavailable)] {
-            try render(name, OpenedRequestContent(card: nil, opening: phase, onClose: {}) { card in
-                RequestCardContent(card: card, now: Self.now, onDecide: { _ in }, onDismiss: {})
-            })
-        }
-        try render("43-opened-request-checking", OpenedRequestContent(card: Self.card(isChecking: true), onClose: {}) { card in
-            RequestCardContent(card: card, now: Self.now, onDecide: { _ in }, onDismiss: {})
-        })
+        try render("41-opened-request-loading", page(nil, opening: .loading))
+        try render("42-opened-request-unavailable", page(nil, opening: .unavailable))
+        try render("43-opened-request-checking", page(Self.card(isChecking: true)))
     }
 
     /// #342's status line, Rename and Remove, in #346's grouped layout; only
