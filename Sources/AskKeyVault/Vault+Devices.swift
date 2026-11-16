@@ -346,13 +346,15 @@ extension Vault {
     /// then uses up. The approval flag (ADR 0014 → Approvers) may be on only
     /// in that add, and only when the added entry's card says iOS. A pairing
     /// ID names one pairing, so an entry under a stored pairing ID is that
-    /// stored entry: the write may change its name and delivery records, but
-    /// changing its flag (same device ID and pairing ID, whatever the card)
+    /// stored entry: the write may change anything but its card and flag.
+    /// Changing its flag (same device ID and pairing ID, whatever the card)
     /// is refused as `approverNotAuthorized`, and storing another card under
     /// its pairing ID as `pairingNotAuthorized`, because pairing again
-    /// derives a new pairing ID. A device whose flagged entry the write
-    /// removes or replaces leaves the Broker's active-approver set before the
-    /// write commits, so its authority ends first (ADR 0014 → Revocation).
+    /// derives a new pairing ID; when one write breaks the rule twice, the
+    /// first such entry decides the error. A device whose flagged entry the
+    /// write removes or replaces leaves the Broker's active-approver set
+    /// before the write commits, so its authority ends first (ADR 0014 →
+    /// Revocation).
     func savePairedDevices(_ list: PairedDeviceList, epoch: Int) throws {
         try withDeviceStorage(epoch: epoch) { keys in
             let vaultKey = try requireKey()
@@ -360,9 +362,13 @@ extension Vault {
             // The stored entry is the one with the same pairing ID, and it
             // keeps its card, so no write swaps the approval key that checks
             // every Allow, or the flag, while the Broker's set, keyed by
-            // pairing ID, keeps that pairing's generation.
+            // pairing ID, keeps that pairing's generation. The entry with the
+            // same device ID too comes first, so a list that an earlier
+            // build stored with a pairing ID shared by two devices can still
+            // be renamed and have either entry removed.
             func storedEntry(_ device: PairedDevice) -> PairedDevice? {
-                stored.devices.first { $0.pairingID == device.pairingID }
+                stored.devices.first { $0.pairingID == device.pairingID && $0.deviceID == device.deviceID }
+                    ?? stored.devices.first { $0.pairingID == device.pairingID }
             }
             for device in list.devices {
                 guard let entry = storedEntry(device) else { continue }
@@ -382,7 +388,9 @@ extension Vault {
                 }
             }
             // An approver stays in the set only if the write keeps its entry
-            // with the same pairing ID, card and flag.
+            // with the same pairing ID, card and flag. The checks above
+            // already refuse another card under a kept pairing ID; comparing
+            // the card here too keeps the set right if they ever change.
             for device in stored.devices where device.isApprover && !list.devices.contains(where: {
                 $0.pairingID == device.pairingID && $0.card == device.card && $0.isApprover
             }) {
