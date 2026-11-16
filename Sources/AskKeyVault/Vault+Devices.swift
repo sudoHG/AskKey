@@ -346,7 +346,9 @@ extension Vault {
     /// then uses up. The approval flag (ADR 0014 → Approvers) may be on only
     /// in that add, and only when the added entry's card says iOS. A pairing
     /// ID names one pairing, so an entry under a stored pairing ID is that
-    /// stored entry: the write may change anything but its card and flag.
+    /// stored entry (in a list an earlier build stored with a pairing ID
+    /// shared by two devices, the one with its device ID): the write may
+    /// change anything but its card and flag.
     /// Changing its flag (same device ID and pairing ID, whatever the card)
     /// is refused as `approverNotAuthorized`, and storing another card under
     /// its pairing ID as `pairingNotAuthorized`, because pairing again

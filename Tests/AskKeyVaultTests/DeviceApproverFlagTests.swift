@@ -199,6 +199,16 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
             try library.vault.savePairedDevices(list, epoch: epoch)
         }
         try await registry.apply(.add(flagged(tablet)))
+        // The swap as the only change to the phone's entry, beside a rename
+        // of the tablet: one add under the phone's authorization, which the
+        // card-blind rule accepted.
+        try library.vault.authorizeDevicePairing(with: phone.deviceID, using: .allow)
+        let paired = try await registry.list()
+        await assertRefused(.pairingNotAuthorized, library, "a swap written with a rename") {
+            var list = try self.list(paired, replacing: swap)
+            try list.apply(.rename(tablet.deviceID, pairingID: tablet.pairingID, displayName: "Renamed Tablet"))
+            try library.vault.savePairedDevices(list, epoch: epoch)
+        }
         let stored = try await registry.list().devices
         XCTAssertEqual(stored, [flagged(phone), flagged(tablet)])
         XCTAssertEqual(library.vault.approvalRequests.activeApproverGeneration(pairingID: phone.pairingID.rawValue), generation,
@@ -210,8 +220,9 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
     /// entry, and no third device joins that pairing ID.
     func testAStoredListWithASharedPairingIDCanStillBeRenamedAndEmptied() async throws {
         let library = try makeLibrary()
+        let secondKey = P256.Signing.PrivateKey()
         let first = flagged(try entry(SoftwareDeviceIdentity(), pairingID: 0x3C))
-        let second = try entry(SoftwareDeviceIdentity(), pairingID: 0x3C)
+        let second = try entry(sameDeviceID(as: secondKey), pairingID: 0x3C)
         library.keys.deviceItems[.pairedDevices] = try PairedDeviceListAuthentication.seal(
             try PairedDeviceList(devices: [first, second]), using: library.key)
         _ = try activate(first, in: library.vault)
@@ -223,6 +234,11 @@ final class DeviceApproverFlagTests: RemoteApprovalVaultTestCase {
         }
         await assertRefused(.approverNotAuthorized, library, "the second entry's flag turned on") {
             try await registry.apply(.add(self.flagged(second)))
+        }
+        try library.vault.authorizeDevicePairing(with: second.deviceID, using: .allow)
+        let secondSwap = try entry(sameDeviceID(as: secondKey), pairingID: 0x3C)
+        await assertRefused(.pairingNotAuthorized, library, "another approval key for the second entry") {
+            try await registry.apply(.add(secondSwap))
         }
         library.vault.endManagementSession()
         try await registry.apply(.rename(second.deviceID, pairingID: second.pairingID, displayName: "Renamed Phone"))
