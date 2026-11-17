@@ -221,12 +221,48 @@ final class ScreenRenderTests: XCTestCase {
         try render("78-outcome-gone", page(Self.card(isGone: true)))
     }
 
-    /// #337: a tapped notification's request before its card, and a card
-    /// fetched by name that cannot be decided yet.
+    /// #348: a tapped notification's request before its card, and (#337) a
+    /// card fetched by name that cannot be decided yet. The placeholder's
+    /// shimmer is an animation, so the renders show its still frame.
     func testOpeningRequest() throws {
         try render("41-opened-request-loading", page(nil, opening: .loading))
-        try render("42-opened-request-unavailable", page(nil, opening: .unavailable))
-        try render("43-opened-request-checking", page(Self.card(isChecking: true)))
+        try render("42-opened-request-slow", page(nil, opening: .slow))
+        try render("43-opened-request-failed", page(nil, opening: .failed))
+        let ended: [(String, RequestEnding)] = [
+            ("91-opened-request-ended-allowed", .closed(.allowedOnce)),
+            ("92-opened-request-ended-denied", .closed(.denied)),
+            ("93-opened-request-ended-on-mac", .closed(.decidedOnMac)),
+        ]
+        for (name, ending) in ended {
+            try render(name, page(nil, opening: .ended(EndedRequest(ending: ending, macName: Self.mac))))
+        }
+        try render("94-opened-request-ended-unknown", page(nil, opening: .ended(nil)))
+        try render("95-opened-request-unverified", page(nil, opening: .unverified))
+        try render("96-opened-request-checking", page(Self.card(isChecking: true)))
+        try render("97-opened-request-failed-accessibility-size",
+                   page(nil, opening: .failed, tall: true).environment(\.dynamicTypeSize, .accessibility2))
+        try render("98-opened-request-slow-accessibility-size",
+                   page(nil, opening: .slow, tall: true).environment(\.dynamicTypeSize, .accessibility2))
+        // Every ended page's symbol and sentence, through the page's own
+        // copy, for the wording review.
+        let endings: [EndedRequest?] = [RequestEnding.closed(.allowedOnce), .closed(.allowedTimed(seconds: 1_800)),
+                                        .closed(.denied), .closed(.decidedOnMac), .closed(.decidedElsewhere),
+                                        .closed(.expired), .closed(.cancelled), .closed(.notApplied), .timedOut, .gone]
+            .map { Optional(EndedRequest(ending: $0, macName: Self.mac)) } + [nil]
+        try render("99-opened-request-ended-sentences", SheetStandIn(tall: true) {
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(Array(endings.enumerated()), id: \.offset) { _, ended in
+                    Label {
+                        EndedCopy.sentence(ended)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: EndedCopy.symbol(ended))
+                            .foregroundStyle(EndedCopy.color(ended))
+                    }
+                }
+            }
+            .padding(24)
+        })
     }
 
     /// #342's status line, Rename and Remove, in #346's grouped layout; only

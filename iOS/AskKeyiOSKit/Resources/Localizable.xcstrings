@@ -2330,19 +2330,223 @@
         }
       }
     },
-    "request.opening.failed.subtitle": {
+    "request.opening.ended.allowedOnce %@": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It may have ended, or this iPhone couldn't reach iCloud or verify it."
+            "value": "You allowed it once. “%@” applied it."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "它可能已经结束，或者这台 iPhone 无法连接 iCloud 或无法核实它。"
+            "value": "你已允许本次使用，“%@”已执行。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.allowedTimed %@ %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You allowed it for %@. “%@” applied it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你已允许 %@内不再询问，“%@”已执行。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.cancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was cancelled on the Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它已在 Mac 上取消。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.denied %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You denied it. “%@” applied it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你已拒绝，“%@”已执行。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.elsewhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was decided on another device."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它已在另一台设备上处理。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.expired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It expired before anyone decided."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它在有人处理之前已经过期。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.gone %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key on “%@” restarted, so it no longer applies."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”上的请旨已重新启动，这个请求随之失效。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.notApplied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Mac couldn't apply your decision as signed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 无法按签名执行你的决定。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.onMac %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was decided on “%@”."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它已在“%@”上处理。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.timedOut %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No answer from “%@”. Check the Mac to see how it ended."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没收到“%@”的结果。请到 Mac 上查看请求的结果。"
+          }
+        }
+      }
+    },
+    "request.opening.ended.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Request Has Ended"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个请求已经结束"
+          }
+        }
+      }
+    },
+    "request.opening.ended.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was decided elsewhere or has expired."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它已在别处处理或已过期。"
+          }
+        }
+      }
+    },
+    "request.opening.failed.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the connection. You can try again before it expires, or decide on the Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请检查网络。请求过期前可以再试，也可以直接在 Mac 上处理。"
           }
         }
       }
@@ -2353,47 +2557,149 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask Key couldn't open this request"
+            "value": "Couldn't Get This Request"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请旨无法打开这个请求"
+            "value": "暂时取不到这个请求"
           }
         }
       }
     },
-    "request.opening.subtitle": {
+    "request.opening.loading": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It appears here once this iPhone has fetched and verified it."
+            "value": "Fetching the request…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 iPhone 取回并核实后，请求会显示在这里。"
+            "value": "正在取回请求…"
           }
         }
       }
     },
-    "request.opening.title": {
+    "request.opening.loading.footnote": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask Key is checking this request"
+            "value": "Ask Key shows the request only after verifying it."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请旨正在核实这个请求"
+            "value": "请旨正在核实这个请求，核实后才显示内容。"
+          }
+        }
+      }
+    },
+    "request.opening.retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        }
+      }
+    },
+    "request.opening.slow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud is slow. Still fetching…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 响应较慢，仍在取回…"
+          }
+        }
+      }
+    },
+    "request.opening.slow.footnote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can also decide on the Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你也可以直接在 Mac 上处理。"
+          }
+        }
+      }
+    },
+    "request.opening.unverified.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Key only shows requests it has verified. This notification may come from a removed Mac, or it's no longer valid."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请旨只显示自己核实过的请求。这条通知可能来自已移除的 Mac，或已经失效。"
+          }
+        }
+      }
+    },
+    "request.opening.unverified.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't Verify This Notification"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法核实这条通知"
+          }
+        }
+      }
+    },
+    "request.opening.viewHistory": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View History"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看记录"
           }
         }
       }

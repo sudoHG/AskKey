@@ -268,11 +268,11 @@ final class OpenedRequestTests: XCTestCase {
         world.cloud.zoneFetchesFail = true
         try await tap(name)
         world.clock.advance(by: 61)
-        XCTAssertEqual(world.model.openingPhase(at: world.clock.now()), .unavailable)
+        XCTAssertEqual(world.model.openingPhase(at: world.clock.now()), .failed)
         XCTAssertEqual(world.model.foregroundPollInterval, 10)
         world.clock.advance(by: 30)
         await world.model.processInbox()
-        XCTAssertEqual(world.model.requests.map(\.id), [name], "a later card still replaces the unavailable state")
+        XCTAssertEqual(world.model.requests.map(\.id), [name], "a later card still replaces the failed page")
         XCTAssertNil(world.model.opening)
     }
 
@@ -284,7 +284,7 @@ final class OpenedRequestTests: XCTestCase {
         try await tap(name, on: launched)
         await launched.start()
         await launched.becameActive()
-        XCTAssertEqual(launched.openingPhase(at: world.clock.now()), .unavailable)
+        XCTAssertEqual(launched.openingPhase(at: world.clock.now()), .failed)
         world.cloud.accountState = .available(userRecordName: "_user-a")
         world.cloud.clearCalls()
         await launched.processInbox()
@@ -302,33 +302,41 @@ final class OpenedRequestTests: XCTestCase {
         XCTAssertNil(world.model.opening)
     }
 
+    /// The page says Failed after 15 seconds (#348); the record is still
+    /// fetched by name for a minute.
     func testLoadingEndsAfterAMinute() {
         let tapped = Date(timeIntervalSince1970: 1_800_000_000)
         let opening = OpeningRequest(id: "record", since: tapped, step: .fetching)
-        XCTAssertEqual(opening.phase(at: tapped.addingTimeInterval(59)), .loading)
-        XCTAssertEqual(opening.phase(at: tapped.addingTimeInterval(60)), .unavailable)
+        XCTAssertTrue(opening.isFetching(at: tapped.addingTimeInterval(59)))
+        XCTAssertEqual(opening.phase(at: tapped.addingTimeInterval(59)), .failed)
+        XCTAssertFalse(opening.isFetching(at: tapped.addingTimeInterval(60)))
+        XCTAssertEqual(opening.phase(at: tapped.addingTimeInterval(60)), .failed)
     }
 
     // MARK: What can become a card
 
-    func testANotificationNamingNoRecordShowsUnavailableAndNothingElse() async throws {
+    func testANotificationNamingNoRecordShowsEndedAndNothingElse() async throws {
         let forged = MessageID.random().text
         await world.model.receivedPush(userInfo: [PushHintReader.extensionRecordNameKey: forged],
                                        arrivedAt: world.clock.now(), notificationIdentifier: "forged", opened: true)
         XCTAssertEqual(world.model.openedRequest, OpenedRequest(id: forged))
-        XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .unavailable)
+        XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .ended(nil), "not found: how it ended is unknown")
         XCTAssertTrue(world.model.requests.isEmpty)
         XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
     }
 
-    func testANameThatIsNotAMessageIDOpensNothing() async throws {
+    /// #348: the page says the notification could not be verified, under a
+    /// fixed ID, so nothing of the name is kept.
+    func testANameThatIsNotAMessageIDShowsUnverified() async throws {
+        world.cloud.clearCalls()
         await world.model.receivedPush(userInfo: [PushHintReader.extensionRecordNameKey: "Codex wants GitHub Token"],
                                        arrivedAt: world.clock.now(), notificationIdentifier: "forged", opened: true)
-        XCTAssertNil(world.model.openedRequest)
-        XCTAssertNil(world.model.opening)
+        XCTAssertEqual(world.model.openedRequest, OpenedRequest(id: OpeningRequest.unverifiedID))
+        XCTAssertEqual(world.model.openingPhase(at: world.clock.now()), .unverified)
+        XCTAssertFalse(try phoneFetches().contains { if case .namedFetch = $0 { true } else { false } })
     }
 
-    func testARequestFromAMacWithoutTheApprovalFlagShowsUnavailable() async throws {
+    func testARequestFromAMacWithoutTheApprovalFlagShowsUnverified() async throws {
         let other = world.makeMac(name: "Office Mac")
         try await world.pair(other)
         // Pairing sets the flag (#336); this is a Mac paired before it without approval.
@@ -336,18 +344,18 @@ final class OpenedRequestTests: XCTestCase {
         let name = try await world.sendRequest(from: other).sealed.messageID.text
         try await tap(name)
         XCTAssertTrue(world.model.requests.isEmpty)
-        XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .unavailable)
+        XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .unverified)
         XCTAssertTrue(world.cloud.records(in: try world.phone.deviceID).isEmpty, "refused and deleted")
     }
 
-    func testARequestFromARemovedMacShowsUnavailable() async throws {
+    func testARequestFromARemovedMacShowsUnverified() async throws {
         let sealed = try await world.sealRequest()
         await world.model.removeMac(id: world.macIdentity.deviceID.text)
         XCTAssertTrue(world.model.pairedMacs.isEmpty)
         try await world.deliver(sealed.sealed.envelope)
         try await tap(sealed.sealed.messageID.text)
         XCTAssertTrue(world.model.requests.isEmpty)
-        XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .unavailable)
+        XCTAssertEqual(world.model.opening?.phase(at: world.clock.now()), .unverified)
     }
 
     func testRemovingTheMacDuringTheFetchKeepsTheRequestFromBecomingACard() async throws {
@@ -366,7 +374,7 @@ final class OpenedRequestTests: XCTestCase {
         try await tapped.value
         XCTAssertTrue(model.requests.isEmpty)
         XCTAssertTrue(world.approvalStore.stored.requests.isEmpty)
-        XCTAssertEqual(model.openingPhase(at: world.clock.now()), .unavailable)
+        XCTAssertEqual(model.openingPhase(at: world.clock.now()), .unverified)
     }
 
     func testAnAccountChangeDuringTheFetchKeepsTheRequestFromBecomingACard() async throws {

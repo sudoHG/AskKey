@@ -16,27 +16,49 @@ struct OpenedRequestView: View {
     var body: some View {
         let live = model.requests.first { $0.id == id }
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            OpenedRequestContent(card: live ?? lastCard.flatMap { $0.phase(at: context.date).isFinished ? $0 : nil },
-                                 opening: model.opening?.id == id ? model.openingPhase(at: context.date) : nil,
-                                 now: context.date, biometry: model.biometryKind,
-                                 isDeciding: model.decidingRequest != nil, isDecidingHere: model.decidingRequest == id,
-                                 problem: model.decisionProblems[id],
-                                 onDecide: { code in Task { await model.decide(code, requestID: id) } },
-                                 onClose: onClose)
+            let card = live ?? lastCard.flatMap { $0.phase(at: context.date).isFinished ? $0 : nil }
+            if card == nil, let opening = model.opening, opening.id == id {
+                // Before the card, the page also changes at 0.3, 3 and 15
+                // seconds; Try Again starts them over.
+                TimelineView(OpeningSchedule(changes: opening.changeDates)) { moment in
+                    content(card: nil, at: moment.date)
+                }
+                .id(opening.since)
+            } else {
+                content(card: card, at: context.date)
+            }
         }
-        .onChange(of: live, initial: true) { _, card in
+        .onChange(of: live, initial: true) { previous, card in
             if let card { lastCard = card }
+            // The verified card replaced a page shown before it (#348).
+            if previous == nil, card != nil {
+                UIAccessibility.post(notification: .screenChanged, argument: nil)
+            }
         }
+    }
+
+    private func content(card: RequestCard?, at date: Date) -> some View {
+        OpenedRequestContent(card: card, opening: card == nil && model.opening?.id == id ? model.openingPhase(at: date) : nil,
+                             showsPlaceholder: model.openingShowsPlaceholder(at: date),
+                             now: date, biometry: model.biometryKind,
+                             isDeciding: model.decidingRequest != nil, isDecidingHere: model.decidingRequest == id,
+                             problem: model.decisionProblems[id],
+                             onRetry: { Task { await model.retryOpening() } },
+                             onViewHistory: { model.showHistory() },
+                             onDecide: { code in Task { await model.decide(code, requestID: id) } },
+                             onClose: onClose)
     }
 }
 
 /// The sheet's content: the request page while the request can be decided
 /// or waits for the Mac, its outcome page once it ended, and, before the
-/// app verified a tapped request itself, a loading or unavailable state
-/// that shows nothing from the notification.
+/// app verified a tapped request itself, the opening pages (#348), which
+/// show nothing from the notification.
 struct OpenedRequestContent: View {
     let card: RequestCard?
     var opening: OpeningPhase?
+    /// False in the first 0.3 seconds of loading.
+    var showsPlaceholder = true
     let now: Date
     var biometry: BiometryKind = .faceID
     /// A decision is being checked and stored, for this or another request.
@@ -48,6 +70,8 @@ struct OpenedRequestContent: View {
     var showsDetails = false
     /// Renders pass false: `ImageRenderer` cannot draw a scroll view.
     var scrolls = true
+    var onRetry: () -> Void = {}
+    var onViewHistory: () -> Void = {}
     let onDecide: (ApprovalDecisionCode) -> Void
     let onClose: () -> Void
 
@@ -60,13 +84,12 @@ struct OpenedRequestContent: View {
                             isDecidingHere: isDecidingHere, tapped: tapped, problem: problem,
                             showsDetails: showsDetails, scrolls: scrolls, onDecide: onDecide, onClose: onClose)
             }
+        } else if let opening {
+            OpeningPage(phase: opening, showsPlaceholder: showsPlaceholder, scrolls: scrolls, onRetry: onRetry,
+                        onViewHistory: onViewHistory, onClose: onClose)
         } else {
             RequestSheetLayout(scrolls: scrolls, onClose: onClose) {
-                if let opening {
-                    OpeningCard(phase: opening)
-                } else {
-                    NoticeCard(symbol: "tray", text: Text("request.sheet.gone", bundle: .kit))
-                }
+                NoticeCard(symbol: "tray", text: Text("request.sheet.gone", bundle: .kit))
             } actions: {
                 Button(action: onClose) {
                     NeutralButtonLabel { Text("common.done", bundle: .kit) }
@@ -410,42 +433,5 @@ extension BiometryKind {
         case .faceID: return "faceid"
         case .touchID: return "touchid"
         }
-    }
-}
-
-/// The tapped request before its card, in the card's shape: one sentence
-/// with a subject and one subtitle line.
-struct OpeningCard: View {
-    let phase: OpeningPhase
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: phase == .loading ? "hourglass" : "exclamationmark.triangle.fill")
-                .font(.title3)
-                .foregroundStyle(phase == .loading ? Color.accentColor : Color.orange)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title, bundle: .kit)
-                    .font(.title3)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(subtitle, bundle: .kit)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color(uiColor: .secondarySystemGroupedBackground)))
-        .accessibilityElement(children: .combine)
-    }
-
-    private var title: LocalizedStringKey {
-        phase == .loading ? "request.opening.title" : "request.opening.failed.title"
-    }
-
-    private var subtitle: LocalizedStringKey {
-        phase == .loading ? "request.opening.subtitle" : "request.opening.failed.subtitle"
     }
 }
