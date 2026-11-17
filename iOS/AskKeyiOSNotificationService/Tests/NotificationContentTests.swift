@@ -30,7 +30,9 @@ final class NotificationServiceTests: XCTestCase {
         return delivered.value
     }
 
-    private func assertGeneric(_ content: UNNotificationContent?, recordName: String?,
+    /// The generic text; the user info holds the record name and, only for
+    /// a delivery check the extension answered, the mark (#361).
+    private func assertGeneric(_ content: UNNotificationContent?, recordName: String?, answeredDeliveryCheck: Bool = false,
                                file: StaticString = #filePath, line: UInt = #line) throws {
         let content = try XCTUnwrap(content, file: file, line: line)
         let english = try NotificationStrings.strings("en")
@@ -42,12 +44,14 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(content.threadIdentifier, "", file: file, line: line)
         XCTAssertEqual(content.interruptionLevel, .active, file: file, line: line)
         XCTAssertNil(content.badge, file: file, line: line)
-        let expected: [String: String] = recordName.map { ["askkey.recordName": $0] } ?? [:]
-        XCTAssertEqual(content.userInfo as? [String: String], expected, file: file, line: line)
+        var expected: [String: Any] = recordName.map { ["askkey.recordName": $0] } ?? [:]
+        if answeredDeliveryCheck { expected["askkey.answeredDeliveryCheck"] = true }
+        XCTAssertEqual(content.userInfo as NSDictionary, expected as NSDictionary, file: file, line: line)
     }
 
-    func testTheUserInfoKeyIsTheOneTheAppReads() {
+    func testTheUserInfoKeysAreTheOnesTheAppReads() {
         XCTAssertEqual(NotificationContentBuilder.recordNameKey, "askkey.recordName")
+        XCTAssertEqual(NotificationContentBuilder.answeredDeliveryCheckKey, "askkey.answeredDeliveryCheck")
     }
 
     func testEveryFailureReplacesTheContentWithTheGenericText() async throws {
@@ -125,19 +129,99 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(delivered.first?.interruptionLevel, .active)
     }
 
-    func testADeliveryCheckGetsTheGenericText() async throws {
+    // MARK: The answered delivery check's mark (#361)
+
+    func testAnAnsweredDeliveryCheckGetsTheGenericTextAndTheMark() async throws {
         let world = try NotificationWorld()
-        let transport = CloudKitDeviceTransport(service: world.cloud, deviceID: world.mac.identity.id, platform: .macOS,
-                                                clock: world.clock, log: { _ in })
-        let messenger = DeviceMessenger(identity: world.mac.identity, platform: .macOS,
-                                        registry: PairedDeviceRegistry(store: world.mac.listStore), transport: transport,
-                                        clock: world.clock, inboxToken: nil)
-        let check = try await messenger.sendDeliveryCheck(to: world.phone.id)
+        let check = try await world.sendDeliveryCheck()
 
         let delivered = try await run(world, world.push(for: check.text))
 
+        XCTAssertEqual(delivered.count, 1)
+        try assertGeneric(delivered.first, recordName: check.text, answeredDeliveryCheck: true)
+        XCTAssertEqual(world.sent.map(\.kind), [Int64(MessageKind.deliveryCheckReply.rawValue)])
+    }
+
+    func testADeliveryCheckWhoseReplyFailedHasNoMark() async throws {
+        let world = try NotificationWorld()
+        let check = try await world.sendDeliveryCheck()
+        world.cloud.sendsFail = true
+
+        let delivered = try await run(world, world.push(for: check.text))
+
+        XCTAssertEqual(delivered.count, 1)
         try assertGeneric(delivered.first, recordName: check.text)
-        XCTAssertEqual(world.sent.count, 1)
+        XCTAssertEqual(world.sent, [])
+    }
+
+    /// A delivery check from a Mac that is not on the iPhone's list (yet),
+    /// for example while pairing has not finished on the iPhone, is refused
+    /// and keeps the generic text without the mark.
+    func testARefusedDeliveryCheckHasNoMark() async throws {
+        let world = try NotificationWorld()
+        try world.removeMac(world.mac)
+        let check = try await world.sendDeliveryCheck()
+
+        let delivered = try await run(world, world.push(for: check.text))
+
+        XCTAssertEqual(delivered.count, 1)
+        try assertGeneric(delivered.first, recordName: check.text)
+        XCTAssertEqual(world.sent, [])
+        let decision = try await world.process(world.push(for: check.text))
+        XCTAssertEqual(decision, .generic(.refused(.unknownSender)))
+    }
+
+    /// The content iOS gets when the time runs out while the reply is being
+    /// sent is the generic text without the mark: the answered content the
+    /// processor finishes afterwards is never delivered.
+    func testADeliveryCheckWhoseTimeRanOutWhileReplyingHasNoMark() async throws {
+        let world = try NotificationWorld()
+        let check = try await world.sendDeliveryCheck()
+        let gate = Gate()
+        world.cloud.sendGate = gate
+
+        let delivered = try await run(world, world.push(for: check.text)) { service in
+            // Bounded, so a processor that never reaches the reply fails the
+            // test below instead of waiting forever.
+            let deadline = Date().addingTimeInterval(10)
+            while gate.arrived == 0, Date() < deadline { await Task.yield() }
+            service.serviceExtensionTimeWillExpire()
+            gate.open()
+        }
+
+        XCTAssertEqual(gate.arrived, 1, "the extension never started its reply")
+        XCTAssertEqual(world.sent.map(\.kind), [Int64(MessageKind.deliveryCheckReply.rawValue)])
+        XCTAssertEqual(delivered.count, 1)
+        try assertGeneric(delivered.first, recordName: check.text)
+    }
+
+    /// The mark a push's own payload carries is dropped with the rest of
+    /// it, whatever the extension then decides.
+    func testAMarkInThePushNeverSurvives() async throws {
+        let world = try NotificationWorld(approver: false)
+        let (sealed, push) = try world.sendRequest()
+        var marked = push
+        marked["askkey.answeredDeliveryCheck"] = true
+
+        try assertGeneric(try await run(world, marked).first, recordName: sealed.sealed.envelope.recordName)
+        try assertGeneric(try await run(world, ["askkey.answeredDeliveryCheck": true,
+                                                "askkey.recordName": sealed.sealed.envelope.recordName]).first,
+                          recordName: nil)
+    }
+
+    func testOnlyAnAnsweredDeliveryCheckGetsTheMark() throws {
+        let strings = try NotificationStrings.table("en")
+        let name = MessageID.random().text
+        let request = RequestNotification(body: "body", threadIdentifier: "mac_x", isTimeSensitive: false)
+        let reasons: [GenericReason] = [.notAMessagePush, .keysUnavailable, .noIdentity, .otherDevice, .listUnavailable,
+                                        .noContainer, .fetchFailed, .notFound, .replyFailed, .notARequest, .notFromMac,
+                                        .notApprover, .timedOut, .refused(.unknownSender)]
+        for decision in reasons.map(NotificationDecision.generic) + [.request(request)] {
+            let content = NotificationContentBuilder.content(decision, recordName: name, strings: strings)
+            XCTAssertNil(content.userInfo["askkey.answeredDeliveryCheck"], "\(decision)")
+        }
+        let answered = NotificationContentBuilder.content(.answeredDeliveryCheck, recordName: name, strings: strings)
+        XCTAssertEqual(answered.userInfo["askkey.answeredDeliveryCheck"] as? Bool, true)
     }
 }
 

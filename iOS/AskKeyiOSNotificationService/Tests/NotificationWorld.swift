@@ -144,6 +144,17 @@ final class NotificationWorld {
         ]
     }
 
+    /// A delivery check from the Mac, sent into this iPhone's inbox as the
+    /// Mac's own messenger sends it after pairing.
+    func sendDeliveryCheck() async throws -> MessageID {
+        let transport = CloudKitDeviceTransport(service: cloud, deviceID: mac.identity.id, platform: .macOS,
+                                                clock: clock, log: { _ in })
+        let messenger = DeviceMessenger(identity: mac.identity, platform: .macOS,
+                                        registry: PairedDeviceRegistry(store: mac.listStore), transport: transport,
+                                        clock: clock, inboxToken: nil)
+        return try await messenger.sendDeliveryCheck(to: phone.id)
+    }
+
     func process(_ userInfo: [AnyHashable: Any], strings: NotificationStrings? = nil) async throws -> NotificationDecision {
         await NotificationProcessor(environment: try environment(strings: strings)).process(PushInfo(userInfo: userInfo))
     }

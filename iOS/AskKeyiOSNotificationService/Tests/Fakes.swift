@@ -187,6 +187,7 @@ final class TestCloudKit: CloudKitInboxService, @unchecked Sendable {
     private var failingRecords = false
     private var failingSends = false
     private var gate: Gate?
+    private var createGate: Gate?
 
     var calls: [String] { lock.withLock { log } }
 
@@ -216,6 +217,12 @@ final class TestCloudKit: CloudKitInboxService, @unchecked Sendable {
     var fetchGate: Gate? {
         get { lock.withLock { gate } }
         set { lock.withLock { gate = newValue } }
+    }
+
+    /// Holds record creation, the extension's sends, until the gate opens.
+    var sendGate: Gate? {
+        get { lock.withLock { createGate } }
+        set { lock.withLock { createGate = newValue } }
     }
 
     /// The envelopes stored in a device's inbox.
@@ -267,6 +274,7 @@ final class TestCloudKit: CloudKitInboxService, @unchecked Sendable {
 
     func createRecord(_ record: CKRecord) async throws {
         note("createRecord", record.recordID.zoneID.zoneName)
+        await sendGate?.wait()
         try lock.withLock {
             if failingSends { throw CKError(.networkFailure) }
             if records[record.recordID] != nil { throw CKError(.serverRecordChanged) }
