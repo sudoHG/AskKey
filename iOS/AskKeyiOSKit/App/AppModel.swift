@@ -94,6 +94,9 @@ public final class AppModel {
     @ObservationIgnored var uncheckedRequests: Set<String> = []
     /// Push hints already fetched by name.
     @ObservationIgnored var namedFetched: Set<String> = []
+    /// Records refused in this process, newest last: a tapped notification
+    /// for one says it could not be verified (#348).
+    @ObservationIgnored var unverifiedRecords: [String] = []
     /// The pairings on the list when Mac names were last made unique;
     /// nil until the first time.
     @ObservationIgnored var seenPairings: Set<PairingID>?

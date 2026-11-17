@@ -19,6 +19,7 @@ final class FakeCloud: @unchecked Sendable {
     private var fetchesFail = false
     private var namedError: DeviceTransportError?
     private var namedRetryAfter: TimeInterval?
+    private var recordRetryAfter: TimeInterval?
     private var state: CloudKitAccountState = .available(userRecordName: "_user-a")
     private var preparationError: DeviceTransportError?
     private var preparationIncomplete = false
@@ -119,6 +120,13 @@ final class FakeCloud: @unchecked Sendable {
         set { lock.withLock { namedRetryAfter = newValue } }
     }
 
+    /// Fetches by name report each record failed with this retry-after, as
+    /// CloudKit's per-record rate limit does.
+    var namedRecordsRetryAfter: TimeInterval? {
+        get { lock.withLock { recordRetryAfter } }
+        set { lock.withLock { recordRetryAfter = newValue } }
+    }
+
     /// Every envelope a device tried to send, in order, including failed sends.
     var sentEnvelopes: [DeviceEnvelope] { lock.withLock { sent } }
 
@@ -154,6 +162,7 @@ final class FakeCloud: @unchecked Sendable {
         try lock.withLock {
             namedFetches.append(names)
             if let namedError { throw namedError }
+            if let recordRetryAfter { return NamedInboxFetch(failedRecordNames: names, retryAfter: recordRetryAfter) }
             var fetch = NamedInboxFetch(retryAfter: namedRetryAfter)
             for name in names {
                 if let record = inboxes[device.text]?[name] {
