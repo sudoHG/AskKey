@@ -154,14 +154,29 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(world.sent, [])
     }
 
-    /// The content iOS gets when the time runs out is the generic text
-    /// without the mark, even for a delivery check the extension was about
-    /// to answer.
-    func testADeliveryCheckWhoseTimeRanOutHasNoMark() async throws {
+    /// A delivery check from a Mac that is not on the iPhone's list (yet),
+    /// for example while pairing has not finished on the iPhone, is refused
+    /// and keeps the generic text without the mark.
+    func testARefusedDeliveryCheckHasNoMark() async throws {
+        let world = try NotificationWorld()
+        try world.removeMac(world.mac)
+        let check = try await world.sendDeliveryCheck()
+
+        let delivered = try await run(world, world.push(for: check.text))
+
+        XCTAssertEqual(delivered.count, 1)
+        try assertGeneric(delivered.first, recordName: check.text)
+        XCTAssertEqual(world.sent, [])
+    }
+
+    /// The content iOS gets when the time runs out while the reply is being
+    /// sent is the generic text without the mark: the answered content the
+    /// processor finishes afterwards is never delivered.
+    func testADeliveryCheckWhoseTimeRanOutWhileReplyingHasNoMark() async throws {
         let world = try NotificationWorld()
         let check = try await world.sendDeliveryCheck()
         let gate = Gate()
-        world.cloud.fetchGate = gate
+        world.cloud.sendGate = gate
 
         let delivered = try await run(world, world.push(for: check.text)) { service in
             while gate.arrived == 0 { await Task.yield() }
@@ -171,7 +186,6 @@ final class NotificationServiceTests: XCTestCase {
 
         XCTAssertEqual(delivered.count, 1)
         try assertGeneric(delivered.first, recordName: check.text)
-        XCTAssertEqual(world.sent, [])
     }
 
     /// The mark a push's own payload carries is dropped with the rest of
@@ -194,7 +208,7 @@ final class NotificationServiceTests: XCTestCase {
         let request = RequestNotification(body: "body", threadIdentifier: "mac_x", isTimeSensitive: false)
         let reasons: [GenericReason] = [.notAMessagePush, .keysUnavailable, .noIdentity, .otherDevice, .listUnavailable,
                                         .noContainer, .fetchFailed, .notFound, .replyFailed, .notARequest, .notFromMac,
-                                        .notApprover, .timedOut]
+                                        .notApprover, .timedOut, .refused(.unknownSender)]
         for decision in reasons.map(NotificationDecision.generic) + [.request(request)] {
             let content = NotificationContentBuilder.content(decision, recordName: name, strings: strings)
             XCTAssertNil(content.userInfo["askkey.answeredDeliveryCheck"], "\(decision)")

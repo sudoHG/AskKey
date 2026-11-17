@@ -128,10 +128,12 @@ final class HomeTests: XCTestCase {
     }
 
     /// iOS shows the push's own payload when the extension does not run
-    /// (its time ran out before it replaced the content, or it crashed).
+    /// (it crashed or was stopped before it handed over any content).
     /// CloudKit puts only `aps`, from the subscription's notification info,
     /// and `ck`, with the desired keys under `qry.af`, at the top level, so
-    /// that payload never carries the mark and always shows.
+    /// that payload never carries the mark; this test cannot prove what
+    /// CloudKit sends, it pins that the app reads the mark at the top level
+    /// only, so even a payload with every field it can fill still shows.
     func testThePushsOwnPayloadAlwaysShowsInFront() throws {
         let phoneID = try world.phone.deviceID
         let info = try XCTUnwrap(CloudKitInboxLayout.subscription(for: phoneID, platform: .iOS, recordType: .alert)

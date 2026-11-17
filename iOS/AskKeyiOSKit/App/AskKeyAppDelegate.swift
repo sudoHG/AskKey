@@ -32,7 +32,8 @@ public final class AskKeyAppDelegate: NSObject, UIApplicationDelegate, UNUserNot
     /// How a notification shows while the app is in front: the system
     /// banner, in Notification Center and with its sound, as when the app is
     /// not (decision 8 of #344). Whatever the extension could verify, the
-    /// notification shows as it would in the background.
+    /// notification shows as it would in the background; the one exception
+    /// is an answered delivery check (`foregroundPresentation(for:)`).
     static let foregroundPresentation: UNNotificationPresentationOptions = [.banner, .list, .sound]
 
     /// The user info key the notification extension sets only on a delivery
