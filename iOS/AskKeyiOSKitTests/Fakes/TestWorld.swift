@@ -27,6 +27,8 @@ final class TestWorld {
     let camera = FakeCamera()
     let notifications = FakeNotifications()
     let approvalStore = InMemoryApprovalStore()
+    let historyFiles = InMemoryHistoryFiles()
+    let historyKeys = InMemoryHistoryKeys()
     let macClock: OffsetClock
     /// What every Mac's messenger verified: decisions and receipts.
     let macInbox = MacInbox()
@@ -44,7 +46,8 @@ final class TestWorld {
     var environment: AppEnvironment {
         AppEnvironment(identities: identities, keychain: keychain, localState: localState, biometry: biometry,
                        camera: camera, notifications: notifications, cloud: factory, clock: clock,
-                       approvals: approvalStore, deviceName: { "iPhone" })
+                       approvals: approvalStore, historyFiles: historyFiles, historyKeys: historyKeys,
+                       deviceName: { "iPhone" })
     }
 
     /// The Mac most tests pair with.

@@ -394,6 +394,94 @@ final class ScreenRenderTests: XCTestCase {
         }
         XCTAssertEqual(try pixels(covered), try pixels(PrivacyCoverView()))
     }
+
+    // MARK: History (#349)
+
+    private static func entry(_ requester: String, _ credential: String, program: String = "deploy.sh",
+                              mac: String = mac, macID: String = "mac", endedAt: TimeInterval,
+                              closed: StoredClosed? = nil, gone: Bool = false) -> HistoryEntry {
+        HistoryEntry(recordName: UUID().uuidString, macID: macID, pairingID: Data(repeating: 1, count: 16),
+                     requestDigest: Data(UUID().uuidString.utf8), requesterName: requester, credentialName: credential,
+                     executableName: program, macName: mac, receivedAt: now.addingTimeInterval(endedAt - 41),
+                     countdownEnd: now.addingTimeInterval(endedAt + 259), endedAt: now.addingTimeInterval(endedAt),
+                     decisionCode: nil, decisionCeiling: 0, closed: closed, gone: gone)
+    }
+
+    /// Every outcome across today, yesterday and an older day (`now` is a
+    /// Friday, 08:00 UTC).
+    private static let historyEntries: [HistoryEntry] = [
+        entry("Codex", "GitHub Token", endedAt: -480, closed: .fixture(.applied, code: .allowOnce)),
+        entry("Claude Code", "Staging API", program: "npm", mac: "Office Mac", macID: "office", endedAt: -1_800,
+              closed: .fixture(.applied, code: .deny)),
+        entry("Cursor", "NAS Admin", program: "ssh", endedAt: -6_300,
+              closed: .fixture(.applied, code: .timedAllowance, duration: 1_800)),
+        entry("Codex", "Prod Database", program: "psql", endedAt: -26_000),
+        entry("Claude Code", "GitHub Token", program: "gh", mac: "Office Mac", macID: "office", endedAt: -39_000,
+              closed: .fixture(.decidedOnMac)),
+        entry("Codex", "Staging API", program: "curl", endedAt: -57_000, closed: .fixture(.expired)),
+        entry("", "Backup Key", program: "restic", endedAt: -74_000, closed: .fixture(.notApplied)),
+        entry("Grok CLI", "NAS Admin", program: "rsync", endedAt: -82_000, gone: true),
+        entry("Codex", "GitHub Token", program: "git", endedAt: -221_000, closed: .fixture(.decidedOnAnotherApprover)),
+        entry("Claude Code", "Prod Database", program: "psql", mac: "Office Mac", macID: "office", endedAt: -238_000,
+              closed: .fixture(.cancelled)),
+    ]
+
+    private func history(_ entries: [HistoryEntry], filter: HistoryFilter? = nil) -> some View {
+        TabScreenStandIn(tab: .history, showsMore: !entries.isEmpty) {
+            HistoryContent(entries: entries, filter: filter, now: Self.now)
+        }
+    }
+
+    /// History with every outcome, filtered by a Mac, at an accessibility
+    /// text size, and the Clear dialog. 48 is History empty.
+    func testHistoryEntries() throws {
+        try render("16-history-entries", history(Self.historyEntries))
+        try render("17-history-filtered-by-mac",
+                   history(Self.historyEntries, filter: HistoryFilter(macID: "office", macName: "Office Mac")))
+        try render("18-history-clear-confirmation",
+                   ActionSheetStandIn(title: HistoryClearText.title, message: HistoryClearText.message,
+                                      action: HistoryClearText.action) {
+                       history(Array(Self.historyEntries.prefix(4)))
+                   })
+        try render("19-history-accessibility-size",
+                   history(Array(Self.historyEntries.prefix(4))).environment(\.dynamicTypeSize, .accessibility2))
+        try render("26-history-filtered-accessibility-size",
+                   history(Array(Self.historyEntries.prefix(2)), filter: HistoryFilter(macID: "mac", macName: Self.mac))
+                       .environment(\.dynamicTypeSize, .accessibility3))
+    }
+
+    /// An entry's detail: allowed with Face ID, denied, and timed out from a
+    /// Local Agent with Touch ID.
+    func testHistoryDetail() throws {
+        try render("20-history-detail-allowed", PushedScreenStandIn(tab: .history) {
+            HistoryDetailContent(entry: Self.historyEntries[0])
+        })
+        try render("21-history-detail-denied", PushedScreenStandIn(tab: .history) {
+            HistoryDetailContent(entry: Self.historyEntries[1])
+        })
+        let timedOut = Self.entry("", "Prod Database", program: "psql", endedAt: -26_000)
+        try render("22-history-detail-timed-out", PushedScreenStandIn(tab: .history) {
+            HistoryDetailContent(entry: timedOut, biometry: .touchID)
+        })
+    }
+
+    /// History for This Mac in the Mac's detail, and the outcome page once
+    /// its entry was written.
+    func testHistoryElsewhere() throws {
+        let approving = PairedMacRow(id: "mac", name: Self.mac, pairedAt: Self.pairedAt,
+                                     lastReachedAt: Self.now.addingTimeInterval(-120), isApprover: true)
+        try render("23-mac-detail-history", PushedScreenStandIn {
+            MacDetailContent(row: approving, now: Self.now, historyCount: 7, onRename: {}, onRemove: {})
+        })
+        try render("24-outcome-saved-to-history", SheetStandIn {
+            OpenedRequestContent(card: Self.card(decision: .allowOnce, isSent: true, outcome: .allowedOnce), now: Self.now,
+                                 savedToHistory: true, scrolls: false, onDecide: { _ in }, onClose: {})
+        })
+        try render("25-outcome-denied-saved-to-history", SheetStandIn {
+            OpenedRequestContent(card: Self.card(decision: .deny, isSent: true, outcome: .denied), now: Self.now,
+                                 savedToHistory: true, scrolls: false, onDecide: { _ in }, onClose: {})
+        })
+    }
 }
 
 /// iOS draws a `confirmationDialog` itself, so `ImageRenderer` cannot capture

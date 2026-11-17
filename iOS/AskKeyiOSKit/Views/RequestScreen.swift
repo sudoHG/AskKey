@@ -43,6 +43,7 @@ struct OpenedRequestView: View {
                              now: date, biometry: model.biometryKind,
                              isDeciding: model.decidingRequest != nil, isDecidingHere: model.decidingRequest == id,
                              problem: model.decisionProblems[id],
+                             savedToHistory: card.map { model.isSavedToHistory($0) } ?? false,
                              onRetry: { Task { await model.retryOpening() } },
                              onViewHistory: { model.showHistory() },
                              onDecide: { code in Task { await model.decide(code, requestID: id) } },
@@ -68,6 +69,8 @@ struct OpenedRequestContent: View {
     var tapped: ApprovalDecisionCode?
     var problem: DecisionProblem?
     var showsDetails = false
+    /// The ended request's History entry was written (#349).
+    var savedToHistory = false
     /// Renders pass false: `ImageRenderer` cannot draw a scroll view.
     var scrolls = true
     var onRetry: () -> Void = {}
@@ -78,7 +81,8 @@ struct OpenedRequestContent: View {
     var body: some View {
         if let card {
             if let ending = card.phase(at: now).ending {
-                RequestOutcomePage(card: card, ending: ending, scrolls: scrolls, onClose: onClose)
+                RequestOutcomePage(card: card, ending: ending, savedToHistory: savedToHistory, scrolls: scrolls,
+                                   onClose: onClose)
             } else {
                 RequestPage(card: card, now: now, biometry: biometry, isDeciding: isDeciding,
                             isDecidingHere: isDecidingHere, tapped: tapped, problem: problem,

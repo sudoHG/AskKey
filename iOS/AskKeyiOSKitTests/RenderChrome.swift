@@ -17,14 +17,16 @@ struct TabScreenStandIn<Content: View>: View {
     let tab: HomeTab
     var badge = 0
     var showsAdd = false
+    /// History's ⋯ menu (#349).
+    var showsMore = false
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Spacer()
-                if showsAdd {
-                    Image(systemName: "plus")
+                if showsAdd || showsMore {
+                    Image(systemName: showsAdd ? "plus" : "ellipsis")
                         .font(.title3.weight(.medium))
                         .frame(width: 44, height: 44)
                         .background(Circle().fill(Color(uiColor: .systemBackground)))

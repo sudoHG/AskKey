@@ -162,6 +162,7 @@ extension AppEnvironment {
                        localState: UserDefaultsLocalState(), biometry: LocalAuthenticationBiometry(),
                        camera: AVCameraAccess(), notifications: UserNotificationCenterAccess(),
                        cloud: CloudKitTransportFactory(), clock: SystemDeviceClock(),
-                       approvals: FileApprovalStateStore(), deviceName: { UIDevice.current.name })
+                       approvals: FileApprovalStateStore(), historyFiles: FileHistoryStore(),
+                       historyKeys: KeychainHistoryKeyStore(), deviceName: { UIDevice.current.name })
     }
 }

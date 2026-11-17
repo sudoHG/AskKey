@@ -256,6 +256,17 @@ final class OpeningPagesTests: XCTestCase {
         XCTAssertEqual(model.selectedTab, .history)
     }
 
+    func testViewHistoryShowsTheFullListWithoutAFilterOrAnOpenEntry() async {
+        await tap(MessageID.random().text)
+        XCTAssertEqual(model.openingPhase(at: now), .ended(nil))
+        model.historyFilter = HistoryFilter(macID: "other-mac", macName: "Office Mac")
+        model.historyDetail = "other-mac/entry"
+        model.showHistory()
+        XCTAssertNil(model.historyFilter)
+        XCTAssertNil(model.historyDetail)
+        XCTAssertEqual(model.selectedTab, .history)
+    }
+
     // MARK: Unverified
 
     func testAnUnreadableNameTappedAtLaunchShowsUnverified() async {

@@ -59,7 +59,7 @@ struct HomeTabs: View {
                     .tabItem { HomeTab.requests.label }
                     .tag(HomeTab.requests)
                     .badge(model.decidableRequestCount(at: max(context.date, Date())))
-                NavigationStack { HistoryView() }
+                NavigationStack { HistoryView(model: model) }
                     .tabItem { HomeTab.history.label }
                     .tag(HomeTab.history)
                 NavigationStack { MacsView(model: model) }

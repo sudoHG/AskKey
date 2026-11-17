@@ -89,7 +89,8 @@ extension AppModel {
         }
         // A closed message that arrived first ended it; the marker stays
         // until its own expiry.
-        if state.markers.contains(where: { $0.macID == mac && $0.pairingID == pairing && $0.requestDigest == digest }) {
+        if let marker = state.markers.first(where: { $0.macID == mac && $0.pairingID == pairing && $0.requestDigest == digest }) {
+            historyArrivedAfterClose(request, message, marker: marker)
             return .processed
         }
         // Launch times: an earlier Mac App process than one already seen
@@ -110,8 +111,9 @@ extension AppModel {
         // The countdown runs for the deadline minus the sent time, both on
         // the Mac's clock, so this iPhone's clock offset cancels.
         let lifetime = request.deadline.timeIntervalSince(message.sentAt)
+        let countdownEnd = now.addingTimeInterval(lifetime)
         state.requests.append(StoredRequest(recordName: recordName, macID: mac, pairingID: pairing, requestDigest: digest,
-                                            launchTime: request.launchTime, countdownEnd: now.addingTimeInterval(lifetime),
+                                            launchTime: request.launchTime, countdownEnd: countdownEnd,
                                             transportExpiry: message.expiresAt, envelope: StoredEnvelope(message.envelope)))
         // The sealed request is stored before the inbox copy is deleted.
         do {
@@ -121,6 +123,7 @@ extension AppModel {
             return .failed
         }
         approvals = state
+        historyAccepted(request, message, countdownEnd: countdownEnd)
         openedContent[recordName] = message
         forget(expired)
         if let receipt = try? services.sealer.sealApprovalReceipt(answering: message) {
@@ -163,12 +166,13 @@ extension AppModel {
         } else {
             guard !state.markers.contains(where: { $0.macID == mac && $0.pairingID == pairing && $0.requestDigest == digest })
             else { return .refused(.replayed) }
+            if let handled = historyClosedLate(closed, mac: mac, pairing: pairing, digest: digest) { return handled }
             guard state.markers.filter({ $0.macID == mac }).count < Self.markerLimitPerMac,
                   state.markers.count < Self.markerLimit else {
                 return .refused(.bindingMismatch)
             }
             state.markers.append(StoredMarker(macID: mac, pairingID: pairing, requestDigest: digest,
-                                              expiresAt: message.expiresAt))
+                                              expiresAt: message.expiresAt, closed: StoredClosed(closed)))
         }
         do {
             try persist(state)
@@ -177,6 +181,7 @@ extension AppModel {
             return .failed
         }
         approvals = state
+        recordHistory()
         forget(expired)
         rebuildRequests()
         settleRequestNotifications(also: expired)
@@ -199,10 +204,12 @@ extension AppModel {
     }
 
     /// Drops a Mac's requests, stored decisions, markers, unsent receipts
-    /// and their notifications.
+    /// and their notifications; requests that had already ended get their
+    /// history entries first.
     func dropApprovals(forMac mac: String) {
         var state = approvals
         let dropped = state.requests.filter { $0.macID == mac }.map(\.recordName)
+        historyWillDrop(state.requests.filter { $0.macID == mac })
         closePage(of: dropped)
         state.requests.removeAll { $0.macID == mac }
         state.markers.removeAll { $0.macID == mac }
@@ -330,12 +337,14 @@ extension AppModel {
                 return identityBecameUnusable()
             }
         }
+        historyWillDrop(state.requests.filter { dropped.contains($0.recordName) })
         state.requests.removeAll { dropped.contains($0.recordName) }
         state.markers.removeAll { marker in
             guard let mac = DeviceID(text: marker.macID), let pairing = PairingID(rawValue: marker.pairingID) else { return true }
             return !approves(mac, pairingID: pairing, in: list)
         }
         if state != approvals { commitApprovals(state) }
+        recordHistory()
         closePage(of: dropped.filter { !expired.contains($0) })
         forget(dropped)
         rebuildRequests(list: list)

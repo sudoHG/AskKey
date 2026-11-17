@@ -22,6 +22,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CloudKitContainerIdentifier</key>
 	<string>$(CLOUDKIT_CONTAINER_IDENTIFIER)</string>
+	<key>HistoryKeychainAccessGroup</key>
+	<string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>KeychainAccessGroup</key>

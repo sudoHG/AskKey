@@ -89,9 +89,11 @@ extension AppModel {
     }
 
     /// View History on the ended page: closes the page and shows the
-    /// History tab.
+    /// History tab's full list, without a Mac filter or an entry left open.
     public func showHistory() {
         openedRequest = nil
+        historyFilter = nil
+        historyDetail = nil
         selectedTab = .history
     }
 
