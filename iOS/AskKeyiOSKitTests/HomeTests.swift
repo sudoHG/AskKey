@@ -1,4 +1,6 @@
 import AskKeyDevices
+import CloudKit
+import UserNotifications
 import XCTest
 @testable import AskKeyiOSKit
 
@@ -96,6 +98,60 @@ final class HomeTests: XCTestCase {
         XCTAssertNil(world.model.openedRequest)
         XCTAssertNil(world.model.opening)
         XCTAssertEqual(world.model.selectedTab, .macs)
+    }
+
+    // MARK: Presenting in front (#361)
+
+    private static let shown: UNNotificationPresentationOptions = [.banner, .list, .sound]
+
+    /// The extension's content for a delivery check it verified and
+    /// answered shows nothing in front; the app still fetches and records it.
+    func testAnAnsweredDeliveryCheckDoesNotShowInFront() async throws {
+        let check = try await world.mac.sendDeliveryCheck(to: try world.phone.deviceID)
+        let userInfo: [AnyHashable: Any] = ["askkey.recordName": check.text, "askkey.answeredDeliveryCheck": true]
+
+        XCTAssertEqual(AskKeyAppDelegate.answeredDeliveryCheckKey, "askkey.answeredDeliveryCheck")
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(for: userInfo), [])
+        await world.model.receivedPush(userInfo: userInfo, arrivedAt: now, notificationIdentifier: "check")
+        XCTAssertEqual(world.model.deliveryRecords, [DeliveryRecord(recordName: check.text, arrivedAt: now, source: .push)])
+    }
+
+    /// The extension's content for a request and for a delivery check it
+    /// could not answer holds only the record name; its generic text for
+    /// anything else may hold nothing. All show as in the background.
+    func testEveryOtherNotificationFromTheExtensionShowsInFront() {
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(for: ["askkey.recordName": MessageID.random().text]),
+                       Self.shown)
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(for: [:]), Self.shown)
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(for: ["askkey.answeredDeliveryCheck": false]), Self.shown)
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(for: ["askkey.answeredDeliveryCheck": "true"]), Self.shown)
+    }
+
+    /// iOS shows the push's own payload when the extension does not run
+    /// (its time ran out before it replaced the content, or it crashed).
+    /// CloudKit puts only `aps`, from the subscription's notification info,
+    /// and `ck`, with the desired keys under `qry.af`, at the top level, so
+    /// that payload never carries the mark and always shows.
+    func testThePushsOwnPayloadAlwaysShowsInFront() throws {
+        let phoneID = try world.phone.deviceID
+        let info = try XCTUnwrap(CloudKitInboxLayout.subscription(for: phoneID, platform: .iOS, recordType: .alert)
+            .notificationInfo)
+        let zone = CloudKitInboxLayout.zoneName(for: phoneID)
+        var desired: [String: Any] = [:]
+        for key in info.desiredKeys ?? [] { desired[key] = "askkey.answeredDeliveryCheck" }
+        desired["askkey.answeredDeliveryCheck"] = true
+        let payload: [AnyHashable: Any] = [
+            "aps": ["alert": ["title-loc-key": info.titleLocalizationKey ?? "", "loc-key": info.alertLocalizationKey ?? ""],
+                    "sound": info.soundName ?? "", "mutable-content": 1, "category": info.category ?? ""] as [String: Any],
+            "ck": ["ce": 2, "cid": "iCloud.com.sudohg.askkey", "nid": UUID().uuidString,
+                   "qry": ["dbs": 1, "fo": 1, "rid": MessageID.random().text, "sid": zone + "_alert", "zid": zone,
+                           "zoid": "_defaultOwner", "af": desired] as [String: Any]] as [String: Any],
+        ]
+
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(for: payload), Self.shown)
+        XCTAssertEqual(AskKeyAppDelegate.foregroundPresentation(for: TestWorld.alertPush(for: phoneID,
+                                                                                         record: MessageID.random().text)),
+                       Self.shown)
     }
 
     /// A request that arrives is highlighted, whichever tab shows, until the

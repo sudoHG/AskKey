@@ -6,10 +6,19 @@ import UserNotifications
 /// extension's own title and body, no subtitle, no attachments, the app's
 /// category and only the record name in the user info, so nothing an
 /// attacker's subscription put in a push survives. Only a verified request
-/// changes the body, the thread and the interruption level.
+/// changes the body, the thread and the interruption level, and only an
+/// answered delivery check adds its mark to the user info.
 enum NotificationContentBuilder {
     /// The user info key the app reads the record name from (`PushHintReader`).
     static let recordNameKey = "askkey.recordName"
+    /// The user info key that marks a delivery check this extension verified
+    /// and answered (#361); the app reads it as
+    /// `AskKeyAppDelegate.answeredDeliveryCheckKey` and does not present such
+    /// a notification while it is in front. Not a category: a subscription's
+    /// notification info sets the category of the payload iOS shows when the
+    /// extension does not run, while CloudKit's payload has only `aps` and
+    /// `ck` at its top level, so this key appears only on content built here.
+    static let answeredDeliveryCheckKey = "askkey.answeredDeliveryCheck"
 
     static func content(_ decision: NotificationDecision, recordName: String?,
                         strings: NotificationStrings) -> UNNotificationContent {
@@ -18,13 +27,19 @@ enum NotificationContentBuilder {
         content.body = strings.text(NotificationStrings.genericBody)
         content.sound = .default
         content.categoryIdentifier = CloudKitInboxLayout.notificationCategory
-        content.userInfo = recordName.map { [recordNameKey: $0] } ?? [:]
+        var userInfo: [String: Any] = recordName.map { [recordNameKey: $0] } ?? [:]
         content.interruptionLevel = .active
-        if case .request(let request) = decision {
+        switch decision {
+        case .request(let request):
             content.body = request.body
             content.threadIdentifier = request.threadIdentifier
             content.interruptionLevel = request.isTimeSensitive ? .timeSensitive : .active
+        case .answeredDeliveryCheck:
+            userInfo[answeredDeliveryCheckKey] = true
+        case .generic:
+            break
         }
+        content.userInfo = userInfo
         return content
     }
 }
