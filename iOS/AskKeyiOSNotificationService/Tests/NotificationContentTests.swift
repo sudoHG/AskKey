@@ -167,6 +167,8 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(delivered.count, 1)
         try assertGeneric(delivered.first, recordName: check.text)
         XCTAssertEqual(world.sent, [])
+        let decision = try await world.process(world.push(for: check.text))
+        XCTAssertEqual(decision, .generic(.refused(.unknownSender)))
     }
 
     /// The content iOS gets when the time runs out while the reply is being
@@ -179,11 +181,16 @@ final class NotificationServiceTests: XCTestCase {
         world.cloud.sendGate = gate
 
         let delivered = try await run(world, world.push(for: check.text)) { service in
-            while gate.arrived == 0 { await Task.yield() }
+            // Bounded, so a processor that never reaches the reply fails the
+            // test below instead of waiting forever.
+            let deadline = Date().addingTimeInterval(10)
+            while gate.arrived == 0, Date() < deadline { await Task.yield() }
             service.serviceExtensionTimeWillExpire()
             gate.open()
         }
 
+        XCTAssertEqual(gate.arrived, 1, "the extension never started its reply")
+        XCTAssertEqual(world.sent.map(\.kind), [Int64(MessageKind.deliveryCheckReply.rawValue)])
         XCTAssertEqual(delivered.count, 1)
         try assertGeneric(delivered.first, recordName: check.text)
     }
